@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { -webkit-tap-highlight-color: transparent; }
+html { scrollbar-gutter: stable; }
+body { overscroll-behavior-y: contain; background:#0B1014; color:#F1F5F3; }
+
+/* bottom nav safe area */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+::placeholder { color: #A8B2B0; opacity: 1; }
+input:disabled, select:disabled { color: #F1F5F3; background: #2A3538; }
+
+/* agenda typography scale per maestro */
+.text-title { font-size:28px; font-weight:700; line-height:1.1; }
+.text-section { font-size:20px; font-weight:600; }
+.text-subtitle { font-size:16px; font-weight:500; }
+.text-body { font-size:16px; font-weight:400; }
+.text-muted { font-size:13px; color:#A8B2B0; }
+.text-aux { font-size:12px; color:#A8B2B0; }
