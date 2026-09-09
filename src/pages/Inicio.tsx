@@ -145,19 +145,27 @@ export default function Inicio(){
                 const n = effectiveN
                 const { getDayExercises } = await import('@/utils/routine')
                 const list = await getDayExercises(n, cycle)
-                const sessionActive = {
-                  date: todayStr,
+                const { createReadySession } = await import('@/services/training/sessionMachine')
+                const changedRaw = localStorage.getItem(`session:changed:${todayStr}`)
+                const changed = changedRaw ? JSON.parse(changedRaw) : null
+                const weekNumber = (()=>{ try{
+                  const start = new Date((cycle as any).startDate || todayStr)
+                  const now = new Date(todayStr)
+                  return Math.max(1, Math.floor((now.getTime()-start.getTime())/(7*86400000))+1)
+                }catch{ return 1 } })()
+                createReadySession({
+                  calendarDate: todayStr,
                   routineId: active?.id || 'r1',
                   routineName: active?.name || 'Rutina',
-                  dayN: n,
-                  dayName: agenda.name,
-                  scheduledDay: rawAgenda.n,
-                  scheduledName: rawAgenda.name,
-                  isOverridden: isOverridden,
-                  exercises: list,
-                  createdAt: new Date().toISOString()
-                }
-                localStorage.setItem(`session:active:${todayStr}`, JSON.stringify(sessionActive))
+                  plannedDay: rawAgenda.n ?? null,
+                  plannedDayName: rawAgenda.name ?? null,
+                  actualDay: n ?? null,
+                  actualDayName: agenda.name ?? null,
+                  exercises: list.map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl })),
+                  dayChangeReason: changed?.changeReason || (isOverridden ? 'Cambio de día desde Inicio' : undefined),
+                  dayChangeComment: changed?.changeComment,
+                  weekNumber,
+                })
                 window.dispatchEvent(new Event('routineChange'))
                 nav('/entrenar')
               }} className="mt-3 w-full py-2.5 rounded-xl bg-action text-textMain font-medium flex items-center justify-center gap-2"><Play size={16}/> ENTRENAR</button>

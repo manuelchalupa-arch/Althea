@@ -1,15 +1,15 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { db, ensureSeeded } from '@/services/storage/db'
-import type { Exercise } from '@/types'
 import { getCycleFromProfile } from '@/utils/cycle'
 import { v4 as uuid } from 'uuid'
-import { Eye, Clock, Check, ChevronRight, Dumbbell, Zap, AlertTriangle, RotateCcw, XCircle, MessageSquare, Heart, Activity } from 'lucide-react'
+import { Eye, Clock, Check, ChevronRight, Zap, AlertTriangle, RotateCcw, XCircle } from 'lucide-react'
 import { aiService } from '@/services/ai/aiService'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import * as Gym from '@/services/exerciseGym'
 import { saveDecision } from '@/services/ai/coachMemory'
+import { loadActiveSession, transitionSession, saveActiveSession, type ActiveSession, type SessionStatus } from '@/services/training/sessionMachine'
 
-type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number; muscle?:string; gifUrl?:string; swappedFrom?:string }
+type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number; muscle?:string; gifUrl?:string; swappedFrom?:string; replaced?:boolean; extra?:boolean; plannedSets?:number; seriesType?:string }
 
 const PERSIST_KEY = (today:string, exId:string) => `exstate:${today}:${exId}`
 
@@ -28,6 +28,7 @@ export default function Entrenar(){
   const [exs,setExs]=useState<SessionEx[]>([])
   const [current,setCurrent]=useState(0)
   const [done,setDone]=useState<Record<number,boolean>>({})
+  const [skipped,setSkipped]=useState<Record<number,boolean>>({})
   const [logs,setLogs]=useState<Record<number,any[]>>({})
   const [coach,setCoach]=useState<any>(null)
   const [showWhy,setShowWhy]=useState(false)
@@ -36,7 +37,7 @@ export default function Entrenar(){
   const [dayName,setDayName]=useState('')
   const [restSec,setRestSec]=useState(0)
   const [showModify,setShowModify]=useState(false)
-  const [mod,setMod]=useState({weight:0,reps:0,sets:0})
+  const [mod,setMod]=useState({weight:0,reps:0,sets:0, seriesType:'normal'})
   const [showObservation,setShowObservation]=useState(false)
   const [obsReasons,setObsReasons]=useState<string[]>([])
   const [obsComment,setObsComment]=useState('')
@@ -44,26 +45,91 @@ export default function Entrenar(){
   const [swapOptions,setSwapOptions]=useState<Gym.Exercise[]>([])
   const [showSkipReason,setShowSkipReason]=useState(false)
   const [skipReason,setSkipReason]=useState('')
+  // Estados para FINALIZAR ENTRENAMIENTO + máquina de estados
+  const [showFinishModal,setShowFinishModal]=useState(false)
+  const [finishSurvey,setFinishSurvey]=useState<Record<string,any>>({
+    energy: 5, fatigue: 5, pain: 0, mood: 5,
+    motivation: 5, effort: 5, stress: 5,
+    painZone: '', painDetail: '',
+    generalObservation: ''
+  })
+  const [pendingReasons,setPendingReasons]=useState<Record<number,{reason:string; comment:string}>>({})
+  const [skipReasons,setSkipReasons]=useState<Record<number,string>>({})
+  const [sessionStartTime,setSessionStartTime]=useState<string>(new Date().toISOString())
+  const [sessionId,setSessionId]=useState<string>('')
+  const [sessionStatus,setSessionStatus]=useState<SessionStatus>('PLANNED')
+  const [plannedDayN,setPlannedDayN]=useState<number|null>(null)
+  const [actualDayN,setActualDayN]=useState<number|null>(null)
+  const [plannedName,setPlannedName]=useState<string>('')
+  const [routineId,setRoutineId]=useState<string>('')
+  const [weekNumber,setWeekNumber]=useState<number>(1)
+  const [volumeAlerts,setVolumeAlerts]=useState<string[]>([])
+  const [musclePct,setMusclePct]=useState<Array<{m:string; pct:number}>>([])
+  const [finishError,setFinishError]=useState<string>('')
+  const [resumeBanner,setResumeBanner]=useState<ActiveSession|null>(null)
+  const [progressLines,setProgressLines]=useState<Record<string,string>>({})
+  const loadedRef = useRef<string>('')
+
+  const applySessionToState = async (sess: ActiveSession) => {
+    loadedRef.current = sess.sessionId
+    setSessionId(sess.sessionId)
+    setSessionStatus(sess.sessionStatus)
+    setSessionStartTime(sess.startedAt || sess.createdAt)
+    setRutinaName(sess.routineName || 'Rutina')
+    setRoutineId(sess.routineId)
+    setDayName(sess.actualDayName || (sess.actualDay ? `Día N°${sess.actualDay}` : 'Descanso'))
+    setPlannedDayN(sess.plannedDay)
+    setActualDayN(sess.actualDay)
+    setPlannedName(sess.plannedDayName || '')
+    setWeekNumber(sess.weekNumber || 1)
+    const list: SessionEx[] = (sess.exercises || []).map((x:any)=> ({
+      exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight,
+      muscle: x.muscle, gifUrl: x.gifUrl, plannedSets: x.sets,
+    }))
+    setExs(list); setCurrent(0); setDone({}); setSkipped({}); setLogs({})
+    if(list[0]){
+      const ctx:any = await buildTrainingContext(list[0].exId, list[0].name)
+      const rec = await aiService.generateRecommendation(ctx).catch(()=> ({reason: `Vamos con ${list[0].weight}kg x ${list[0].reps} — ajustamos según cómo te sientas.`, suggested_weight:list[0].weight, confidence:0.6, factors:['determinístico']}))
+      setCoach(rec)
+    } else setCoach(null)
+  }
 
   const load = async ()=>{
-      // prioriza sesión activa creada por Inicio → ENTRENAR
+      // PRIORIDAD 1: sesion activa explicita (maquina de estados). Nunca recalcular calendario por encima.
+      const explicit = loadActiveSession()
+      if(loadedRef.current && explicit && explicit.sessionId===loadedRef.current && explicit.calendarDate===today) return
+      if(explicit && explicit.calendarDate === today && ['READY','IN_PROGRESS','PAUSED','COMPLETING'].includes(explicit.sessionStatus)){
+        try{
+          let s = explicit
+          if(s.sessionStatus === 'READY') s = transitionSession(s, 'IN_PROGRESS')
+          await applySessionToState(s)
+          return
+        }catch{}
+      }
+      if(explicit && explicit.calendarDate !== today && ['IN_PROGRESS','PAUSED','READY'].includes(explicit.sessionStatus)){
+        setResumeBanner(explicit)
+      }
+      // PRIORIDAD 2: legacy session:active (compatibilidad) -> migrar a READY->IN_PROGRESS
       const activeRaw = localStorage.getItem(`session:active:${today}`)
       if(activeRaw){
         try{
           const sess = JSON.parse(activeRaw)
-          setRutinaName(sess.routineName || 'Rutina')
-          setDayName(sess.dayName || `Día N°${sess.dayN}`)
-          const list: SessionEx[] = (sess.exercises || []).map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl }))
-          setExs(list); setCurrent(0); setDone({}); setLogs({})
-          if(list[0]){
-            const ctx:any = await buildTrainingContext(list[0].exId, list[0].name)
-            const rec = await aiService.generateRecommendation(ctx).catch(()=> ({reason:`Vamos con ${list[0].weight}kg × ${list[0].reps} — ajustamos según cómo te sientas.`, suggested_weight:list[0].weight, confidence:0.6, factors:['determinístico']}))
-            setCoach(rec)
-          } else setCoach(null)
+          const { createReadySession } = await import('@/services/training/sessionMachine')
+          const s = createReadySession({
+            calendarDate: today,
+            routineId: sess.routineId || 'r1',
+            routineName: sess.routineName || 'Rutina',
+            plannedDay: sess.scheduledDay ?? sess.dayN ?? null,
+            plannedDayName: sess.scheduledName ?? null,
+            actualDay: sess.dayN ?? null,
+            actualDayName: sess.dayName ?? null,
+            exercises: (sess.exercises || []).map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl })),
+          })
+          const s2 = transitionSession(s, 'IN_PROGRESS')
+          await applySessionToState(s2)
           return
         }catch{}
       }
-      const all = await db.exercises.toArray()
       const rawList = JSON.parse(localStorage.getItem('rutinas:list')||'null')
       const activeId = localStorage.getItem('rutina:activeId')
       let active:any = rawList?.find((r:any)=>r.id===activeId) || rawList?.[0]
@@ -72,21 +138,37 @@ export default function Entrenar(){
         active = { cycle: p?.cycle, name: 'Rutina' }
       }
       setRutinaName(active.name || 'Rutina')
+      setRoutineId(active.id || 'r1')
       const cycle = active.cycle || getCycleFromProfile(await db.userProfile.get('me') as any)
       const dow = new Date().getDay()
       const override = localStorage.getItem(`session:override:${today}`)
       const n = override ? Number(override) : cycle.weekMap[dow]
+      const schedN = cycle.weekMap[dow] ?? null
+      const schedName = schedN ? cycle.trainingDays.find((d:any)=>d.n===schedN)?.name || `Día N°${schedN}` : null
       const dname = n ? cycle.trainingDays.find((d:any)=>d.n===n)?.name || `Día N°${n}` : 'Descanso'
       setDayName(dname)
+      setPlannedDayN(schedN)
+      setActualDayN(n)
+      setPlannedName(schedName || '')
       const { getDayExercises } = await import('@/utils/routine')
-      let list: SessionEx[] = (await getDayExercises(n, cycle)).map(x=> ({ exId: x.exId, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle as any, gifUrl: (x as any).gifUrl }))
-      if(list.length===0){
-        list = []
-      }
-      setExs(list); setCurrent(0); setDone({}); setLogs({})
+      let list: SessionEx[] = (await getDayExercises(n, cycle)).map(x=> ({ exId: x.exId, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle as any, gifUrl: (x as any).gifUrl, plannedSets: x.sets }))
+      setExs(list); setCurrent(0); setDone({}); setSkipped({}); setLogs({})
+      if(list.length>0){
+        try{
+          const { createReadySession } = await import('@/services/training/sessionMachine')
+          const s = createReadySession({
+            calendarDate: today, routineId: active.id || 'r1', routineName: active.name || 'Rutina',
+            plannedDay: schedN, plannedDayName: schedName, actualDay: n, actualDayName: dname, exercises: list,
+          })
+          const s2 = transitionSession(s, 'IN_PROGRESS')
+          loadedRef.current = s2.sessionId
+          setSessionId(s2.sessionId); setSessionStatus('IN_PROGRESS'); setSessionStartTime(s2.startedAt || new Date().toISOString())
+          setWeekNumber(s2.weekNumber || 1)
+        }catch{}
+      } else { setSessionStatus('PLANNED'); return }
       if(list[0]){
         const ctx:any = await buildTrainingContext(list[0].exId, list[0].name)
-        const rec = await aiService.generateRecommendation(ctx).catch(()=> ({reason:`Vamos con ${list[0].weight}kg × ${list[0].reps} — ajustamos según cómo te sientas.`, suggested_weight:list[0].weight, confidence:0.6, factors:['determinístico']}))
+        const rec = await aiService.generateRecommendation(ctx).catch(()=> ({reason: `Vamos con ${list[0].weight}kg x ${list[0].reps}.`, suggested_weight:list[0].weight, confidence:0.6, factors:['determinístico']}))
         setCoach(rec)
       } else setCoach(null)
   }
@@ -94,9 +176,9 @@ export default function Entrenar(){
   // carga inicial + escucha cambios de día desde Inicio
   useEffect(()=>{
     ensureSeeded().then(()=> load())
-    const onStorage = (e:StorageEvent)=>{ if(e.key?.startsWith('session:override:')) load() }
+    const onStorage = (e:StorageEvent)=>{ if(e.key?.startsWith('session:override:')){ loadedRef.current=''; load() } }
     const onFocus = ()=> load()
-    const onCustom = ()=> load()
+    const onCustom = ()=>{ loadedRef.current=''; load() }
     window.addEventListener('storage', onStorage)
     window.addEventListener('focus', onFocus)
     window.addEventListener('routineChange', onCustom as any)
@@ -141,9 +223,8 @@ export default function Entrenar(){
       setRestSec(90)
       if(current < exs.length-1){
         setTimeout(()=>{ setCurrent(current+1); nextCoach(current+1) }, 800)
-      } else {
-        setTimeout(()=> setShowObservation(true), 800)
       }
+      // guardar ejercicio NO finaliza la sesion: se usa el boton FINALIZAR ENTRENAMIENTO
     }
   }
 
@@ -213,15 +294,14 @@ export default function Entrenar(){
     if(!cur) return
     // guarda estado del actual
     saveDecision({ date: today, type:'swap', exercise: cur.name, reason:`Cambiado a ${newEx.name}`, contextSnapshot:{ from:cur.exId, to:newEx.id }} as any)
-    setExs(prev=> prev.map((ex,i)=> i===current ? { ...ex, exId: newEx.id, name: newEx.name, muscle: newEx.muscle, gifUrl: newEx.gifUrl, swappedFrom: cur.exId } : ex ))
+    setExs(prev=> prev.map((ex,i)=> i===current ? { ...ex, exId: newEx.id, name: newEx.name, muscle: newEx.muscle, gifUrl: newEx.gifUrl, swappedFrom: cur.exId, replaced: true, plannedSets: ex.plannedSets ?? ex.sets } : ex ))
     setShowSwap(false)
     setSwapOptions([])
     // recarga coach para el nuevo
     const ctx:any = await buildTrainingContext(newEx.id, newEx.name)
     const rec = await aiService.generateRecommendation(ctx).catch(()=> ({reason:`Vamos con ${cur.weight}kg × ${cur.reps}.`, suggested_weight:cur.weight}))
     setCoach(rec)
-    // limpia estado persistido del anterior
-    clearExState(today, cur.exId)
+    // se conserva historial Dexie y borrador del original: no mezclar, no borrar
   }
 
   const handleSkipWithReason = ()=>{
@@ -231,50 +311,274 @@ export default function Entrenar(){
   const confirmSkip = async ()=>{
     if(!cur) return
     saveDecision({ date: today, type:'skip', exercise: cur.name, motive: skipReason, reason: coach?.reason, contextSnapshot:{} } as any)
+    setSkipReasons((p)=> ({...p, [current]: skipReason}))
+    setSkipped((p)=> ({...p, [current]: true}))
     setDone({...done, [current]: true})
     clearExState(today, cur.exId)
     setShowSkipReason(false)
     setSkipReason('')
     if(current < exs.length-1) { setCurrent(current+1); nextCoach(current+1) }
-    else setShowObservation(true)
+    // si era el ultimo, el usuario finaliza con el boton FINALIZAR ENTRENAMIENTO
   }
 
-  const handleFinishWorkout = async (survey:any)=>{
-    const rawList = JSON.parse(localStorage.getItem('rutinas:list')||'null')
-    const activeId = localStorage.getItem('rutina:activeId')
-    const activeR:any = rawList?.find((r:any)=>r.id===activeId)
-    const scheduledRaw = JSON.parse(localStorage.getItem(`session:changed:${today}`)||'null')
-    const doneList = exs.filter((_,i)=> done[i]).map(ex=> ({exId: ex.exId, name: ex.name, sets: ex.sets}))
-    const notDoneList = exs.filter((_,i)=> !done[i]).map(ex=> ({exId: ex.exId, name: ex.name}))
-    const mods = Object.entries(done).filter(([,v])=> v).length
-    const session = await db.sessions.where('localDate').equals(today).first()
-    const obs={
-      date: today, sessionId: session?.id || null,
-      rutinaActiva: activeR?.name || rutinaName, routineId: activeId,
-      diaOriginal: scheduledRaw?.scheduledName || '—', diaRealizado: dayName,
-      diaOriginalN: scheduledRaw?.scheduledDay || null, diaRealizadoN: Number(localStorage.getItem(`session:override:${today}`)||''),
-      motivo: obsReasons.join(', '), motivos: obsReasons, comentario: obsComment,
-      ejerciciosRealizados: doneList, ejerciciosNoRealizados: notDoneList, modificaciones: mods,
-      scheduledDay: scheduledRaw?.scheduledDay, actualDay: Number(localStorage.getItem(`session:override:${today}`)||''),
-      changeReason: obsReasons[0]||'', changeComment: obsComment,
-      // encuesta fin de entrenamiento
-      survey: {
-        feeling: survey.feeling,
-        fatigue: survey.fatigue,
-        pain: survey.pain,
-        painDetail: survey.painDetail
-      },
-      realizados: Object.keys(done).length, total: exs.length, createdAt: new Date().toISOString()
+  const INCOMPLETE_REASONS = ['No tuve tiempo','Falta de equipamiento','Cansancio','Dolor/molestia','Falta de energía','Cambié el entrenamiento','Decidí no realizarlo','Otro']
+
+  // Resumen calculado: ejercicios/series planificadas vs realizadas, reps, volumen, duracion
+  const computeSummary = () => {
+    const plannedEx = exs.length
+    const doneIdx: number[] = []
+    const pendingIdx: number[] = []
+    const skippedIdx: number[] = []
+    exs.forEach((_,i)=> { if(skipped[i]) skippedIdx.push(i); else if(done[i]) doneIdx.push(i); else pendingIdx.push(i) })
+    let plannedSets = 0, completedSets = 0, totalReps = 0, totalVol = 0
+    const perEx = exs.map((ex,i)=>{
+      const planned = ex.plannedSets ?? ex.sets
+      plannedSets += planned
+      const arr = logs[i] || []
+      const real = arr.filter(Boolean)
+      completedSets += real.length
+      let r = 0, v = 0
+      for(const s of real){ const rr = Number(s?.reps||0), ww = Number(s?.weight||0); r += rr; v += rr*ww }
+      totalReps += r; totalVol += v
+      return {
+        i, exId: ex.exId, name: ex.name, plannedSets: planned, completedSets: real.length,
+        reps: r, volume: Math.round(v*10)/10, done: !!done[i],
+        replaced: !!ex.swappedFrom, swappedFrom: ex.swappedFrom, skipped: !!skipped[i],
+        modified: (ex.plannedSets ?? ex.sets) !== ex.sets,
+      }
+    })
+    const exPct = plannedEx ? Math.round(doneIdx.length/plannedEx*100) : 0
+    const setPct = plannedSets ? Math.round(completedSets/plannedSets*100) : 0
+    const durMin = Math.max(0, Math.round((Date.now()-new Date(sessionStartTime).getTime())/60000))
+    return {
+      plannedEx, completedEx: doneIdx.length, pendingIdx, skippedIdx, perEx,
+      plannedSets, completedSets, totalReps, totalVol: Math.round(totalVol*10)/10,
+      exPct, setPct, durMin,
+      replaced: exs.filter(e=>e.swappedFrom).length,
+      modified: exs.filter(e=> (e.plannedSets ?? e.sets) !== e.sets).length,
     }
-    localStorage.setItem(`observation:${today}`, JSON.stringify(obs))
-    try{ await db.table('coachMemory').put({ id:`obs-${today}`, type:'observation', ...obs} as any)}catch{}
-    if(obsReasons.length>0){
-      const prefs:any = JSON.parse(localStorage.getItem('coachPrefs')||'{}')
-      if(obsReasons.includes('Tenía dolencia')) prefs.molestia = obsComment || 'dolencia'
-      localStorage.setItem('coachPrefs', JSON.stringify(prefs))
+  }
+
+  // IN_PROGRESS -> COMPLETING: calcula resumen, detecta pendientes, % muscular, alertas, progreso
+  const openFinishModal = async () => {
+    if(exs.length===0) return
+    setFinishError('')
+    const s = computeSummary()
+    const skippedWithReason: Record<number,string> = {}
+    for(const i of s.skippedIdx){ skippedWithReason[i] = skipReasons[i] || '' }
+    const init: Record<number,{reason:string; comment:string}> = { ...pendingReasons }
+    for(const i of s.pendingIdx){
+      if(!init[i]) init[i] = { reason: '', comment: skipReasons[i] || '' }
+      else if(!init[i].comment && skipReasons[i]) init[i] = { ...init[i], comment: skipReasons[i] }
     }
-    setShowObservation(false)
-    alert('Entrenamiento guardado. Observación incorporada a memoria del Coach.')
+    setPendingReasons(init)
+    // % muscular real (volumen por musculo de series ejecutadas)
+    try{
+      const volByMuscle: Record<string,number> = {}
+      exs.forEach((ex,i)=>{
+        const arr = (logs[i]||[]).filter(Boolean)
+        if(arr.length===0) return
+        let v = 0
+        for(const st of arr) v += Number(st?.reps||0)*Number(st?.weight||0)
+        const m = (ex.muscle || 'general').toLowerCase()
+        volByMuscle[m] = (volByMuscle[m]||0)+v
+      })
+      const tot = Object.values(volByMuscle).reduce((a,b)=>a+b,0)
+      setMusclePct(Object.entries(volByMuscle).map(([m,v])=> ({ m, pct: tot? Math.round(v/tot*100):0 })).sort((a,b)=>b.pct-a.pct))
+    }catch{}
+    // Alertas volumen/frecuencia vs historial (ultimas 3 sesiones del mismo musculo)
+    try{
+      const alerts: string[] = []
+      const muscles = Array.from(new Set(exs.map(e=> (e.muscle||'general').toLowerCase())))
+      for(const m of muscles){
+        const exIds = exs.filter(e=> (e.muscle||'general').toLowerCase()===m).map(e=>e.exId)
+        if(exIds.length===0) continue
+        const past = await db.setLogs.where('exerciseId').anyOf(exIds).filter(l=> l.completed && (l.createdAt||'').slice(0,10)!==today).toArray()
+        const byDay: Record<string,number> = {}
+        for(const l of past){ const d=(l.createdAt||'').slice(0,10); byDay[d]=(byDay[d]||0)+1 }
+        const days = Object.keys(byDay).sort().slice(-3)
+        if(days.length>=2){
+          const avg = days.reduce((a,d)=>a+byDay[d],0)/days.length
+          const todaySets = exs.reduce((a,ex,i)=> a + (((ex.muscle||'general').toLowerCase()===m) ? (logs[i]||[]).filter(Boolean).length : 0), 0)
+          if(todaySets > avg*1.5) alerts.push(`Volumen elevado en ${m}: ${todaySets} series hoy vs prom. ${avg.toFixed(1)} por sesión.`)
+          const lastDay = days[days.length-1]
+          const gapDays = Math.round((new Date(today).getTime()-new Date(lastDay).getTime())/86400000)
+          if(gapDays<=1) alerts.push(`Frecuencia alta en ${m}: última sesión ${lastDay} (hace ${gapDays} día(s)).`)
+        }
+      }
+      // progreso por ejercicio vs ultima ejecucion real (excluye hoy)
+      const prog: Record<string,string> = {}
+      for(const ex of exs){
+        try{
+          const { getLastExecutionByExercise } = await import('@/services/history')
+          const last:any = await getLastExecutionByExercise(ex.exId)
+          if(last && last.date!==today && last.sets?.length){
+            const arr = (logs[exs.indexOf(ex)]||[]).filter(Boolean)
+            if(arr.length>0){
+              const lw = Number(last.sets[0]?.weight||0), lr = Number(last.sets[0]?.reps||0)
+              const cw = Number(arr[0]?.weight||0), cr = Number(arr[0]?.reps||0)
+              const dw = Math.round((cw-lw)*10)/10, dr = cr-lr
+              prog[ex.exId] = `Última vez ${last.date}: ${lr}x${lw}kg → hoy ${cr}x${cw}kg (${dr>=0?'+':''}${dr} reps, ${dw>=0?'+':''}${dw} kg)`
+            } else prog[ex.exId] = `Última vez ${last.date}: ${last.sets[0]?.reps}x${last.sets[0]?.weight}kg`
+          } else if(!last) prog[ex.exId] = 'Sin registros anteriores.'
+        }catch{}
+      }
+      setProgressLines(prog)
+      setVolumeAlerts(alerts)
+    }catch{}
+    // transicion controlada a COMPLETING (idempotente si ya esta)
+    try{
+      const cur = loadActiveSession()
+      if(cur && (!sessionId || cur.sessionId===sessionId) && (cur.sessionStatus==='IN_PROGRESS' || cur.sessionStatus==='PAUSED' || cur.sessionStatus==='READY')) {
+        const nx = transitionSession(cur, 'COMPLETING')
+        setSessionStatus('COMPLETING')
+        setSessionId(nx.sessionId)
+      } else if(cur && cur.sessionId===(sessionId||cur.sessionId) && cur.sessionStatus==='COMPLETING') {
+        setSessionStatus('COMPLETING')
+      } else setSessionStatus('COMPLETING')
+    }catch(e:any){ setFinishError(e?.message || 'No se pudo pasar a COMPLETING') }
+    setShowFinishModal(true)
+  }
+
+  // Cierre atomico COMPLETING -> COMPLETED/PARTIAL. Si falla el guardado NO finaliza.
+  const confirmFinish = async () => {
+    setFinishError('')
+    try{
+      const s = computeSummary()
+      for(const i of s.pendingIdx){
+        const pr = pendingReasons[i]
+        if(!pr || !pr.reason){ setFinishError(`Falta motivo para "${exs[i]?.name || 'ejercicio'}".`); return }
+      }
+      if(!sessionId) throw new Error('Sin sessionId: recargá la pestaña Entrenamiento antes de finalizar.')
+      if(!routineId) throw new Error('Sesión sin rutina asociada.')
+      const status = (s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'COMPLETED' : 'PARTIAL'
+      const endTime = new Date().toISOString()
+      const durMin = Math.max(0, Math.round((new Date(endTime).getTime()-new Date(sessionStartTime).getTime())/60000))
+      const changedRaw = localStorage.getItem(`session:changed:${today}`)
+      const changed = changedRaw ? JSON.parse(changedRaw) : null
+      const exerciseRecords = s.perEx.map((p)=>{
+        const pr = pendingReasons[p.i]
+        const wasSkipped = !!p.skipped
+        const skipped = !p.done || wasSkipped
+        return {
+          id: uuid(), sessionId, exerciseId: p.exId, exerciseName: p.name,
+          plannedSets: p.plannedSets, completedSets: p.completedSets,
+          plannedReps: exs[p.i]?.reps || 0,
+          completedReps: ((logs[p.i]||[]).filter(Boolean) as any[]).map(x=> Number(x?.reps||0)),
+          weightPerSet: ((logs[p.i]||[]).filter(Boolean) as any[]).map(x=> Number(x?.weight||0)),
+          status: skipped ? 'NO_REALIZADO' : (p.replaced ? 'REEMPLAZADO' : (p.modified ? 'MODIFICADO' : 'COMPLETADO')),
+          originalExerciseId: p.swappedFrom,
+          notes: skipped ? [pr?.reason, pr?.comment].filter(Boolean).join(' — ') : (localStorage.getItem(`obs:${today}:${p.exId}`) || undefined),
+          noRealizadoMotivo: skipped ? (wasSkipped ? (skipReasons[p.i] || pr?.reason) : pr?.reason) : undefined,
+          noRealizadoComentario: skipped ? (wasSkipped ? (skipReasons[p.i] || pr?.comment) : pr?.comment) : undefined,
+        }
+      })
+      const fs = finishSurvey || {}
+      const record = {
+        id: sessionId,
+        calendarDate: today,
+        routineId,
+        weekNumber,
+        plannedDay: plannedDayN,
+        actualDay: actualDayN,
+        plannedMuscleGroups: [],
+        actualMuscleGroups: Array.from(new Set(exs.map(e=> e.muscle || 'general'))),
+        startTime: sessionStartTime,
+        endTime,
+        durationMin: durMin,
+        sessionStatus: status,
+        exerciseRecords,
+        plannedExerciseCount: s.plannedEx,
+        completedExerciseCount: s.completedEx,
+        skippedExerciseCount: s.pendingIdx.length + s.skippedIdx.length,
+        modifiedExerciseCount: s.modified,
+        replacedExerciseCount: s.replaced,
+        extraExerciseCount: 0,
+        plannedSets: s.plannedSets,
+        completedSets: s.completedSets,
+        totalReps: s.totalReps,
+        totalVolume: s.totalVol,
+        energy: Number(fs.energy ?? 5),
+        fatigue: Number(fs.fatigue ?? 5),
+        pain: Number(fs.pain ?? 0),
+        mood: Number(fs.mood ?? 5),
+        motivation: Number(fs.motivation ?? 5),
+        effort: Number(fs.effort ?? 5),
+        stress: Number(fs.stress ?? 5),
+        painZone: fs.painZone || '',
+        painDetail: fs.painDetail || '',
+        generalNotes: fs.generalObservation || '',
+        plannedDayName: plannedName || '',
+        actualDayName: dayName || '',
+        routineName: rutinaName || '',
+        dayChangeReason: changed?.changeReason || '',
+        dayChangeComment: changed?.changeComment || '',
+        createdAt: sessionStartTime,
+        updatedAt: endTime,
+      }
+      // 1) guardar sesion + memoria coach (atomico: si falla, no se transiciona)
+      await db.table('trainingSessions').put(record as any)
+      await db.table('coachMemory').put({ ...record, id: `obs-${today}`, type: 'observation', date: today } as any)
+      // 2) actualizar secuencia semanal
+      try{
+        const seqId = `seq-${routineId}-w${weekNumber}`
+        const prev:any = await db.table('weeklySequences').get(seqId).catch(()=>null)
+        const done_days = Array.from(new Set([...(prev?.completedDays||[]), ...(actualDayN!=null?[actualDayN]:[])]))
+        await db.table('weeklySequences').put({ id: seqId, cycleId: routineId, weekNumber, plannedDays: prev?.plannedDays||[], completedDays: done_days, partialDays: status==='PARTIAL' ? [...(prev?.partialDays||[]), actualDayN] : (prev?.partialDays||[]), createdAt: prev?.createdAt || new Date().toISOString() } as any)
+      }catch{}
+      // 3) limpiar borradores por ejercicio + legacy
+      for(const ex of exs){ try{ localStorage.removeItem(`exstate:${today}:${ex.exId}`) }catch{} }
+      localStorage.setItem(`observation:${today}`, JSON.stringify({ date: today, sessionId, ...record }))
+      localStorage.removeItem(`session:active:${today}`)
+      // 4) transicionar y cerrar sesion activa
+      try{
+        const cur = loadActiveSession()
+        if(cur && cur.sessionId===sessionId) transitionSession(cur, status as any)
+      }catch{}
+      const { clearActiveSession } = await import('@/services/training/sessionMachine')
+      clearActiveSession()
+      setSessionStatus(status as any)
+      setShowFinishModal(false)
+      saveDecision({ date: today, type: status==='COMPLETED'?'accept':'skip', exercise: `Sesión ${rutinaName}`, reason: `Finalizada ${status} — Ej ${s.completedEx}/${s.plannedEx} (${s.exPct}%), Series ${s.completedSets}/${s.plannedSets} (${s.setPct}%)`, contextSnapshot: record } as any)
+    }catch(e:any){ setFinishError(e?.message || 'Error al guardar. Reintentá sin perder datos.') }
+  }
+
+  const adoptResumeSession = async (sess: ActiveSession, andFinish: boolean) => {
+    // reutiliza MISMO sessionId (no crea segunda sesion); migra borradores exstate a hoy
+    for(const ex of (sess.exercises||[])){
+      try{
+        const oldK = `exstate:${sess.calendarDate}:${ex.exId}`
+        const newK = `exstate:${today}:${ex.exId}`
+        const raw = localStorage.getItem(oldK)
+        if(raw && !localStorage.getItem(newK)) localStorage.setItem(newK, raw)
+      }catch{}
+    }
+    const migrated: ActiveSession = { ...sess, calendarDate: today, updatedAt: new Date().toISOString() }
+    saveActiveSession(migrated)
+    setResumeBanner(null)
+    await applySessionToState(migrated.sessionStatus==='READY' ? transitionSession(migrated,'IN_PROGRESS') : migrated)
+    if(andFinish) setTimeout(()=> openFinishModal(), 400)
+  }
+
+  const abandonResume = async () => {
+    try{
+      const cur = loadActiveSession()
+      if(cur && resumeBanner && cur.sessionId===resumeBanner.sessionId){
+        try{ transitionSession(cur, 'ABANDONED') }catch{}
+        const { clearActiveSession } = await import('@/services/training/sessionMachine')
+        clearActiveSession()
+      }
+    }catch{}
+    setResumeBanner(null)
+  }
+
+  const togglePause = async () => {
+    try{
+      const cur = loadActiveSession()
+      if(!cur) return
+      if(cur.sessionStatus==='IN_PROGRESS'){ const nx = transitionSession(cur,'PAUSED'); setSessionStatus('PAUSED'); saveActiveSession(nx) }
+      else if(cur.sessionStatus==='PAUSED'){ const nx = transitionSession(cur,'IN_PROGRESS'); setSessionStatus('IN_PROGRESS'); saveActiveSession(nx) }
+    }catch(e:any){ setFinishError(e?.message || 'No se pudo pausar') }
   }
 
   if(exs.length===0) return <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto"><p className="text-body">Hoy es descanso o sin ejercicios. Cambiá el día en Inicio.</p></div>
@@ -305,7 +609,12 @@ export default function Entrenar(){
                 }
               }} className="text-aux text-info underline text-xs mt-1">Cambiar día de entrenamiento</button>
             </div>
-            <div className="text-aux bg-surface border border-border px-3 py-1 rounded-full">{Object.keys(done).length}/{exs.length} · {progress}%</div>
+            <div className="flex items-center gap-2">
+              <div className="text-aux bg-surface border border-border px-3 py-1 rounded-full">{Object.keys(done).length}/{exs.length} · {progress}%</div>
+              <button onClick={openFinishModal} className="px-4 py-2 rounded-xl bg-action text-textMain font-medium text-sm flex items-center gap-2">
+                <Check className="w-4 h-4"/> FINALIZAR ENTRENAMIENTO
+              </button>
+            </div>
           </div>
           <div className="mt-2 h-2 bg-surface border border-border rounded-full overflow-hidden flex">
             {exs.map((_,i)=> <div key={i} className={`flex-1 ${done[i]?'bg-action': i===current?'bg-info':'bg-transparent'}`} />)}
@@ -315,6 +624,29 @@ export default function Entrenar(){
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
+        {resumeBanner && (
+          <div className="rounded-2xl bg-amber-900/20 border border-amber-800 p-4 space-y-2">
+            <div className="text-body font-medium">Tenés un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
+            <div className="text-aux">{resumeBanner.routineName} — {resumeBanner.actualDayName} · estado {resumeBanner.sessionStatus}</div>
+            <div className="flex gap-2">
+              <button onClick={()=> adoptResumeSession(resumeBanner, false)} className="flex-1 py-2 rounded-xl bg-action text-textMain">Continuar</button>
+              <button onClick={()=> adoptResumeSession(resumeBanner, true)} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">Finalizar</button>
+              <button onClick={abandonResume} className="flex-1 py-2 rounded-xl bg-bg border border-border text-aux">Abandonar</button>
+            </div>
+          </div>
+        )}
+        {(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') && (
+          <div className="rounded-2xl bg-accentDark border border-border p-4">
+            <div className="text-body font-medium">{sessionStatus==='COMPLETED' ? 'Entrenamiento completado — 100%' : `Entrenamiento parcial — ${exs.length ? Math.round(Object.keys(done).filter(k=>done[Number(k)]).length/exs.length*100) : 0}%`}</div>
+            <div className="text-aux">Sesión guardada en historial. Podés seguir navegando.</div>
+          </div>
+        )}
+        {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED') && exs.length>0 && (
+          <div className="flex items-center gap-2">
+            <span className={`text-aux px-3 py-1 rounded-full border ${sessionStatus==='PAUSED' ? 'bg-amber-900/20 border-amber-800 text-amber-300' : 'bg-surface border-border'}`}>Estado: {sessionStatus}</span>
+            <button onClick={togglePause} className="px-3 py-1 rounded-full bg-surface border border-border text-aux">{sessionStatus==='PAUSED' ? 'Continuar' : 'Pausar'}</button>
+          </div>
+        )}
         {/* Lista ejercicios */}
         <div className="space-y-2">
           {exs.map((ex,i)=>(
@@ -351,12 +683,13 @@ export default function Entrenar(){
               <button onClick={()=>setShowWhy(s=>!s)} className="text-aux text-info mt-1">¿Por qué?</button>
               {showWhy && <p className="text-aux mt-1 bg-bg border border-border rounded-lg p-2">{coach?.factors?.join(' · ') || 'Volumen y técnica estables.'}</p>}
               <div className="mt-2 flex gap-1">
-                <button onClick={()=>{ setMod({weight:cur.weight,reps:cur.reps,sets:cur.sets}); setShowModify(true)}} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">Modificar</button>
+                <button onClick={()=>{ setMod({weight:cur.weight,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">Modificar</button>
                 <button onClick={handleSkipWithReason} className="flex-1 py-2 rounded-xl bg-bg border border-border text-aux"><XCircle size={14} className="inline mr-1"/> Saltar</button>
               </div>
             </div>
 
             <ExerciseSeriesTable
+              key={cur.exId}
               exerciseId={cur.exId}
               today={today}
               sets={cur.sets}
@@ -448,62 +781,124 @@ export default function Entrenar(){
           </div>
         )}
 
-        {showObservation && (
+        {showFinishModal && (()=>{
+          const s = computeSummary()
+          const setSurvey = (k:string,v:any)=> setFinishSurvey((p)=> ({...p,[k]:v}))
+          const scaleBtn = (k:string,n:number)=> (
+            <button key={n} onClick={()=> setSurvey(k,n)} className={`flex-1 aspect-square rounded-xl border transition text-sm ${Number(finishSurvey[k])===n ? 'bg-action border-action text-textMain' : 'bg-surface border-border text-aux'}`}>{n}</button>
+          )
+          return (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <div className="bg-bg border border-border rounded-2xl w-full max-w-lg p-4 space-y-4 max-h-[90vh] overflow-auto">
-              <h3 className="text-subtitle">Entrenamiento finalizado — Cuestionario</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="text-aux font-medium block mb-2">¿Cómo te sentiste en general?</label>
-                  <div className="flex gap-2">
-                    {['Muy bien','Bien','Regular','Mal','Muy mal'].map((f,i)=>(
-                      <button key={f} onClick={()=>setObsComment(prev=> prev.replace(/^feeling:.*?;/, '') + `feeling:${f};`)} className={`flex-1 py-2 rounded-xl border transition ${obsComment.includes(`feeling:${f}`) ? 'bg-action border-action text-textMain' : 'bg-surface border-border text-aux'}`}>{f}</button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-aux font-medium block mb-2">Cansancio (1–10)</label>
-                  <div className="flex gap-1">
-                    {Array.from({length:10},(_,i)=>i+1).map(n=>(
-                      <button key={n} onClick={()=>setObsComment(prev=> prev.replace(/fatigue:\d+;/, '') + `fatigue:${n};`)} className={`flex-1 aspect-square rounded-xl border transition text-sm ${obsComment.includes(`fatigue:${n}`) ? 'bg-action border-action text-textMain' : 'bg-surface border-border text-aux'}`}>{n}</button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-aux font-medium block mb-2">¿Dolor?</label>
-                  <div className="flex gap-2">
-                    <button onClick={()=>setObsComment(prev=> prev.replace(/pain:(yes|no);/, '') + `pain:no;`)} className={`flex-1 py-2 rounded-xl border transition ${obsComment.includes('pain:no') ? 'bg-action border-action text-textMain' : 'bg-surface border-border text-aux'}`}>No</button>
-                    <button onClick={()=>setObsComment(prev=> prev.replace(/pain:(yes|no);/, '') + `pain:yes;`)} className={`flex-1 py-2 rounded-xl border transition ${obsComment.includes('pain:yes') ? 'bg-action border-action text-textMain' : 'bg-surface border-border text-aux'}`}>Sí</button>
-                  </div>
-                  {obsComment.includes('pain:yes') && (
-                    <textarea value={obsComment.includes('painDetail:') ? obsComment.split('painDetail:')[1].split(';')[0] : ''} onChange={e=>setObsComment(prev=> prev.replace(/painDetail:.*?;/, '') + `painDetail:${e.target.value};`)} placeholder="Especificá dónde y tipo de dolor" rows={2} className="w-full mt-2 bg-surface border border-border rounded-xl p-2 text-body"/>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-aux font-medium block mb-2">Comentario adicional</label>
-                  <textarea value={obsComment.replace(/feeling:.*?;|fatigue:\d+;|pain:(yes|no);|painDetail:.*?;/, '')} onChange={e=>setObsComment(prev=> {
-                    const base = prev.replace(/feeling:.*?;|fatigue:\d+;|pain:(yes|no);|painDetail:.*?;/, '')
-                    return base + e.target.value
-                  })} placeholder="RPE, molestias, técnica, sensaciones..." rows={3} className="w-full bg-surface border border-border rounded-xl p-2 text-body"/>
-                </div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-subtitle">Finalizar entrenamiento</h3>
+                <span className="text-aux px-3 py-1 rounded-full bg-surface border border-border">COMPLETING</span>
               </div>
 
-              <button onClick={async()=>{
-                // parse survey from obsComment
-                const feeling = obsComment.match(/feeling:([^;]+)/)?.[1] || ''
-                const fatigue = parseInt(obsComment.match(/fatigue:(\d+)/)?.[1] || '0', 10)
-                const pain = obsComment.includes('pain:yes')
-                const painDetail = obsComment.match(/painDetail:([^;]+)/)?.[1] || ''
-                await handleFinishWorkout({ feeling, fatigue, pain, painDetail })
-              }} className="w-full py-3 rounded-xl bg-action text-textMain">Guardar entrenamiento</button>
-              <button onClick={()=>setShowObservation(false)} className="w-full py-2 rounded-xl bg-surface border border-border text-aux">Cerrar sin guardar</button>
+              <div className="rounded-xl bg-surface border border-border p-3">
+                <div className="text-aux font-medium mb-2">RESUMEN</div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <span className="text-aux">Rutina</span><span className="text-body text-right">{rutinaName}</span>
+                  <span className="text-aux">Semana</span><span className="text-body text-right">{weekNumber}</span>
+                  <span className="text-aux">Día planificado</span><span className="text-body text-right">{plannedDayN!=null ? `N°${plannedDayN} ${plannedName}` : '—'}</span>
+                  <span className="text-aux">Día realizado</span><span className="text-body text-right">{actualDayN!=null ? `N°${actualDayN} ${dayName}` : dayName}</span>
+                  <span className="text-aux">Ejercicios planificados</span><span className="text-body text-right">{s.plannedEx}</span>
+                  <span className="text-aux">Ejercicios completados</span><span className="text-body text-right">{s.completedEx}</span>
+                  <span className="text-aux">Ejercicios no realizados</span><span className="text-body text-right">{s.pendingIdx.length}</span>
+                  <span className="text-aux">Ejercicios omitidos</span><span className="text-body text-right">{s.skippedIdx.length}</span>
+                  <span className="text-aux">Ejercicios modificados</span><span className="text-body text-right">{s.modified}</span>
+                  <span className="text-aux">Ejercicios reemplazados</span><span className="text-body text-right">{s.replaced}</span>
+                  <span className="text-aux">Series planificadas</span><span className="text-body text-right">{s.plannedSets}</span>
+                  <span className="text-aux">Series realizadas</span><span className="text-body text-right">{s.completedSets}</span>
+                  <span className="text-aux">Repeticiones</span><span className="text-body text-right">{s.totalReps}</span>
+                  <span className="text-aux">Volumen</span><span className="text-body text-right">{s.totalVol} kg</span>
+                  <span className="text-aux">Duración</span><span className="text-body text-right">{s.durMin} min</span>
+                  <span className="text-aux">Ejercicios</span><span className="text-body text-right">{s.exPct}%</span>
+                  <span className="text-aux">Series</span><span className="text-body text-right">{s.setPct}%</span>
+                </div>
+                {(s.pendingIdx.length===0 && s.skippedIdx.length===0)
+                  ? <p className="text-aux text-action mt-2">Todos los ejercicios planificados fueron registrados.</p>
+                  : <p className="text-aux text-amber-300 mt-2">Entrenamiento parcial — {s.exPct}% · El entrenamiento tiene ejercicios pendientes.</p>}
+              </div>
+
+              {s.pendingIdx.length>0 && (
+                <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
+                  <div className="text-aux font-medium">Ejercicios pendientes — ¿Qué ocurrió?</div>
+                  {s.pendingIdx.map((i)=>(
+                    <div key={i} className="rounded-xl bg-bg border border-border p-3 space-y-2">
+                      <div className="text-body font-medium">{exs[i]?.name} no fue realizado.</div>
+                      <div className="text-aux text-xs">Planificado: {exs[i]?.sets} series · Realizado: {((logs[i]||[]).filter(Boolean) as any[]).length} series</div>
+                      <select value={pendingReasons[i]?.reason || ''} onChange={(e)=> setPendingReasons((p)=> ({...p, [i]: { reason: e.target.value, comment: p[i]?.comment || '' }}))} className="w-full bg-surface border border-border rounded-xl p-2 text-body">
+                        <option value="">Seleccioná motivo…</option>
+                        {INCOMPLETE_REASONS.map((r)=> <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <textarea value={pendingReasons[i]?.comment || ''} onChange={(e)=> setPendingReasons((p)=> ({...p, [i]: { reason: p[i]?.reason || '', comment: e.target.value }}))} placeholder="Observación / explicación" rows={2} maxLength={500} className="w-full bg-surface border border-border rounded-xl p-2 text-body"/>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {s.skippedIdx.length>0 && (
+                <div className="rounded-xl bg-surface border border-border p-3 space-y-1">
+                  <div className="text-aux font-medium">Omitidos durante la sesión (con motivo)</div>
+                  {s.skippedIdx.map((i)=> <p key={i} className="text-aux text-sm">{exs[i]?.name} — {skipReasons[i] || pendingReasons[i]?.comment || 'sin motivo'}</p>)}
+                </div>
+              )}
+
+              {musclePct.length>0 && (
+                <div className="rounded-xl bg-surface border border-border p-3 space-y-1">
+                  <div className="text-aux font-medium mb-1">Trabajo muscular real</div>
+                  {musclePct.map((x)=>(
+                    <div key={x.m} className="flex items-center gap-2 text-sm">
+                      <span className="text-aux w-24 capitalize">{x.m}</span>
+                      <div className="flex-1 h-2 bg-bg border border-border rounded-full overflow-hidden"><div className="h-full bg-action" style={{width: `${x.pct}%`}}/></div>
+                      <span className="text-body w-10 text-right">{x.pct}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {volumeAlerts.length>0 && (
+                <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-3 space-y-1">
+                  <div className="text-aux text-amber-300 font-medium">Alertas de volumen / frecuencia</div>
+                  {volumeAlerts.map((a,i)=> <p key={i} className="text-aux text-sm">{a}</p>)}
+                </div>
+              )}
+
+              {Object.keys(progressLines).length>0 && (
+                <div className="rounded-xl bg-surface border border-border p-3 space-y-1">
+                  <div className="text-aux font-medium mb-1">Progreso vs anterior</div>
+                  {Object.entries(progressLines).map(([k,v])=> <p key={k} className="text-aux text-sm">{v}</p>)}
+                </div>
+              )}
+
+              <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
+                <div className="text-aux font-medium">Encuesta post-entrenamiento</div>
+                {[['energy','Energía'],['fatigue','Cansancio'],['pain','Dolor'],['mood','Ánimo'],['motivation','Motivación'],['effort','Esfuerzo percibido'],['stress','Estrés']].map(([k,label])=>(
+                  <div key={k}>
+                    <label className="text-aux text-sm block mb-1">{label} ({k==='pain' ? '0–10' : '1–10'})</label>
+                    <div className="flex gap-1">{Array.from({length:10},(_,j)=> (k==='pain'? j : j+1)).map((n)=> scaleBtn(k,n))}</div>
+                  </div>
+                ))}
+                {Number(finishSurvey.pain)>3 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <input value={finishSurvey.painZone || ''} onChange={(e)=> setSurvey('painZone', e.target.value)} placeholder="Zona del dolor" maxLength={80} className="bg-bg border border-border rounded-xl p-2 text-body"/>
+                    <input value={finishSurvey.painDetail || ''} onChange={(e)=> setSurvey('painDetail', e.target.value)} placeholder="Tipo de dolor" maxLength={140} className="bg-bg border border-border rounded-xl p-2 text-body"/>
+                  </div>
+                )}
+                <textarea value={finishSurvey.generalObservation || ''} onChange={(e)=> setSurvey('generalObservation', e.target.value)} placeholder="Observación general de la sesión" rows={2} maxLength={500} className="w-full bg-bg border border-border rounded-xl p-2 text-body"/>
+              </div>
+
+              {finishError && <p className="text-sm text-red-400">{finishError}</p>}
+
+              <button onClick={confirmFinish} className="w-full py-3 rounded-xl bg-action text-textMain font-medium">
+                {(s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'Confirmar — COMPLETED' : `Confirmar — PARTIAL (${s.exPct}%)`}
+              </button>
+              <button onClick={async()=>{ try{ const cur = loadActiveSession(); if(cur && cur.sessionStatus==='COMPLETING'){ transitionSession(cur,'IN_PROGRESS'); setSessionStatus('IN_PROGRESS') } }catch{} setShowFinishModal(false) }} className="w-full py-2 rounded-xl bg-surface border border-border text-aux">Volver al entrenamiento</button>
             </div>
           </div>
-        )}
+          )
+        })()}
       </div>
     </div>
   )
