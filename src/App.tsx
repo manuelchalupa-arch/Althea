@@ -16,11 +16,38 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 
+async function isTrainingDayLocal(dateStr:string): Promise<boolean> {
+  try{
+    const raw = JSON.parse(localStorage.getItem('rutinas:list')||'null')
+    const activeId = localStorage.getItem('rutina:activeId')
+    const active = raw?.find((r:any)=>r.id===activeId) || raw?.[0]
+    const cyc = active?.cycle
+    if(!cyc?.weekMap) return true
+    const dow = new Date(dateStr+'T12:00:00').getDay()
+    return (cyc.weekMap[dow] ?? null) != null
+  }catch{ return true }
+}
+
 function Layout(){
   const loc = useLocation()
   const navigate = useNavigate()
   const hideNav = loc.pathname==='/onboarding'
   const [updateReady,setUpdateReady]=useState(false)
+  // Scheduler de notificaciones locales: revisa cada minuto + al volver a la app.
+  useEffect(()=>{
+    let alive = true
+    const run = async ()=>{
+      try{
+        const { checkAndFire } = await import('@/services/notifications/scheduler')
+        await checkAndFire((kind)=>{ if(kind==='comoEstas' || kind==='cuestionario') navigate('/recuperacion') }, isTrainingDayLocal)
+      }catch{ /* noop */ }
+    }
+    run()
+    const id = setInterval(()=>{ if(alive) run() }, 60000)
+    const onVis = ()=>{ if(document.visibilityState==='visible') run() }
+    document.addEventListener('visibilitychange', onVis)
+    return ()=>{ alive=false; clearInterval(id); document.removeEventListener('visibilitychange', onVis) }
+  },[navigate])
   useEffect(()=>{
     if('serviceWorker' in navigator){
       navigator.serviceWorker.addEventListener('controllerchange',()=> setUpdateReady(true))

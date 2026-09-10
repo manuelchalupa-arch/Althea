@@ -64,6 +64,28 @@ export function progressVsLast(
   };
 }
 
+/**
+ * ÍNDICE DE PROGRESO COMBINADO (§15) — combina peso, reps, series y volumen.
+ * Por fecha: W = mejor peso, R = suma reps, S = cantidad series, V = suma volumen.
+ * Cada componente se normaliza contra la PRIMERA fecha del rango (base); los
+ * componentes con base 0 se excluyen (sin ficticios). Índice = 100 × media de
+ * ratios disponibles. Recalculable desde el historial original. Ninguna variable
+ * domina: todas pesan 1/n. Sin datos suficientes (<2 fechas) → null.
+ */
+export interface CombinedPoint { date: string; w: number; r: number; s: number; v: number }
+export function combinedIndexOf(points: CombinedPoint[]): Array<{ date: string; indice: number }> | null {
+  const sorted = points.slice().sort((a, b) => (a.date < b.date ? -1 : 1))
+  if (sorted.length < 2) return null
+  const base = sorted[0]
+  const keys = (['w', 'r', 's', 'v'] as const).filter((k) => base[k] > 0)
+  if (keys.length === 0) return null
+  return sorted.map((p) => {
+    const ratios = keys.map((k) => p[k] / (base[k] as number))
+    const mean = ratios.reduce((a, b) => a + b, 0) / keys.length
+    return { date: p.date, indice: Math.round(mean * 100) }
+  })
+}
+
 // Frecuencia: días entre sesiones con sets COMPLETED por músculo/ejercicio.
 export function daysBetweenSessions(datesAsc: string[]): number[] {
   const out: number[] = [];

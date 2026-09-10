@@ -48,3 +48,23 @@ export const fetchOne = (muscle:string, slug:string)=> getJSON<Exercise>(`${BASE
 // Cache simple para offline (localStorage + Workbox runtime cache hará el resto)
 export function cacheSet(key:string, data:any){ try{ localStorage.setItem(`exgym:${key}`, JSON.stringify({t:Date.now(), data})) }catch{} }
 export function cacheGet(key:string){ try{ const v=localStorage.getItem(`exgym:${key}`); if(!v) return null; return JSON.parse(v).data }catch{ return null } }
+
+// Taxonomía única Biblioteca → Partes (§12). Mapa exerciseId -> bodyPart construido
+// desde la propia API (sin segunda taxonomía). Cacheado para offline.
+const PARTS = ['arms', 'back', 'cardio', 'chest', 'core', 'legs', 'shoulders']
+export const BODY_PARTS = PARTS
+export async function fetchPartMap(): Promise<Record<string,string>> {
+  try{
+    const cached = localStorage.getItem('gym:partmap:v1')
+    if(cached) return JSON.parse(cached)
+  }catch{ /* noop */ }
+  const map: Record<string,string> = {}
+  const lists = await Promise.all(PARTS.map((p)=> fetchByBodyPart(p).catch(()=>null)))
+  for(let i=0;i<PARTS.length;i++){
+    const res = lists[i]
+    if(!res) continue
+    for(const ex of res.exercises || []){ if(ex?.id && !map[ex.id]) map[ex.id] = PARTS[i] }
+  }
+  try{ localStorage.setItem('gym:partmap:v1', JSON.stringify(map)) }catch{ /* noop */ }
+  return map
+}

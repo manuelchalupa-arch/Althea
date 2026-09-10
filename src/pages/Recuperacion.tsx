@@ -1,54 +1,64 @@
 import { useState, useEffect } from 'react'
-import { recoveryScore, recoveryColor } from '@/utils/calc'
+import { recoveryIndex, recoveryColor } from '@/utils/calc'
 import { db } from '@/services/storage/db'
-import { v4 as uuid } from 'uuid'
+
+// Cuestionario de recuperación (nombres internos estables, etiquetas en español).
+// Positivas: energy, mood, motivation · Negativas: fatigue, pain, perceivedExertion, stress.
+// painArea/painObservation son descriptivas. Fórmula documentada en utils/calc.ts.
+const FIELDS: [string,string][] = [
+  ['energy','Energía'],['fatigue','Fatiga'],['pain','Dolor'],['mood','Estado de ánimo'],
+  ['motivation','Motivación'],['perceivedExertion','Esfuerzo percibido'],['stress','Estrés'],
+]
 
 export default function Recuperacion(){
-  const [vals,setVals]=useState({ energy:7, fatigue:4, stress:3, sleepQuality:7, soreness:3, motivation:7, digestion:7, hydration:7, sleepHours:7.5 })
-  const [score,setScore]=useState(78)
-  const [color,setColor]=useState<'green'|'yellow'|'red'>('green')
   const today = new Date().toISOString().slice(0,10)
+  const [vals,setVals]=useState({ energy:7, fatigue:4, pain:2, mood:7, motivation:7, perceivedExertion:5, stress:3, painArea:'', painObservation:'' })
+  const [score,setScore]=useState(0)
+  const [color,setColor]=useState<'green'|'yellow'|'red'>('green')
 
   useEffect(()=>{
     db.recoveryChecks.get(today).then(r=>{
-      if(r){ const v={ energy:r.energy, fatigue:r.fatigue, stress:r.stress, sleepQuality:r.sleepQuality, soreness:r.soreness, motivation:r.motivation, digestion:r.digestion, hydration:r.hydration, sleepHours:r.sleepHours }; setVals(v); setScore(r.score); setColor(r.color) }
+      if(r && (r as any).energy !== undefined){
+        const v = {
+          energy: Number((r as any).energy ?? 7), fatigue: Number((r as any).fatigue ?? 4),
+          pain: Number((r as any).pain ?? (r as any).soreness ?? 2), mood: Number((r as any).mood ?? 7),
+          motivation: Number((r as any).motivation ?? 7), perceivedExertion: Number((r as any).perceivedExertion ?? 5),
+          stress: Number((r as any).stress ?? 3), painArea: String((r as any).painArea ?? ''), painObservation: String((r as any).painObservation ?? ''),
+        }
+        setVals(v)
+        const s = typeof (r as any).score === 'number' ? (r as any).score : recoveryIndex(v)
+        setScore(s); setColor(recoveryColor(s))
+      }
       else {
         const saved = localStorage.getItem('recovery:'+today)
-        if(saved){ const v=JSON.parse(saved); setVals(v); const s=recoveryScore(v); setScore(s); setColor(recoveryColor(s)) }
+        if(saved){
+          try{
+            const v = { ...vals, ...JSON.parse(saved) }
+            setVals(v)
+            const s = recoveryIndex(v)
+            setScore(s); setColor(recoveryColor(s))
+          }catch{ /* noop */ }
+        } else {
+          const s = recoveryIndex(vals)
+          setScore(s); setColor(recoveryColor(s))
+        }
       }
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[])
 
-  const update = (k:string, v:number)=>{
-    const nv={...vals, [k]:v}
-    // @ts-ignore
+  const update = (k:string, v:number|string)=>{
+    const nv = { ...vals, [k]: v } as typeof vals
     setVals(nv)
-    const s=recoveryScore(nv as any)
+    const s = recoveryIndex(nv)
     setScore(s); setColor(recoveryColor(s))
   }
+
   const save = async ()=>{
     localStorage.setItem('recovery:'+today, JSON.stringify(vals))
-    await db.recoveryChecks.put({ id: today, localDate: today, ...vals, score, color })
-    // también guarda sueño separado para tendencias
-    try{ await db.hydrationLogs.put({ id: uuid(), localDate: today, amountMl: vals.hydration*250, time: new Date().toISOString() }) }catch{}
-    alert(`Guardado: ${score}/100 ${color==='green'?'🟢':color==='yellow'?'🟡':'🔴'} — también en IndexedDB para agenda`)
-  }
-
-  const sliders: [string,string][] = [
-    ['energy','Energía'],['fatigue','Cansancio'],['stress','Estrés'],['sleepQuality','Calidad sueño'],['soreness','Dolor muscular'],['motivation','Motivación'],['digestion','Digestión'],['hydration','Hidratación']
-  ]
-
-  const [hydrationMl,setHydrationMl]=useState(0)
-  useEffect(()=>{
-    db.hydrationLogs.where('localDate').equals(today).toArray().then(arr=>{
-      const total = arr.reduce((a,b)=>a+b.amountMl,0)
-      setHydrationMl(total)
-    })
-  },[])
-  const addWater = async (ml:number)=>{
-    await db.hydrationLogs.put({ id: uuid(), localDate: today, amountMl: ml, time: new Date().toISOString() })
-    const arr = await db.hydrationLogs.where('localDate').equals(today).toArray()
-    setHydrationMl(arr.reduce((a,b)=>a+b.amountMl,0))
+    await db.recoveryChecks.put({ id: today, localDate: today, ...vals, score, color } as never)
+    try{ window.dispatchEvent(new Event('recoveryChange')) }catch{ /* noop */ }
+    alert(`Guardado: ${score}/100 ${color==='green'?'🟢':color==='yellow'?'🟡':'🔴'} — disponible para IA y gráficos`)
   }
 
   return (
@@ -61,32 +71,21 @@ export default function Recuperacion(){
       </div>
 
       <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
-        <div className="text-aux">Hidratación hoy</div>
-        <div className="flex justify-between items-center">
-          <span className="text-body">{hydrationMl} / 2500 ml</span>
-          <span className="text-aux">{Math.round(hydrationMl/25)}%</span>
-        </div>
-        <div className="h-2 bg-bg border border-border rounded-full overflow-hidden"><div className="h-full bg-info" style={{width: `${Math.min(100, hydrationMl/25)}%`}}/></div>
-        <div className="flex gap-2">
-          <button onClick={()=>addWater(250)} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">+250 ml</button>
-          <button onClick={()=>addWater(500)} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">+500 ml</button>
-          <button onClick={()=>addWater(750)} className="flex-1 py-2 rounded-xl bg-action text-textMain">+750 ml</button>
-        </div>
-        <p className="text-aux text-textMuted">Registro vasos/ml · objetivo 2500 ml · El coach detecta si tomás menos los días de entreno.</p>
-      </div>
-
-      <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
-        {sliders.map(([k,label])=>(
+        <div className="text-aux font-medium">Cuestionario diario (1–10) — completalo cuando quieras</div>
+        {FIELDS.map(([k,label])=>(
           <label key={k} className="block">
             <div className="flex justify-between text-aux"><span>{label}</span><span>{(vals as any)[k]}/10</span></div>
-            <input type="range" min={1} max={10} value={(vals as any)[k]} onChange={e=>update(k, Number(e.target.value))} className="w-full accent-action" />
+            <input type="range" min={1} max={10} value={Number((vals as any)[k])} onChange={e=>update(k, Number(e.target.value))} className="w-full accent-action" />
           </label>
         ))}
-        <label className="block text-aux">Horas sueño
-          <input type="number" step={0.5} value={vals.sleepHours} onChange={e=>update('sleepHours', Number(e.target.value))} className="w-full mt-1 bg-bg border border-border rounded-xl p-2 text-body" />
+        <label className="block text-aux">Zona del dolor
+          <input value={vals.painArea} onChange={e=>update('painArea', e.target.value)} placeholder="Ej: hombro derecho" maxLength={80} className="w-full mt-1 bg-bg border border-border rounded-xl p-2 text-body" />
+        </label>
+        <label className="block text-aux">Observación del dolor
+          <textarea value={vals.painObservation} onChange={e=>update('painObservation', e.target.value)} placeholder="Tipo de molestia, cuándo aparece…" rows={2} maxLength={300} className="w-full mt-1 bg-bg border border-border rounded-xl p-2 text-body" />
         </label>
         <button onClick={save} className="w-full py-3 rounded-xl bg-action text-textMain font-medium">Guardar check-in</button>
-        <p className="text-aux text-textMuted">Índice orientativo, no diagnóstico médico. Dolores severos: consultar profesional.</p>
+        <p className="text-aux text-textMuted">Se guarda automáticamente al presionar · actualiza recuperación, gráfico e IA. Índice orientativo, no diagnóstico médico.</p>
       </div>
     </div>
   )

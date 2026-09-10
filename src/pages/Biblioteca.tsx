@@ -10,7 +10,7 @@ export default function Biblioteca(){
   const [equipment,setEquipment]=useState<Gym.EquipmentEntry[]>([])
   const [bodyparts,setBodyparts]=useState<Gym.BodyPartEntry[]>([])
   const [categories,setCategories]=useState<Gym.CategoryEntry[]>([])
-  const [selectedKey,setSelectedKey]=useState<string>('biceps')
+  const [selectedKey,setSelectedKey]=useState<string>('__all__')
   const [exercises,setExercises]=useState<Gym.Exercise[]>([])
   const [q,setQ]=useState('')
   const [loading,setLoading]=useState(false)
@@ -43,10 +43,16 @@ export default function Biblioteca(){
     const cacheKey = `${t}:${key}`
     try{
       let res:any
-      if(t==='muscle') res = await Gym.fetchByMuscle(key)
-      if(t==='equipment') res = await Gym.fetchByEquipment(key)
-      if(t==='bodypart') res = await Gym.fetchByBodyPart(key)
-      if(t==='category') res = await Gym.fetchByCategory(key)
+      if(key==='__all__'){
+        // Todos: union completa del nivel (una sola request, cacheada). Sin duplicados por id.
+        const all = await Gym.fetchAll()
+        const seen = new Set<string>()
+        res = { exercises: (all.exercises || []).filter((e:any)=>{ if(!e || seen.has(e.id)) return false; seen.add(e.id); return true }) }
+      }
+      else if(t==='muscle') res = await Gym.fetchByMuscle(key)
+      else if(t==='equipment') res = await Gym.fetchByEquipment(key)
+      else if(t==='bodypart') res = await Gym.fetchByBodyPart(key)
+      else if(t==='category') res = await Gym.fetchByCategory(key)
       setExercises(res.exercises || [])
       Gym.cacheSet(cacheKey, res.exercises)
     }catch(e:any){
@@ -56,7 +62,7 @@ export default function Biblioteca(){
     }finally{ setLoading(false) }
   }
 
-  useEffect(()=>{ load('muscle','biceps') },[])
+  useEffect(()=>{ load('muscle','__all__') },[])
 
   const filtered = exercises.filter(ex=> !q || ex.name.toLowerCase().includes(q.toLowerCase()) || ex.muscle.includes(q.toLowerCase()))
 
@@ -75,12 +81,12 @@ export default function Biblioteca(){
       {!online && <div className="text-aux bg-amber-900/30 border border-amber-800 rounded-lg p-2 flex items-center gap-2"><WifiOff size={14}/> Sin conexión — se muestra caché.</div>}
       {error && <div className="text-aux bg-amber-900/30 border border-amber-800 rounded-lg p-2">{error}</div>}
 
-      {/* Tabs */}
+      {/* Tabs (al entrar a cada filtro: selectedFilter = Todos) */}
       <div className="flex gap-1 p-1 rounded-xl bg-surface border border-border overflow-x-auto">
-        <button onClick={()=>setTab('muscle')} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='muscle'?'bg-action text-textMain':'text-textMuted'}`}><Heart size={12}/> Músculo</button>
-        <button onClick={()=>setTab('equipment')} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='equipment'?'bg-action text-textMain':'text-textMuted'}`}><Dumbbell size={12}/> Equipo</button>
-        <button onClick={()=>setTab('bodypart')} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='bodypart'?'bg-action text-textMain':'text-textMuted'}`}><Layers size={12}/> Parte</button>
-        <button onClick={()=>setTab('category')} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='category'?'bg-action text-textMain':'text-textMuted'}`}><Box size={12}/> Categoría</button>
+        <button onClick={()=>{ setTab('muscle'); load('muscle','__all__') }} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='muscle'?'bg-action text-textMain':'text-textMuted'}`}><Heart size={12}/> Músculo</button>
+        <button onClick={()=>{ setTab('equipment'); load('equipment','__all__') }} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='equipment'?'bg-action text-textMain':'text-textMuted'}`}><Dumbbell size={12}/> Equipo</button>
+        <button onClick={()=>{ setTab('bodypart'); load('bodypart','__all__') }} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='bodypart'?'bg-action text-textMain':'text-textMuted'}`}><Layers size={12}/> Parte</button>
+        <button onClick={()=>{ setTab('category'); load('category','__all__') }} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='category'?'bg-action text-textMain':'text-textMuted'}`}><Box size={12}/> Categoría</button>
       </div>
 
       {/* Listado índices */}
@@ -92,6 +98,7 @@ export default function Biblioteca(){
           {tab==='category' && 'strength/stretching/cardio/plyometrics'}
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
+          <Chip active={selectedKey==='__all__'} onClick={()=>load(tab, '__all__')}>{`Todos (${exercises.length || '…'})`}</Chip>
           {tab==='muscle' && muscles.map(m=> <Chip key={m.muscle} active={selectedKey===m.muscle} onClick={()=>load('muscle', m.muscle)}>{`${m.muscle} (${m.count})`}</Chip>)}
           {tab==='equipment' && equipment.map(e=> <Chip key={e.equipment} active={selectedKey===e.equipment} onClick={()=>load('equipment', e.equipment)}>{`${e.equipment} (${e.count})`}</Chip>)}
           {tab==='bodypart' && bodyparts.map(b=> <Chip key={b.bodyPart} active={selectedKey===b.bodyPart} onClick={()=>load('bodypart', b.bodyPart)}>{`${b.bodyPart} (${b.count})`}</Chip>)}
@@ -103,7 +110,7 @@ export default function Biblioteca(){
       {/* Buscador + filtros avanzados */}
       <div className="relative">
         <Search size={16} className="absolute left-3 top-3.5 text-textMuted"/>
-        <input placeholder={`Filtrar en ${selectedKey}...`} value={q} onChange={e=>setQ(e.target.value)} className="w-full bg-surface border border-border rounded-xl pl-9 p-3 text-body" />
+        <input placeholder={`Filtrar en ${selectedKey==='__all__' ? 'todos' : selectedKey}...`} value={q} onChange={e=>setQ(e.target.value)} className="w-full bg-surface border border-border rounded-xl pl-9 p-3 text-body" />
       </div>
       <div className="rounded-xl bg-surface border border-border p-3">
         <div className="text-aux">Filtros avanzados · dificultad / patrón movimiento</div>

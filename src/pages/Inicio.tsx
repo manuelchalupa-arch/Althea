@@ -75,7 +75,7 @@ export default function Inicio(){
       setDayStatus(map)
     }
     loadWeek()
-  },[cycle, weekKeys])
+  },[cycle, weekKeys, overrideDay])
 
   useEffect(()=>{
     const dow = new Date(selectedDate+'T12:00:00').getDay()

@@ -49,7 +49,9 @@ export default function Entrenar(){
   const [obsReasons,setObsReasons]=useState<string[]>([])
   const [obsComment,setObsComment]=useState('')
   const [showSwap,setShowSwap]=useState(false)
-  const [swapOptions,setSwapOptions]=useState<Gym.Exercise[]>([])
+  const [swapOptions,setSwapOptions]=useState<import('@/services/training/similarity').SimilarityResult[]>([])
+  const [swapExplain,setSwapExplain]=useState<string|null>(null)
+  const [swapLoading,setSwapLoading]=useState(false)
   const [showSkipReason,setShowSkipReason]=useState(false)
   const [skipReason,setSkipReason]=useState('')
   // Estados para FINALIZAR ENTRENAMIENTO + máquina de estados
@@ -392,15 +394,27 @@ export default function Entrenar(){
 
   const loadSwapOptions = useCallback(async ()=>{
     if(!cur) return
-    const muscleMap:any = { pecho:'pectorals', espalda:'lats', biceps:'biceps', triceps:'triceps', hombros:'delts', piernas:'quads', cuadriceps:'quads', gluteos:'glutes', isquios:'hamstrings' }
-    const m = muscleMap[(cur.muscle||'').toLowerCase()] || 'pectorals'
+    setSwapLoading(true); setSwapExplain(null)
     try{
+      const muscleMap:any = { pecho:'pectorals', espalda:'lats', biceps:'biceps', triceps:'triceps', hombros:'delts', piernas:'quads', cuadriceps:'quads', gluteos:'glutes', isquios:'hamstrings' }
+      const m = muscleMap[(cur.muscle||'').toLowerCase()] || 'pectorals'
       const res = await Gym.fetchByMuscle(m)
-      // excluir el actual
-      const opts = res.exercises.filter((e:any)=> e.id !== cur.exId && e.name !== cur.name).slice(0, 8)
-      setSwapOptions(opts)
+      let original: Gym.Exercise | null = null
+      if(cur.exId.includes('/')){
+        try{ const [mm,slug]=cur.exId.split('/'); original = await Gym.fetchOne(mm,slug).catch(()=>null) as unknown as Gym.Exercise }catch{ /* noop */ }
+      }
+      const orig: Gym.Exercise = original || { id: cur.exId, slug: cur.exId, name: cur.name, muscle: cur.muscle || m, bodyPart: '', equipment: '', category: '', secondaryMuscles: [], instructions: [], file: '', gifUrl: cur.gifUrl || '' }
+      const ids = res.exercises.map(e=>e.id)
+      const [recs, logs] = await Promise.all([
+        db.table('setRecords').where('exerciseId').anyOf(ids).toArray().catch(()=>[]),
+        db.setLogs.where('exerciseId').anyOf(ids).toArray().catch(()=>[]),
+      ])
+      const counts: Record<string,number> = {}
+      for(const r of [...(recs as any[]), ...(logs as any[])] as any[]){ const k=r.exerciseId; counts[k]=(counts[k]||0)+1 }
+      const { rankReplacements } = await import('@/services/training/similarity')
+      setSwapOptions(rankReplacements(orig, res.exercises, (id)=> counts[id]||0).slice(0, 12))
       setShowSwap(true)
-    }catch{}
+    }catch{ /* noop */ }finally{ setSwapLoading(false) }
   }, [cur])
 
   const handleSwap = async (newEx:Gym.Exercise)=>{
@@ -1081,14 +1095,31 @@ export default function Entrenar(){
               </div>
               <p className="text-aux">Elegí una alternativa del mismo grupo muscular</p>
               <div className="space-y-2 max-h-60 overflow-auto">
-                {swapOptions.map((opt:any)=>(
-                  <button key={opt.id} onClick={()=> handleSwap(opt)} className="w-full text-left p-3 rounded-xl bg-surface border border-border flex items-center gap-3 hover:bg-bg transition">
-                    {opt.gifUrl && <img src={opt.gifUrl} alt={opt.name} className="w-12 h-12 rounded-lg object-cover"/>}
-                    <div>
-                      <div className="text-body font-medium">{opt.name}</div>
-                      <div className="text-aux text-xs">{opt.muscle} · {opt.equipment}</div>
-                    </div>
-                  </button>
+                {swapLoading && <p className="text-aux">Calculando similitud…</p>}
+                {!swapLoading && swapOptions.length===0 && <p className="text-aux">Sin alternativas en este grupo muscular.</p>}
+                {!swapLoading && swapOptions.length>0 && <div className="text-aux font-medium">Mejor reemplazo · {swapOptions[0].score}%</div>}
+                {!swapLoading && swapOptions.slice(0,1).map((r)=>(
+                  <div key={r.exercise.id} className="rounded-xl bg-elevated border border-info/40 p-3">
+                    <button onClick={()=> handleSwap(r.exercise)} className="w-full text-left flex items-center gap-3">
+                      {r.exercise.gifUrl ? <img src={r.exercise.gifUrl} alt={r.exercise.name} className="w-12 h-12 rounded-lg object-cover"/> : null}
+                      <div className="flex-1 min-w-0"><div className="text-body font-medium truncate">{r.exercise.name}</div><div className="text-aux text-xs">{r.exercise.muscle} · {r.exercise.equipment}</div></div>
+                      <span className="text-subtitle shrink-0">{r.score}%</span>
+                    </button>
+                    <button onClick={()=> setSwapExplain(swapExplain===r.exercise.id?null:r.exercise.id)} className="text-aux text-info text-xs mt-1">Por qué este %</button>
+                    {swapExplain===r.exercise.id && (<ul className="mt-1 space-y-0.5">{r.factors.map((f)=>(<li key={f.key} className="text-aux text-xs">{f.state==='match'?'✓':f.state==='miss'?'✕':f.state==='partial'?'◐':'—'} {f.label} — {f.detail}</li>))}</ul>)}
+                  </div>
+                ))}
+                {!swapLoading && swapOptions.length>1 && <div className="text-aux font-medium pt-1">Otras alternativas</div>}
+                {!swapLoading && swapOptions.slice(1).map((r)=>(
+                  <div key={r.exercise.id} className="rounded-xl bg-surface border border-border p-3">
+                    <button onClick={()=> handleSwap(r.exercise)} className="w-full text-left flex items-center gap-3">
+                      {r.exercise.gifUrl ? <img src={r.exercise.gifUrl} alt={r.exercise.name} className="w-12 h-12 rounded-lg object-cover"/> : null}
+                      <div className="flex-1 min-w-0"><div className="text-body font-medium truncate">{r.exercise.name}</div><div className="text-aux text-xs">{r.exercise.muscle} · {r.exercise.equipment}</div></div>
+                      <span className="text-subtitle shrink-0">{r.score}%</span>
+                    </button>
+                    <button onClick={()=> setSwapExplain(swapExplain===r.exercise.id?null:r.exercise.id)} className="text-aux text-info text-xs mt-1">Por qué este %</button>
+                    {swapExplain===r.exercise.id && (<ul className="mt-1 space-y-0.5">{r.factors.map((f)=>(<li key={f.key} className="text-aux text-xs">{f.state==='match'?'✓':f.state==='miss'?'✕':f.state==='partial'?'◐':'—'} {f.label} — {f.detail}</li>))}</ul>)}
+                  </div>
                 ))}
               </div>
               <select value={swapReason} onChange={(e)=>setSwapReason(e.target.value)} className="w-full bg-surface border border-border rounded-xl p-2 text-body">

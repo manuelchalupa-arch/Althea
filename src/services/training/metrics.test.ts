@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { completionOf, volumeOf, muscleWorkOf, progressVsLast, daysBetweenSessions } from './metrics'
+import { completionOf, volumeOf, muscleWorkOf, progressVsLast, daysBetweenSessions, combinedIndexOf } from './metrics'
 import type { SetRecord, SessionExercise } from './domain'
 
 const se = (over: Partial<SessionExercise> = {}): SessionExercise => ({
@@ -56,5 +56,29 @@ describe('métricas recalculables (§35-39)', () => {
 
   it('frecuencia: días entre sesiones', () => {
     expect(daysBetweenSessions(['2026-09-01', '2026-09-03', '2026-09-04'])).toEqual([2, 1])
+  })
+  it('índice combinado: base 100 y progresión coherente', () => {
+    const pts = [
+      { date: '2026-09-01', w: 80, r: 24, s: 3, v: 1920 },
+      { date: '2026-09-08', w: 80, r: 30, s: 3, v: 2400 },
+    ]
+    const idx = combinedIndexOf(pts)!
+    expect(idx[0].indice).toBe(100)
+    // (1 + 1.25 + 1 + 1.25)/4 = 1.125 -> 113 (redondeo)
+    expect(idx[1].indice).toBe(113)
+  })
+  it('índice combinado: sin datos suficientes -> null', () => {
+    expect(combinedIndexOf([])).toBeNull()
+    expect(combinedIndexOf([{ date: 'x', w: 0, r: 0, s: 0, v: 0 }])).toBeNull()
+    expect(combinedIndexOf([{ date: 'x', w: 80, r: 8, s: 1, v: 640 }])).toBeNull()
+  })
+  it('índice combinado: excluye componentes con base 0', () => {
+    const pts = [
+      { date: '2026-09-01', w: 0, r: 24, s: 3, v: 0 },
+      { date: '2026-09-08', w: 60, r: 30, s: 4, v: 1800 },
+    ]
+    const idx = combinedIndexOf(pts)!
+    // (30/24 + 4/3)/2 = (1.25+1.333)/2 = 1.2917 -> 129
+    expect(idx[1].indice).toBe(129)
   })
 })

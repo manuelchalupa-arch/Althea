@@ -6,6 +6,66 @@ import { exportJSON, exportCSV, downloadBlob, importJSON, exportPDF } from '@/se
 import * as Push from '@/services/notifications/push'
 import * as Sync from '@/services/sync/queue'
 import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearance } from '@/utils/appearance'
+import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type NotifConfig } from '@/services/notifications/scheduler'
+
+const WEEK_DAYS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
+
+function NotifSection(){
+  const [cfgs,setCfgs]=useState<NotifConfig[]>(()=> loadConfigs())
+  const [perm,setPerm]=useState<NotificationPermission|'unknown'>('unknown')
+  const [newTime,setNewTime]=useState<Record<string,string>>({})
+  useEffect(()=>{ permissionStatus().then(setPerm).catch(()=> setPerm('unknown')) },[])
+  const upd = (id:string, patch:Partial<NotifConfig>)=>{
+    const nx = cfgs.map(c=> c.id===id ? { ...c, ...patch } : c)
+    setCfgs(nx); saveConfigs(nx)
+  }
+  const askPerm = async ()=>{
+    const p = await requestPermission()
+    setPerm(p)
+    if(p!=='granted') alert('Permiso denegado: activá las notificaciones en el navegador para recibir avisos.')
+  }
+  return (
+    <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="text-aux font-medium">Notificaciones</div>
+        <span className="text-aux">Permiso: {perm==='granted' ? 'concedido' : perm==='denied' ? 'denegado' : perm}</span>
+      </div>
+      {perm!=='granted' && <button onClick={askPerm} className="w-full py-2 rounded-xl bg-action text-textMain">Permitir notificaciones</button>}
+      <p className="text-aux text-textMuted">Hora local del dispositivo · se disparan con la app abierta · cada horario se envía una sola vez por día.</p>
+      {cfgs.map((c)=>(
+        <div key={c.id} className="rounded-xl bg-bg border border-border p-3 space-y-2">
+          <label className="flex items-center justify-between gap-2">
+            <span className="text-body font-medium">{c.title}</span>
+            <input type="checkbox" checked={c.enabled} onChange={e=>upd(c.id,{enabled:e.target.checked})} className="w-5 h-5 accent-action" aria-label={`Activar ${c.title}`} />
+          </label>
+          {c.kind==='proteina' && (
+            <label className="text-aux">Objetivo (g)<input type="number" value={c.extra||''} onChange={e=>upd(c.id,{extra:e.target.value})} placeholder="Ej: 140" className="w-full mt-1 bg-surface border border-border rounded-xl p-2 text-body"/></label>
+          )}
+          <div className="flex flex-wrap gap-1">
+            {c.times.map((t)=>(
+              <span key={t} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-surface border border-border text-aux">
+                {t}
+                <button onClick={()=>upd(c.id,{times:c.times.filter(x=>x!==t)})} aria-label={`Quitar horario ${t}`} className="text-textMuted">✕</button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-1">
+            <input type="time" value={newTime[c.id]||''} onChange={e=>setNewTime({...newTime,[c.id]:e.target.value})} className="flex-1 bg-surface border border-border rounded-xl p-2 text-body" aria-label="Nuevo horario" />
+            <button onClick={()=>{ const v=(newTime[c.id]||'').slice(0,5); if(!v || c.times.includes(v)) return; upd(c.id,{times:[...c.times,v].sort()}) }} className="px-3 rounded-xl bg-surface border border-border text-body">+</button>
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {WEEK_DAYS.map((d,i)=>(
+              <label key={d} className={`text-center text-aux py-1.5 rounded-lg border cursor-pointer ${c.days[i] ? 'bg-elevated border-info text-textMain' : 'bg-surface border-border text-textMuted'}`}>
+                <input type="checkbox" checked={!!c.days[i]} onChange={e=>{ const days=[...c.days]; days[i]=e.target.checked; upd(c.id,{days}) }} className="hidden" />
+                {d}
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function Perfil(){
   const [profile,setProfile]=useState<any>(null)
@@ -111,6 +171,8 @@ export default function Perfil(){
           </div>
         </div>
       </div>
+
+      <NotifSection />
 
       <div className="rounded-xl bg-surface border border-border p-3">
         <div className="text-aux">Historial corporal (no se pierde al cerrar app)</div>
