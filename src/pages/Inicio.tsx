@@ -22,6 +22,7 @@ export default function Inicio(){
   const [showReject,setShowReject]=useState(false)
   const [modifyChoice,setModifyChoice]=useState('Tiempo disponible')
   const [rejectMotive,setRejectMotive]=useState('No tengo tiempo')
+  const [hasActiveSession,setHasActiveSession]=useState(false)
   const [showChangeDay,setShowChangeDay]=useState(false)
   const [changeReason,setChangeReason]=useState('Cambio de horarios')
   const [changeComment,setChangeComment]=useState('')
@@ -47,6 +48,7 @@ export default function Inicio(){
     })
     const h = Number(localStorage.getItem('hydration:'+todayStr) || '1900')
     setHydration(h)
+    import('@/services/training/sessionStore').then(({ getActiveSession })=> getActiveSession().then((s)=> setHasActiveSession(!!s && s.calendarDate===todayStr)).catch(()=>{})).catch(()=>{})
     buildTrainingContext('ex-001','Press banca').then(ctx=> aiService.generateRecommendation(ctx).then(setCoachRec).catch(()=>{}))
     detectCapabilities().then(setCoachCap)
   },[])
@@ -153,7 +155,7 @@ export default function Inicio(){
                   const now = new Date(todayStr)
                   return Math.max(1, Math.floor((now.getTime()-start.getTime())/(7*86400000))+1)
                 }catch{ return 1 } })()
-                createReadySession({
+                await createReadySession({
                   calendarDate: todayStr,
                   routineId: active?.id || 'r1',
                   routineName: active?.name || 'Rutina',
@@ -168,7 +170,7 @@ export default function Inicio(){
                 })
                 window.dispatchEvent(new Event('routineChange'))
                 nav('/entrenar')
-              }} className="mt-3 w-full py-2.5 rounded-xl bg-action text-textMain font-medium flex items-center justify-center gap-2"><Play size={16}/> ENTRENAR</button>
+              }} className="mt-3 w-full py-2.5 rounded-xl bg-action text-textMain font-medium flex items-center justify-center gap-2"><Play size={16}/> {hasActiveSession ? 'CONTINUAR' : 'ENTRENAR'}</button>
             </div>
           </>
         )}

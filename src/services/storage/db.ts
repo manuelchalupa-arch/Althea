@@ -40,6 +40,16 @@ export class TrainDB extends Dexie {
       trainingSessions: 'id, calendarDate, routineId',
       exerciseRecords: 'id, sessionId, exerciseId'
     })
+    // v5: modelo oficial de ejecución — SessionExercise / SetRecord / eventos / encuesta / negativas.
+    // sessions + setLogs quedan como capa física legacy de solo-lectura (ver migrateLegacyTrainingData).
+    this.version(5).stores({
+      sessionExercises: 'sessionExerciseId, sessionId, exerciseId',
+      setRecords: 'setRecordId, sessionId, sessionExerciseId, exerciseId',
+      sessionEvents: 'eventId, sessionId, type, timestamp',
+      postWorkoutSurveys: 'surveyId, sessionId, calendarDate',
+      negativeSets: 'negativeSetId, sessionId, sessionExerciseId',
+      exerciseObservations: 'observationId, sessionId, sessionExerciseId',
+    })
   }
 }
 export const db = new TrainDB()

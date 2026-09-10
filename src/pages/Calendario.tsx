@@ -11,9 +11,16 @@ export default function Calendario(){
   const [cycle,setCycle]=useState<any>(null)
 
   useEffect(()=>{
-    db.sessions.toArray().then(s=>{
+    Promise.all([db.sessions.toArray().catch(()=>[]), db.table('trainingSessions').toArray().catch(()=>[])]).then(([legacy, official])=>{
       const c: Record<string,number> = {}
-      s.forEach(x=> c[x.localDate]=(c[x.localDate]||0)+1)
+      const seen = new Set<string>()
+      // Unión oficial + legacy: misma fecha+id cuenta una vez (migración copia sin borrar).
+      for(const x of [...(legacy as any[]).map((s)=> ({ date: s.localDate, id: s.id })), ...(official as any[]).map((s)=> ({ date: s.calendarDate, id: s.sessionId || s.id }))]){
+        const k = `${x.date}|${x.id}`
+        if(seen.has(k) || !x.date) continue
+        seen.add(k)
+        c[x.date]=(c[x.date]||0)+1
+      }
       setMap(c)
     })
     try{
@@ -36,7 +43,14 @@ export default function Calendario(){
     const actualN = override ? Number(override) : scheduledN
     const actual = actualN ? cycle?.trainingDays.find((x:any)=>x.n===actualN)?.name || `Día N°${actualN}` : 'Descanso'
     const changed = !!override && override!==String(scheduledN)
-    const sessions = await db.sessions.where('localDate').equals(key).toArray()
+    const [legacySessions, officialSessions] = await Promise.all([
+      db.sessions.where('localDate').equals(key).toArray().catch(()=>[]),
+      db.table('trainingSessions').where('calendarDate').equals(key).toArray().catch(()=>[]),
+    ])
+    const sessions = [
+      ...(legacySessions as any[]).map((s)=> ({ id: s.id, localDate: s.localDate, status: s.finishedAt ? 'COMPLETED' : 'ABANDONED' })),
+      ...(officialSessions as any[]).map((s)=> ({ id: s.sessionId || s.id, localDate: s.calendarDate, status: s.sessionStatus, routineName: s.routineName })),
+    ]
     const hyd = await db.hydrationLogs.where('localDate').equals(key).toArray().then(a=> a.reduce((s,b)=>s+b.amountMl,0)).catch(()=>0)
     const rec = await db.recoveryChecks.get(key).catch(()=>null) || JSON.parse(localStorage.getItem(`recovery:${key}`)||'null')
     setDetail({date:key, scheduled, actual, changed, sessions, hydration: hyd, recovery: rec})
@@ -78,7 +92,7 @@ export default function Calendario(){
             {detail.sessions.length>0 && (
               <div className="rounded-xl bg-surface border border-border p-3">
                 <div className="text-aux">Ejercicios registrados</div>
-                {detail.sessions.map((s:any)=> <div key={s.id} className="text-aux">{s.localDate} — {s.id.slice(0,8)}</div>)}
+                {detail.sessions.map((s:any)=> <div key={s.id} className="text-aux">{s.localDate} — {String(s.id).slice(0,8)} · {s.status || ''}{s.routineName ? ` · ${s.routineName}` : ''}</div>)}
               </div>
             )}
             <button onClick={()=>setDetail(null)} className="w-full py-3 rounded-xl bg-action text-textMain">Cerrar</button>

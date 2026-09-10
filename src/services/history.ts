@@ -19,9 +19,25 @@ import { db } from '@/services/storage/db'
 // );
 // CREATE INDEX idx_exercise_executed ON exercise_history(exercise_id, executed_at DESC);
 
+// Lectura unificada: SetRecord oficial + setLogs legacy (solo-lectura). Clave: userId+exerciseId.
+export async function unifiedCompletedSets(exerciseId: string): Promise<Array<{ setNumber: number; weight: number; reps: number; completed: boolean; createdAt: string; sessionId: string }>> {
+  const [official, legacy] = await Promise.all([
+    db.table('setRecords').where('exerciseId').equals(exerciseId).filter((r: { status: string }) => r.status === 'COMPLETED').toArray().catch(() => []),
+    db.setLogs.where('exerciseId').equals(exerciseId).filter(l => l.completed).toArray().catch(() => []),
+  ]);
+  const a = (official as Array<Record<string, unknown>>).map((r) => ({
+    setNumber: Number(r.order ?? 0), weight: Number(r.actualWeight ?? 0), reps: Number(r.actualReps ?? 0),
+    completed: true, createdAt: String(r.completedAt ?? r.createdAt ?? ''), sessionId: String(r.sessionId ?? ''),
+  }));
+  const b = (legacy as Array<{ setNumber: number; weight: number; reps: number; completed: boolean; createdAt: string; sessionId: string }>).map((l) => ({
+    setNumber: l.setNumber, weight: l.weight, reps: l.reps, completed: l.completed, createdAt: l.createdAt, sessionId: l.sessionId,
+  }));
+  return [...a, ...b];
+}
+
 export async function getLastExecutionByExercise(exerciseId: string){
   // última sesión donde se completó al menos una serie de ese ejercicio
-  const logs = await db.setLogs.where('exerciseId').equals(exerciseId).filter(l=> l.completed).toArray()
+  const logs = await unifiedCompletedSets(exerciseId)
   if(logs.length===0) return null
   // agrupa por sessionId + createdAt para encontrar última ejecución
   logs.sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -45,14 +61,14 @@ export function generateSeedSerie(exerciseId: string, setNumber: number){
 }
 
 export async function getLastSerie(exerciseId: string, setNumber: number){
-  const logs = await db.setLogs.where('exerciseId').equals(exerciseId).filter(l=> l.completed && l.setNumber===setNumber).toArray()
+  const logs = (await unifiedCompletedSets(exerciseId)).filter(l=> l.setNumber===setNumber)
   if(logs.length===0) return generateSeedSerie(exerciseId, setNumber) as any
   logs.sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   return logs[0] // {weight, reps, createdAt}
 }
 
 export async function getLastSerieWithSource(exerciseId: string, setNumber: number){
-  const logs = await db.setLogs.where('exerciseId').equals(exerciseId).filter(l=> l.completed && l.setNumber===setNumber).toArray()
+  const logs = (await unifiedCompletedSets(exerciseId)).filter(l=> l.setNumber===setNumber)
   if(logs.length===0){
     const seed = generateSeedSerie(exerciseId, setNumber)
     return { ...seed, isSeed: true, source: 'seed' }

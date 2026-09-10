@@ -9,7 +9,23 @@ export default function Progresos(){
 
   const [bodyData,setBodyData]=useState<any[]>([])
   useEffect(()=>{
-    Promise.all([db.setLogs.toArray(), db.exercises.toArray(), db.sessions.toArray(), db.table('bodyMeasurements').toArray().catch(()=>[])]).then(([logs, exs, sessions, bodies])=>{
+    Promise.all([
+      db.setLogs.toArray(),
+      db.table('setRecords').toArray().catch(()=>[]),
+      db.exercises.toArray(),
+      db.sessions.toArray(),
+      db.table('trainingSessions').toArray().catch(()=>[]),
+      db.table('bodyMeasurements').toArray().catch(()=>[]),
+    ]).then(([legacyLogs, officialRecs, exs, legacySessions, officialSessions, bodies])=>{
+      // Unión oficial + legacy (sin duplicar: migración copia con mismo contenido pero distinto id;
+      // se unifican por fecha+ejercicio+orden+valores para no contar doble lo migrado).
+      const seen = new Set<string>()
+      const logs = [
+        ...(legacyLogs as any[]).map((l)=> ({ exerciseId: l.exerciseId, weight: l.weight, reps: l.reps, createdAt: l.createdAt })),
+        ...(officialRecs as any[]).filter((r)=> r.status==='COMPLETED').map((r)=> ({ exerciseId: r.exerciseId, weight: r.actualWeight, reps: r.actualReps, createdAt: r.completedAt || r.createdAt })),
+      ].filter((l)=>{ const k = `${l.exerciseId}|${l.createdAt}|${l.weight}|${l.reps}`; if(seen.has(k)) return false; seen.add(k); return true })
+      const sessionIds = new Set<string>([...(legacySessions as any[]).map((s)=> s.id), ...(officialSessions as any[]).map((s)=> s.sessionId || s.id)])
+      const sessions = [...sessionIds].map((id)=> ({ id }))
       const byDate: Record<string,number> = {}
       logs.forEach(l=>{ const d=l.createdAt.slice(0,10); byDate[d]=(byDate[d]||0)+l.weight*l.reps })
       setData(Object.entries(byDate).slice(-14).map(([date,volumen])=>({date, volumen})))

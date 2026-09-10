@@ -19,7 +19,19 @@ export interface RoutineExercise {
   id: string; routineDayId: string; exerciseId: string; order: number
   targetSets: number; targetReps: number; targetWeight: number; restSec: number; rir?: number; rpe?: number; tempo?: string; notes?: string
 }
+// Nomenclatura oficial del módulo Entrenamiento: ver services/training/domain.ts
+// (SessionStatus, SessionExerciseStatus, SetRecordStatus, SetType, TrainingSession,
+// SessionExercise, SetRecord, SessionEvent, PostWorkoutSurvey). Este archivo re-exporta
+// lo oficial y conserva los tipos legacy solo para lectura de datos antiguos.
+export type {
+  SessionStatus, SessionExerciseStatus, SetRecordStatus, SetType, SessionEventType,
+  TrainingSession, SessionExercise, SetRecord, NegativeSet, ExerciseObservation,
+  ExerciseReplacement, SessionEvent, PostWorkoutSurvey, ExerciseHistoryEntry,
+  MuscleTrainingMetric, DayChange, PlannedSetSnapshot,
+} from '@/services/training/domain';
+/** @deprecated Capa física legacy de solo-lectura. Fuente oficial: TrainingSession. */
 export interface Session { id: string; routineId?: string; localDate: string; startedAt: string; finishedAt?: string; createdAt: string; updatedAt: string }
+/** @deprecated Capa física legacy de solo-lectura. Fuente oficial: SetRecord. */
 export interface SetLog {
   id: string; sessionId: string; exerciseId: string; setNumber: number
   weight: number; reps: number; rpe?: number; rir?: number; completed: boolean; notes?: string; createdAt: string
@@ -48,19 +60,21 @@ export interface UserProfile {
 }
 export interface BodyMeasurement { id: string; localDate: string; weightKg?: number; heightCm?: number; bodyFatPct?: number; muscleMassKg?: number; chestCm?: number; waistCm?: number; hipCm?: number; createdAt: string }
 export interface WeeklySequence { id: string; cycleId: string; weekNumber: number; startDate: string; plannedDays: number[]; completedDays: number[]; createdAt: string }
-export interface TrainingSession {
+/** @deprecated Reemplazado por el modelo oficial TrainingSession (domain.ts). Solo lectura legacy. */
+export interface LegacyTrainingSession {
   id: string; userId?: string; routineId: string; cycleId?: string; weekNumber?: number;
   plannedDay: number | null; actualDay: number | null;
   plannedMuscleGroups: string[]; actualMuscleGroups: string[];
   calendarDate: string; startTime?: string; endTime?: string; durationMin?: number;
-  exerciseRecords: ExerciseRecord[];
+  exerciseRecords: LegacyExerciseRecord[];
   totalExercisesPlanned: number; totalExercisesCompleted: number; totalExercisesSkipped: number; totalExercisesModified: number; totalExercisesReplaced: number; totalExtraExercises: number;
   totalSetsPlanned: number; totalSetsCompleted: number; totalReps: number; totalVolume: number;
   energy?: number; fatigue?: number; pain?: number; mood?: number;
   generalNotes?: string; dayChangeReason?: string; dayChangeComment?: string;
   createdAt: string; updatedAt: string
 }
-export interface ExerciseRecord {
+/** @deprecated Reemplazado por el modelo oficial SessionExercise (domain.ts). Solo lectura legacy. */
+export interface LegacyExerciseRecord {
   id: string; sessionId: string; exerciseId: string; exerciseName: string;
   plannedSets: number; completedSets: number; plannedReps: number; completedReps: number[];
   weightPerSet: number[]; rpe?: number; rir?: number; duration?: number;
