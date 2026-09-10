@@ -69,13 +69,7 @@ function OnlineBanner(){
   return <div className="fixed top-0 left-0 right-0 bg-slate-800 text-xs text-center py-1 border-b border-slate-700">Modo offline — todo funciona localmente</div>
 }
 
-export function applyAppearance(){
-  try{
-    const theme = localStorage.getItem('althea:theme') || 'dark'
-    document.documentElement.classList.toggle('light', theme === 'light')
-    document.documentElement.dataset.textscale = localStorage.getItem('althea:textscale') || 'm'
-  }catch{ /* noop */ }
-}
+import { applyAppearance } from '@/utils/appearance'
 
 export default function App(){
   const [ready,setReady]=useState(false)

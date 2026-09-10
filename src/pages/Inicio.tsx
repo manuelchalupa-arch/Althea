@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate, formatAgendaDate } from '@/utils/cycle'
@@ -30,12 +30,76 @@ export default function Inicio(){
     const v=localStorage.getItem(`session:override:${todayStr}`)
     return v ? Number(v) : null
   })
+  const [weekOffset,setWeekOffset]=useState(0)
+  const [dayStatus,setDayStatus]=useState<Record<string,{planned:boolean; dayN:number|null; dayName:string|null; sessionStatus:string|null; overridden:boolean}>>({})
+  const [selectedDate,setSelectedDate]=useState<string>(todayStr)
+  const [previewList,setPreviewList]=useState<{id:string;name:string;sets:number;reps:number;weight:number;restSec?:number;seriesType?:string}[]>([])
+  const [previewName,setPreviewName]=useState('')
 
   const loadDay = async (cycleToUse:any, dayN:number | null)=>{
     const { getDayExercises } = await import('@/utils/routine')
     const list = await getDayExercises(dayN, cycleToUse)
     setExNames(list.map(x=> ({id:x.exId, name:x.name, sets:x.sets, reps:x.reps, weight:x.weight})))
   }
+  const isoOf = (d:Date)=> `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  const weekKeys = useMemo(()=>{
+    const base = new Date(todayStr+'T12:00:00')
+    const dowMon0 = (base.getDay()+6)%7
+    const mon = new Date(base); mon.setDate(base.getDate()-dowMon0+weekOffset*7)
+    return Array.from({length:7},(_,i)=>{ const dt=new Date(mon); dt.setDate(mon.getDate()+i); return isoOf(dt) })
+  },[todayStr, weekOffset])
+
+  useEffect(()=>{
+    const loadWeek = async ()=>{
+      const sessions = await db.table('trainingSessions').toArray().catch(()=>[]) as any[]
+      const byDate: Record<string,any> = {}
+      for(const s of sessions){
+        const k = s.calendarDate || s.localDate
+        if(!k) continue
+        const prev = byDate[k]
+        if(!prev || String(s.updatedAt||'') > String(prev.updatedAt||'')) byDate[k] = s
+      }
+      const map: Record<string,{planned:boolean; dayN:number|null; dayName:string|null; sessionStatus:string|null; overridden:boolean}> = {}
+      for(const iso of weekKeys){
+        const dow = new Date(iso+'T12:00:00').getDay()
+        const n = cycle.weekMap[dow] ?? null
+        const nm = n ? cycle.trainingDays.find((d:any)=>d.n===n)?.name || `Día N°${n}` : null
+        const sess = byDate[iso]
+        map[iso] = {
+          planned: n != null,
+          dayN: n, dayName: nm,
+          sessionStatus: sess?.sessionStatus || null,
+          overridden: !!localStorage.getItem(`session:override:${iso}`),
+        }
+      }
+      setDayStatus(map)
+    }
+    loadWeek()
+  },[cycle, weekKeys])
+
+  useEffect(()=>{
+    const dow = new Date(selectedDate+'T12:00:00').getDay()
+    const n = cycle.weekMap[dow] ?? null
+    if(n == null){ setPreviewList([]); setPreviewName('Descanso'); return }
+    setPreviewName(cycle.trainingDays.find((d:any)=>d.n===n)?.name || `Día N°${n}`)
+    import('@/utils/routine').then(({getDayExercises})=> getDayExercises(n, cycle).then(setPreviewList).catch(()=>setPreviewList([])))
+  },[selectedDate, cycle])
+
+  const dayCellClass = (iso:string)=>{
+    const st = dayStatus[iso]
+    const base = 'rounded-lg border p-1.5 text-center transition min-w-0 '
+    const sel = selectedDate===iso ? 'ring-2 ring-info ' : ''
+    if(!st) return base + sel + 'bg-bg border-border'
+    if(st.sessionStatus==='COMPLETED') return base + sel + 'st-completed border'
+    if(st.sessionStatus==='PARTIAL') return base + sel + 'st-partial border'
+    if(st.sessionStatus==='CANCELLED') return base + sel + 'st-cancelled border'
+    if(st.sessionStatus==='ABANDONED') return base + sel + 'st-abandoned border'
+    if(st.sessionStatus==='IN_PROGRESS' || st.sessionStatus==='PAUSED' || st.sessionStatus==='COMPLETING' || st.sessionStatus==='READY') return base + sel + 'st-active border'
+    if(st.planned) return base + sel + 'bg-surface border-primary/60'
+    return base + sel + 'bg-bg border-border opacity-70'
+  }
+  const wdLabel = (iso:string)=> new Date(iso+'T12:00:00').toLocaleDateString('es',{weekday:'short'}).replace('.','').toUpperCase()
+  const wdNum = (iso:string)=> Number(iso.slice(8,10))
 
   useEffect(()=>{
     ensureSeeded()
@@ -88,6 +152,59 @@ export default function Inicio(){
           <button onClick={()=>setShowChangeDay(true)} className="mt-3 w-full py-2 rounded-xl bg-surface border border-border text-aux flex items-center justify-center gap-1">
             Cambiar día de entrenamiento
           </button>
+        </div>
+        {/* Tira semanal: días de entrenamiento y descanso */}
+        <div className="mt-3 rounded-xl bg-surface border border-border p-3">
+          <div className="flex items-center justify-between mb-2">
+            <button onClick={()=>setWeekOffset(o=>o-1)} aria-label="Semana anterior" className="px-3 py-1 rounded-lg bg-bg border border-border text-body">‹</button>
+            <span className="text-aux">{weekOffset===0 ? 'Esta semana' : weekOffset>0 ? `+${weekOffset} sem` : `${-weekOffset} sem atrás`}</span>
+            <button onClick={()=>{ setWeekOffset(o=>o+1) }} aria-label="Semana siguiente" className="px-3 py-1 rounded-lg bg-bg border border-border text-body">›</button>
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {weekKeys.map((iso)=>{
+              const st = dayStatus[iso]
+              const isToday = iso===todayStr
+              return (
+                <button key={iso} onClick={()=>setSelectedDate(iso)} aria-label={`${wdLabel(iso)} ${wdNum(iso)}${st?.planned ? ', entrenamiento' : ', descanso'}${st?.sessionStatus ? `, ${st.sessionStatus}` : ''}`} className={dayCellClass(iso)}>
+                  <div className="text-aux leading-none">{wdLabel(iso)}</div>
+                  <div className={`text-body leading-tight mt-0.5 ${isToday ? 'font-bold underline' : 'font-medium'}`}>{wdNum(iso)}</div>
+                  <div className="text-aux leading-none mt-0.5 truncate">
+                    {st?.sessionStatus==='COMPLETED' ? '✓' : st?.sessionStatus==='PARTIAL' ? '◐' : st?.sessionStatus==='CANCELLED' ? '✕' : st?.sessionStatus==='ABANDONED' ? '○' : (st?.sessionStatus==='IN_PROGRESS' || st?.sessionStatus==='PAUSED') ? '●' : st?.planned ? '·' : '–'}
+                    {st?.overridden ? ' ↻' : ''}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-aux text-textMuted">
+            <span>✓ completado</span><span>◐ parcial</span><span>✕ cancelado</span><span>○ abandonado</span><span>● en curso</span><span>· planificado</span><span>– descanso</span><span>↻ modificado</span>
+          </div>
+        </div>
+
+        {/* Previsualización de rutina del día seleccionado (solo plan, no inicia sesión) */}
+        <div className="mt-3 rounded-xl bg-surface border border-border p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-aux font-medium">PREVISUALIZACIÓN · {wdLabel(selectedDate)} {wdNum(selectedDate)}</span>
+            {selectedDate===todayStr && <span className="text-aux bg-elevated border border-border px-2 py-0.5 rounded-full">HOY</span>}
+          </div>
+          <div className="text-subtitle mt-0.5">{previewName || '—'}</div>
+          {dayStatus[selectedDate]?.sessionStatus && (
+            <div className="text-aux mt-1">Estado registrado: {dayStatus[selectedDate]?.sessionStatus}{dayStatus[selectedDate]?.overridden ? ' · día modificado' : ''}</div>
+          )}
+          {previewList.length===0 ? (
+            <p className="text-aux text-textMuted mt-1">Descanso — sin ejercicios planificados.</p>
+          ) : (
+            <ol className="mt-2 space-y-1.5">
+              {previewList.map((ex,i)=>(
+                <li key={ex.id} className="flex items-baseline gap-2 text-body text-sm">
+                  <span className="text-aux w-4 shrink-0">{i+1}</span>
+                  <span className="flex-1 min-w-0 truncate">{ex.name}</span>
+                  <span className="text-aux shrink-0">{ex.sets}×{ex.reps}{ex.weight ? ` · ${ex.weight}kg` : ''}{ex.restSec ? ` · ⏱${ex.restSec}s` : ''}{ex.seriesType && ex.seriesType!=='Normal' ? ` · ${ex.seriesType}` : ''}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+          <p className="text-aux text-textMuted mt-2">Solo plan — no inicia entrenamiento. Se comienza exclusivamente con ENTRENAR.</p>
         </div>
       </div>
 

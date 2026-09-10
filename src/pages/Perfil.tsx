@@ -5,17 +5,17 @@ import { Link } from 'react-router-dom'
 import { exportJSON, exportCSV, downloadBlob, importJSON, exportPDF } from '@/services/storage/export'
 import * as Push from '@/services/notifications/push'
 import * as Sync from '@/services/sync/queue'
-import { applyAppearance } from '@/App'
+import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearance } from '@/utils/appearance'
 
 export default function Perfil(){
   const [profile,setProfile]=useState<any>(null)
   const [form,setForm]=useState({ age:'', sex:'', heightCm:'', weightKg:'', targetWeightKg:'', bodyFatPct:'', muscleMassKg:'', waistCm:'', chestCm:'', activityLevel:'moderado' })
   const [history,setHistory]=useState<any[]>([])
-  const [theme,setTheme]=useState(()=>{ try{ return localStorage.getItem('althea:theme') || 'dark' }catch{ return 'dark' } })
-  const [textScale,setTextScale]=useState(()=>{ try{ return localStorage.getItem('althea:textscale') || 'm' }catch{ return 'm' } })
-  const setAppearance = (t:string, s:string)=>{
+  const [theme,setTheme]=useState(getTheme)
+  const [textScale,setTextScale]=useState(getTextScale)
+  const setAppearance = (t:'dark'|'light', s:'s'|'m'|'l')=>{
     setTheme(t); setTextScale(s)
-    try{ localStorage.setItem('althea:theme', t); localStorage.setItem('althea:textscale', s) }catch{ /* noop */ }
+    saveAppearance(t, s)
     applyAppearance()
   }
 

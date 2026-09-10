@@ -77,4 +77,13 @@ describe('regla contra inconsistencias (§12)', () => {
     const done = [{ status: 'COMPLETED' }] as SessionExercise[]
     expect(validateBeforeFinish(s, done)).toContain('PARTIAL sin pendientes identificados')
   })
+  it('COMPLETED válido no reporta errores', () => {
+    const s = { ...base, startedAt: 'x', routineId: 'r1' } as TrainingSession
+    expect(validateBeforeFinish(s, [{ status: 'COMPLETED' }] as SessionExercise[])).toEqual([])
+  })
+  it('PARTIAL con SKIPPED identificado es válido', () => {
+    const s = { ...base, startedAt: 'x', sessionStatus: 'PARTIAL' } as TrainingSession
+    const items = [{ status: 'COMPLETED' }, { status: 'SKIPPED' }] as SessionExercise[]
+    expect(validateBeforeFinish(s, items)).toEqual([])
+  })
 })

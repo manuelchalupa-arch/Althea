@@ -413,6 +413,8 @@ export default function Entrenar(){
     await replaceSessionExercise(seId, newEx.id, reason, swapComment || undefined)
     saveDecision({ date: today, type:'swap', exercise: cur.name, reason:`Cambiado a ${newEx.name}: ${reason}`, contextSnapshot:{ from:cur.exId, to:newEx.id }} as never)
     setExs(prev=> prev.map((ex,i)=> i===current ? { ...ex, exId: newEx.id, name: newEx.name, muscle: newEx.muscle, gifUrl: newEx.gifUrl, swappedFrom: cur.exId, replaced: true, plannedSets: ex.plannedSets ?? ex.sets, seId } : ex ))
+    setLogs((p)=>{ const n={...p}; delete n[current]; return n })
+    setDone((p)=>{ const n={...p}; delete n[current]; return n })
     setShowSwap(false)
     setSwapOptions([])
     setSwapReason(''); setSwapComment('')
@@ -819,6 +821,7 @@ export default function Entrenar(){
     const { addExtraSet } = await import('@/services/training/sessionStore')
     await addExtraSet(seId, cur.reps, cur.weight, 'NORMAL').catch(()=>null)
     setExs(prev => prev.map((ex, i) => i === current ? { ...ex, sets: ex.sets + 1 } : ex))
+    setDone((p)=>{ const n={...p}; delete n[current]; return n })
   }
 
   // Agregar ejercicio EXTRA (no planificado, §22): picker del mismo grupo + motivo.
@@ -843,7 +846,7 @@ export default function Entrenar(){
     await logEvent(session.sessionId, 'EXERCISE_ADDED', { metadata: { reason: addExReason.trim(), comment: addExComment.trim() || undefined } }).catch(()=>null)
     saveDecision({ date: today, type:'modify', exercise: opt.name, reason:`EXTRA: ${addExReason.trim()}`, contextSnapshot:{} } as never)
     setExs(prev => [...prev, { exId: opt.id, name: opt.name, sets: 3, reps: 10, weight: 20, muscle: opt.muscle, gifUrl: opt.gifUrl, plannedSets: 0, seId: created.sessionExerciseId, extra: true }])
-    setSeIdByIndex(prev => ({ ...prev, [exs.length]: created.sessionExerciseId }))
+    setSeIdByIndex(prev => ({ ...prev, [Object.keys(prev).length]: created.sessionExerciseId }))
     setShowAddEx(false)
     setAddExReason(''); setAddExComment('')
   }

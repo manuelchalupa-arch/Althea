@@ -127,7 +127,10 @@ export default function Biblioteca(){
       <div className="grid gap-3">
         {filtered.map(ex=>(
           <div key={ex.id} onClick={()=>setDetail(ex)} className="rounded-xl bg-surface border border-border overflow-hidden cursor-pointer active:bg-bg">
-            <img src={ex.gifUrl} alt={ex.name} loading="lazy" className="w-full h-44 object-cover bg-bg border-b border-border" />
+            <div className="relative w-full aspect-[4/3] bg-bg border-b border-border flex items-center justify-center">
+              <span className="absolute text-aux">GIF no disponible</span>
+              {ex.gifUrl ? <img src={ex.gifUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative w-full h-full object-contain" /> : null}
+            </div>
             <div className="p-3">
               <div className="text-body font-medium">{ex.name}</div>
               <div className="text-aux text-textMuted">{ex.muscle} · {ex.equipment} · {ex.bodyPart}</div>
@@ -146,7 +149,10 @@ export default function Biblioteca(){
       {detail && (
         <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setDetail(null)}>
           <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg lg:max-w-3xl max-h-[85vh] overflow-auto">
-            <img src={detail.gifUrl} alt={detail.name} className="w-full h-56 object-cover border-b border-border" />
+            <div className="relative w-full bg-black/40 border-b border-border flex items-center justify-center min-h-[240px] p-2">
+              <span className="absolute text-aux">GIF no disponible</span>
+              {detail.gifUrl ? <img src={detail.gifUrl} alt={detail.name} onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative max-w-full w-auto h-auto max-h-[55vh] object-contain" /> : null}
+            </div>
             <div className="p-4 space-y-3">
               <h2 className="text-subtitle">{detail.name}</h2>
               <p className="text-aux text-textMuted">{detail.muscle} · {detail.bodyPart} · {detail.equipment} · {detail.category}</p>

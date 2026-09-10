@@ -29,6 +29,13 @@ describe('métricas recalculables (§35-39)', () => {
     const v = volumeOf([sr(), sr({ order: 2, status: 'SKIPPED' }), sr({ order: 3, status: 'PENDING' })])
     expect(v).toEqual({ reps: 10, volume: 500 })
   })
+  it('sin datos devuelve ceros (sin NaN)', () => {
+    const c = completionOf([], [])
+    expect(c).toEqual({ exPct: 0, setPct: 0, completedEx: 0, plannedEx: 0, completedSets: 0, plannedSets: 0 })
+    expect(volumeOf([])).toEqual({ reps: 0, volume: 0 })
+    expect(muscleWorkOf([], () => ({ primary: 'x', secondary: [] }))).toEqual([])
+    expect(progressVsLast(null, null)).toBeNull()
+  })
 
   it('trabajo muscular solo ejecutado, con ponderación', () => {
     const sets = [sr({ exerciseId: 'press' })]
