@@ -54,6 +54,7 @@ export default function Entrenar(){
   const [skipReason,setSkipReason]=useState('')
   // Estados para FINALIZAR ENTRENAMIENTO + máquina de estados
   const [showFinishModal,setShowFinishModal]=useState(false)
+  const [isSaving,setIsSaving]=useState(false)
   const [finishSurvey,setFinishSurvey]=useState<Record<string,any>>({
     energy: 5, fatigue: 5, pain: 0, mood: 5,
     motivation: 5, effort: 5, stress: 5,
@@ -569,17 +570,39 @@ export default function Entrenar(){
   // Cierre atomico COMPLETING -> COMPLETED/PARTIAL. Si falla el guardado NO finaliza.
   // Cierre atomico COMPLETING -> COMPLETED/PARTIAL (§17: si falla, queda COMPLETING y reintentable).
   const confirmFinish = async () => {
+    if(isSaving) return
+    setIsSaving(true)
     setFinishError('')
     try{
-      if(!session){ throw new Error('Sin sesión activa: recargá la pestaña Entrenamiento antes de finalizar.') }
       const store = await import('@/services/training/sessionStore')
-      const seList = await store.getSessionExercises(session.sessionId)
+      // 0) Resolver sesion aunque el estado local se haya perdido (recarga, foco, etc.)
+      let sess = session
+      const targetId = sess?.sessionId || sessionId
+      if(!sess && targetId){
+        sess = await store.getSession(targetId).catch(()=>null)
+        if(sess){ setSession(sess); setSessionId(sess.sessionId) }
+      }
+      if(!sess){
+        // Recuperacion: crea la sesion desde lo visible para no perder el trabajo
+        if(!routineId || exs.length===0) throw new Error('Sin sesión activa: recargá la pestaña Entrenamiento antes de finalizar.')
+        const created = await store.createSession({ routineId, routineName: rutinaName||'Rutina', plannedDay: plannedDayN, plannedDayName: plannedName||null, actualDay: actualDayN, actualDayName: dayName||null, calendarDate: today, weekNumber, plannedExercises: exs.map(x=>({exId:x.exId,name:x.name,sets:x.plannedSets??x.sets,reps:x.reps,weight:x.weight,muscle:x.muscle,gifUrl:x.gifUrl})) })
+        sess = await store.transitionSession(created.sessionId,'IN_PROGRESS')
+        setSession(sess); setSessionId(sess.sessionId)
+      }
+      // Asegurar COMPLETING de forma idempotente antes de cerrar
+      const fresh0 = await store.getSession(sess.sessionId).catch(()=>null)
+      if(fresh0 && (fresh0.sessionStatus==='IN_PROGRESS'||fresh0.sessionStatus==='PAUSED'||fresh0.sessionStatus==='READY')){
+        sess = await store.transitionSession(sess.sessionId,'COMPLETING'); setSession(sess); setSessionStatus('COMPLETING')
+      } else if(fresh0 && fresh0.sessionStatus!=='COMPLETING'){
+        throw new Error(`La sesión está en estado ${fresh0.sessionStatus}: no se puede finalizar desde ahí.`)
+      }
+      const seList = await store.getSessionExercises(sess.sessionId)
       const allSets: import('@/services/training/domain').SetRecord[] = []
       for(const se of seList){ const rs = await store.getSetRecords(se.sessionExerciseId).catch(()=>[]); allSets.push(...rs) }
       const s = computeSummary()
       for(const i of s.pendingIdx){
         const pr = pendingReasons[i]
-        if(!pr || !pr.reason){ setFinishError(`Falta motivo para "${exs[i]?.name || 'ejercicio'}".`); return }
+        if(!pr || !pr.reason){ setFinishError(`Falta motivo para "${exs[i]?.name || 'ejercicio'}".`); setIsSaving(false); return }
       }
       // pendientes declarados -> SKIPPED con motivo (conserva series hechas, §6)
       for(const i of s.pendingIdx){
@@ -590,7 +613,7 @@ export default function Entrenar(){
       const { validateSurvey } = await import('@/services/training/domain')
       const fs = finishSurvey || {}
       const surveyInput = {
-        sessionId: session.sessionId, userId: 'me', calendarDate: today,
+        sessionId: sess.sessionId, userId: 'me', calendarDate: today,
         energy: Number(fs.energy ?? 5), fatigue: Number(fs.fatigue ?? 5),
         pain: Number(fs.pain ?? 0), mood: Number(fs.mood ?? 5),
         motivation: Number(fs.motivation ?? 5), perceivedExertion: Number(fs.effort ?? 5),
@@ -598,20 +621,20 @@ export default function Entrenar(){
         painArea: String(fs.painZone || ''), painObservation: String(fs.painDetail || fs.generalObservation || ''),
       }
       const surveyErrs = validateSurvey(surveyInput)
-      if(surveyErrs.length>0){ setFinishError('Encuesta incompleta: ' + surveyErrs.join(', ')); return }
+      if(surveyErrs.length>0){ setFinishError('Encuesta incompleta: ' + surveyErrs.join(', ')); setIsSaving(false); return }
       const status = (s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'COMPLETED' : 'PARTIAL'
       // 1) encuesta primero (fuente única PostWorkoutSurvey)
       const survey = await store.saveSurvey(surveyInput)
       // 2) contadores recalculados desde registros (no de la vista)
       const { completionOf, volumeOf } = await import('@/services/training/metrics')
-      const freshSE = await store.getSessionExercises(session.sessionId)
+      const freshSE = await store.getSessionExercises(sess.sessionId)
       const freshSets: import('@/services/training/domain').SetRecord[] = []
       for(const se of freshSE){ freshSets.push(...await store.getSetRecords(se.sessionExerciseId).catch(()=>[])) }
       const comp = completionOf(freshSE, freshSets)
       const vol = volumeOf(freshSets)
       const changedRaw = localStorage.getItem(`session:changed:${today}`)
       const changed = changedRaw ? JSON.parse(changedRaw) as { changeReason?: string; changeComment?: string } : null
-      await store.updateSession(session.sessionId, {
+      await store.updateSession(sess.sessionId, {
         completedExerciseCount: comp.completedEx,
         skippedExerciseCount: freshSE.filter(e=> e.status==='SKIPPED').length,
         modifiedExerciseCount: s.modified,
@@ -622,17 +645,17 @@ export default function Entrenar(){
         actualMuscleGroups: Array.from(new Set(exs.map(e=> e.muscle || 'general'))),
         generalObservation: String(fs.generalObservation || ''),
         surveyId: survey.surveyId,
-        dayChange: (changed?.changeReason || session.dayChange?.reason) ? { reason: changed?.changeReason || session.dayChange?.reason || '', comment: changed?.changeComment ?? session.dayChange?.comment, at: new Date().toISOString() } : session.dayChange,
+        dayChange: (changed?.changeReason || sess.dayChange?.reason) ? { reason: changed?.changeReason || sess.dayChange?.reason || '', comment: changed?.changeComment ?? sess.dayChange?.comment, at: new Date().toISOString() } : sess.dayChange,
       })
       // 3) Tanner: regla §12 antes de transicionar
       const { validateBeforeFinish } = await import('@/services/training/domain')
-      const cur = await store.getSession(session.sessionId)
+      const cur = await store.getSession(sess.sessionId)
       if(!cur) throw new Error('La sesión desapareció del almacén.')
-      const items = await store.getSessionExercises(session.sessionId)
+      const items = await store.getSessionExercises(sess.sessionId)
       const preErrs = validateBeforeFinish({ ...cur, sessionStatus: status }, items)
       if(preErrs.length>0) throw new Error(preErrs.join(' · '))
       // 4) transicion final + semana + memoria (si algo falla acá, el catch mantiene COMPLETING)
-      await store.transitionSession(session.sessionId, status)
+      await store.transitionSession(sess.sessionId, status)
       try{
         const seqId = `seq-${routineId}-w${weekNumber}`
         const prev: unknown = await db.table('weeklySequences').get(seqId).catch(()=>null)
@@ -640,9 +663,9 @@ export default function Entrenar(){
         const done_days = Array.from(new Set([...(p.completedDays||[]), ...(actualDayN!=null?[actualDayN]:[])]))
         await db.table('weeklySequences').put({ id: seqId, cycleId: routineId, weekNumber, plannedDays: p.plannedDays||[], completedDays: done_days, partialDays: status==='PARTIAL' ? [...(p.partialDays||[]), ...(actualDayN!=null?[actualDayN]:[])] : (p.partialDays||[]), createdAt: p.createdAt || new Date().toISOString() } as never)
       }catch{ /* noop */ }
-      try{ await db.table('coachMemory').put({ id: `obs-${today}`, type: 'observation', date: today, sessionId: session.sessionId, sessionStatus: status, routineName: rutinaName, ...({}) } as never) }catch{ /* noop */ }
+      try{ await db.table('coachMemory').put({ id: `obs-${today}`, type: 'observation', date: today, sessionId: sess.sessionId, sessionStatus: status, routineName: rutinaName, ...({}) } as never) }catch{ /* noop */ }
       for(const ex of exs){ try{ localStorage.removeItem(`exstate:${today}:${ex.exId}`) }catch{ /* noop */ } }
-      try{ localStorage.setItem(`althea:result:${today}`, JSON.stringify({ date: today, sessionId: session.sessionId, sessionStatus: status, exPct: s.exPct, setPct: s.setPct, completedEx: s.completedEx, plannedEx: s.plannedEx, completedSets: s.completedSets, plannedSets: s.plannedSets, totalVol: s.totalVol, totalReps: s.totalReps, durMin: s.durMin, survey: { energy: Number(fs.energy??5), fatigue: Number(fs.fatigue??5), pain: Number(fs.pain??0), mood: Number(fs.mood??5) }, highlights: Object.values(progressLines) })) }catch{ /* noop */ }
+      try{ localStorage.setItem(`althea:result:${today}`, JSON.stringify({ date: today, sessionId: sess.sessionId, sessionStatus: status, exPct: s.exPct, setPct: s.setPct, completedEx: s.completedEx, plannedEx: s.plannedEx, completedSets: s.completedSets, plannedSets: s.plannedSets, totalVol: s.totalVol, totalReps: s.totalReps, durMin: s.durMin, survey: { energy: Number(fs.energy??5), fatigue: Number(fs.fatigue??5), pain: Number(fs.pain??0), mood: Number(fs.mood??5) }, highlights: Object.values(progressLines) })) }catch{ /* noop */ }
       try{ if(navigator.vibrate) navigator.vibrate([20,40,20]) }catch{ /* noop */ }
       localStorage.removeItem(`session:active:${today}`)
       try{
@@ -651,8 +674,9 @@ export default function Entrenar(){
       }catch{ /* noop */ }
       setSessionStatus(status)
       setShowFinishModal(false)
+      setIsSaving(false)
       saveDecision({ date: today, type: status==='COMPLETED'?'accept':'skip', exercise: `Sesión ${rutinaName}`, reason: `Finalizada ${status} — Ej ${s.completedEx}/${s.plannedEx} (${s.exPct}%), Series ${s.completedSets}/${s.plannedSets} (${s.setPct}%)`, contextSnapshot:{} } as never)
-    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'Error al guardar. Reintentá sin perder datos.') }
+    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'Error al guardar. Reintentá sin perder datos.'); setIsSaving(false) }
   }
 
   // COMENZAR: READY existente -> IN_PROGRESS, o plan pendiente -> crea (recupera activa, §10).
@@ -1261,8 +1285,8 @@ export default function Entrenar(){
 
               {finishError && <p className="text-sm text-red-400">{finishError}</p>}
 
-              <button onClick={confirmFinish} className="w-full py-3 rounded-xl bg-action text-textMain font-medium">
-                {(s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'Confirmar — COMPLETED' : `Confirmar — PARTIAL (${s.exPct}%)`}
+              <button onClick={confirmFinish} disabled={isSaving} className="w-full py-3 rounded-xl bg-action text-textMain font-medium disabled:opacity-50">
+                {isSaving ? 'Guardando…' : ((s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'Confirmar — COMPLETED' : `Confirmar — PARTIAL (${s.exPct}%)`)}
               </button>
               <button onClick={async()=>{ try{ const store = await import('@/services/training/sessionStore'); const targetId = session?.sessionId || sessionId; if(targetId){ const cur = await store.getSession(targetId).catch(()=>null); if(cur && cur.sessionStatus==='COMPLETING'){ const nx = await store.transitionSession(targetId,'IN_PROGRESS'); setSession(nx); setSessionStatus('IN_PROGRESS') } } }catch{ /* noop */ } setShowFinishModal(false) }} className="w-full py-2 rounded-xl bg-surface border border-border text-aux">Volver al entrenamiento</button>
             </div>
