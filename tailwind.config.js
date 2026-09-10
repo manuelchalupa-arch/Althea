@@ -1,23 +1,32 @@
 /** @type {import('tailwindcss').Config} */
+// Design tokens Althea: los valores viven en CSS vars (index.css).
+// :root = dark navy · .light = sand. Mismo producto, dos temas.
+const v = (name) => `rgb(var(${name}) / <alpha-value>)`;
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
-        bg: '#0B1014',
-        surface: '#1F272A',
-        card: '#1F272A',
-        accentDark: '#144D37',
-        accentDark2: '#155037',
-        action: '#1E3A5F',
-        info: '#38BDF0',
-        border: '#263034',
-        textMain: '#F1F5F3',
-        textMuted: '#A8B2B0',
-        disabled: '#7A8B8A',
-        disabledBg: '#2A3538'
+        bg: v('--bg'),
+        surface: v('--surface'),
+        card: v('--surface'),
+        elevated: v('--surface-2'),
+        accentDark: v('--tint'),
+        accentDark2: v('--tint'),
+        action: v('--primary'),
+        primary: v('--primary'),
+        info: v('--info'),
+        success: v('--success'),
+        warning: v('--warning'),
+        danger: v('--danger'),
+        border: v('--border'),
+        textMain: v('--text'),
+        textMuted: v('--text-2'),
+        textFaint: v('--text-3'),
+        disabled: v('--text-3'),
+        disabledBg: v('--surface-2')
       },
-      borderRadius: { md: '8px', lg: '12px', xl: '16px', '2xl': '20px' },
+      borderRadius: { md: '6px', lg: '8px', xl: '10px', '2xl': '12px' },
       fontFamily: { sans: ['Roboto','system-ui','sans-serif'] },
       spacing: { '4': '4px','8':'8px','12':'12px','16':'16px','20':'20px','24':'24px','32':'32px' }
     }

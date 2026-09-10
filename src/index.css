@@ -2,19 +2,115 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============ ALTHEA DESIGN TOKENS ============ */
+/* Dark: Deep Navy family · Light: Sand family. Roles semánticos idénticos. */
+:root {
+  --bg: 10 15 30;          /* deep navy */
+  --bg-2: 14 21 38;        /* navy ink */
+  --surface: 20 29 51;     /* surface */
+  --surface-2: 26 37 64;   /* elevated */
+  --tint: 20 46 66;        /* subtle tint (ex accentDark) */
+  --border: 38 51 79;      /* steel blue dim */
+  --text: 237 241 247;
+  --text-2: 154 167 189;   /* steel blue */
+  --text-3: 103 116 142;   /* dusk blue */
+  --primary: 58 123 192;   /* ocean blue */
+  --info: 56 189 240;
+  --success: 47 163 107;
+  --warning: 201 138 43;
+  --danger: 208 85 85;
+  --navw: 208px;
+  --navw-collapsed: 60px;
+}
+.light {
+  --bg: 244 239 230;       /* ivory sand */
+  --bg-2: 237 229 213;     /* light sand */
+  --surface: 249 246 238;  /* soft beige */
+  --surface-2: 255 255 255;
+  --tint: 232 224 205;     /* golden sand tint */
+  --border: 220 210 190;
+  --text: 42 38 32;
+  --text-2: 110 100 85;
+  --text-3: 154 143 125;
+  --primary: 31 92 140;
+  --info: 14 116 144;
+  --success: 30 122 76;
+  --warning: 154 107 26;
+  --danger: 178 58 58;
+}
+
+/* Tamaño de texto global: S 87.5% · M 100% · L 112.5% */
+html[data-textscale="s"] { font-size: 87.5%; }
+html[data-textscale="m"] { font-size: 100%; }
+html[data-textscale="l"] { font-size: 112.5%; }
+
 * { -webkit-tap-highlight-color: transparent; }
 html { scrollbar-gutter: stable; }
-body { overscroll-behavior-y: contain; background:#0B1014; color:#F1F5F3; }
+body { overscroll-behavior-y: contain; background: rgb(var(--bg)); color: rgb(var(--text)); }
 
 /* bottom nav safe area */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-::placeholder { color: #A8B2B0; opacity: 1; }
-input:disabled, select:disabled { color: #F1F5F3; background: #2A3538; }
+::placeholder { color: rgb(var(--text-2)); opacity: 1; }
+input:disabled, select:disabled { color: rgb(var(--text)); background: rgb(var(--surface-2)); }
 
-/* agenda typography scale per maestro */
-.text-title { font-size:28px; font-weight:700; line-height:1.1; }
-.text-section { font-size:20px; font-weight:600; }
-.text-subtitle { font-size:16px; font-weight:500; }
-.text-body { font-size:16px; font-weight:400; }
-.text-muted { font-size:13px; color:#A8B2B0; }
-.text-aux { font-size:12px; color:#A8B2B0; }
+/* ============ TIPOGRAFÍA (rem: escala con ajuste de texto) ============ */
+.text-title { font-size: 1.75rem; font-weight: 700; line-height: 1.1; }
+.text-section { font-size: 1.25rem; font-weight: 600; }
+.text-subtitle { font-size: 1rem; font-weight: 500; }
+.text-body { font-size: 1rem; font-weight: 400; }
+.text-muted { font-size: 0.8125rem; color: rgb(var(--text-2)); }
+.text-aux { font-size: 0.75rem; color: rgb(var(--text-2)); }
+
+/* ============ COMPONENTES ============ */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: rgb(var(--primary)); color: #fff;
+  font-weight: 600; border-radius: 8px;
+  padding: 12px 16px;
+}
+.btn-primary:active { filter: brightness(1.12); }
+.btn-primary:disabled { opacity: .5; }
+.btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: rgb(var(--surface)); color: rgb(var(--text));
+  border: 1px solid rgb(var(--border)); font-weight: 500; border-radius: 8px;
+  padding: 10px 14px;
+}
+.btn-secondary:active { background: rgb(var(--surface-2)); }
+.card {
+  background: rgb(var(--surface)); border: 1px solid rgb(var(--border));
+  border-radius: 10px;
+}
+.input {
+  background: rgb(var(--bg-2)); border: 1px solid rgb(var(--border));
+  border-radius: 8px; color: rgb(var(--text)); padding: 10px 12px; width: 100%;
+}
+.input:focus { outline: 2px solid rgb(var(--info)); outline-offset: 0; border-color: transparent; }
+
+/* ============ ESTADOS GLOBALES (§33) ============ */
+.st-completed { background: rgb(var(--success) / .14); border-color: rgb(var(--success) / .45); color: rgb(var(--success)); }
+.st-pending { background: rgb(var(--surface)); border-color: rgb(var(--border)); color: rgb(var(--text-3)); }
+.st-skipped { background: rgb(var(--warning) / .12); border-color: rgb(var(--warning) / .45); color: rgb(var(--warning)); }
+.st-cancelled, .st-abandoned { background: transparent; border-color: rgb(var(--border)); color: rgb(var(--text-3)); }
+.st-partial { background: rgb(var(--info) / .12); border-color: rgb(var(--info) / .45); color: rgb(var(--info)); }
+.st-active { border-color: rgb(var(--primary)); }
+.st-error-text { color: rgb(var(--danger)); }
+.st-success-text { color: rgb(var(--success)); }
+
+/* Foco visible global */
+:focus-visible { outline: 2px solid rgb(var(--info)); outline-offset: 2px; }
+
+/* Haptic visual: pulso corto al confirmar (clase toggleada desde JS) */
+@keyframes pulse-confirm { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
+.flash-confirm { animation: pulse-confirm .25s ease-out; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.fade-in { animation: fade-in .2s ease-out; }
+
+/* Movimiento reducido: sin animaciones no esenciales */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* Utilidad: oculta scrollbar horizontal del nav */
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }

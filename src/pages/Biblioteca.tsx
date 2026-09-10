@@ -65,7 +65,7 @@ export default function Biblioteca(){
   )
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto space-y-3">
+    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="text-section">Biblioteca</h1>
         <span className="text-aux bg-surface border border-border px-2 py-1 rounded-full flex items-center gap-1"><Globe size={12}/> 1323 ejercicios</span>
@@ -145,7 +145,7 @@ export default function Biblioteca(){
       {/* Detalle solo informativo */}
       {detail && (
         <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setDetail(null)}>
-          <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg max-h-[85vh] overflow-auto">
+          <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg lg:max-w-3xl max-h-[85vh] overflow-auto">
             <img src={detail.gifUrl} alt={detail.name} className="w-full h-56 object-cover border-b border-border" />
             <div className="p-4 space-y-3">
               <h2 className="text-subtitle">{detail.name}</h2>

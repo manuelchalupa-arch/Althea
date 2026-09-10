@@ -103,7 +103,7 @@ export default function Nutricion(){
   }
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto space-y-4">
+    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-section flex items-center gap-2"><Apple size={20} className="text-action"/> Nutrición</h1>
         <a href="https://codulia.com" target="_blank" rel="noreferrer" className="text-aux text-info flex items-center gap-1">Codulia <ExternalLink size={12}/></a>

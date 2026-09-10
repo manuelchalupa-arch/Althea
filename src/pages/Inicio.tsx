@@ -63,7 +63,7 @@ export default function Inicio(){
   return (
     <div className="min-h-screen bg-bg pb-24">
       {/* Header agenda */}
-      <div className="px-4 pt-6 pb-4 max-w-lg mx-auto">
+      <div className="px-4 pt-6 pb-4 max-w-lg lg:max-w-3xl mx-auto">
         <div className="flex justify-between items-start">
           <div>
             <div className="text-title tracking-tight">{dayName} {dayNum}</div>
@@ -92,7 +92,7 @@ export default function Inicio(){
       </div>
 
       {/* Contenido principal */}
-      <div className="px-4 max-w-lg mx-auto space-y-3">
+      <div className="px-4 max-w-lg lg:max-w-3xl mx-auto space-y-3">
         {isRest ? (
           <>
             <div className="rounded-xl bg-surface border border-border p-3">
@@ -182,7 +182,7 @@ export default function Inicio(){
 
       {showChangeDay && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowChangeDay(false)}>
-          <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg p-4 space-y-3 max-h-[85vh] overflow-auto">
+          <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-3 max-h-[85vh] overflow-auto">
             <h3 className="text-subtitle">Cambiar entrenamiento de hoy</h3>
             {rawAgenda.isRest ? (
               <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-3">

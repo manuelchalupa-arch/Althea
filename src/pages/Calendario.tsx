@@ -61,7 +61,7 @@ export default function Calendario(){
   const todayStr = new Date().toISOString().slice(0,10)
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto space-y-4">
+    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-4">
       <h1 className="text-section">Calendario</h1>
       <div className="rounded-xl bg-surface border border-border p-3">
         <div className="text-body font-medium mb-3">{now.toLocaleDateString('es',{month:'long', year:'numeric'})}</div>
@@ -85,14 +85,14 @@ export default function Calendario(){
 
       {detail && (
         <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setDetail(null)}>
-          <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg max-h-[75vh] overflow-auto p-4 space-y-3">
+          <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg lg:max-w-3xl max-h-[75vh] overflow-auto p-4 space-y-3">
             <h3 className="text-subtitle">{detail.date} — {detail.actual}</h3>
             <p className="text-aux">Programado: {detail.scheduled} {detail.changed && `→ Realizado: ${detail.actual} (cambiado)`}</p>
             <p className="text-aux">Sesiones: {detail.sessions.length} · Hidratación: {detail.hydration} ml · Recuperación: {detail.recovery ? `${detail.recovery.score||'?'} /100` : '—'}</p>
             {detail.sessions.length>0 && (
               <div className="rounded-xl bg-surface border border-border p-3">
                 <div className="text-aux">Ejercicios registrados</div>
-                {detail.sessions.map((s:any)=> <div key={s.id} className="text-aux">{s.localDate} — {String(s.id).slice(0,8)} · {s.status || ''}{s.routineName ? ` · ${s.routineName}` : ''}</div>)}
+                {detail.sessions.map((s:any)=>{ const st = String(s.status || ''); const cls = st==='COMPLETED' ? 'st-completed' : st==='PARTIAL' ? 'st-partial' : st==='CANCELLED' ? 'st-cancelled' : st==='ABANDONED' ? 'st-abandoned' : 'st-pending'; return <div key={s.id} className="text-aux flex items-center gap-2"><span className={`px-2 py-0.5 rounded-lg border text-aux ${cls}`}>{st || '—'}</span><span>{s.localDate}{s.routineName ? ` · ${s.routineName}` : ''}</span></div> })}
               </div>
             )}
             <button onClick={()=>setDetail(null)} className="w-full py-3 rounded-xl bg-action text-textMain">Cerrar</button>

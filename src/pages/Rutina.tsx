@@ -150,7 +150,7 @@ export default function RutinaPage(){
 
   if(!active){
     return (
-      <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto">
+      <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto">
         <h1 className="text-section flex items-center gap-2"><Dumbbell size={20} className="text-action"/> Rutina</h1>
         <p className="text-aux text-textMuted mt-2">No hay rutinas guardadas.</p>
         <button onClick={()=>setShowNew(true)} className="mt-4 w-full py-3 rounded-xl bg-action text-textMain">+ Nueva rutina</button>
@@ -174,7 +174,7 @@ export default function RutinaPage(){
   const estado = daysElapsed >= active.rotationDays ? 'Revisar' : daysElapsed >= active.rotationDays*0.8 ? 'Próximo a revisar' : 'Activa'
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto space-y-4">
+    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-4">
       {/* Selector superior */}
       <div className="rounded-xl bg-surface border border-border p-3">
         <div className="text-aux">Rutina:</div>
@@ -391,7 +391,7 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
   if(muscles.length===0){
     return (
       <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={onClose}>
-        <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg p-4 space-y-3">
+        <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-3">
           <h3 className="text-body font-medium">Agregar a N°{dayN}</h3>
           <p className="text-aux">Día: <b>{dayName || 'Sin nombre'}</b> — no detectamos grupo muscular.</p>
           <p className="text-aux text-textMuted">Escribí el grupo en el nombre del día, ej: <b>Pecho + Tríceps</b>, <b>Espalda</b>, <b>Piernas</b>.</p>
@@ -403,7 +403,7 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg max-h-[80vh] overflow-auto p-4 space-y-3">
+      <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg lg:max-w-3xl max-h-[80vh] overflow-auto p-4 space-y-3">
         <h3 className="text-subtitle">Agregar ejercicio</h3>
         <div className="text-aux">Día: <b>{dayName}</b> → {muscles.map(m=> displayMuscle(m)).join(' + ')} <span className="text-textMuted">({muscles.join(', ')})</span></div>
         <div className="flex gap-1 flex-wrap">

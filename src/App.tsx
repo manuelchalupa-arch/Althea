@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import BottomNav from '@/components/layout/BottomNav'
+import AppNav from '@/components/layout/AppNav'
 import Inicio from '@/pages/Inicio'
 import Entrenar from '@/pages/Entrenar'
 import Progresos from '@/pages/Progreso'
@@ -34,6 +34,7 @@ function Layout(){
   },[loc.pathname])
   return (
     <>
+      <div className="md:pl-[var(--navw)]">
       <Routes>
         <Route path="/" element={<Inicio/>} />
         <Route path="/entrenar" element={<Entrenar/>} />
@@ -50,7 +51,8 @@ function Layout(){
         <Route path="/recuperacion" element={<Recuperacion/>} />
         <Route path="/perfil" element={<Perfil/>} />
       </Routes>
-      {!hideNav && <BottomNav/>}
+      </div>
+      {!hideNav && <AppNav/>}
       {updateReady && <div className="fixed top-2 left-2 right-2 bg-amber-500 text-black text-sm p-3 rounded-xl text-center">Nueva versión disponible — recargá la app</div>}
       <OnlineBanner/>
     </>
@@ -67,9 +69,18 @@ function OnlineBanner(){
   return <div className="fixed top-0 left-0 right-0 bg-slate-800 text-xs text-center py-1 border-b border-slate-700">Modo offline — todo funciona localmente</div>
 }
 
+export function applyAppearance(){
+  try{
+    const theme = localStorage.getItem('althea:theme') || 'dark'
+    document.documentElement.classList.toggle('light', theme === 'light')
+    document.documentElement.dataset.textscale = localStorage.getItem('althea:textscale') || 'm'
+  }catch{ /* noop */ }
+}
+
 export default function App(){
   const [ready,setReady]=useState(false)
   useEffect(()=>{
+    applyAppearance()
     db.open().then(()=>setReady(true))
   },[])
   if(!ready) return <div className="p-8 text-center">Cargando…</div>

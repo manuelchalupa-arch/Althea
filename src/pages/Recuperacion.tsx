@@ -52,7 +52,7 @@ export default function Recuperacion(){
   }
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto space-y-4">
+    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-4">
       <h1 className="text-section">Recuperación</h1>
       <div className={`rounded-xl p-5 text-center border ${color==='green'?'bg-emerald-900/30 border-emerald-800':color==='yellow'?'bg-amber-900/30 border-amber-800':'bg-red-900/30 border-red-800'}`}>
         <div className="text-aux opacity-70">RECUPERACIÓN</div>

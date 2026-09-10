@@ -63,7 +63,7 @@ export default function Coach(){
   const info = aiService.getModelInfo()
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto space-y-3">
+    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-3">
       <h1 className="text-section">Coach IA</h1>
 
       {/* Estado IA local */}
@@ -102,7 +102,7 @@ export default function Coach(){
 
             {showModify && (
               <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowModify(false)}>
-                <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg p-4 space-y-3">
+                <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-3">
                   <h3 className="text-subtitle">¿Qué querés modificar?</h3>
                   <div className="grid grid-cols-2 gap-2">
                     {['Tiempo disponible','Intensidad','Ejercicios','Cantidad','Dificultad','Equipamiento'].map(o=>(
@@ -123,7 +123,7 @@ export default function Coach(){
             )}
             {showReject && (
               <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowReject(false)}>
-                <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg p-4 space-y-3">
+                <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-3">
                   <h3 className="text-subtitle">¿Por qué rechazás?</h3>
                   {['No tengo tiempo','No tengo energía','No puedo hacer esos ejercicios','No tengo equipamiento','No quiero entrenar hoy','Otro'].map(m=>(
                     <button key={m} onClick={()=>setRejectMotive(m)} className={`w-full p-2 rounded-xl border text-left text-aux ${rejectMotive===m?'bg-action text-textMain border-action':'bg-surface border-border'}`}>{m}</button>

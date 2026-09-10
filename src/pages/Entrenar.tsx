@@ -38,6 +38,11 @@ export default function Entrenar(){
   const [rutinaName,setRutinaName]=useState('Rutina')
   const [dayName,setDayName]=useState('')
   const [restSec,setRestSec]=useState(0)
+  const [restPaused,setRestPaused]=useState(false)
+  const [restFlash,setRestFlash]=useState(false)
+  const restPausedRef=useRef(false)
+  const restSecRef=useRef(0)
+  restSecRef.current = restSec
   const [showModify,setShowModify]=useState(false)
   const [mod,setMod]=useState({weight:0,reps:0,sets:0, seriesType:'normal'})
   const [showObservation,setShowObservation]=useState(false)
@@ -260,7 +265,7 @@ export default function Entrenar(){
     window.addEventListener('storage', onStorage)
     window.addEventListener('focus', onFocus)
     window.addEventListener('routineChange', onCustom as any)
-    const id = setInterval(()=> setRestSec(s=> s>0 ? s-1 : 0), 1000)
+    const id = setInterval(()=>{ if(restPausedRef.current) return; if(restSecRef.current>0){ restSecRef.current -= 1; setRestSec(restSecRef.current); if(restSecRef.current===0) setRestFlash(true) } }, 1000)
     return ()=>{ clearInterval(id); window.removeEventListener('storage', onStorage); window.removeEventListener('focus', onFocus); window.removeEventListener('routineChange', onCustom as any) }
   },[])
 
@@ -327,7 +332,7 @@ export default function Entrenar(){
     if(doneCount>=plannedCount && plannedCount>0){
       setDone({...done, [current]: true})
       saveDecision({ date: today, type:'accept', exercise: cur.name, reason: coach?.reason, contextSnapshot:{weight:w,reps:r}} as never)
-      setRestSec(90)
+      setRestSec(90); setRestFlash(false); setRestPaused(false); restPausedRef.current=false; try{ if(navigator.vibrate) navigator.vibrate(12) }catch{ /* noop */ }
       if(current < exs.length-1){
         setTimeout(()=>{ setCurrent(current+1); nextCoach(current+1) }, 800)
       }
@@ -637,6 +642,8 @@ export default function Entrenar(){
       }catch{ /* noop */ }
       try{ await db.table('coachMemory').put({ id: `obs-${today}`, type: 'observation', date: today, sessionId: session.sessionId, sessionStatus: status, routineName: rutinaName, ...({}) } as never) }catch{ /* noop */ }
       for(const ex of exs){ try{ localStorage.removeItem(`exstate:${today}:${ex.exId}`) }catch{ /* noop */ } }
+      try{ localStorage.setItem(`althea:result:${today}`, JSON.stringify({ date: today, sessionId: session.sessionId, sessionStatus: status, exPct: s.exPct, setPct: s.setPct, completedEx: s.completedEx, plannedEx: s.plannedEx, completedSets: s.completedSets, plannedSets: s.plannedSets, totalVol: s.totalVol, totalReps: s.totalReps, durMin: s.durMin, survey: { energy: Number(fs.energy??5), fatigue: Number(fs.fatigue??5), pain: Number(fs.pain??0), mood: Number(fs.mood??5) }, highlights: Object.values(progressLines) })) }catch{ /* noop */ }
+      try{ if(navigator.vibrate) navigator.vibrate([20,40,20]) }catch{ /* noop */ }
       localStorage.removeItem(`session:active:${today}`)
       try{
         const { clearActiveSession } = await import('@/services/training/sessionMachine')
@@ -821,7 +828,7 @@ export default function Entrenar(){
     const rp = readyPlan
     return (
       <div className="min-h-screen bg-bg pb-24">
-        <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+        <div className="max-w-lg lg:max-w-3xl mx-auto px-4 py-6 space-y-4">
           <div className="text-aux">ENTRENAR · {rp.routineName}</div>
           <div className="rounded-2xl bg-surface border border-border p-4 space-y-3">
             <h2 className="text-title">{rp.sessionId ? 'Sesión preparada' : 'Plan de hoy'}</h2>
@@ -871,12 +878,12 @@ export default function Entrenar(){
     )
   }
 
-  if(exs.length===0) return <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto"><p className="text-body">Hoy es descanso o sin ejercicios. Cambiá el día en Inicio.</p></div>
+  if(exs.length===0) return <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto"><p className="text-body">Hoy es descanso o sin ejercicios. Cambiá el día en Inicio.</p></div>
   return (
     <div className="min-h-screen bg-bg pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-bg border-b border-border">
-        <div className="max-w-lg mx-auto px-4 py-3">
+        <div className="max-w-lg lg:max-w-3xl mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
             <div>
               <div className="text-aux">ENTRENAR · {rutinaName}</div>
@@ -908,7 +915,8 @@ export default function Entrenar(){
           <div className="mt-2 h-2 bg-surface border border-border rounded-full overflow-hidden flex">
             {exs.map((_,i)=> <div key={i} className={`flex-1 ${done[i]?'bg-action': i===current?'bg-info':'bg-transparent'}`} />)}
           </div>
-          {restSec>0 && <div className="mt-2 flex items-center gap-2 text-aux bg-accentDark border border-border rounded-xl p-2"><Clock size={14}/> Descanso {Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')} <button onClick={()=>setRestSec(0)} className="ml-auto text-info">Saltar</button></div>}
+          {restSec>0 && <div className="mt-2 flex items-center gap-2 text-aux bg-surface border border-border rounded-xl px-2 py-1.5"><button onClick={()=>{ const v=!restPaused; setRestPaused(v); restPausedRef.current=v }} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="px-2 py-1 rounded-lg bg-bg border border-border text-body">{restPaused ? '▶' : '⏸'}</button><Clock size={14}/><span className="text-body font-medium tabular-nums">{Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</span><span>Descanso</span><span className="ml-auto flex gap-1"><button onClick={()=>setRestSec((s)=>Math.max(0,s-15))} className="px-2 py-1 rounded-lg bg-bg border border-border">−15</button><button onClick={()=>setRestSec((s)=>s+30)} className="px-2 py-1 rounded-lg bg-bg border border-border">+30</button><button onClick={()=>{ setRestSec(0); setRestFlash(false) }} className="px-2 py-1 rounded-lg bg-bg border border-border text-info">Saltar</button></span></div>}
+          {restFlash && restSec===0 && <button onClick={()=>setRestFlash(false)} className="mt-2 w-full flex items-center justify-center gap-2 text-body st-completed border rounded-xl p-2 fade-in"><Check size={14}/> Descanso terminado — a entrenar</button>}
           {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED') && (
             <div className="mt-2 flex gap-2">
               <button onClick={openCancelModal} className="flex-1 py-1.5 rounded-xl bg-surface border border-border text-aux text-sm">Cancelar sesión</button>
@@ -918,7 +926,7 @@ export default function Entrenar(){
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
+      <div className="max-w-lg lg:max-w-3xl mx-auto px-4 py-4 space-y-4">
         {resumeBanner && (
           <div className="rounded-2xl bg-amber-900/20 border border-amber-800 p-4 space-y-2">
             <div className="text-body font-medium">Tenés un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
@@ -930,12 +938,7 @@ export default function Entrenar(){
             </div>
           </div>
         )}
-        {(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') && (
-          <div className="rounded-2xl bg-accentDark border border-border p-4">
-            <div className="text-body font-medium">{sessionStatus==='COMPLETED' ? 'Entrenamiento completado — 100%' : `Entrenamiento parcial — ${exs.length ? Math.round(Object.keys(done).filter(k=>done[Number(k)]).length/exs.length*100) : 0}%`}</div>
-            <div className="text-aux">Sesión guardada en historial. Podés seguir navegando.</div>
-          </div>
-        )}
+        {(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') && <ResultPanel today={today} sessionStatus={sessionStatus} />}
         {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED') && exs.length>0 && (
           <div className="flex items-center gap-2">
             <span className={`text-aux px-3 py-1 rounded-full border ${sessionStatus==='PAUSED' ? 'bg-amber-900/20 border-amber-800 text-amber-300' : 'bg-surface border-border'}`}>Estado: {sessionStatus}</span>
@@ -1044,7 +1047,7 @@ export default function Entrenar(){
 
         {showSwap && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>{setShowSwap(false); setSwapOptions([])}}>
-            <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg p-4 space-y-3 max-h-[80vh] overflow-auto">
+            <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-3 max-h-[80vh] overflow-auto">
               <div className="flex justify-between items-center">
                 <h3 className="text-subtitle">Cambiar ejercicio — {cur?.muscle || 'mismo grupo'}</h3>
                 <button onClick={()=>{setShowSwap(false); setSwapOptions([])}} className="w-8 h-8 rounded-full bg-surface border border-border">✕</button>
@@ -1123,7 +1126,7 @@ export default function Entrenar(){
 
         {showAddEx && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowAddEx(false)}>
-            <div onClick={(e)=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg p-4 space-y-3 max-h-[80vh] overflow-auto">
+            <div onClick={(e)=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-3 max-h-[80vh] overflow-auto">
               <div className="flex justify-between items-center">
                 <h3 className="text-subtitle">Agregar ejercicio EXTRA</h3>
                 <button onClick={()=>setShowAddEx(false)} className="w-8 h-8 rounded-full bg-surface border border-border">✕</button>
@@ -1156,7 +1159,7 @@ export default function Entrenar(){
           )
           return (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-bg border border-border rounded-2xl w-full max-w-lg p-4 space-y-4 max-h-[90vh] overflow-auto">
+            <div className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-4 max-h-[90vh] overflow-auto">
               <div className="flex items-center justify-between">
                 <h3 className="text-subtitle">Finalizar entrenamiento</h3>
                 <span className="text-aux px-3 py-1 rounded-full bg-surface border border-border">COMPLETING</span>
@@ -1267,6 +1270,47 @@ export default function Entrenar(){
           )
         })()}
       </div>
+    </div>
+  )
+}
+
+function ResultPanel({ today, sessionStatus }:{ today:string; sessionStatus:string }){
+  let r: null | { exPct:number; setPct:number; completedEx:number; plannedEx:number; completedSets:number; plannedSets:number; totalVol:number; totalReps:number; durMin:number; survey:{energy:number;fatigue:number;pain:number;mood:number}; highlights:string[] } = null
+  try{ const raw = localStorage.getItem(`althea:result:${today}`); if(raw) r = JSON.parse(raw) }catch{ /* noop */ }
+  if(!r) return (
+    <div className="rounded-2xl bg-surface border border-border p-4">
+      <div className="text-body font-medium">{sessionStatus==='COMPLETED' ? 'Entrenamiento completado — 100%' : 'Entrenamiento parcial'}</div>
+      <div className="text-aux">Sesión guardada en historial.</div>
+    </div>
+  )
+  const stats = [
+    { k:'Ejercicios', v:`${r.completedEx}/${r.plannedEx}` },
+    { k:'Series', v:`${r.completedSets}/${r.plannedSets}` },
+    { k:'Cumplimiento', v:`${r.exPct}%` },
+    { k:'Duración', v:`${r.durMin} min` },
+    { k:'Volumen', v:`${r.totalVol} kg` },
+    { k:'Reps', v:`${r.totalReps}` },
+  ]
+  return (
+    <div className="rounded-2xl bg-surface border border-border p-4 space-y-3 fade-in">
+      <div>
+        <div className="text-section">Esto es lo que hiciste</div>
+        <div className="text-aux">{sessionStatus==='COMPLETED' ? 'Sesión completada — 100%' : `Sesión parcial — ${r.exPct}%`} · Energía {r.survey.energy}/10 · Cansancio {r.survey.fatigue}/10</div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {stats.map((s)=>(
+          <div key={s.k} className="rounded-xl bg-bg border border-border p-2 text-center">
+            <div className="text-aux">{s.k}</div>
+            <div className="text-subtitle">{s.v}</div>
+          </div>
+        ))}
+      </div>
+      {r.highlights.length>0 && (
+        <div className="rounded-xl bg-bg border border-border p-3 space-y-1">
+          <div className="text-aux font-medium">Logros y progreso</div>
+          {r.highlights.slice(0,5).map((h,i)=>(<p key={i} className="text-aux st-success-text text-sm">{h}</p>))}
+        </div>
+      )}
     </div>
   )
 }
@@ -1456,6 +1500,7 @@ function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeig
           </table>
         </div>
       </div>
+      {(()=>{ const order = Array.from({length:sets}).map((_,i)=>i); const next = order.find((i)=> !checks[i] && !(initialSkipped||[]).includes(i)); if(next===undefined) return null; return (<button onClick={(e)=>{ const w=weights[next]??plannedWeight; const r=reps[next]??plannedReps; setChecks({...checks,[next]:true}); try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ } onComplete(next, parseKg(String(w)), r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obs||undefined) }} className="btn-primary w-full">CONFIRMAR SERIE {next+1}</button>) })()}
       {onAddSet ? <button onClick={onAddSet} className="w-full py-2 rounded-xl bg-surface border border-border text-aux text-sm">+ Agregar serie (queda en la sesión, no en la rutina)</button> : null}
       {/* Negativas por ejercicio */}
       <div className="rounded-2xl bg-bg border border-border p-3">

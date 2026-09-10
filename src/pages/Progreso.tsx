@@ -56,7 +56,7 @@ export default function Progresos(){
   },[])
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto space-y-4">
+    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-4">
       <h1 className="text-section">Progresos</h1>
       <p className="text-aux text-textMuted">Evolución por grupo muscular, volumen y cambios de rutina — datos determinísticos.</p>
 

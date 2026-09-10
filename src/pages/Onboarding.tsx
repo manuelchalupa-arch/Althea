@@ -105,7 +105,7 @@ export default function Onboarding(){
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg max-w-lg mx-auto">
+    <div className="min-h-screen flex flex-col bg-bg max-w-lg lg:max-w-3xl mx-auto">
       <div className="p-4">
         <div className="flex justify-between text-aux text-textMuted"><span>PASO {step+1} DE {total}</span><span>{Math.round((step+1)/total*100)}%</span></div>
         <div className="h-2 bg-surface border border-border rounded-full overflow-hidden mt-1"><div className="h-full bg-action" style={{width:`${(step+1)/total*100}%`}}/></div>
@@ -209,7 +209,7 @@ export default function Onboarding(){
             )}
             {showBiblio && (
               <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setShowBiblio(false)}>
-                <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg max-h-[75vh] overflow-auto p-4 space-y-2">
+                <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg lg:max-w-3xl max-h-[75vh] overflow-auto p-4 space-y-2">
                   <h3 className="text-subtitle">Biblioteca</h3>
                   <select value={biblioMuscle} onChange={e=>setBiblioMuscle(e.target.value)} className="w-full bg-surface border border-border rounded-xl p-2 text-body">
                     <option value="biceps">Bíceps</option><option value="pectorals">Pecho</option><option value="quads">Piernas</option><option value="abs">Abs</option><option value="triceps">Tríceps</option>

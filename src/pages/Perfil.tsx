@@ -5,11 +5,19 @@ import { Link } from 'react-router-dom'
 import { exportJSON, exportCSV, downloadBlob, importJSON, exportPDF } from '@/services/storage/export'
 import * as Push from '@/services/notifications/push'
 import * as Sync from '@/services/sync/queue'
+import { applyAppearance } from '@/App'
 
 export default function Perfil(){
   const [profile,setProfile]=useState<any>(null)
   const [form,setForm]=useState({ age:'', sex:'', heightCm:'', weightKg:'', targetWeightKg:'', bodyFatPct:'', muscleMassKg:'', waistCm:'', chestCm:'', activityLevel:'moderado' })
   const [history,setHistory]=useState<any[]>([])
+  const [theme,setTheme]=useState(()=>{ try{ return localStorage.getItem('althea:theme') || 'dark' }catch{ return 'dark' } })
+  const [textScale,setTextScale]=useState(()=>{ try{ return localStorage.getItem('althea:textscale') || 'm' }catch{ return 'm' } })
+  const setAppearance = (t:string, s:string)=>{
+    setTheme(t); setTextScale(s)
+    try{ localStorage.setItem('althea:theme', t); localStorage.setItem('althea:textscale', s) }catch{ /* noop */ }
+    applyAppearance()
+  }
 
   useEffect(()=>{
     db.userProfile.get('me').then(p=>{
@@ -45,7 +53,7 @@ export default function Perfil(){
   const imcCat = imc ? (Number(imc)<18.5?'Bajo peso': Number(imc)<25?'Normopeso': Number(imc)<30?'Sobrepeso':'Obesidad') : null
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg mx-auto space-y-4">
+    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-4">
       <h1 className="text-section">Perfil corporal</h1>
       <p className="text-aux text-textMuted">Edad, sexo, altura, peso, medidas. El IMC se calcula solo si hay datos suficientes y se contextualiza — no es único indicador.</p>
 
@@ -78,6 +86,30 @@ export default function Perfil(){
         </div>
 
         <button onClick={save} className="w-full py-3 rounded-xl bg-action text-textMain font-medium">Guardar</button>
+      </div>
+
+      <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
+        <div className="text-aux font-medium">Apariencia</div>
+        <div>
+          <div className="text-aux mb-1">Tema</div>
+          <div className="grid grid-cols-2 gap-2">
+            {(['dark','light'] as const).map((t)=>(
+              <button key={t} onClick={()=> setAppearance(t, textScale)} className={`py-2 rounded-xl border text-body ${theme===t ? 'bg-elevated border-info' : 'bg-bg border-border'}`}>
+                {t==='dark' ? 'Oscuro navy' : 'Claro arena'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="text-aux mb-1">Tamaño del texto</div>
+          <div className="grid grid-cols-3 gap-2">
+            {([['s','Chico'],['m','Mediano'],['l','Grande']] as const).map(([v,label])=>(
+              <button key={v} onClick={()=> setAppearance(theme, v)} className={`py-2 rounded-xl border text-body ${textScale===v ? 'bg-elevated border-info' : 'bg-bg border-border'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="rounded-xl bg-surface border border-border p-3">
