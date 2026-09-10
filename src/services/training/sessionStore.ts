@@ -114,14 +114,52 @@ export async function createSession(input: {
   return s;
 }
 
+// Mutex por sesión: serializa transiciones concurrentes (doble clic, StrictMode,
+// focus+timer) para que leer→validar→escribir sea atómico y no haya TOCTOU.
+const sessionLocks = new Map<string, Promise<unknown>>();
+async function withSessionLock<T>(sessionId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = sessionLocks.get(sessionId) ?? Promise.resolve();
+  let release!: () => void;
+  const cur = new Promise<void>((r) => { release = r; });
+  sessionLocks.set(sessionId, prev.then(() => cur));
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (sessionLocks.get(sessionId) === cur) sessionLocks.delete(sessionId);
+  }
+}
+
 // ÚNICA función de transición (§4). Lanza si es inválida; registra evento; actualiza timestamps.
 export async function transitionSession(
   sessionId: string, target: SessionStatus,
   opts?: { reason?: string; comment?: string },
 ): Promise<TrainingSession> {
+  return withSessionLock(sessionId, () => transitionInner(sessionId, target, opts));
+}
+
+async function transitionInner(
+  sessionId: string, target: SessionStatus,
+  opts?: { reason?: string; comment?: string },
+): Promise<TrainingSession> {
   const s = await getSession(sessionId);
   if (!s) throw new Error(`Sesión inexistente: ${sessionId}`);
+  // Cierre desde READY: la matriz exige pasar por IN_PROGRESS; se encadenan los dos
+  // saltos válidos (ambos auditados) en vez de fallar. Hace imposible READY→COMPLETING.
+  if (target === 'COMPLETING' && s.sessionStatus === 'READY') {
+    const started = await applyTransition(s, 'IN_PROGRESS');
+    return applyTransition(started, 'COMPLETING', opts);
+  }
   assertTransitionSession(s.sessionStatus, target);
+  return applyTransition(s, target, opts);
+}
+
+async function applyTransition(
+  s: TrainingSession,
+  target: SessionStatus,
+  opts?: { reason?: string; comment?: string },
+): Promise<TrainingSession> {
   const now = new Date().toISOString();
   const nx: TrainingSession = { ...s, sessionStatus: target, updatedAt: now };
   if (target === 'IN_PROGRESS') {
@@ -158,11 +196,11 @@ export async function transitionSession(
     COMPLETED: 'SESSION_COMPLETED', PARTIAL: 'SESSION_PARTIAL',
     CANCELLED: 'SESSION_CANCELLED', ABANDONED: 'SESSION_ABANDONED',
   };
-  await logEvent(sessionId, evType[target] ?? 'SESSION_COMPLETING', {
+  await logEvent(s.sessionId, evType[target] ?? 'SESSION_COMPLETING', {
     fromStatus: s.sessionStatus, toStatus: target, metadata: opts ? { ...opts } : undefined,
   });
   if (FINAL_STATES.includes(target)) setActiveSessionId(null);
-  else setActiveSessionId(sessionId);
+  else setActiveSessionId(s.sessionId);
   return nx;
 }
 

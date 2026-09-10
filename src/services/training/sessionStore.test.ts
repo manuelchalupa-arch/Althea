@@ -108,6 +108,40 @@ describe('store central (§4, §10, §17, §18)', () => {
     expect(recs.find((r) => r.order === 1)?.status).toBe('COMPLETED')
   })
 
+  it('READY -> COMPLETING se encadena automáticamente (nunca falla)', async () => {
+    const s = await createSession({
+      routineId: 'r1', plannedDay: 1, actualDay: 1,
+      calendarDate: '2026-09-10', plannedExercises: planned,
+    })
+    const nx = await transitionSession(s.sessionId, 'COMPLETING')
+    expect(nx.sessionStatus).toBe('COMPLETING')
+    expect(nx.startedAt).toBeTruthy()
+    expect(nx.completingAt).toBeTruthy()
+    const events = await db.table('sessionEvents').where('sessionId').equals(s.sessionId).toArray()
+    const types = events.map((e) => (e as { type: string }).type)
+    expect(types).toContain('SESSION_STARTED')
+    expect(types).toContain('SESSION_COMPLETING')
+    // y desde ahí el cierre es directo
+    const done = await transitionSession(s.sessionId, 'COMPLETED')
+    expect(done.sessionStatus).toBe('COMPLETED')
+  })
+
+  it('transiciones concurrentes se serializan sin corromper (doble COMENZAR)', async () => {
+    const s = await createSession({
+      routineId: 'r1', plannedDay: 1, actualDay: 1,
+      calendarDate: '2026-09-10', plannedExercises: planned,
+    })
+    const [a, b] = await Promise.allSettled([
+      transitionSession(s.sessionId, 'IN_PROGRESS'),
+      transitionSession(s.sessionId, 'IN_PROGRESS'),
+    ])
+    expect(a.status).toBe('fulfilled')
+    expect(b.status).toBe('rejected')
+    const cur = await getSession(s.sessionId)
+    expect(cur?.sessionStatus).toBe('IN_PROGRESS')
+    expect(cur?.startedAt).toBeTruthy()
+  })
+
   it('cancelar exige pasar por estados válidos y guarda justificación', async () => {
     const s = await createSession({
       routineId: 'r1', plannedDay: 1, actualDay: 1,

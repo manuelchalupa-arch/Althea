@@ -57,6 +57,8 @@ export default function Entrenar(){
   // Estados para FINALIZAR ENTRENAMIENTO + máquina de estados
   const [showFinishModal,setShowFinishModal]=useState(false)
   const [isSaving,setIsSaving]=useState(false)
+  const [isStarting,setIsStarting]=useState(false)
+  const finishingAt=useRef(0)
   const [finishSurvey,setFinishSurvey]=useState<Record<string,any>>({
     energy: 5, fatigue: 5, pain: 0, mood: 5,
     motivation: 5, effort: 5, stress: 5,
@@ -502,6 +504,8 @@ export default function Entrenar(){
   // IN_PROGRESS -> COMPLETING: calcula resumen, detecta pendientes, % muscular, alertas, progreso
   const openFinishModal = async () => {
     if(exs.length===0) return
+    if(Date.now()-finishingAt.current<3000) return
+    finishingAt.current = Date.now()
     setFinishError('')
     const s = computeSummary()
     const skippedWithReason: Record<number,string> = {}
@@ -697,6 +701,8 @@ export default function Entrenar(){
 
   // COMENZAR: READY existente -> IN_PROGRESS, o plan pendiente -> crea (recupera activa, §10).
   const startSession = async () => {
+    if(isStarting) return
+    setIsStarting(true)
     setFinishError('')
     try{
       const store = await import('@/services/training/sessionStore')
@@ -730,7 +736,7 @@ export default function Entrenar(){
       const nx = await store.transitionSession(created.sessionId, 'IN_PROGRESS')
       setReadyPlan(null)
       await applyStoreSession(nx)
-    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'No se pudo comenzar la sesión.') }
+    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'No se pudo comenzar la sesión.') }finally{ setIsStarting(false) }
   }
 
   const adoptResumeSession = async (sess: { sessionId: string }, andFinish: boolean) => {
@@ -895,7 +901,7 @@ export default function Entrenar(){
               ))}
             </div>
             {finishError ? <p className="text-sm text-red-400">{finishError}</p> : null}
-            <button onClick={startSession} className="w-full py-3 rounded-xl bg-action text-textMain font-medium">COMENZAR ENTRENAMIENTO</button>
+            <button onClick={startSession} disabled={isStarting} className="w-full py-3 rounded-xl bg-action text-textMain font-medium disabled:opacity-50">{isStarting ? 'Iniciando…' : 'COMENZAR ENTRENAMIENTO'}</button>
             <button onClick={openCancelModal} className="w-full py-2 rounded-xl bg-surface border border-border text-aux">Cancelar</button>
           </div>
         </div>
