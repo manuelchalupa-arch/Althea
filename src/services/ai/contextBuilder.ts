@@ -1,7 +1,8 @@
 import type { AIContext } from './aiProvider'
 import { db } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate } from '@/utils/cycle'
-import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION } from './systemPrompt'
+import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone } from './systemPrompt'
+import { unifiedCompletedSets } from '@/services/history'
 
 // Memoria estructurada reducida — no envía todo el historial
 export async function buildTrainingContext(exerciseId?:string, exerciseName?:string): Promise<AIContext>{
@@ -11,13 +12,18 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   const diaInfo = getTrainingDayForDate(today, cycle)
   const dia = diaInfo.isRest ? 'Descanso' : `Día N°${diaInfo.n} ${diaInfo.name}`
   const objetivo = profile?.goal ?? 'hipertrofia'
-  const personalidad = (profile?.coachIntensity ?? 'profesional').toUpperCase() as AIContext['personalidad']
+  let storedTone: string | null = null
+  try { storedTone = localStorage.getItem('coachIntensity') } catch { /* noop */ }
+  const personalidad = mapTone(storedTone || (profile as any)?.coachIntensity) as AIContext['personalidad']
 
-  // últimas 3 sesiones del ejercicio
+  // últimas 3 sesiones del ejercicio — unión oficial+legacy (no solo setLogs)
   let historial:{peso:number;reps:number;rpe?:number}[] = []
   if(exerciseId){
-    const logs = await db.setLogs.where('exerciseId').equals(exerciseId).reverse().limit(3).toArray()
-    historial = logs.reverse().map(l=> ({ peso:l.weight, reps:l.reps, rpe:l.rpe }))
+    try{
+      const all = await unifiedCompletedSets(exerciseId)
+      all.sort((a,b)=> new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      historial = all.slice(-3).map(l=> ({ peso:l.weight, reps:l.reps }))
+    }catch{ /* noop */ }
   }
 
   // recuperación hoy
@@ -30,8 +36,14 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   const hyd = Number(localStorage.getItem('hydration:'+today) || localStorage.getItem('hydrationToday') || '1500')
   const hidratacion = `Hoy ${hyd} ml / 2500 ml`
 
-  // dolor último + post
-  const pain = localStorage.getItem('lastPain') || localStorage.getItem(`post:${today}`) || 'sin dolor'
+  // dolor real: surveys post-entreno (zona/detalle) + QA de dolor, no keys legacy
+  let pain = 'sin dolor'
+  try{
+    const surveys: any[] = await db.table('postWorkoutSurveys').toArray().catch(()=>[])
+    const withPain = surveys.filter(s=> Number(s.pain) > 0).sort((a,b)=> String(a.calendarDate) < String(b.calendarDate) ? -1 : 1)
+    const lastP = withPain[withPain.length-1]
+    if(lastP) pain = `${lastP.calendarDate}: ${lastP.pain}/10${lastP.painZone ? ` en ${lastP.painZone}` : ''}${lastP.painDetail ? ` (${lastP.painDetail})` : ''}`
+  }catch{ /* noop */ }
   // datos corporales
   const peso = profile?.weightKg ? `${profile.weightKg}kg` : 'no registrado'
   const altura = profile?.heightCm ? `${profile.heightCm}cm` : 'no registrado'
@@ -89,11 +101,43 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     }
   }catch{}
 
+  // capa longitudinal: decisiones reales (Dexie+espejo), insights, score, respuestas
+  let recentChanges: string[] = []
+  let qa: Record<string, { question: string; answer: string; date: string }> = {}
+  let insights: { title: string; detail: string; kind: string; level: string }[] = []
+  let score: { score: number; factors: { label: string; delta: number; estado: string }[] } | undefined
+  try{
+    const { getAllDecisions, getAllAnswers } = await import('./coachMemory')
+    const decs = await getAllDecisions()
+    recentChanges = decs
+      .filter(d=> ['swap','skip','modify'].includes(d.type))
+      .slice(-8)
+      .map(d=> `${d.date} ${d.type}:${d.exercise || ''}${d.motive ? ` (porque: ${d.motive})` : ''}${d.reason ? ` — ${d.reason}` : ''}`)
+    const answers = await getAllAnswers()
+    for(const k of Object.keys(answers)) qa[k] = { question: answers[k].question, answer: answers[k].answer, date: answers[k].date }
+  }catch{ /* noop */ }
+  try{
+    const { buildInsights } = await import('./coachInsights')
+    const all = await buildInsights()
+    const warns = all.filter(i=> i.level==='warn').slice(0,3)
+    const infos = all.filter(i=> i.level==='info').slice(0,2)
+    insights = [...warns, ...infos].map(i=> ({ title: i.title, detail: i.detail, kind: i.kind, level: i.level }))
+  }catch{ /* noop */ }
+  try{
+    const { buildGlobalScore } = await import('./globalScore')
+    const g = await buildGlobalScore()
+    score = { score: g.score, factors: g.factors }
+  }catch{ /* noop */ }
+
   return {
     objetivo,
     dia,
     ejercicio: exerciseName || exerciseId,
     historial,
+    cambiosRecientes: recentChanges,
+    insights,
+    score,
+    qa,
     fatiga: ultimaObs?.motivos?.includes('Estaba cansado') ? 'alta (ayer cansado)' : fatiga,
     sueno,
     energia,
@@ -113,8 +157,13 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
 
 export function buildPrompt(ctx:AIContext):string{
   const hist = ctx.historial?.map((h,i)=> `Sesión ${i+1}: ${h.peso}kg × ${h.reps} RPE${h.rpe??'?'}`).join(' | ') || 'sin historial'
-  const tono = PERSONALITY_INSTRUCTION[ctx.personalidad||'PROFESIONAL'] || PERSONALITY_INSTRUCTION.PROFESIONAL
+  const tono = PERSONALITY_INSTRUCTION[ctx.personalidad||'ABUELITOS'] || PERSONALITY_INSTRUCTION.ABUELITOS
+  const ins = (ctx.insights||[]).map(i=> `[${i.level.toUpperCase()}] ${i.title} — ${i.detail}`).join('\n') || 'Sin patrones detectados (datos insuficientes o todo estable).'
+  const sc = ctx.score ? `Estado global: ${ctx.score.score}/100 (${ctx.score.factors.map(f=> `${f.label} ${f.delta>=0?'+':''}${f.delta}: ${f.estado}`).join(' · ')})` : 'Sin puntuación (sin datos suficientes).'
+  const qaLines = Object.entries(ctx.qa||{}).map(([k,v])=> `${k}: preguntó "${v.question}" → respondió "${v.answer}" (${v.date})`).join('\n') || 'Sin respuestas registradas.'
   return `${SYSTEM_PROMPT}
+
+${VERACITY_RULES}
 
 PERSONALIDAD ACTUAL: ${ctx.personalidad} — ${tono}
 
@@ -127,5 +176,12 @@ Fatiga: ${ctx.fatiga} | Sueño: ${ctx.sueno} | Energía: ${ctx.energia} | Hidrat
 ${ctx.nutricion ? `Nutrición: ${JSON.stringify(ctx.nutricion)}` : ''}
 ${ctx.hidratacion ? `Hidratación: ${ctx.hidratacion}` : ''}
 
-INSTRUCCIÓN: Genera 1 recomendación breve, profesional y motivadora en español, con lista de por qué. Si corresponde a ejercicio, usa solo ExerciseGymGifsDB y menciona gifUrl alternativo si es change_exercise. Si es nutrición, usa solo Codulia y menciona macros por 100g/ml + porción real. No inventes valores no registrados. Devuelve SOLO JSON como en ejemplos.`
+MEMORIA LONGITUDINAL (datos reales):
+${sc}
+Patrones:
+${ins}
+Respuestas del usuario:
+${qaLines}
+
+INSTRUCCIÓN: Genera 1 recomendación breve en español con el tono indicado, con lista de por qué. Si corresponde a ejercicio, usa solo ExerciseGymGifsDB y menciona gifUrl alternativo si es change_exercise. Si es nutrición, usa solo Codulia y menciona macros por 100g/ml + porción real. No inventes valores no registrados. Devuelve SOLO JSON como en ejemplos.`
 }

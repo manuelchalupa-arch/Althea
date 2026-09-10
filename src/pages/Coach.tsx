@@ -12,7 +12,11 @@ export default function Coach(){
   const [progress,setProgress]=useState<number>(Number(localStorage.getItem('qwen:progress')||'0'))
   const [loading,setLoading]=useState(false)
   const [showWhy,setShowWhy]=useState(false)
-  const [intensity,setIntensity]=useState(localStorage.getItem('coachIntensity')||'profesional')
+  const [intensity,setIntensity]=useState('ABUELITOS')
+  const [briefScore,setBriefScore]=useState<{score:number;factors:{label:string;delta:number;estado:string}[]} | null>(null)
+  const [briefInsights,setBriefInsights]=useState<{id:string;kind:string;level:string;title:string;detail:string;evidence:string;question?:{key:string;text:string}}[]>([])
+  const [qaMap,setQaMap]=useState<Record<string,{question:string;answer:string;date:string}>>({})
+  const [qaDraft,setQaDraft]=useState<Record<string,string>>({})
   const [downloading,setDownloading]=useState(false)
 
   const refresh = async ()=>{
@@ -26,6 +30,17 @@ export default function Coach(){
   useEffect(()=>{
     refresh()
     buildTrainingContext().then(ctx=> aiService.generateRecommendation(ctx).then(setRec).catch(()=>{}))
+    import('@/services/ai/systemPrompt').then(({ mapTone })=>{
+      try{
+        const stored = localStorage.getItem('coachIntensity')
+        const mapped = mapTone(stored)
+        setIntensity(mapped)
+        localStorage.setItem('coachIntensity', mapped)
+      }catch{ /* noop */ }
+    })
+    import('@/services/ai/globalScore').then(({ buildGlobalScore })=> buildGlobalScore().then((g)=> setBriefScore({ score: g.score, factors: g.factors })).catch(()=>{}))
+    import('@/services/ai/coachInsights').then(({ buildInsights })=> buildInsights().then(setBriefInsights).catch(()=>{}))
+    import('@/services/ai/coachMemory').then(({ getAllAnswers })=> getAllAnswers().then(setQaMap).catch(()=>{}))
   },[])
 
   const doDownload = async ()=>{
@@ -86,6 +101,38 @@ export default function Coach(){
         <p className="text-aux text-textMuted">No incluye modelo en bundle. Se cachea en CacheStorage/IndexedDB, no se re-descarga.</p>
       </div>
 
+      <div className="rounded-xl bg-surface border border-border p-4 space-y-2">
+        <div className="text-aux tracking-widest">SEGUIMIENTO</div>
+        {briefScore ? (
+          <>
+            <div className="text-subtitle">Estado actual: {briefScore.score}/100</div>
+            <div className="space-y-0.5">{briefScore.factors.map((f)=>(
+              <div key={f.label} className="text-aux">{f.label}: {f.delta>=0?'+':''}{f.delta} — {f.estado}</div>
+            ))}</div>
+          </>
+        ) : <p className="text-aux text-textMuted">Calculando tu estado con datos reales…</p>}
+        {briefInsights.filter((i)=> i.level==='warn').slice(0,3).map((i)=>(
+          <div key={i.id} className="rounded-xl bg-amber-900/20 border border-amber-800 p-2">
+            <div className="text-body text-sm font-medium">{i.title}</div>
+            <div className="text-aux mt-0.5">{i.detail}</div>
+            <div className="text-aux text-textMuted mt-0.5">{i.evidence}</div>
+          </div>
+        ))}
+        {briefInsights.filter((i)=> !!i.question && !qaMap[(i.question as { key: string }).key]).map((i)=>{
+          const q = i.question
+          if(!q) return null
+          return (
+          <div key={'q-'+i.id} className="rounded-xl bg-bg border border-border p-2">
+            <div className="text-body text-sm">{q.text}</div>
+            <div className="flex gap-1 mt-1">
+              <input value={qaDraft[q.key]||''} onChange={(e)=> setQaDraft({...qaDraft, [q.key]: e.target.value})} placeholder="Tu respuesta…" maxLength={300} className="flex-1 bg-surface border border-border rounded-xl p-2 text-body" />
+              <button onClick={async()=>{ const v=(qaDraft[q.key]||'').trim(); if(!v) return; const { saveAnswer } = await import('@/services/ai/coachMemory'); const saved = await saveAnswer(q.key, q.text, v); setQaMap({...qaMap, [q.key]: { question: saved.question, answer: saved.answer, date: saved.date }}) }} className="px-3 rounded-xl bg-action text-textMain">Guardar</button>
+            </div>
+          </div>
+          )
+        })}
+      </div>
+
       <div className="rounded-xl bg-accentDark border border-border p-4">
         <div className="text-aux tracking-widest text-info">RECOMENDACIÓN</div>
         {loading ? <p className="text-body mt-1">Generando…</p> : (
@@ -140,10 +187,10 @@ export default function Coach(){
       <div className="rounded-xl bg-surface border border-border p-3">
         <div className="text-aux">Personalidad (via prompt, sin reentrenar modelo)</div>
         <select value={intensity} onChange={e=>{ setIntensity(e.target.value); localStorage.setItem('coachIntensity', e.target.value)}} className="w-full mt-2 bg-bg border border-border rounded-xl p-3 text-body">
-          <option value="profesional">PROFESIONAL — directo y técnico</option>
-          <option value="motivacional">MOTIVACIONAL — enérgico</option>
-          <option value="duro">ESTRICTO — exigente</option>
-          <option value="extremo">DURO — agresivo filtrado</option>
+          <option value="PADELERO">Pádelero — comprensivo y motivador</option>
+          <option value="ABUELITOS">Coach de abuelitos — equilibrado y exigente amable</option>
+          <option value="ARNOLD">Arnold — directo y firme</option>
+          <option value="PSYCHO">Psycho Killer — disciplina máxima</option>
         </select>
       </div>
 

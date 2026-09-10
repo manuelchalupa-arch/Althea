@@ -23,6 +23,12 @@ export default function Inicio(){
   const [modifyChoice,setModifyChoice]=useState('Tiempo disponible')
   const [rejectMotive,setRejectMotive]=useState('No tengo tiempo')
   const [hasActiveSession,setHasActiveSession]=useState(false)
+  const [briefScore,setBriefScore]=useState<number|null>(null)
+  const [briefWarn,setBriefWarn]=useState<string|null>(null)
+  useEffect(()=>{
+    import('@/services/ai/globalScore').then(({ buildGlobalScore })=> buildGlobalScore().then((g)=> setBriefScore(g.score)).catch(()=>{}))
+    import('@/services/ai/coachInsights').then(({ buildInsights })=> buildInsights().then((all)=>{ const w = all.find((i)=> i.level==='warn'); setBriefWarn(w ? w.title : null) }).catch(()=>{}))
+  },[])
   const [showChangeDay,setShowChangeDay]=useState(false)
   const [changeReason,setChangeReason]=useState('Cambio de horarios')
   const [changeComment,setChangeComment]=useState('')
@@ -208,6 +214,17 @@ export default function Inicio(){
         </div>
       </div>
 
+      {briefScore !== null && (
+        <div className="px-4 max-w-lg lg:max-w-3xl mx-auto">
+          <Link to="/coach" className="block rounded-xl bg-surface border border-border p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-aux">COACH · ESTADO {briefScore}/100</span>
+              <ChevronRight size={16} className="text-textMuted"/>
+            </div>
+            {briefWarn ? <p className="text-body text-sm mt-1">{briefWarn}</p> : <p className="text-aux mt-1">Todo estable por acá.</p>}
+          </Link>
+        </div>
+      )}
       {/* Contenido principal */}
       <div className="px-4 max-w-lg lg:max-w-3xl mx-auto space-y-3">
         {isRest ? (

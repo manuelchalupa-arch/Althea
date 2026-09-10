@@ -22,7 +22,13 @@ export type AIContext = {
   nutricion?: { proteinas7d?: string; calorias?: string }
   hidratacion?: string
   dolor?: string
-  personalidad?: 'PROFESIONAL'|'MOTIVACIONAL'|'ESTRICTO'|'DURO'
+  personalidad?: 'PADELERO'|'ABUELITOS'|'ARNOLD'|'PSYCHO'|'PROFESIONAL'|'MOTIVACIONAL'|'ESTRICTO'|'DURO'
+  /** Insights deterministas calculados sobre datos reales (capa analítica, no LLM). */
+  insights?: { title: string; detail: string; kind: string; level: string }[]
+  /** Score global 0-100 con factores explicados. */
+  score?: { score: number; factors: { label: string; delta: number; estado: string }[] }
+  /** Respuestas del usuario a preguntas del Coach (memoria). */
+  qa?: Record<string, { question: string; answer: string; date: string }>
 }
 
 export interface AIProvider {

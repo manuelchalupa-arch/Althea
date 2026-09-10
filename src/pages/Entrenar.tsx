@@ -54,6 +54,8 @@ export default function Entrenar(){
   const [swapLoading,setSwapLoading]=useState(false)
   const [showSkipReason,setShowSkipReason]=useState(false)
   const [skipReason,setSkipReason]=useState('')
+  const [painAlert,setPainAlert]=useState<{zone:string;detail:string}|null>(null)
+  const [painAns,setPainAns]=useState('')
   // Estados para FINALIZAR ENTRENAMIENTO + máquina de estados
   const [showFinishModal,setShowFinishModal]=useState(false)
   const [isSaving,setIsSaving]=useState(false)
@@ -276,6 +278,25 @@ export default function Entrenar(){
   },[])
 
   const cur = exs[current]
+  useEffect(()=>{
+    const run = async ()=>{
+      setPainAlert(null)
+      if(!cur?.muscle) return
+      try{
+        const { painMatchesMuscle } = await import('@/services/ai/coachInsights')
+        const { getAnswer } = await import('@/services/ai/coachMemory')
+        const surveys: any[] = await db.table('postWorkoutSurveys').toArray().catch(()=>[])
+        for(const s of surveys){
+          const zone = String(s.painZone || s.painDetail || '').trim()
+          if(!zone || Number(s.pain) <= 0) continue
+          if(!painMatchesMuscle(zone, cur.muscle || '')) continue
+          const ans = await getAnswer(`pain:${zone.toLowerCase()}`).catch(()=>null)
+          if(!ans){ setPainAlert({ zone, detail: String(s.painDetail || '') }); return }
+        }
+      }catch{ /* noop */ }
+    }
+    run()
+  },[current, exs])
   const tableInitial = useMemo(()=>{
     const arr = logs[current] || []
     const completed: Record<number,{weight:number;reps:number}> = {}
@@ -1046,6 +1067,16 @@ export default function Entrenar(){
                 <button onClick={handleSkipWithReason} className="flex-1 py-2 rounded-xl bg-bg border border-border text-aux"><XCircle size={14} className="inline mr-1"/> Saltar</button>
               </div>
             </div>
+
+            {painAlert && (
+              <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-3 space-y-2">
+                <div className="text-body text-sm font-medium">La última vez registraste molestias en {painAlert.zone}. ¿Cómo está hoy?</div>
+                <div className="flex gap-1">
+                  <input value={painAns} onChange={e=>setPainAns(e.target.value)} placeholder="Bien / sigue molestando…" maxLength={200} className="flex-1 bg-bg border border-border rounded-xl p-2 text-body"/>
+                  <button onClick={async()=>{ const v=painAns.trim(); if(!v) return; const { saveAnswer } = await import('@/services/ai/coachMemory'); await saveAnswer(`pain:${painAlert.zone.toLowerCase()}`, `¿Cómo está hoy la molestia en ${painAlert.zone}?`, v); setPainAlert(null); setPainAns('') }} className="px-3 rounded-xl bg-action text-textMain">Guardar</button>
+                </div>
+              </div>
+            )}
 
             <ExerciseSeriesTable
               key={cur.exId}

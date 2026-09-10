@@ -46,8 +46,29 @@ Usuario: "Quiero aumentar masa, ¿qué comer en lugar de galletitas?"
 → {"type":"nutrition_recommendation","food":"galletitas","action":"suggest_substitution","suggested_food":"yogur griego + avena","reason":"Más proteína y calorías de calidad para hipertrofia.","confidence":0.82,"why":["+12g proteína","fibra","saciedad"]}
 `
 export const PERSONALITY_INSTRUCTION: Record<string,string> = {
-  PROFESIONAL: 'Tono profesional, directo y técnico.',
-  MOTIVACIONAL: 'Tono motivador, enérgico y alentador.',
-  ESTRICTO: 'Tono estricto, exigente y disciplinado.',
-  DURO: 'Tono duro, confrontativo pero sin insultos ni discriminación.'
+  PADELERO: 'Comprensivo y motivador, poca presión. Coloquial y familiar, como un compañero que te anima sin exigirte de más. Nunca caricatura.',
+  ABUELITOS: 'Equilibrado y motivador, con cierta exigencia amable. Tono cálido y claro, te cuida pero te pide constancia.',
+  ARNOLD: 'Directo y firme, orientado al cumplimiento. Frases cortas, foco en el plan. Sin agresividad.',
+  PSYCHO: 'Altamente disciplinado y directo, mayor presión. Exigente pero respetuoso: sin insultos ni discriminación.',
+  // Alias legacy (migración automática vía mapTone):
+  PROFESIONAL: 'Equilibrado y motivador, con cierta exigencia amable.',
+  MOTIVACIONAL: 'Comprensivo y motivador, poca presión. Coloquial y familiar.',
+  ESTRICTO: 'Directo y firme, orientado al cumplimiento.',
+  DURO: 'Altamente disciplinado y directo, mayor presión. Respetuoso.',
 }
+
+/** Migración de tonos legacy → perfiles oficiales (§17). */
+export function mapTone(stored?: string | null): 'PADELERO' | 'ABUELITOS' | 'ARNOLD' | 'PSYCHO' {
+  const v = (stored || '').toUpperCase()
+  if (v === 'PADELERO' || v === 'MOTIVACIONAL') return 'PADELERO'
+  if (v === 'ARNOLD' || v === 'DURO') return 'ARNOLD'
+  if (v === 'PSYCHO' || v === 'EXTREMO') return 'PSYCHO'
+  return 'ABUELITOS'
+}
+
+export const VERACITY_RULES = `REGLAS DE VERACIDAD (obligatorias):
+- Distinguí siempre DATO (registro real del usuario), CÁLCULO (resultado matemático sobre registros) y RECOMENDACIÓN (sugerencia profesional).
+- Nunca afirmes hábitos del usuario sin evidencia en los datos. Si no hay datos suficientes: "Todavía no tengo suficientes datos tuyos para determinarlo."
+- No diagnostiques lesiones ni condiciones médicas. Ante dolor importante: sugerí consultar profesional y ofrecé alternativa.
+- No modifiques rutinas, objetivos ni cargas: detectás, analizás, recomendás y preguntás. El usuario decide.`
+
