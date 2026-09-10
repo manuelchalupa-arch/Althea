@@ -25,6 +25,7 @@ export default function Progresos(){
   const [period,setPeriod]=useState<Period>('30')
   const [customStart,setCustomStart]=useState('')
   const [customEnd,setCustomEnd]=useState('')
+  const [customNames,setCustomNames]=useState<Record<string,string>>({})
   const [partSel,setPartSel]=useState('back')
   const [metric,setMetric]=useState<Metric>('volumen')
   const [selRecDate,setSelRecDate]=useState<string|null>(null)
@@ -38,7 +39,13 @@ export default function Progresos(){
       db.table('bodyMeasurements').toArray().catch(()=>[]),
       db.recoveryChecks.toArray().catch(()=>[]),
       fetchPartMap().catch(()=>({} as Record<string,string>)),
-    ]).then(([legacyLogs, officialRecs, legacySessions, officialSessions, bodyRows, recRows, partMap])=>{
+    ]).then(async ([legacyLogs, officialRecs, legacySessions, officialSessions, bodyRows, recRows, baseMap])=>{
+      const { overlayCustomParts, listCustomExercises } = await import('@/services/training/customExercises')
+      const partMap = await overlayCustomParts({ ...(baseMap as Record<string,string>) })
+      const customs = await listCustomExercises().catch(()=>[])
+      const names: Record<string,string> = {}
+      for(const c of customs){ if(c?.id) names[c.id] = c.name }
+      setCustomNames(names)
       const seen = new Set<string>()
       const logs = [
         ...(legacyLogs as any[]).map((l)=> ({ exerciseId: l.exerciseId, weight: l.weight, reps: l.reps, createdAt: l.createdAt })),
@@ -114,8 +121,9 @@ export default function Progresos(){
 
   const perExercise = useMemo(()=>{
     const byEx: Record<string,{name:string; pts:Record<string,Agg>}> = {}
+    const nameOf = (id:string)=> customNames[id] || id.split('/').pop()?.replace(/-/g,' ') || id;
     for(const l of partLogs){
-      if(!byEx[l.exerciseId]) byEx[l.exerciseId] = { name: l.exerciseId.split('/').pop()?.replace(/-/g,' ') || l.exerciseId, pts: {} }
+      if(!byEx[l.exerciseId]) byEx[l.exerciseId] = { name: nameOf(l.exerciseId), pts: {} }
       const d = String(l.createdAt).slice(0,10)
       const a = byEx[l.exerciseId].pts[d] || (byEx[l.exerciseId].pts[d] = { w: 0, r: 0, s: 0, v: 0, best: 0 })
       a.w = Math.max(a.w, l.weight); a.r += l.reps; a.s += 1; a.v += l.weight*l.reps; a.best = Math.max(a.best, l.weight*l.reps)
@@ -137,7 +145,7 @@ export default function Progresos(){
       } else if(pts.length>=2){ trend = pts[pts.length-1].valor >= pts[0].valor ? '↑ progresa' : '↓ disminuye' }
       return { id, name: e.name, pts, trend }
     }).sort((a,b)=> a.name.localeCompare(b.name))
-  },[partLogs, metric])
+  },[partLogs, metric, customNames])
 
   const metricHelp: Record<string,string> = {
     peso: 'Peso máximo del día (kg).',

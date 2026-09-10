@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import * as Gym from '@/services/exerciseGym'
+import { effectiveBreakdown, listCustomExercises } from '@/services/training/customExercises'
+import BibliotecaCustomForm from './BibliotecaCustomForm'
+import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Dumbbell, Layers, Box, Heart, Globe, WifiOff } from 'lucide-react'
 
 type Tab = 'muscle'|'equipment'|'bodypart'|'category'
@@ -16,19 +19,11 @@ export default function Biblioteca(){
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState<string|null>(null)
   const [detail,setDetail]=useState<Gym.Exercise|null>(null)
+  const [showForm,setShowForm]=useState(false)
+  const [editing,setEditing]=useState<CustomExercise|null>(null)
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true
 
-  const musclePct = (ex: Gym.Exercise)=>{
-    const primary = ex.muscle
-    const secs = ex.secondaryMuscles || []
-    if(secs.length===0) return [{ name: primary, pct: 100, role: 'Principal' }]
-    const secPct = Math.round(30 / secs.length)
-    const primPct = 100 - secPct * secs.length
-    return [
-      { name: primary, pct: primPct, role: 'Principal' },
-      ...secs.map(s=> ({ name: s, pct: secPct, role: 'Secundario' }))
-    ]
-  }
+  const musclePct = (ex: Gym.Exercise)=> effectiveBreakdown(ex)
 
   useEffect(()=>{
     // carga índices iniciales (cacheados por SW)
@@ -53,7 +48,9 @@ export default function Biblioteca(){
       else if(t==='equipment') res = await Gym.fetchByEquipment(key)
       else if(t==='bodypart') res = await Gym.fetchByBodyPart(key)
       else if(t==='category') res = await Gym.fetchByCategory(key)
-      setExercises(res.exercises || [])
+      const customs = await listCustomExercises(key==='__all__' ? undefined : t, key==='__all__' ? undefined : key).catch(()=>[])
+      const merged = [...(res.exercises || []), ...customs].sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
+      setExercises(merged)
       Gym.cacheSet(cacheKey, res.exercises)
     }catch(e:any){
       const cached = Gym.cacheGet(cacheKey)
@@ -64,11 +61,24 @@ export default function Biblioteca(){
 
   useEffect(()=>{ load('muscle','__all__') },[])
 
-  const filtered = exercises.filter(ex=> !q || ex.name.toLowerCase().includes(q.toLowerCase()) || ex.muscle.includes(q.toLowerCase()))
+  const filtered = exercises.filter(ex=>{ if(!q) return true; const s=q.toLowerCase(); return ex.name.toLowerCase().includes(s) || String(ex.muscle||'').toLowerCase().includes(s) || String(ex.bodyPart||'').toLowerCase().includes(s) || String(ex.equipment||'').toLowerCase().includes(s) || String(ex.category||'').toLowerCase().includes(s) })
 
   const Chip = ({active, children, onClick}:{active:boolean; children:string; onClick:()=>void})=>(
     <button onClick={onClick} className={`px-3 py-1.5 rounded-full text-aux whitespace-nowrap border ${active?'bg-action text-textMain border-action':'bg-surface border-border text-textMuted'}`}>{children}</button>
   )
+
+  const handleDeleteCustom = async (ex: Gym.Exercise)=>{
+    const mod = await import('@/services/training/customExercises')
+    const withHistory = await mod.hasHistory(ex.id)
+    const msg = withHistory
+      ? 'Tiene historial: se archivará (desaparece de listas, historial intacto). ¿Continuar?'
+      : '¿Eliminar este ejercicio? No se puede deshacer.'
+    if(!confirm(msg)) return
+    const res = await mod.deleteCustomExercise(ex.id)
+    alert(res==='archived' ? 'Archivado: fuera de listas, historial intacto.' : 'Ejercicio eliminado.')
+    setDetail(null)
+    load(tab, selectedKey)
+  }
 
   return (
     <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-3">
@@ -77,6 +87,7 @@ export default function Biblioteca(){
         <span className="text-aux bg-surface border border-border px-2 py-1 rounded-full flex items-center gap-1"><Globe size={12}/> 1323 ejercicios</span>
       </div>
       <p className="text-aux text-textMuted">Consulta técnica y % muscular — sin copiar.</p>
+      <button onClick={()=>{ setEditing(null); setShowForm(true) }} className="w-full py-3 rounded-xl bg-action text-textMain font-medium">+ Agregar ejercicio</button>
 
       {!online && <div className="text-aux bg-amber-900/30 border border-amber-800 rounded-lg p-2 flex items-center gap-2"><WifiOff size={14}/> Sin conexión — se muestra caché.</div>}
       {error && <div className="text-aux bg-amber-900/30 border border-amber-800 rounded-lg p-2">{error}</div>}
@@ -136,10 +147,10 @@ export default function Biblioteca(){
           <div key={ex.id} onClick={()=>setDetail(ex)} className="rounded-xl bg-surface border border-border overflow-hidden cursor-pointer active:bg-bg">
             <div className="relative w-full aspect-[4/3] bg-bg border-b border-border flex items-center justify-center">
               <span className="absolute text-aux">GIF no disponible</span>
-              {ex.gifUrl ? <img src={ex.gifUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative w-full h-full object-contain" /> : null}
+              {(ex.gifUrl || (ex as any).imageDataUrl) ? <img src={ex.gifUrl || (ex as any).imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative w-full h-full object-contain" /> : null}
             </div>
             <div className="p-3">
-              <div className="text-body font-medium">{ex.name}</div>
+              <div className="text-body font-medium flex items-center gap-2"><span className="truncate">{ex.name}</span>{(ex as any).origin==='USER_CREATED' ? <span className="text-aux px-2 py-0.5 rounded-full bg-elevated border border-info text-info shrink-0">Mío</span> : null}</div>
               <div className="text-aux text-textMuted">{ex.muscle} · {ex.equipment} · {ex.bodyPart}</div>
               <div className="text-aux mt-1">
                 {musclePct(ex).map(m=> (
@@ -158,7 +169,7 @@ export default function Biblioteca(){
           <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg lg:max-w-3xl max-h-[85vh] overflow-auto">
             <div className="relative w-full bg-black/40 border-b border-border flex items-center justify-center min-h-[240px] p-2">
               <span className="absolute text-aux">GIF no disponible</span>
-              {detail.gifUrl ? <img src={detail.gifUrl} alt={detail.name} onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative max-w-full w-auto h-auto max-h-[55vh] object-contain" /> : null}
+              {(detail.gifUrl || (detail as any).imageDataUrl) ? <img src={detail.gifUrl || (detail as any).imageDataUrl} alt={detail.name} onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative max-w-full w-auto h-auto max-h-[55vh] object-contain" /> : null}
             </div>
             <div className="p-4 space-y-3">
               <h2 className="text-subtitle">{detail.name}</h2>
@@ -180,11 +191,27 @@ export default function Biblioteca(){
                 <div className="text-aux">Cómo hacerlo</div>
                 <ol className="list-decimal list-inside text-body space-y-1 mt-1">{detail.instructions.map((s,i)=><li key={i}>{s}</li>)}</ol>
               </div>
+              {(detail as any).origin==='USER_CREATED' ? (
+                <div className="flex gap-2">
+                  <button onClick={()=>{ setEditing(detail as any) }} className="flex-1 py-3 rounded-xl bg-surface border border-border text-body">Editar</button>
+                  <button onClick={()=>handleDeleteCustom(detail)} className="flex-1 py-3 rounded-xl bg-surface border border-danger/50 text-aux">Eliminar</button>
+                </div>
+              ) : null}
               <button onClick={()=>setDetail(null)} className="w-full py-3 rounded-xl bg-action text-textMain">Cerrar</button>
               <p className="text-aux text-textMuted text-center">Solo informativo — sin copiar. Usá Rutina para agregar con selector inteligente.</p>
             </div>
           </div>
         </div>
+      )}
+      {showForm && (
+        <BibliotecaCustomForm
+          initial={editing}
+          muscles={muscles.map((m) => m.muscle)}
+          equipment={equipment.map((e) => e.equipment)}
+          categories={categories.map((c) => c.category)}
+          onSaved={()=>{ setShowForm(false); setEditing(null); setDetail(null); load(tab, selectedKey) }}
+          onClose={()=>{ setShowForm(false); setEditing(null) }}
+        />
       )}
     </div>
   )

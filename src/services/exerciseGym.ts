@@ -6,8 +6,10 @@
 export const BASE = 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0'
 export const LANG = 'es' // siempre español
 
+export type MuscleShare = { name: string; pct: number; role: 'Principal' | 'Secundario' }
+
 export type Exercise = {
-  id: string // "biceps/barbell-curl"
+  id: string // "biceps/barbell-curl" o "custom/<hex>" para creados por el usuario
   slug: string
   name: string
   muscle: string
@@ -18,6 +20,11 @@ export type Exercise = {
   instructions: string[]
   file: string
   gifUrl: string
+  // Extensiones solo-presentes en ejercicios USER_CREATED (opcionales, compatibles):
+  imageDataUrl?: string
+  origin?: 'PRELOADED' | 'USER_CREATED'
+  muscleBreakdown?: MuscleShare[]
+  archived?: boolean
 }
 
 export type MuscleEntry = { muscle:string; count:number; endpoint:string }

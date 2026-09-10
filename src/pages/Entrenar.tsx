@@ -11,7 +11,7 @@ import { loadActiveSession, saveActiveSession, type ActiveSession } from '@/serv
 import { getActiveSession, transitionSession } from '@/services/training/sessionStore'
 import type { SessionStatus, TrainingSession, SessionExercise } from '@/services/training/domain'
 
-type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number; muscle?:string; gifUrl?:string; swappedFrom?:string; replaced?:boolean; extra?:boolean; plannedSets?:number; seriesType?:string; seId?:string }
+type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number; muscle?:string; gifUrl?:string; imageDataUrl?:string; swappedFrom?:string; replaced?:boolean; extra?:boolean; plannedSets?:number; seriesType?:string; seId?:string }
 
 const PERSIST_KEY = (today:string, exId:string) => `exstate:${today}:${exId}`
 
@@ -117,13 +117,13 @@ export default function Entrenar(){
     const seList = await getSessionExercises(storeS.sessionId)
     setSessionExercises(seList)
     // nombres/musculo del espejo (metadatos UI, no fuente)
-    let meta: Record<string, { name: string; muscle?: string; gifUrl?: string }> = {}
+    let meta: Record<string, { name: string; muscle?: string; gifUrl?: string; imageDataUrl?: string }> = {}
     try {
       const raw = localStorage.getItem(`althea:session:active:ex:${storeS.sessionId}`) || localStorage.getItem(`session:active:${today}`)
       if (raw) {
         const parsed = JSON.parse(raw)
         const arr = parsed.exercises || parsed
-        if (Array.isArray(arr)) for (const x of arr) meta[x.exId || x.id] = { name: x.name, muscle: x.muscle, gifUrl: x.gifUrl }
+        if (Array.isArray(arr)) for (const x of arr) meta[x.exId || x.id] = { name: x.name, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl }
       }
     } catch { /* noop */ }
     const list: SessionEx[] = seList.map((se, idx) => ({
@@ -134,6 +134,7 @@ export default function Entrenar(){
       weight: se.plannedSets[0]?.weight ?? 0,
       muscle: meta[se.exerciseId]?.muscle,
       gifUrl: meta[se.exerciseId]?.gifUrl,
+      imageDataUrl: meta[se.exerciseId]?.imageDataUrl,
       plannedSets: se.plannedSetCount,
       seId: se.sessionExerciseId,
       swappedFrom: se.replacement?.originalExerciseId,
@@ -347,6 +348,13 @@ export default function Entrenar(){
 
   const openViewer = async ()=>{
     if(!cur) return
+    if(cur.exId.startsWith('custom/')){
+      try{
+        const { getCustomExercise } = await import('@/services/training/customExercises')
+        const c = await getCustomExercise(cur.exId)
+        if(c){ setViewer({ ...c, gifUrl: c.gifUrl || c.imageDataUrl || '' } as unknown as Gym.Exercise); return }
+      }catch{ /* noop */ }
+    }
     const seedMap:any = {
       'ex-001':'pectorals/barbell-bench-press',
       'ex-002':'pectorals/dumbbell-bench-press',
@@ -402,7 +410,10 @@ export default function Entrenar(){
       const m = muscleMap[(cur.muscle||'').toLowerCase()] || 'pectorals'
       const res = await Gym.fetchByMuscle(m)
       let original: Gym.Exercise | null = null
-      if(cur.exId.includes('/')){
+      if(cur.exId.startsWith('custom/')){
+        try{ const { getCustomExercise } = await import('@/services/training/customExercises'); original = await getCustomExercise(cur.exId) as unknown as Gym.Exercise }catch{ /* noop */ }
+      }
+      else if(cur.exId.includes('/')){
         try{ const [mm,slug]=cur.exId.split('/'); original = await Gym.fetchOne(mm,slug).catch(()=>null) as unknown as Gym.Exercise }catch{ /* noop */ }
       }
       const orig: Gym.Exercise = original || { id: cur.exId, slug: cur.exId, name: cur.name, muscle: cur.muscle || m, bodyPart: '', equipment: '', category: '', secondaryMuscles: [], instructions: [], file: '', gifUrl: cur.gifUrl || '' }
@@ -413,8 +424,11 @@ export default function Entrenar(){
       ])
       const counts: Record<string,number> = {}
       for(const r of [...(recs as any[]), ...(logs as any[])] as any[]){ const k=r.exerciseId; counts[k]=(counts[k]||0)+1 }
+      const { listCustomExercises } = await import('@/services/training/customExercises')
+      const customs = await listCustomExercises('muscle', orig.muscle).catch(()=>[])
+      const pool = [...res.exercises, ...(customs as unknown as Gym.Exercise[])]
       const { rankReplacements } = await import('@/services/training/similarity')
-      setSwapOptions(rankReplacements(orig, res.exercises, (id)=> counts[id]||0).slice(0, 12))
+      setSwapOptions(rankReplacements(orig, pool, (id)=> counts[id]||0).slice(0, 12))
       setShowSwap(true)
     }catch{ /* noop */ }finally{ setSwapLoading(false) }
   }, [cur])
@@ -1467,8 +1481,13 @@ function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeig
     const load=async()=>{
       const { getLastSerieWithSource } = await import('@/services/history')
       try{
+        if(exerciseId.startsWith('custom/')){
+          const { getCustomExercise } = await import('@/services/training/customExercises')
+          const c = await getCustomExercise(exerciseId)
+          if(c) setExInfo({ muscle: c.muscle, secondaryMuscles: c.secondaryMuscles, muscleBreakdown: c.muscleBreakdown })
+        }
         const { fetchOne } = await import('@/services/exerciseGym')
-        if(exerciseId.includes('/')){
+        if(exerciseId.includes('/') && !exerciseId.startsWith('custom/')){
           const [m,slug]=exerciseId.split('/')
           const ex:any = await fetchOne(m,slug).catch(()=>null)
           if(ex) setExInfo(ex)
@@ -1516,9 +1535,10 @@ function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeig
       <div className="rounded-xl bg-bg border border-border p-2">
         <div className="flex flex-wrap gap-1">
           {(() => {
-            const m = exInfo?.muscle || 'General'
-            const secs = exInfo?.secondaryMuscles || []
-            const pcts = secs.length===0 ? [{n:m,p:100}] : secs.length===1 ? [{n:m,p:60},{n:secs[0],p:40}] : [{n:m,p:60},{n:secs[0],p:30},{n:secs[1],p:10}]
+            const bd = (exInfo as any)?.muscleBreakdown
+            const pcts = (Array.isArray(bd) && bd.length > 0)
+              ? bd.map((b:any)=> ({ n: b.name, p: b.pct }))
+              : (()=>{ const m = exInfo?.muscle || 'General'; const secs = exInfo?.secondaryMuscles || []; return secs.length===0 ? [{n:m,p:100}] : secs.length===1 ? [{n:m,p:60},{n:secs[0],p:40}] : [{n:m,p:60},{n:secs[0],p:30},{n:secs[1],p:10}] })()
             return pcts.filter(x=>x.n).map(x=> <span key={x.n} className={`px-2 py-0.5 rounded-full border text-aux text-xs ${x.p>=60?'bg-accentDark border-info text-info':'bg-surface border-border text-textMuted'}`}>{x.n}: {x.p}%</span>)
           })()}
         </div>

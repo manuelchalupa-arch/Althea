@@ -111,6 +111,7 @@ export async function wipeDatabase(){
   try{ await db.table('weeklySequences').clear()}catch{}
   try{ await db.table('trainingSessions').clear()}catch{}
   try{ await db.table('exerciseRecords').clear()}catch{}
+  try{ await db.table('customExercises').clear()}catch{}
   for(const t of ['sessionExercises','setRecords','sessionEvents','postWorkoutSurveys','negativeSets','exerciseObservations']){
     try{ await db.table(t).clear()}catch{ /* noop */ }
   }

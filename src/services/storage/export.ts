@@ -5,6 +5,7 @@ export async function exportJSON(){
     version: 1,
     exportedAt: new Date().toISOString(),
     exercises: await db.exercises.toArray(),
+    customExercises: await db.table('customExercises').toArray().catch(()=>[]),
     routines: await db.routines.toArray(),
     routineDays: await db.routineDays.toArray(),
     routineExercises: await db.routineExercises.toArray(),
@@ -37,6 +38,7 @@ export async function importJSON(file:File){
   const txt = await file.text()
   const data = JSON.parse(txt)
   if(data.exercises) await db.exercises.bulkPut(data.exercises)
+  if(data.customExercises) await db.table('customExercises').bulkPut(data.customExercises)
   if(data.sessions) await db.sessions.bulkPut(data.sessions)
   if(data.setLogs) await db.setLogs.bulkPut(data.setLogs)
   if(data.routines) await db.routines.bulkPut(data.routines)

@@ -329,8 +329,8 @@ export default function RutinaPage(){
         <IntelligentPicker
           dayN={pickerFor}
           dayName={active.cycle.trainingDays.find(d=>d.n===pickerFor)?.name || ''}
-          onAdd={(exId,gifUrl,name,muscle)=>{
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:3, reps:10, weight:40, gifUrl, name, muscle } as any]}}))
+          onAdd={(exId,gifUrl,name,muscle,imageDataUrl)=>{
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:3, reps:10, weight:40, gifUrl, name, muscle, imageDataUrl } as any]}}))
             setPickerFor(null)
           }}
           onClose={()=>setPickerFor(null)}
@@ -341,7 +341,7 @@ export default function RutinaPage(){
       {viewer && (
         <ExerciseViewer exercise={viewer} onClose={()=>setViewer(null)} onAdd={()=>{
           if(pickerFor!==null){
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId: viewer.id, sets:3, reps:10, weight:40, gifUrl: viewer.gifUrl, name: viewer.name, muscle: viewer.muscle } as any]}}))
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId: viewer.id, sets:3, reps:10, weight:40, gifUrl: viewer.gifUrl, name: viewer.name, muscle: viewer.muscle, imageDataUrl: (viewer as any).imageDataUrl } as any]}}))
           }
           setViewer(null); setPickerFor(null)
         }} />
@@ -350,7 +350,7 @@ export default function RutinaPage(){
   )
 }
 
-function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number; dayName:string; onAdd:(exId:string,gifUrl:string,name:string,muscle:string)=>void; onClose:()=>void; onView:(ex:Gym.Exercise)=>void}){
+function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number; dayName:string; onAdd:(exId:string,gifUrl:string,name:string,muscle:string,imageDataUrl?:string)=>void; onClose:()=>void; onView:(ex:Gym.Exercise)=>void}){
   const muscles = parseDayMuscles(dayName)
   const [q,setQ]=useState('')
   const [equipFilter,setEquipFilter]=useState('todos')
@@ -373,6 +373,13 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
             }
           })
         })
+        try{
+          const { listCustomExercises } = await import('@/services/training/customExercises')
+          const customs:Gym.Exercise[] = []
+          for(const m of muscles){ const cs = await listCustomExercises('muscle', m).catch(()=>[]); for(const c of cs){ if(!seen.has(c.id)){ seen.add(c.id); customs.push(c as unknown as Gym.Exercise) } } }
+          merged.push(...customs)
+          merged.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
+        }catch{ /* noop */ }
         if(merged.length===0 && !cancelled) setErr('No encontramos ejercicios compatibles con este grupo muscular.\nProbá con otro grupo, equipamiento o término de búsqueda.')
         if(!cancelled) setItems(merged)
       }catch(e:any){ if(!cancelled) setErr(e.message) }
@@ -427,15 +434,15 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
           {filtered.slice(0,60).map(ex=>(
             <div key={ex.id} className="rounded-xl bg-surface border border-border overflow-hidden">
               <div className="h-36 bg-bg border-b border-border flex items-center justify-center overflow-hidden">
-                {ex.gifUrl ? <img src={ex.gifUrl} alt={ex.name} loading="lazy" className="w-full h-full object-cover" onError={e=>{ (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }} /> : null}
+                {(ex.gifUrl || (ex as any).imageDataUrl) ? <img src={ex.gifUrl || (ex as any).imageDataUrl} alt={ex.name} loading="lazy" className="w-full h-full object-cover" onError={e=>{ (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }} /> : null}
                 <div className="hidden p-4 text-aux text-center">Vista alternativa — {ex.name}</div>
               </div>
               <div className="p-3">
-                <div className="text-body font-medium">{ex.name}</div>
+                <div className="text-body font-medium flex items-center gap-2"><span className="truncate">{ex.name}</span>{(ex as any).origin==='USER_CREATED' ? <span className="text-aux px-2 py-0.5 rounded-full bg-elevated border border-info text-info shrink-0">Mío</span> : null}</div>
                 <div className="text-aux text-textMuted">{displayMuscle(ex.muscle)} · {ex.equipment} · {ex.bodyPart}</div>
                 <div className="flex gap-2 mt-2">
                   <button onClick={()=> onView(ex)} className="flex-1 py-2 rounded-xl bg-bg border border-border text-aux flex items-center justify-center gap-1"><Eye size={14}/> Ver ejercicio</button>
-                  <button onClick={()=> onAdd(ex.id, ex.gifUrl, ex.name, ex.muscle)} className="flex-1 py-2 rounded-xl bg-action text-textMain font-medium">AGREGAR</button>
+                  <button onClick={()=> onAdd(ex.id, ex.gifUrl, ex.name, ex.muscle, (ex as any).imageDataUrl)} className="flex-1 py-2 rounded-xl bg-action text-textMain font-medium">AGREGAR</button>
                 </div>
               </div>
             </div>
@@ -463,9 +470,9 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
         <div className="p-4">
           <div className="rounded-xl bg-surface border border-border overflow-hidden flex items-center justify-center min-h-[280px] md:min-h-[400px] p-2">
             {loading && !err && <span className="text-aux">Cargando ejercicio...</span>}
-            {!err ? (
+            {(!err && (exercise.gifUrl || (exercise as any).imageDataUrl)) ? (
               <img
-                src={exercise.gifUrl}
+                src={(exercise as any).imageDataUrl || exercise.gifUrl}
                 alt={exercise.name}
                 className="max-w-full max-h-[60vh] md:max-h-[65vh] w-auto h-auto object-contain"
                 onLoad={()=>setLoading(false)}

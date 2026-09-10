@@ -1,6 +1,6 @@
 import { db } from '@/services/storage/db'
 
-export type DayEx = { id:string; name:string; sets:number; reps:number; weight:number; muscle?:string; gifUrl?:string; exId:string; restSec?:number; seriesType?:string }
+export type DayEx = { id:string; name:string; sets:number; reps:number; weight:number; muscle?:string; gifUrl?:string; imageDataUrl?:string; exId:string; restSec?:number; seriesType?:string }
 
 export async function getDayExercises(dayN:number | null, cycle:any): Promise<DayEx[]> {
   if(!dayN) return []
@@ -15,7 +15,7 @@ export async function getDayExercises(dayN:number | null, cycle:any): Promise<Da
       const exs = await db.exercises.bulkGet(arr.map((x:any)=>x.exId)).catch(()=>[])
       return arr.map((it:any,i:number)=>{
         const ex:any = (exs as any)?.[i]
-        return { id: it.exId, exId: it.exId, name: ex?.name || it.name || it.exId, sets: it.sets, reps: it.reps, weight: it.weight, muscle: ex?.groupMain || (it as any).muscle, gifUrl: (it as any).gifUrl, restSec: (it as any).restSec, seriesType: (it as any).seriesType }
+        return { id: it.exId, exId: it.exId, name: ex?.name || it.name || it.exId, sets: it.sets, reps: it.reps, weight: it.weight, muscle: ex?.groupMain || (it as any).muscle, gifUrl: (it as any).gifUrl, imageDataUrl: (it as any).imageDataUrl, restSec: (it as any).restSec, seriesType: (it as any).seriesType }
       })
     }
   }catch{}

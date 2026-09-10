@@ -27,7 +27,7 @@ export interface ActiveSession {
   actualDayName: string | null;
   plannedMuscleGroups: string[];
   actualMuscleGroups: string[];
-  exercises: Array<{ exId: string; name: string; sets: number; reps: number; weight: number; muscle?: string; gifUrl?: string }>;
+  exercises: Array<{ exId: string; name: string; sets: number; reps: number; weight: number; muscle?: string; gifUrl?: string; imageDataUrl?: string }>;
   sessionStatus: SessionStatus;
   statusHistory: Array<{ status: SessionStatus; at: string }>;
   startedAt?: string;

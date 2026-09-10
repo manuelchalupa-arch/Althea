@@ -280,7 +280,7 @@ export default function Inicio(){
                   plannedDayName: rawAgenda.name ?? null,
                   actualDay: n ?? null,
                   actualDayName: agenda.name ?? null,
-                  exercises: list.map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl })),
+                  exercises: list.map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl })),
                   dayChangeReason: changed?.changeReason || (isOverridden ? 'Cambio de día desde Inicio' : undefined),
                   dayChangeComment: changed?.changeComment,
                   weekNumber,

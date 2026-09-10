@@ -50,6 +50,11 @@ export class TrainDB extends Dexie {
       negativeSets: 'negativeSetId, sessionId, sessionExerciseId',
       exerciseObservations: 'observationId, sessionId, sessionExerciseId',
     })
+    // v6: ejercicios personalizados en Gym-shape (mismo universo que rutinas/entrenos).
+    // db.exercises conserva el seed español legacy; customs van aquí con origin USER_CREATED.
+    this.version(6).stores({
+      customExercises: 'id, muscle, bodyPart',
+    })
   }
 }
 export const db = new TrainDB()
