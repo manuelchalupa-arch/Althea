@@ -7,6 +7,7 @@ import * as Push from '@/services/notifications/push'
 import * as Sync from '@/services/sync/queue'
 import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearance } from '@/utils/appearance'
 import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type NotifConfig } from '@/services/notifications/scheduler'
+import BrandIcon from '@/components/brand/BrandIcon'
 
 const WEEK_DAYS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
 
@@ -45,7 +46,7 @@ function NotifSection(){
             {c.times.map((t)=>(
               <span key={t} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-surface border border-border text-aux">
                 {t}
-                <button onClick={()=>upd(c.id,{times:c.times.filter(x=>x!==t)})} aria-label={`Quitar horario ${t}`} className="text-textMuted">✕</button>
+                <button onClick={()=>upd(c.id,{times:c.times.filter(x=>x!==t)})} aria-label={`Quitar horario ${t}`} className="text-textMuted flex"><BrandIcon name="close" size={12}/></button>
               </span>
             ))}
           </div>

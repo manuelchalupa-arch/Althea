@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import * as Codulia from '@/services/codulia'
 import { Search, Barcode, Copy, Code2, Apple, Camera, Info, ExternalLink } from 'lucide-react'
+import BrandIcon from '@/components/brand/BrandIcon'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import { calcIMC, calcTMB, calcTDEE, calorieGoal, proteinRange } from '@/utils/nutrition'
 
@@ -270,7 +271,7 @@ export default function Nutricion(){
             {(detail.photoUrl || detail.nutritionLabelUrl) && (
               <div className="grid grid-cols-2 gap-2">
                 {detail.photoUrl && <a href={detail.photoUrl} target="_blank" rel="noreferrer" className="text-aux text-info underline text-center">Foto producto</a>}
-                {detail.nutritionLabelUrl && <a href={detail.nutritionLabelUrl} target="_blank" rel="noreferrer" className="text-aux text-info underline text-center">Foto etiqueta 🏷️</a>}
+                {detail.nutritionLabelUrl && <a href={detail.nutritionLabelUrl} target="_blank" rel="noreferrer" className="text-aux text-info underline text-center">Foto etiqueta</a>}
               </div>
             )}
 
@@ -289,7 +290,7 @@ export default function Nutricion(){
               <div className="text-aux text-textMuted truncate">{r.brand || r.source} {r.barcode ? `· ${r.barcode}` : ''} · {r.baseUnit}</div>
               <div className="text-aux text-info">{(r as any).caloriesPer100g ?? (r as any).calories ?? '—'} kcal {r.baseUnit==='ml'?'por 100 ml':'por 100 g'}</div>
             </div>
-            <span className="self-center text-textMuted">›</span>
+            <span className="self-center text-textMuted flex"><BrandIcon name="forward" size={16}/></span>
           </div>
         ))}
         {results.length===0 && !detail && !loading && <p className="text-muted text-center py-4">Sin resultados aún. Probá buscar "yerba", "polenta" o un código de góndola.</p>}

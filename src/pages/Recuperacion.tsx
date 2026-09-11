@@ -58,7 +58,7 @@ export default function Recuperacion(){
     localStorage.setItem('recovery:'+today, JSON.stringify(vals))
     await db.recoveryChecks.put({ id: today, localDate: today, ...vals, score, color } as never)
     try{ window.dispatchEvent(new Event('recoveryChange')) }catch{ /* noop */ }
-    alert(`Guardado: ${score}/100 ${color==='green'?'🟢':color==='yellow'?'🟡':'🔴'} — disponible para IA y gráficos`)
+    alert(`Guardado: ${score}/100 — disponible para IA y gráficos`)
   }
 
   return (
@@ -66,7 +66,7 @@ export default function Recuperacion(){
       <h1 className="text-section">Recuperación</h1>
       <div className={`rounded-xl p-5 text-center border ${color==='green'?'bg-emerald-900/30 border-emerald-800':color==='yellow'?'bg-amber-900/30 border-amber-800':'bg-red-900/30 border-red-800'}`}>
         <div className="text-aux opacity-70">RECUPERACIÓN</div>
-        <div className="text-title mt-1">{score}/100 {color==='green'?'🟢':color==='yellow'?'🟡':'🔴'}</div>
+        <div className="text-title mt-1 flex items-center justify-center gap-2">{score}/100 <span aria-hidden className={`inline-block w-3 h-3 rounded-full ${color==='green'?'bg-success':color==='yellow'?'bg-warning':'bg-danger'}`}></span></div>
         <div className="text-body opacity-80 mt-1">{color==='green'?'Normal':color==='yellow'?'Moderada':'Baja'} — {color==='green'?'Listo para entrenar':color==='yellow'?'Considerá bajar volumen':'Priorizá descanso'}</div>
       </div>
 

@@ -1,7 +1,7 @@
 import {
   Home, Dumbbell, Apple, TrendingUp, LayoutGrid, BookOpen, ClipboardList, Calendar,
   Moon, Brain, User, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight,
-  ChevronsLeft, ChevronsRight, Search, Eye, Play, Clock, RotateCcw, X, XCircle,
+  ChevronsLeft, ChevronsRight, Search, Eye, Play, Pause, Clock, RotateCcw, X, XCircle,
   Download, Info, AlertTriangle, Copy, Code2, Camera, Barcode, ExternalLink,
   Globe, WifiOff, Box, Layers, Heart, History, Cpu, HardDrive, Droplets, Zap,
   type LucideIcon,
@@ -36,6 +36,7 @@ export const ICONS: Record<string, BrandIconDef> = {
   search:      { name: 'search',      file: 'search.svg',      group: 'actions',    label: 'Buscar',                 lucide: Search },
   view:        { name: 'view',        file: 'view.svg',        group: 'actions',    label: 'Ver',                    lucide: Eye },
   play:        { name: 'play',        file: 'play.svg',        group: 'actions',    label: 'Iniciar',                lucide: Play },
+  pause:       { name: 'pause',       file: 'pause.svg',       group: 'actions',    label: 'Pausar',                 lucide: Pause },
   clock:       { name: 'clock',       file: 'clock.svg',       group: 'actions',    label: 'Reloj / descanso',       lucide: Clock },
   rotate:      { name: 'rotate',      file: 'rotate.svg',      group: 'actions',    label: 'Rotar / cambiar',        lucide: RotateCcw },
   close:       { name: 'close',       file: 'close.svg',       group: 'actions',    label: 'Cerrar',                 lucide: XCircle },

@@ -3,6 +3,7 @@ import { db, ensureSeeded } from '@/services/storage/db'
 import { getCycleFromProfile } from '@/utils/cycle'
 import { v4 as uuid } from 'uuid'
 import { Eye, Clock, Check, ChevronRight, Zap, AlertTriangle, RotateCcw, XCircle } from 'lucide-react'
+import BrandIcon from '@/components/brand/BrandIcon'
 import { aiService } from '@/services/ai/aiService'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import * as Gym from '@/services/exerciseGym'
@@ -997,7 +998,7 @@ export default function Entrenar(){
           <div className="mt-2 h-2 bg-surface border border-border rounded-full overflow-hidden flex">
             {exs.map((_,i)=> <div key={i} className={`flex-1 ${done[i]?'bg-action': i===current?'bg-info':'bg-transparent'}`} />)}
           </div>
-          {restSec>0 && <div className="mt-2 flex items-center gap-2 text-aux bg-surface border border-border rounded-xl px-2 py-1.5"><button onClick={()=>{ const v=!restPaused; setRestPaused(v); restPausedRef.current=v }} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="px-2 py-1 rounded-lg bg-bg border border-border text-body">{restPaused ? '▶' : '⏸'}</button><Clock size={14}/><span className="text-body font-medium tabular-nums">{Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</span><span>Descanso</span><span className="ml-auto flex gap-1"><button onClick={()=>setRestSec((s)=>Math.max(0,s-15))} className="px-2 py-1 rounded-lg bg-bg border border-border">−15</button><button onClick={()=>setRestSec((s)=>s+30)} className="px-2 py-1 rounded-lg bg-bg border border-border">+30</button><button onClick={()=>{ setRestSec(0); setRestFlash(false) }} className="px-2 py-1 rounded-lg bg-bg border border-border text-info">Saltar</button></span></div>}
+          {restSec>0 && <div className="mt-2 flex items-center gap-2 text-aux bg-surface border border-border rounded-xl px-2 py-1.5"><button onClick={()=>{ const v=!restPaused; setRestPaused(v); restPausedRef.current=v }} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="px-2 py-1 rounded-lg bg-bg border border-border text-body">{restPaused ? <BrandIcon name="play" size={14}/> : <BrandIcon name="pause" size={14}/>}</button><Clock size={14}/><span className="text-body font-medium tabular-nums">{Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</span><span>Descanso</span><span className="ml-auto flex gap-1"><button onClick={()=>setRestSec((s)=>Math.max(0,s-15))} className="px-2 py-1 rounded-lg bg-bg border border-border">−15</button><button onClick={()=>setRestSec((s)=>s+30)} className="px-2 py-1 rounded-lg bg-bg border border-border">+30</button><button onClick={()=>{ setRestSec(0); setRestFlash(false) }} className="px-2 py-1 rounded-lg bg-bg border border-border text-info">Saltar</button></span></div>}
           {restFlash && restSec===0 && <button onClick={()=>setRestFlash(false)} className="mt-2 w-full flex items-center justify-center gap-2 text-body st-completed border rounded-xl p-2 fade-in"><Check size={14}/> Descanso terminado — a entrenar</button>}
           {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED') && (
             <div className="mt-2 flex gap-2">
@@ -1125,7 +1126,7 @@ export default function Entrenar(){
         {viewer && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2" onClick={()=>setViewer(null)}>
             <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-auto">
-              <div className="p-4 flex justify-between"><span className="text-subtitle">{viewer.name}</span><button onClick={()=>setViewer(null)} className="w-8 h-8 rounded-full bg-surface border border-border">✕</button></div>
+              <div className="p-4 flex justify-between"><span className="text-subtitle">{viewer.name}</span><button onClick={()=>setViewer(null)} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center"><BrandIcon name="close" size={16}/></button></div>
               <div className="p-4">
                 <div className="rounded-xl bg-surface border border-border flex items-center justify-center min-h-[300px] p-2">
                   {viewer.gifUrl ? <img src={viewer.gifUrl} alt={viewer.name} className="max-w-full max-h-[60vh] object-contain"/> : <span className="text-aux">Sin GIF</span>}
@@ -1142,7 +1143,7 @@ export default function Entrenar(){
             <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-3 max-h-[80vh] overflow-auto">
               <div className="flex justify-between items-center">
                 <h3 className="text-subtitle">Cambiar ejercicio — {cur?.muscle || 'mismo grupo'}</h3>
-                <button onClick={()=>{setShowSwap(false); setSwapOptions([])}} className="w-8 h-8 rounded-full bg-surface border border-border">✕</button>
+                <button onClick={()=>{setShowSwap(false); setSwapOptions([])}} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
               </div>
               <p className="text-aux">Elegí una alternativa del mismo grupo muscular</p>
               <div className="space-y-2 max-h-60 overflow-auto">
@@ -1238,7 +1239,7 @@ export default function Entrenar(){
             <div onClick={(e)=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-3 max-h-[80vh] overflow-auto">
               <div className="flex justify-between items-center">
                 <h3 className="text-subtitle">Agregar ejercicio EXTRA</h3>
-                <button onClick={()=>setShowAddEx(false)} className="w-8 h-8 rounded-full bg-surface border border-border">✕</button>
+                <button onClick={()=>setShowAddEx(false)} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
               </div>
               <p className="text-aux">No planificado · quedará marcado EXTRA con su motivo.</p>
               <select value={addExReason} onChange={(e)=>setAddExReason(e.target.value)} className="w-full bg-surface border border-border rounded-xl p-2 text-body">

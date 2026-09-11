@@ -4,6 +4,7 @@ import { db, ensureSeeded } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate, formatAgendaDate } from '@/utils/cycle'
 import { recoveryScore, recoveryColor } from '@/utils/calc'
 import { Play, ChevronRight, Droplets, Moon, Heart, Dumbbell, Info, Cpu } from 'lucide-react'
+import BrandIcon from '@/components/brand/BrandIcon'
 import { aiService } from '@/services/ai/aiService'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { detectCapabilities } from '@/services/ai/capabilities'
@@ -320,12 +321,12 @@ export default function Inicio(){
             <h3 className="text-subtitle">Cambiar entrenamiento de hoy</h3>
             {rawAgenda.isRest ? (
               <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-3">
-                <div className="text-aux text-amber-300 flex items-center gap-1">⚠️ Este día estaba configurado como descanso.</div>
+                <div className="text-aux text-amber-300 flex items-center gap-1"><BrandIcon name="alert" size={14}/> Este día estaba configurado como descanso.</div>
                 <p className="text-aux mt-1">Estás intentando entrenar en un día no planificado. Esto puede reducir recuperación.</p>
               </div>
             ) : (
               <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-3">
-                <div className="text-aux text-amber-300">⚠️ Hoy estaba programado {rawAgenda.name}.</div>
+                <div className="text-aux text-amber-300 flex items-center gap-1"><BrandIcon name="alert" size={14}/> Hoy estaba programado {rawAgenda.name}.</div>
                 <p className="text-aux">Este cambio altera la distribución semanal prevista.</p>
               </div>
             )}

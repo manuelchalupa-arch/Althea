@@ -4,6 +4,7 @@ import {
   createCustomExercise, updateCustomExercise, fileToExerciseImage,
   type CustomExercise, type CustomInput,
 } from '@/services/training/customExercises'
+import BrandIcon from '@/components/brand/BrandIcon'
 
 // Formulario de ejercicio personalizado (§32): bloques compactos + previsualización.
 // Catálogos (músculos, equipos, categorías, partes) vienen por props desde Biblioteca:
@@ -94,7 +95,7 @@ export default function BibliotecaCustomForm({
       <div onClick={(e) => e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl max-h-[92vh] overflow-auto p-4 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-subtitle">{initial ? 'Editar ejercicio' : '+ Agregar ejercicio'}</h3>
-          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-border">✕</button>
+          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
         </div>
 
         {step === 'form' ? (

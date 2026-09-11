@@ -4,6 +4,7 @@ import type { Exercise } from '@/types'
 import { DEFAULT_CYCLE, type CycleConfig } from '@/utils/cycle'
 import { v4 as uuid } from 'uuid'
 import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye } from 'lucide-react'
+import BrandIcon from '@/components/brand/BrandIcon'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import * as Gym from '@/services/exerciseGym'
 
@@ -465,7 +466,7 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
             <div className="text-subtitle">{exercise.name}</div>
             <div className="text-aux text-textMuted">{displayMuscle(exercise.muscle)} · {exercise.equipment} · {exercise.bodyPart} · {exercise.category}</div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center text-body">✕</button>
+          <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center text-body"><BrandIcon name="close" size={16}/></button>
         </div>
         <div className="p-4">
           <div className="rounded-xl bg-surface border border-border overflow-hidden flex items-center justify-center min-h-[280px] md:min-h-[400px] p-2">
