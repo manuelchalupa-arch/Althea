@@ -114,3 +114,40 @@ input:disabled, select:disabled { color: rgb(var(--text)); background: rgb(var(-
 /* Utilidad: oculta scrollbar horizontal del nav */
 .scrollbar-none { scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* ============ SISTEMA GRIEGO / TEMPLO (mármol + arquitectura) ============ */
+/* Solo usa vars de paleta existentes. Sutileza primero: nada tapa contenido. */
+.temple-backdrop {
+  position: fixed; inset: 0; z-index: 30; pointer-events: none; overflow: hidden;
+}
+.temple-veil {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(70% 45% at 85% 8%, rgb(var(--surface-2) / 0.55), transparent 70%),
+    radial-gradient(55% 40% at 8% 92%, rgb(var(--surface-2) / 0.4), transparent 70%),
+    repeating-linear-gradient(175deg, transparent 0 30px, rgb(var(--border) / 0.16) 30px 31px);
+}
+.temple-sigil {
+  position: absolute; right: -48px; bottom: 72px;
+  width: min(46vw, 420px); height: auto;
+  color: rgb(var(--text)); opacity: 0.055;
+}
+.light .temple-sigil { opacity: 0.075; }
+.temple-frieze { display: block; width: 100%; height: 5px; color: rgb(var(--text-3)); opacity: 0.5; }
+.temple-mark {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 16px; color: #fff;
+  background: linear-gradient(135deg, rgb(var(--primary)), rgb(var(--surface-2)));
+  border: 1px solid rgb(var(--border));
+}
+.temple-word { letter-spacing: 0.35em; font-weight: 600; font-size: 0.8125rem; text-indent: 0.35em; }
+@media (max-width: 767px) {
+  .temple-sigil { width: 180px; right: -32px; bottom: 84px; opacity: 0.045; }
+}
+/* Microinteracciones sutiles */
+.tpress { transition: transform 0.12s ease-out, background-color 0.15s ease-out; }
+.tpress:active { transform: scale(0.96); }
+.tfade { animation: fade-in 0.2s ease-out; }
+@keyframes temple-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.temple-rise { animation: temple-rise 0.25s ease-out; }

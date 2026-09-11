@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import AppNav from '@/components/layout/AppNav'
+import { AppHeader, TempleBackdrop } from '@/components/brand/temple'
 import Inicio from '@/pages/Inicio'
 import Entrenar from '@/pages/Entrenar'
 import Progresos from '@/pages/Progreso'
@@ -90,6 +91,8 @@ function Layout(){
   }
   return (
     <>
+      <TempleBackdrop />
+      {!hideNav && <AppHeader />}
       <div className="md:pl-[var(--navw)]">
       <Routes>
         <Route path="/login" element={<Login onDone={()=> navigate('/', { replace: true })} />} />
