@@ -62,6 +62,12 @@ function Layout(){
       }catch{ /* noop */ }
     }
     run()
+    // Push en primer plano: al tocar abre destino (cuestionario si viene marcado)
+    import('@/services/firebase/messaging').then(({ listenForeground })=>{
+      listenForeground((data)=>{
+        if(data?.open === 'recuperacion') navigate('/recuperacion')
+      })
+    }).catch(()=>{})
     const id = setInterval(()=>{ if(alive) run() }, 60000)
     const onVis = ()=>{ if(document.visibilityState==='visible') run() }
     document.addEventListener('visibilitychange', onVis)

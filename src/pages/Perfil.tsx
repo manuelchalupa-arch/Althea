@@ -121,9 +121,21 @@ function AccountSection(){
           <button
             onClick={async()=>{
               if(!confirm('¿Cerrar sesión en este dispositivo? Tus datos locales se conservan.')) return
+              setMsg('Haciendo backup antes de salir…')
+              try{
+                const { currentUser } = await import('@/services/firebase/auth')
+                const u = currentUser()
+                if(u && navigator.onLine){
+                  const { syncAll } = await import('@/services/firebase/sync')
+                  await syncAll(u.uid)
+                }
+              }catch(e:any){
+                if(!confirm(`El backup falló (${e?.message || 'sin conexión'}). ¿Salir igual? Tus datos quedan en este dispositivo.`)) return
+              }
               const { signOut } = await import('@/services/firebase/auth')
               await signOut()
               setEmail(null)
+              setMsg('')
             }}
             className="btn-secondary w-full"
           >
@@ -136,6 +148,49 @@ function AccountSection(){
           <Link to="/login" className="btn-primary w-full">Iniciar sesión / crear cuenta</Link>
         </>
       )}
+      {msg && <p className="text-aux">{msg}</p>}
+    </div>
+  )
+}
+
+function PushSection(){
+  const [supported,setSupported]=useState<boolean|null>(null)
+  const [active,setActive]=useState(false)
+  const [msg,setMsg]=useState('')
+  useEffect(()=>{
+    import('@/services/firebase/messaging').then(async ({ isPushSupported, savedToken })=>{
+      const ok = await isPushSupported()
+      setSupported(ok)
+      setActive(!!savedToken())
+    })
+  },[])
+  if(supported===false) return null
+  const enable = async ()=>{
+    setMsg('')
+    try{
+      const { enablePush } = await import('@/services/firebase/messaging')
+      await enablePush()
+      setActive(true)
+      setMsg('Push activado en este dispositivo.')
+    }catch(e:any){
+      setMsg(e?.message || 'No se pudo activar push.')
+    }
+  }
+  const test = ()=>{
+    try{
+      new Notification('Althea', { body: 'Las notificaciones push funcionan en este dispositivo.' } as any)
+    }catch{
+      setMsg('El navegador bloqueó la notificación de prueba.')
+    }
+  }
+  return (
+    <div className="rounded-xl bg-surface border border-border p-3 space-y-2">
+      <div className="text-aux font-medium">Notificaciones push</div>
+      <p className="text-aux text-textMuted">Avisos desde la nube (requieren despliegue en Firebase Hosting). Estado: {active ? 'activado' : 'apagado'}</p>
+      <div className="flex gap-2">
+        <button onClick={enable} disabled={active} className="btn-primary flex-1 disabled:opacity-50">Activar push</button>
+        <button onClick={test} className="btn-secondary flex-1">Probar</button>
+      </div>
       {msg && <p className="text-aux">{msg}</p>}
     </div>
   )
@@ -247,6 +302,8 @@ export default function Perfil(){
       </div>
 
       <AccountSection />
+
+      <PushSection />
 
       <NotifSection />
 
