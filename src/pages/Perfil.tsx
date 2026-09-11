@@ -67,6 +67,80 @@ function NotifSection(){
   )
 }
 
+function AccountSection(){
+  const [email,setEmail]=useState<string|null>(null)
+  const [configured,setConfigured]=useState(true)
+  const [syncing,setSyncing]=useState(false)
+  const [msg,setMsg]=useState('')
+  const [lastSync,setLastSync]=useState<string|null>(null)
+  useEffect(()=>{
+    import('@/services/firebase/config').then(({ isFirebaseConfigured })=>{
+      setConfigured(isFirebaseConfigured())
+      if(!isFirebaseConfigured()) return
+      import('@/services/firebase/auth').then(({ onUser })=>{
+        onUser((u)=> setEmail(u?.email || null))
+      })
+      import('@/services/firebase/sync').then(({ lastSyncAt })=> setLastSync(lastSyncAt()))
+    })
+  },[])
+  if(!configured){
+    return (
+      <div className="rounded-xl bg-surface border border-border p-3 space-y-2">
+        <div className="text-aux font-medium">Cuenta y sincronización</div>
+        <p className="text-aux text-textMuted">Firebase no configurado: la app funciona solo en este dispositivo. Agregá las variables VITE_FIREBASE_* en un archivo .env para activar cuenta y nube.</p>
+      </div>
+    )
+  }
+  const doSync = async ()=>{
+    setMsg('')
+    setSyncing(true)
+    try{
+      const { currentUser } = await import('@/services/firebase/auth')
+      const u = currentUser()
+      if(!u){ setMsg('Iniciá sesión para sincronizar.'); return }
+      const { syncAll, lastSyncAt } = await import('@/services/firebase/sync')
+      const r = await syncAll(u.uid, (m)=> setMsg(m))
+      setLastSync(lastSyncAt())
+      setMsg(`Sincronizado: ${r.uploaded} subidos, ${r.downloaded} descargados.`)
+    }catch(e:any){
+      setMsg(e?.message || 'Falló la sincronización.')
+    }finally{
+      setSyncing(false)
+    }
+  }
+  return (
+    <div className="rounded-xl bg-surface border border-border p-3 space-y-2">
+      <div className="text-aux font-medium">Cuenta y sincronización</div>
+      {email ? (
+        <>
+          <p className="text-body">{email}</p>
+          <p className="text-aux text-textMuted">Última sincronización: {lastSync ? new Date(lastSync).toLocaleString('es') : 'nunca'}</p>
+          <button onClick={doSync} disabled={syncing} className="btn-primary w-full disabled:opacity-50">
+            {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
+          </button>
+          <button
+            onClick={async()=>{
+              if(!confirm('¿Cerrar sesión en este dispositivo? Tus datos locales se conservan.')) return
+              const { signOut } = await import('@/services/firebase/auth')
+              await signOut()
+              setEmail(null)
+            }}
+            className="btn-secondary w-full"
+          >
+            Cerrar sesión
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="text-aux text-textMuted">Sin sesión iniciada en este dispositivo.</p>
+          <Link to="/login" className="btn-primary w-full">Iniciar sesión / crear cuenta</Link>
+        </>
+      )}
+      {msg && <p className="text-aux">{msg}</p>}
+    </div>
+  )
+}
+
 export default function Perfil(){
   const [profile,setProfile]=useState<any>(null)
   const [form,setForm]=useState({ age:'', sex:'', heightCm:'', weightKg:'', targetWeightKg:'', bodyFatPct:'', muscleMassKg:'', waistCm:'', chestCm:'', activityLevel:'moderado' })
@@ -171,6 +245,8 @@ export default function Perfil(){
           </div>
         </div>
       </div>
+
+      <AccountSection />
 
       <NotifSection />
 

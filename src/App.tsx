@@ -12,6 +12,7 @@ import Calendario from '@/pages/Calendario'
 import Nutricion from '@/pages/Nutricion'
 import Recuperacion from '@/pages/Recuperacion'
 import Perfil from '@/pages/Perfil'
+import Login from '@/pages/Login'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db } from '@/services/storage/db'
@@ -31,8 +32,26 @@ async function isTrainingDayLocal(dateStr:string): Promise<boolean> {
 function Layout(){
   const loc = useLocation()
   const navigate = useNavigate()
-  const hideNav = loc.pathname==='/onboarding'
+  const hideNav = loc.pathname==='/onboarding' || loc.pathname==='/login'
   const [updateReady,setUpdateReady]=useState(false)
+  const [authChecked,setAuthChecked]=useState(false)
+  const [needsLogin,setNeedsLogin]=useState(false)
+  // Gate de cuenta: si Firebase está configurado y no hay sesión ni modo offline → /login
+  useEffect(()=>{
+    let alive = true
+    import('@/services/firebase/config').then(({ isFirebaseConfigured })=>{
+      if(!isFirebaseConfigured()){ if(alive){ setNeedsLogin(false); setAuthChecked(true) } return }
+      import('@/services/firebase/auth').then(({ onUser, useOfflineMode })=>{
+        if(useOfflineMode()){ if(alive){ setNeedsLogin(false); setAuthChecked(true) } return }
+        onUser((u)=>{
+          if(!alive) return
+          setNeedsLogin(!u)
+          setAuthChecked(true)
+        })
+      })
+    })
+    return ()=>{ alive=false }
+  },[])
   // Scheduler de notificaciones locales: revisa cada minuto + al volver a la app.
   useEffect(()=>{
     let alive = true
@@ -59,10 +78,15 @@ function Layout(){
       }
     })
   },[loc.pathname])
+  if(!authChecked) return <div className="p-8 text-center">Cargando…</div>
+  if(needsLogin && loc.pathname!=='/login'){
+    return <Login onDone={()=>{ setNeedsLogin(false); navigate('/', { replace: true }) }} />
+  }
   return (
     <>
       <div className="md:pl-[var(--navw)]">
       <Routes>
+        <Route path="/login" element={<Login onDone={()=> navigate('/', { replace: true })} />} />
         <Route path="/" element={<Inicio/>} />
         <Route path="/entrenar" element={<Entrenar/>} />
         <Route path="/progresos" element={<Progresos/>} />
