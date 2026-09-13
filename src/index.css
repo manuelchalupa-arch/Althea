@@ -116,41 +116,37 @@ input:disabled, select:disabled { color: rgb(var(--text)); background: rgb(var(-
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
 /* ============ SISTEMA GRIEGO / TEMPLO (mármol + arquitectura) ============ */
-/* Solo usa vars de paleta existentes. Sutileza primero: nada tapa contenido. */
 .temple-backdrop {
   position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
   background: rgb(var(--bg));
 }
+/* Foto de fondo — bien visible, sin deformar, sin cortes */
 .temple-photo {
   position: absolute; inset: 0;
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
-  /* Evita deformación y recorte excesivo; cover + center es el equilibrio */
-  opacity: 0.22;
-  /* Evita descarga fuera de viewport en algunos navegadores */
-  content-visibility: auto;
+  /* Templo real: foto protagonista, el contenido flota encima con tarjetas opacas */
+  opacity: 0.58;
+  /* Suaviza pixelado en pantallas grandes sin perder nitidez */
+  image-rendering: auto;
 }
-.light .temple-photo { opacity: 0.16; }
-.temple-photo-overlay {
+.light .temple-photo { opacity: 0.42; }
+/* Scrim mínimo para que el header/nav no se pierda, sin tapar la foto */
+.temple-scrim {
   position: absolute; inset: 0;
-  /* Degradado + velo para legibilidad: nunca oculta, solo suaviza */
-  background:
-    linear-gradient(to bottom, rgb(var(--bg) / 0.55), rgb(var(--bg) / 0.72) 55%, rgb(var(--bg) / 0.88)),
-    radial-gradient(80% 60% at 50% 40%, transparent 45%, rgb(var(--bg) / 0.35) 100%);
+  background: linear-gradient(to bottom, rgb(var(--bg) / 0.12) 0%, rgb(var(--bg) / 0.02) 38%, rgb(var(--bg) / 0.48) 100%);
 }
-.light .temple-photo-overlay {
-  background:
-    linear-gradient(to bottom, rgb(var(--bg) / 0.42), rgb(var(--bg) / 0.62) 55%, rgb(var(--bg) / 0.82)),
-    radial-gradient(80% 60% at 50% 40%, transparent 45%, rgb(var(--bg) / 0.25) 100%);
+.light .temple-scrim {
+  background: linear-gradient(to bottom, rgb(var(--bg) / 0.10) 0%, rgb(var(--bg) / 0.01) 40%, rgb(var(--bg) / 0.32) 100%);
 }
-/* MOBILE: solo fondos móvil (vertical) — nunca desktop */
+/* MOBILE: solo fondos móvil (vertical) */
 @media (max-width: 767px) {
   .temple-variant-a .temple-photo { background-image: url('/assets/backgrounds/mobile-1.webp'); }
   .temple-variant-b .temple-photo { background-image: url('/assets/backgrounds/mobile-2.webp'); }
   .temple-variant-c .temple-photo { background-image: url('/assets/backgrounds/mobile-3.webp'); }
 }
-/* DESKTOP: solo fondos desktop (horizontal) — nunca móvil */
+/* DESKTOP: solo fondos desktop (horizontal) */
 @media (min-width: 768px) {
   .temple-variant-a .temple-photo { background-image: url('/assets/backgrounds/desktop-1.webp'); }
   .temple-variant-b .temple-photo { background-image: url('/assets/backgrounds/desktop-2.webp'); }
@@ -159,17 +155,17 @@ input:disabled, select:disabled { color: rgb(var(--text)); background: rgb(var(-
 .temple-veil {
   position: absolute; inset: 0;
   background:
-    radial-gradient(70% 45% at 85% 8%, rgb(var(--surface-2) / 0.35), transparent 70%),
-    radial-gradient(55% 40% at 8% 92%, rgb(var(--surface-2) / 0.28), transparent 70%),
-    repeating-linear-gradient(175deg, transparent 0 30px, rgb(var(--border) / 0.10) 30px 31px);
-  opacity: 0.9;
+    radial-gradient(70% 45% at 85% 8%, rgb(var(--surface-2) / 0.18), transparent 70%),
+    radial-gradient(55% 40% at 8% 92%, rgb(var(--surface-2) / 0.12), transparent 70%),
+    repeating-linear-gradient(175deg, transparent 0 30px, rgb(var(--border) / 0.07) 30px 31px);
+  opacity: 0.55;
 }
 .temple-sigil {
   position: absolute; right: -48px; bottom: 72px;
   width: min(46vw, 420px); height: auto;
-  color: rgb(var(--text)); opacity: 0.055;
+  color: rgb(var(--text)); opacity: 0.09;
 }
-.light .temple-sigil { opacity: 0.075; }
+.light .temple-sigil { opacity: 0.11; }
 .temple-frieze { display: block; width: 100%; height: 5px; color: rgb(var(--text-3)); opacity: 0.5; }
 .temple-mark {
   width: 28px; height: 28px; border-radius: 8px;
