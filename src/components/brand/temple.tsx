@@ -147,14 +147,16 @@ export function MarbleVeil({ className = '' }: { className?: string }) {
   return <div aria-hidden="true" className={`temple-veil ${className}`} />
 }
 
-// Fondo global: color sólido fijo + velo sutil + sigilo. Sin fotos.
+// Fondo global: color sólido fijo + velo sutil. Sin fotos ni sigilos en las 4 pestañas principales.
+const HIDE_SIGIL: TempleSection[] = ['entrenar', 'nutricion', 'progreso', 'mas']
 export function TempleBackdrop() {
   const { pathname } = useLocation()
   const section = sectionForPath(pathname)
+  const showSigil = !HIDE_SIGIL.includes(section)
   return (
     <div aria-hidden="true" className="temple-backdrop" data-section={section}>
       <MarbleVeil />
-      <SectionSigil section={section} className="temple-sigil" />
+      {showSigil && <SectionSigil section={section} className="temple-sigil" />}
     </div>
   )
 }
