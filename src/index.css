@@ -134,47 +134,10 @@ input:disabled, select:disabled { color: rgb(var(--text)); background: rgb(var(-
 .scrollbar-none { scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
-/* ============ SISTEMA GRIEGO / TEMPLO — Olympian Precision ============ */
+/* ============ SISTEMA GRIEGO / TEMPLO — color sólido fijo (sin fotos) ============ */
 .temple-backdrop {
   position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
   background: rgb(var(--bg));
-}
-.temple-bg-layer {
-  position: absolute; inset: 0;
-  background-size: cover; background-position: center 38%; background-repeat: no-repeat;
-  transition: opacity 700ms cubic-bezier(0.4,0,0.2,1), transform 1200ms ease-out;
-}
-/* Foto responsive — bien visible, templo real */
-.temple-photo {
-  position: absolute; inset: 0;
-  background-size: cover;
-  background-position: center 38%;
-  background-repeat: no-repeat;
-  opacity: 0.62;
-  image-rendering: auto;
-}
-.light .temple-photo { opacity: 0.38; }
-/* Scrim atmosférico con blur (sacred glass) — garantiza WCAG sobre foto */
-.temple-scrim {
-  position: absolute; inset: 0;
-  background: radial-gradient(circle at 50% 20%, rgba(8,14,24,0.52) 0%, rgba(8,14,24,0.86) 78%);
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-}
-.light .temple-scrim {
-  background: radial-gradient(circle at 50% 20%, rgba(253,251,247,0.42) 0%, rgba(253,251,247,0.78) 78%);
-  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
-}
-/* MOBILE: solo fondos móvil (vertical) */
-@media (max-width: 767px) {
-  .temple-variant-a .temple-photo { background-image: url('/assets/backgrounds/mobile-1.webp'); }
-  .temple-variant-b .temple-photo { background-image: url('/assets/backgrounds/mobile-2.webp'); }
-  .temple-variant-c .temple-photo { background-image: url('/assets/backgrounds/mobile-3.webp'); }
-}
-/* DESKTOP: solo fondos desktop (horizontal) */
-@media (min-width: 768px) {
-  .temple-variant-a .temple-photo { background-image: url('/assets/backgrounds/desktop-1.webp'); }
-  .temple-variant-b .temple-photo { background-image: url('/assets/backgrounds/desktop-2.webp'); }
-  .temple-variant-c .temple-photo { background-image: url('/assets/backgrounds/desktop-3.webp'); }
 }
 .temple-veil {
   position: absolute; inset: 0;

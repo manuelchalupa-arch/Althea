@@ -147,23 +147,12 @@ export function MarbleVeil({ className = '' }: { className?: string }) {
   return <div aria-hidden="true" className={`temple-veil ${className}`} />
 }
 
-// Variante fotográfica: 3 fondos móvil + 3 desktop, nunca cruzados y siempre visibles.
-function variantForSection(s: TempleSection): 'a' | 'b' | 'c' {
-  if (s === 'inicio' || s === 'biblioteca' || s === 'coach') return 'a'
-  if (s === 'entrenar' || s === 'rutina' || s === 'calendario') return 'b'
-  return 'c'
-}
-
-// Fondo global por sección: foto responsive + scrim legible + velo + sigilo.
-// Fotos bien visibles (no sutiles al extremo), tarjetas mantienen legibilidad al ser opacas.
+// Fondo global: color sólido fijo + velo sutil + sigilo. Sin fotos.
 export function TempleBackdrop() {
   const { pathname } = useLocation()
   const section = sectionForPath(pathname)
-  const variant = variantForSection(section)
   return (
-    <div aria-hidden="true" className={`temple-backdrop temple-variant-${variant}`} data-section={section} data-variant={variant}>
-      <div className="temple-photo" aria-hidden="true" />
-      <div className="temple-scrim" aria-hidden="true" />
+    <div aria-hidden="true" className="temple-backdrop" data-section={section}>
       <MarbleVeil />
       <SectionSigil section={section} className="temple-sigil" />
     </div>
