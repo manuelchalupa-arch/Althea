@@ -118,14 +118,51 @@ input:disabled, select:disabled { color: rgb(var(--text)); background: rgb(var(-
 /* ============ SISTEMA GRIEGO / TEMPLO (mármol + arquitectura) ============ */
 /* Solo usa vars de paleta existentes. Sutileza primero: nada tapa contenido. */
 .temple-backdrop {
-  position: fixed; inset: 0; z-index: 30; pointer-events: none; overflow: hidden;
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+  background: rgb(var(--bg));
+}
+.temple-photo {
+  position: absolute; inset: 0;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  /* Evita deformación y recorte excesivo; cover + center es el equilibrio */
+  opacity: 0.22;
+  /* Evita descarga fuera de viewport en algunos navegadores */
+  content-visibility: auto;
+}
+.light .temple-photo { opacity: 0.16; }
+.temple-photo-overlay {
+  position: absolute; inset: 0;
+  /* Degradado + velo para legibilidad: nunca oculta, solo suaviza */
+  background:
+    linear-gradient(to bottom, rgb(var(--bg) / 0.55), rgb(var(--bg) / 0.72) 55%, rgb(var(--bg) / 0.88)),
+    radial-gradient(80% 60% at 50% 40%, transparent 45%, rgb(var(--bg) / 0.35) 100%);
+}
+.light .temple-photo-overlay {
+  background:
+    linear-gradient(to bottom, rgb(var(--bg) / 0.42), rgb(var(--bg) / 0.62) 55%, rgb(var(--bg) / 0.82)),
+    radial-gradient(80% 60% at 50% 40%, transparent 45%, rgb(var(--bg) / 0.25) 100%);
+}
+/* MOBILE: solo fondos móvil (vertical) — nunca desktop */
+@media (max-width: 767px) {
+  .temple-variant-a .temple-photo { background-image: url('/assets/backgrounds/mobile-1.webp'); }
+  .temple-variant-b .temple-photo { background-image: url('/assets/backgrounds/mobile-2.webp'); }
+  .temple-variant-c .temple-photo { background-image: url('/assets/backgrounds/mobile-3.webp'); }
+}
+/* DESKTOP: solo fondos desktop (horizontal) — nunca móvil */
+@media (min-width: 768px) {
+  .temple-variant-a .temple-photo { background-image: url('/assets/backgrounds/desktop-1.webp'); }
+  .temple-variant-b .temple-photo { background-image: url('/assets/backgrounds/desktop-2.webp'); }
+  .temple-variant-c .temple-photo { background-image: url('/assets/backgrounds/desktop-3.webp'); }
 }
 .temple-veil {
   position: absolute; inset: 0;
   background:
-    radial-gradient(70% 45% at 85% 8%, rgb(var(--surface-2) / 0.55), transparent 70%),
-    radial-gradient(55% 40% at 8% 92%, rgb(var(--surface-2) / 0.4), transparent 70%),
-    repeating-linear-gradient(175deg, transparent 0 30px, rgb(var(--border) / 0.16) 30px 31px);
+    radial-gradient(70% 45% at 85% 8%, rgb(var(--surface-2) / 0.35), transparent 70%),
+    radial-gradient(55% 40% at 8% 92%, rgb(var(--surface-2) / 0.28), transparent 70%),
+    repeating-linear-gradient(175deg, transparent 0 30px, rgb(var(--border) / 0.10) 30px 31px);
+  opacity: 0.9;
 }
 .temple-sigil {
   position: absolute; right: -48px; bottom: 72px;
