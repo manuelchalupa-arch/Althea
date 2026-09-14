@@ -471,10 +471,29 @@ export default function Entrenar(){
       const customs = await listCustomExercises('muscle', orig.muscle).catch(()=>[])
       const pool = [...res.exercises, ...(customs as unknown as Gym.Exercise[])]
       const { rankReplacements } = await import('@/services/training/similarity')
-      setSwapOptions(rankReplacements(orig, pool, (id)=> counts[id]||0).slice(0, 12))
+      let ranked = rankReplacements(orig, pool, (id)=> counts[id]||0).slice(0, 12)
+      // Fallback: si similarity no da buenos resultados, usar substitutionEngine multi-factor
+      if(ranked.length === 0 || ranked[0].score < 40){
+        try{
+          const { findAlternatives } = await import('@/services/ai/substitutionEngine')
+          const profile = await db.userProfile.get('me')
+          const reason = swapReason === 'Molestia / dolor' ? 'pain' : swapReason === 'Falta de equipamiento' ? 'equipment' : 'user_request'
+          const subResult = await findAlternatives(cur.exId, pool, reason as any, profile || {})
+          const mapped = subResult.alternatives.map(a => ({
+            exercise: { ...a.exercise, gifUrl: (a.exercise as any).gifUrl || '' } as Gym.Exercise,
+            score: a.score,
+            factors: [{ key:'reason', label:'Razón', detail:a.reason, state:'match' as const }],
+            sharedMuscles: 1,
+            sameEquipment: true,
+            historyCount: 0,
+          }))
+          if(mapped.length > ranked.length) ranked = mapped
+        }catch{ /* noop */ }
+      }
+      setSwapOptions(ranked)
       setShowSwap(true)
     }catch{ /* noop */ }finally{ setSwapLoading(false) }
-  }, [cur])
+  }, [cur, swapReason])
 
   const handleSwap = async (newEx:Gym.Exercise)=>{
     if(!cur || !session) return
