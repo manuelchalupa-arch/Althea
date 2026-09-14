@@ -3,6 +3,10 @@ import { db } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate } from '@/utils/cycle'
 import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone } from './systemPrompt'
 import { unifiedCompletedSets } from '@/services/history'
+import { retrieveRelevant } from './knowledgeBase'
+import { analyzeExercise, analyzeGlobal } from './progressAnalyzer'
+import { analyzeRecovery } from './recoveryAnalyzer'
+import { analyzeNutrition } from './nutritionEngine'
 
 // Memoria estructurada reducida — no envía todo el historial
 export async function buildTrainingContext(exerciseId?:string, exerciseName?:string): Promise<AIContext>{
@@ -129,6 +133,37 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     score = { score: g.score, factors: g.factors }
   }catch{ /* noop */ }
 
+  // ─── Coach IA v2: knowledge base retrieval ───
+  let knowledgeChunks: string[] = []
+  try{
+    const tags = [objetivo]
+    if(exerciseId) tags.push('ejercicio')
+    if(Number(rec?.pain ?? 0) > 5) tags.push('dolor', 'recuperación')
+    const chunks = await retrieveRelevant(tags, 3)
+    knowledgeChunks = chunks.map(c => c.content.slice(0, 200))
+  }catch{ /* noop */ }
+
+  // ─── Coach IA v2: progress analyzer ───
+  let progressData: { trend?: string; rate?: number; confidence?: number } | undefined
+  try{
+    const progress = exerciseId ? await analyzeExercise(exerciseId) : await analyzeGlobal()
+    progressData = { trend: progress.trend, rate: progress.rate, confidence: progress.confidence }
+  }catch{ /* noop */ }
+
+  // ─── Coach IA v2: recovery analyzer ───
+  let recoveryData: { lastScore?: number; trend?: string; consecutiveLow?: number } | undefined
+  try{
+    const recAnalysis = await analyzeRecovery()
+    recoveryData = { lastScore: recAnalysis.lastScore ?? undefined, trend: recAnalysis.trend, consecutiveLow: recAnalysis.consecutiveLow }
+  }catch{ /* noop */ }
+
+  // ─── Coach IA v2: nutrition analysis ───
+  let nutritionAnalysis: { tdee?: number; calorieGoal?: number; proteinPerKg?: number; gap?: string | null } | undefined
+  try{
+    const nutAnalysis = await analyzeNutrition(profile || {})
+    nutritionAnalysis = { tdee: nutAnalysis.tdee ?? undefined, calorieGoal: nutAnalysis.calorieGoal ?? undefined, proteinPerKg: nutAnalysis.proteinPerKg ?? undefined, gap: nutAnalysis.gap }
+  }catch{ /* noop */ }
+
   return {
     objetivo,
     dia,
@@ -151,7 +186,15 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     nutritionContext,
     // @ts-ignore extra fields para IA
     nivelExigencia: profile?.coachLevel || 3,
-    exigencia: profile?.exigencia || {}
+    exigencia: profile?.exigencia || {},
+    // ─── Coach IA v2: nuevos campos ───
+    userProfile: profile || {},
+    knowledgeChunks,
+    progress: progressData,
+    recovery: recoveryData,
+    nutritionAnalysis,
+    sessionPain: undefined,
+    painZone: undefined,
   } as any
 }
 

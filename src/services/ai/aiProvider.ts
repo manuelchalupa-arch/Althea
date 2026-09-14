@@ -29,6 +29,14 @@ export type AIContext = {
   score?: { score: number; factors: { label: string; delta: number; estado: string }[] }
   /** Respuestas del usuario a preguntas del Coach (memoria). */
   qa?: Record<string, { question: string; answer: string; date: string }>
+  // ─── Coach IA v2: campos extendidos ───
+  userProfile?: Record<string, any>
+  knowledgeChunks?: string[]
+  progress?: { trend?: string; rate?: number; confidence?: number }
+  recovery?: { lastScore?: number; trend?: string; consecutiveLow?: number; pain?: number; fatigue?: number; energy?: number }
+  nutritionAnalysis?: { tdee?: number; calorieGoal?: number; proteinPerKg?: number; gap?: string | null }
+  sessionPain?: number
+  painZone?: string
 }
 
 export interface AIProvider {

@@ -1,5 +1,6 @@
 // GOAL ENGINE — Mapea objetivo del usuario → lógica de recomendación
 import type { TrainingGoal, ExperienceLevel } from '@/types'
+export type { TrainingGoal } from '@/types'
 
 export interface GoalLogic {
   goal: TrainingGoal
