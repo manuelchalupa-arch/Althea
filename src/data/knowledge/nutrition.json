@@ -1,55 +1,37 @@
 {
-  "id": "doc-nutrition-01",
-  "title": "Nutrición para Deportistas",
-  "source": "ISSN Position Stand on Diet and Exercise",
-  "author": "International Society of Sports Nutrition",
-  "date": "2023",
-  "type": "guideline",
-  "topic": "nutrition",
-  "evidenceLevel": "strong",
-  "updatedAt": "2026-09-14",
+  "id": "nutrition",
+  "title": "Nutrición Deportiva",
+  "tags": ["nutrición", "macros", "proteína", "calorías"],
   "chunks": [
     {
-      "chunkId": "nut-protein",
-      "documentId": "doc-nutrition-01",
-      "content": "Proteína para deportistas de fuerza: 1.6-2.2 g/kg/día para maximizar síntesis proteica muscular. Para hipertrofia: 1.8-2.2 g/kg. Para pérdida de grasa: 2.0-2.4 g/kg (preserva masa muscular en déficit). Distribución: 0.4-0.55 g/kg por comida, 4-5 comidas al día para maximizar la síntesis proteica (limitada por comida a ~40g). Timing: dentro de 2 horas post-entrenamiento es ideal pero no crítico.",
-      "tags": ["nutrición", "proteína", "síntesis_proteica", "hipertrofia", "déficit"],
-      "relevance": "nutrition"
+      "id": "nut-protein",
+      "tags": ["proteína", "nutrición"],
+      "content": "Proteína diaria: 1.6-2.2g/kg para personas activas. En déficit: subir a 2.0-2.4g/kg para preservar masa muscular. Distribuir en 4-5 comidas de 0.4-0.5g/kg cada una para maximizar MPS.",
+      "citation": "Stuart Phillips et al. (2016) ISSN Position Stand on protein. J Int Soc Sports Nutr."
     },
     {
-      "chunkId": "nut-calories",
-      "documentId": "doc-nutrition-01",
-      "content": "Calorías y composición corporal: Para hipertrofia: superávit calórico moderado de 200-300 kcal/día sobre TDEE. Para pérdida de grasa: déficit de 300-500 kcal/día (no más de 1% del peso corporal por semana). El TDEE total incluye: TMB + Termogénesis + Actividad Termogénesis del Ejercicio (TEAT). Recomendación: calcular TDEE con factors de actividad, ajustar ±300 kcal según objetivo.",
-      "tags": ["nutrición", "calorías", "déficit", "superávit", "TDEE"],
-      "relevance": "nutrition"
+      "id": "nut-calories",
+      "tags": ["calorías", "TDEE"],
+      "content": "TDEE = TMB × factor de actividad + ajuste por días de entrenamiento. Mifflin-St Jeor: 10×peso + 6.25×altura - 5×edad + s. Déficit moderado: -15% TDEE. Superávit moderado: +10% TDEE.",
+      "citation": "Mifflin MD et al. (1990) Am J Clin Nutr. Prediction of resting metabolic rate."
     },
     {
-      "chunkId": "nut-carbs",
-      "documentId": "doc-nutrition-01",
-      "content": "Carbohidratos para rendimiento: 3-5 g/kg para actividad moderada, 5-7 g/kg para entrenamiento intenso, 6-10 g/kg para competición/endurance. Los carbohidratos son el sustrato preferido para ejercicio de alta intensidad. Timing pre-entrenamiento: comida rica en carbs 2-3 horas antes. Post-entrenamiento: 1-1.2 g/kg en las primeras 2 horas para reponer glucógeno.",
-      "tags": ["nutrición", "carbohidratos", "glucógeno", "rendimiento"],
-      "relevance": "nutrition"
+      "id": "nut-carbs",
+      "tags": ["carbohidratos", "nutrición"],
+      "content": "Carbohidratos: 3-7g/kg según nivel de actividad. Para hipertrofia: 4-6g/kg. Para pérdida de grasa: 2-3g/kg (no bajar de 2g/kg para mantener rendimiento). Entrenar con carbohidratos disponibles mejora rendimiento.",
+      "citation": "Thomas DT et al. (2016) ACSM Position Stand on nutrition. Med Sci Sports Exerc."
     },
     {
-      "chunkId": "nut-fat",
-      "documentId": "doc-nutrition-01",
-      "content": "Grasas: mínimo 0.5-1 g/kg/día para hormonas (testosterona, hormona de crecimiento). No bajar de 20% de las calorías totales en grasa. Grasas saludables: aceite de oliva, aguacate, frutos secos, pescado azul. Las grasas son esenciales para absorción de vitaminas liposolubles (A, D, E, K) y producción hormonal.",
-      "tags": ["nutrición", "grasas", "hormonas", "absorción"],
-      "relevance": "nutrition"
+      "id": "nut-timing",
+      "tags": ["timing", "nutrición"],
+      "content": "Pre-entreno: comida completa 2-3h antes o snack 30-60min antes. Post-entreno: 35g proteína alta calidad (whey) es suficiente para MPS máximo (Larsen et al. 2023). La ventana anabólica es de ~4-6 horas, no 30 minutos.",
+      "citation": "Larsen MS et al. J Nutr. 2023. | Kerksick CM et al. (2017) ISSN Position Stand on timing."
     },
     {
-      "chunkId": "nut-supplements",
-      "documentId": "doc-nutrition-01",
-      "content": "Suplementación basada en evidencia: 1) Creatina monohidrato: 3-5g/día, aumenta fuerza y masa magra. Evidencia sólida. 2) Proteína whey: conveniente para alcanzar目标 de proteína diaria. 3) Vitamina D: si niveles bajos (consulta médica). 4) Cafeína: 3-6mg/kg pre-entrenamiento para rendimiento. No hay suplementos mágicos: la base siempre es dieta sólida.",
-      "tags": ["nutrición", "suplementos", "creatina", "proteína", "cafeína"],
-      "relevance": "nutrition"
-    },
-    {
-      "chunkId": "nut-hydration",
-      "documentId": "doc-nutrition-01",
-      "content": "Hidratación: mínimo 35ml/kg/día, aumentar 500-1000ml por hora de ejercicio intenso. La deshidratación >2% del peso corporal afecta rendimiento. Señales de buena hidratación: orina amarillo claro. Electrolitos: necesario si el ejercicio supera 60 minutos o hay sudoración profusa.",
-      "tags": ["nutrición", "hidratación", "electrolitos", "rendimiento"],
-      "relevance": "nutrition"
+      "id": "nut-supplements",
+      "tags": ["suplementos", "nutrición"],
+      "content": "Suplementos con evidencia sólida: creatina monohidratada (3-5g/día), cafeína (3-6mg/kg pre-entreno), proteína whey (conveniencia). Sin evidencia para quemagrasos, BCAAs (si ya se consume suficiente proteína), o boosters de testosterona.",
+      "citation": "Kreider RB et al. (2017) ISSN Position Stand on supplements. J Int Soc Sports Nutr."
     }
   ]
 }

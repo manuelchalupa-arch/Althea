@@ -6,27 +6,32 @@
     {
       "id": "recovery-01",
       "tags": ["recuperación", "sueño"],
-      "content": "El sueño es el factor #1 de recuperación. 7-9 horas para adultos. La fase profunda (N3) libera la hormona del crecimiento. Dormir menos de 6 horas reduce la síntesis proteica muscular un 15-20%."
+      "content": "Una noche de privación total de sueño reduce la síntesis proteica muscular (MPS) un 18% en adultos jóvenes sanos (Lamon et al. 2021). Además aumenta cortisol un 21% y reduce testosterona un 24%. Cinco noches de restricción (4h/noche) reducen MPS un 19% (Saner et al. 2020).",
+      "citation": "Lamon S et al. Physiol Rep. 2021;9(1):e14660. doi:10.14814/phy2.14660 | Saner NJ et al. J Physiol. 2020;598(8):1533-1547. doi:10.1113/JP278828"
     },
     {
       "id": "recovery-02",
       "tags": ["recuperación", "fatiga"],
-      "content": "Señales de sobreentrenamiento: fatiga persistente (>7/10), insomnio, irritabilidad, caída de rendimiento >2 semanas, frecuencia cardíaca en reposo elevada. Acción: reducir volumen 40-50% por 1-2 semanas."
+      "content": "Señales de sobreentrenamiento: fatiga persistente, insomnio, irritabilidad, caída de rendimiento >2 semanas, frecuencia cardíaca en reposo elevada. Acción recomendada: reducir volumen 40-50% por 1-2 semanas (deload). No es un diagnóstico médico.",
+      "citation": "Meeusen R et al. (2013) Med Sci Sports Exerc. Overtraining consensus statement."
     },
     {
       "id": "recovery-03",
       "tags": ["recuperación", "dolor"],
-      "content": "Dolor muscular onset (DOMS): pico a 24-72h post-ejercicio. Es normal. Dolor articular o dolor que empeora con el movimiento NO es normal: consultar profesional. Hidratación y movimiento ligero ayudan al DOMS."
+      "content": "DOMS (Delayed Onset Muscle Soreness): pico a 24-72h post-ejercicio. Es normal y parte de la adaptación. Dolor articular o dolor que empeora con el movimiento NO es normal: consultar profesional. Hidratación y movimiento ligero ayudan al DOMS.",
+      "citation": "Cheung K et al. (2003) Sports Medicine. Review on DOMS mechanisms."
     },
     {
       "id": "recovery-04",
       "tags": ["recuperación", "descanso"],
-      "content": "Periodos de descarga (deload): cada 4-6 semanas, reducir volumen o intensidad un 40-50% por 1 semana. Previene acumulación de fatiga y mejora la respuesta al siguiente bloque de entrenamiento."
+      "content": "Periodos de deload: cada 4-6 semanas, reducir volumen o intensidad un 40-50% por 1 semana. Previene acumulación de fatiga y mejora respuesta al siguiente bloque. El aumento gradual de volumen (~20% por ciclo de 4 semanas) es más seguro que saltos grandes.",
+      "citation": "Schoenfeld et al. (2021) IUSCA Position Stand. Volume periodization."
     },
     {
       "id": "recovery-05",
       "tags": ["recuperación", "nutrición"],
-      "content": "Post-entreno: ventana anabólica de ~2-4 horas. Proteína 0.4-0.5g/kg + carbohidratos 0.8-1.2g/kg. La comida completa es suficiente; no se necesitan suplementos urgentes."
+      "content": "Post-entreno: la ventana anabólica es más amplia de lo que se creía (~4-6 horas, no 30 minutos). Consumir 35g de proteína de alta calidad es suficiente para estimular MPS máximo (Larsen et al. 2023). La comida completa es suficiente.",
+      "citation": "Larsen MS et al. J Nutr. 2023. doi:10.1016/j.tjnut.2023.08.011"
     }
   ]
 }
