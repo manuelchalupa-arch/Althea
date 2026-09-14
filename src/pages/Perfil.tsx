@@ -7,6 +7,9 @@ import * as Push from '@/services/notifications/push'
 import * as Sync from '@/services/sync/queue'
 import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearance } from '@/utils/appearance'
 import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type NotifConfig } from '@/services/notifications/scheduler'
+import { selectMethods } from '@/services/ai/methodSelector'
+import { buildCycleFromRecommendation } from '@/utils/cycle'
+import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import BrandIcon from '@/components/brand/BrandIcon'
 
 const WEEK_DAYS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
@@ -214,6 +217,8 @@ export default function Perfil(){
   const [profile,setProfile]=useState<any>(null)
   const [form,setForm]=useState({ age:'', sex:'', heightCm:'', weightKg:'', targetWeightKg:'', bodyFatPct:'', muscleMassKg:'', waistCm:'', chestCm:'', activityLevel:'moderado' })
   const [coachForm,setCoachForm]=useState({ trainingGoal:'hypertrophy', experienceLevel:'intermediate', sessionDurationMin:'60', preferredTime:'18:00', restrictions:'', allergies:'', dislikedFoods:'', mealFrequency:'4' })
+  const [methodRec,setMethodRec]=useState<{primary:string;secondary:string[];complementary:string[];justification:string;confidence:number;mixed?:any}|null>(null)
+  const [applying,setApplying]=useState(false)
   const [history,setHistory]=useState<any[]>([])
   const [theme,setTheme]=useState(getTheme)
   const [textScale,setTextScale]=useState(getTextScale)
@@ -243,7 +248,26 @@ export default function Perfil(){
       }
     })
     db.table('bodyMeasurements').toArray().then(setHistory).catch(()=> setHistory([]))
+    // Calcular recomendación de método
+    db.userProfile.get('me').then(p=>{
+      if(p){
+        const rec = selectMethods(p as any)
+        setMethodRec({ primary:rec.primary, secondary:rec.secondary, complementary:rec.complementary, justification:rec.justification, confidence:rec.confidence, mixed:rec.mixed })
+      }
+    }).catch(()=>{})
   },[])
+
+  const applyMethod = async ()=>{
+    if(!profile || !methodRec) return
+    setApplying(true)
+    try{
+      const availableDays = (profile as any).schedule?.availableDays || (profile as any).availableDays || [1,3,5]
+      const cycle = buildCycleFromRecommendation({ primary: methodRec.primary as TrainingMethodId, mixed: methodRec.mixed, justification: methodRec.justification }, availableDays)
+      await db.userProfile.put({ ...(profile as any), cycle, updatedAt: new Date().toISOString() })
+      alert(`Método "${methodRec.primary}" aplicado. Ciclo actualizado con ${cycle.trainingDays.length} días.`)
+    }catch(e:any){ alert('Error: '+(e.message||e)) }
+    finally{ setApplying(false) }
+  }
 
   const save = async ()=>{
     const data:any = {
@@ -387,6 +411,30 @@ export default function Perfil(){
           </label>
         </div>
       </div>
+
+      {/* ─── Coach IA v2: Método recomendado ─── */}
+      {methodRec && (
+        <div className="rounded-xl bg-surface border border-border p-4 space-y-3">
+          <div className="text-aux tracking-widest">MÉTODO DE ENTRENAMIENTO</div>
+          <div>
+            <div className="text-body text-sm font-medium">{methodRec.primary}</div>
+            {methodRec.secondary.length > 0 && <div className="text-aux text-xs mt-0.5">Secundarios: {methodRec.secondary.join(', ')}</div>}
+            {methodRec.complementary.length > 0 && <div className="text-aux text-xs">Complementarios: {methodRec.complementary.join(', ')}</div>}
+          </div>
+          {methodRec.mixed && (
+            <div className="rounded-lg bg-bg border border-border p-2">
+              <div className="text-aux text-xs font-medium">Método Mixto</div>
+              <div className="text-aux text-xs mt-0.5">{methodRec.mixed.structure?.distribution}</div>
+            </div>
+          )}
+          <div className="text-aux text-xs text-textMuted">{methodRec.justification}</div>
+          <div className="text-aux text-xs">Confianza: {Math.round(methodRec.confidence * 100)}%</div>
+          <button onClick={applyMethod} disabled={applying || !profile}
+            className="w-full py-2 rounded-xl bg-action text-textMain text-sm font-medium disabled:opacity-50">
+            {applying ? 'Aplicando…' : 'Aplicar este método al ciclo'}
+          </button>
+        </div>
+      )}
 
       <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
         <div className="text-aux font-medium">Apariencia</div>

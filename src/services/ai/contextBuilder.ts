@@ -1,7 +1,7 @@
 import type { AIContext } from './aiProvider'
 import { db } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate } from '@/utils/cycle'
-import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone, TRAINING_GOAL_PROFILES, EXPERIENCE_INSTRUCTIONS } from './systemPrompt'
+import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone, TRAINING_GOAL_PROFILES, EXPERIENCE_INSTRUCTIONS, buildMethodContext } from './systemPrompt'
 import { unifiedCompletedSets } from '@/services/history'
 import { retrieveRelevant } from './knowledgeBase'
 import { analyzeExercise, analyzeGlobal } from './progressAnalyzer'
@@ -217,12 +217,17 @@ export function buildPrompt(ctx:AIContext):string{
   const recoveryLine = ctx.recovery ? `\nRECUPERACIÓN: último score=${ctx.recovery.lastScore||'?'}, tendencia=${ctx.recovery.trend||'desconocida'}, días bajos=${ctx.recovery.consecutiveLow||0}` : ''
   // nutrition analysis
   const nutAnalysisLine = ctx.nutritionAnalysis ? `\nNUTRICIÓN: TDEE=${ctx.nutritionAnalysis.tdee||'?'}, objetivo calórico=${ctx.nutritionAnalysis.calorieGoal||'?'}, proteína/kg=${ctx.nutritionAnalysis.proteinPerKg||'?'}gap=${ctx.nutritionAnalysis.gap||'sin gap'}` : ''
+  // ─── Coach IA v2: method context ───
+  const methodId = (ctx.userProfile?.cycle as any)?.methodId
+  const methodContext = buildMethodContext(methodId)
+  const methodLine = methodContext ? `\n${methodContext}` : ''
   return `${SYSTEM_PROMPT}
 
 ${VERACITY_RULES}
 
 PERFIL DE ENTRENAMIENTO: ${goalProfile}
 NIVEL: ${expInstruction}
+${methodLine}
 
 PERSONALIDAD ACTUAL: ${ctx.personalidad} — ${tono}
 

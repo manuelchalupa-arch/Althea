@@ -3,6 +3,8 @@ import { db } from '@/services/storage/db'
 import { aiService } from '@/services/ai/aiService'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { detectCapabilities, type AIStatusInfo } from '@/services/ai/capabilities'
+import { buildCycleFromRecommendation } from '@/utils/cycle'
+import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import { Info, Download, Cpu, HardDrive } from 'lucide-react'
 
 export default function Coach(){
@@ -24,6 +26,7 @@ export default function Coach(){
   const [recoveryData,setRecoveryData]=useState<{lastScore?:number;trend?:string;consecutiveLow?:number}|null>(null)
   const [nutritionData,setNutritionData]=useState<{tdee?:number;calorieGoal?:number;proteinPerKg?:number;gap?:string|null}|null>(null)
   const [methodRec,setMethodRec]=useState<{primary:string;secondary:string[];complementary:string[];justification:string;confidence:number;mixed?:any}|null>(null)
+  const [applyingMethod,setApplyingMethod]=useState(false)
 
   const refresh = async ()=>{
     const c = await detectCapabilities()
@@ -67,6 +70,19 @@ export default function Coach(){
       setRec(r)
     }catch(e:any){ alert('Error descarga: '+(e.message||e)) }
     finally{ setDownloading(false); refresh() }
+  }
+
+  const applyMethod = async ()=>{
+    if(!methodRec) return
+    setApplyingMethod(true)
+    try{
+      const profile = await db.userProfile.get('me') as any
+      const availableDays = profile?.schedule?.availableDays || profile?.availableDays || [1,3,5]
+      const cycle = buildCycleFromRecommendation({ primary: methodRec.primary as TrainingMethodId, mixed: methodRec.mixed, justification: methodRec.justification }, availableDays)
+      await db.userProfile.put({ ...(profile || {}), cycle, updatedAt: new Date().toISOString() })
+      alert(`Método "${methodRec.primary}" aplicado. Ciclo actualizado con ${cycle.trainingDays.length} días.`)
+    }catch(e:any){ alert('Error: '+(e.message||e)) }
+    finally{ setApplyingMethod(false) }
   }
 
   const [showModify,setShowModify]=useState(false)
@@ -207,6 +223,10 @@ export default function Coach(){
           )}
           <div className="text-aux text-xs text-textMuted mt-1">{methodRec.justification}</div>
           <div className="text-aux text-xs">Confianza: {Math.round(methodRec.confidence * 100)}%</div>
+          <button onClick={applyMethod} disabled={applyingMethod}
+            className="w-full py-2 rounded-xl bg-action text-textMain text-sm font-medium disabled:opacity-50 mt-1">
+            {applyingMethod ? 'Aplicando…' : 'Aplicar este método al ciclo'}
+          </button>
         </div>
       )}
 

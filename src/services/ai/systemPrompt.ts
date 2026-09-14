@@ -1,6 +1,9 @@
 // System Prompt entrenado para Qwen3-0.6B-ONNX — único cerebro contextual
 // Entrenamiento = instrucción + few-shot, no fine-tune completo en navegador (requeriría GPU server y LoRA)
 
+import { getMethod } from './trainingMethodsDB'
+import type { TrainingMethodId } from './trainingMethods'
+
 export const SYSTEM_PROMPT = `Eres un asistente especializado en entrenamiento físico y nutrición para usuarios de Argentina y Latinoamérica.
 Responde siempre en español de forma clara, práctica y motivadora.
 
@@ -88,4 +91,24 @@ export const VERACITY_RULES = `REGLAS DE VERACIDAD (obligatorias):
 - Nunca afirmes hábitos del usuario sin evidencia en los datos. Si no hay datos suficientes: "Todavía no tengo suficientes datos tuyos para determinarlo."
 - No diagnostiques lesiones ni condiciones médicas. Ante dolor importante: sugerí consultar profesional y ofrecé alternativa.
 - No modifiques rutinas, objetivos ni cargas: detectás, analizás, recomendás y preguntás. El usuario decide.`
+
+// ─── Contexto del método de entrenamiento seleccionado ───
+export function buildMethodContext(methodId?: TrainingMethodId | null): string {
+  if (!methodId) return ''
+  const method = getMethod(methodId)
+  if (!method) return ''
+
+  let ctx = `\nMÉTODO DE ENTRENAMIENTO ACTIVO: ${method.nameEs.toUpperCase()}\n`
+  ctx += `Descripción: ${method.descriptionEs}\n`
+  ctx += `Estructura: ${method.structure.splitType} · ${method.structure.typicalFrequency.join('-')} días/semana · ${method.structure.exercisesPerSession[0]}-${method.structure.exercisesPerSession[1]} ejercicios/sesión\n`
+  ctx += `Defaults: ${method.defaults.setsPerExercise} series × ${method.defaults.repsRange[0]}-${method.defaults.repsRange[1]} reps · descanso ${method.defaults.restSeconds}s · intensidad ${method.defaults.intensityPercent?.[0] ?? '?'}-${method.defaults.intensityPercent?.[1] ?? '?'}%\n`
+  ctx += `Progresión: ${method.progression.descriptionEs}\n`
+  ctx += `Tipos de ejercicio prioritarios: ${method.exerciseSelection.primaryTypes.join(', ')}\n`
+  if (method.exerciseSelection.avoidExercises?.length) {
+    ctx += `Evitar: ${method.exerciseSelection.avoidExercises.join(', ')}\n`
+  }
+  ctx += `Patrones de movimiento: ${method.structure.primaryMovementPatterns.join(', ')}\n`
+  ctx += `Cuando el usuario pregunte qué hacer, respetá este método. Si pide cambiar, ofrecé alternativa DENTRO del mismo método.\n`
+  return ctx
+}
 

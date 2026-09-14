@@ -6,6 +6,7 @@ import { v4 as uuid } from 'uuid'
 import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
+import { getCycleFromProfile } from '@/utils/cycle'
 import * as Gym from '@/services/exerciseGym'
 
 const WEEK_LABELS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
@@ -358,9 +359,22 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
   const [items,setItems]=useState<Gym.Exercise[]>([])
   const [loading,setLoading]=useState(false)
   const [err,setErr]=useState<string|null>(null)
+  const [methodHint,setMethodHint]=useState<{types:string[];avoid:string[]}|null>(null)
   useEffect(()=>{
     if(muscles.length===0) return
     let cancelled=false
+    // Load method hint for exercise prioritization
+    db.userProfile.get('me').then(p=>{
+      if(cancelled) return
+      const cycle = (p as any)?.cycle
+      if(cycle?.methodId){
+        import('@/services/ai/trainingMethodsDB').then(({ getMethod })=>{
+          if(cancelled) return
+          const m = getMethod(cycle.methodId)
+          if(m) setMethodHint({ types: m.exerciseSelection.primaryTypes, avoid: m.exerciseSelection.avoidExercises || [] })
+        })
+      }
+    }).catch(()=>{})
     const load = async ()=>{
       setLoading(true); setErr(null)
       try{
@@ -393,8 +407,16 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
   const filtered = items.filter(ex=>{
     if(equipFilter!=='todos' && ex.equipment !== equipFilter) return false
     if(q && !ex.name.toLowerCase().includes(q.toLowerCase())) return false
+    if(methodHint?.avoid?.length && methodHint.avoid.some(a => ex.name.toLowerCase().includes(a.toLowerCase()))) return false
     return true
   })
+
+  // Sort: method primaryTypes first
+  const sorted = methodHint?.types?.length ? [...filtered].sort((a,b) => {
+    const aMatch = methodHint.types.some(t => (a.category||'').toLowerCase().includes(t) || (a.name||'').toLowerCase().includes(t)) ? 0 : 1
+    const bMatch = methodHint.types.some(t => (b.category||'').toLowerCase().includes(t) || (b.name||'').toLowerCase().includes(t)) ? 0 : 1
+    return aMatch - bMatch
+  }) : filtered
 
   if(muscles.length===0){
     return (
@@ -426,13 +448,18 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
             <option value="todos">Equipo: todos</option>
             <option value="barbell">Barra</option><option value="dumbbell">Mancuernas</option><option value="cable">Polea</option><option value="bodyweight">Peso corporal</option><option value="machine">Máquina</option><option value="band">Banda</option>
           </select>
-          <span className="text-aux self-center">{filtered.length} compatibles</span>
+          <span className="text-aux self-center">{sorted.length} compatibles</span>
         </div>
+        {methodHint && (
+          <div className="rounded-lg bg-bg border border-border p-2 text-aux text-xs">
+            <span className="text-info font-medium">Método:</span> priorizando {methodHint.types.join(', ')}
+          </div>
+        )}
         {loading && <p className="text-aux text-center py-4">Cargando GIFs desde ExerciseGymGifsDB…</p>}
-        {err && !loading && filtered.length===0 && <p className="text-aux text-amber-300 text-center py-4 whitespace-pre-line">{err}</p>}
-        {!loading && filtered.length===0 && !err && <p className="text-aux text-center py-4">Sin ejercicios para este filtro. Probá otro equipamiento o búsqueda.</p>}
+        {err && !loading && sorted.length===0 && <p className="text-aux text-amber-300 text-center py-4 whitespace-pre-line">{err}</p>}
+        {!loading && sorted.length===0 && !err && <p className="text-aux text-center py-4">Sin ejercicios para este filtro. Probá otro equipamiento o búsqueda.</p>}
         <div className="grid grid-cols-1 gap-3 max-h-[45vh] overflow-auto pr-1">
-          {filtered.slice(0,60).map(ex=>(
+          {sorted.slice(0,60).map(ex=>(
             <div key={ex.id} className="rounded-xl bg-surface border border-border overflow-hidden">
               <div className="h-36 bg-bg border-b border-border flex items-center justify-center overflow-hidden">
                 {(ex.gifUrl || (ex as any).imageDataUrl) ? <img src={ex.gifUrl || (ex as any).imageDataUrl} alt={ex.name} loading="lazy" className="w-full h-full object-cover" onError={e=>{ (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }} /> : null}

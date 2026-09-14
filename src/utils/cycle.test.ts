@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildCycleFromMethod, buildCycleFromRecommendation, buildCycleFromProfile, getCycleFromProfile, getTrainingDayForDate, DEFAULT_CYCLE } from './cycle'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
-import type { UserProfile } from '@/services/ai/trainingMethods'
 
 describe('buildCycleFromMethod', () => {
   it('generates a 4-day cycle for strength', () => {
@@ -58,13 +57,13 @@ describe('buildCycleFromRecommendation', () => {
 
 describe('buildCycleFromProfile', () => {
   it('builds cycle from profile with hypertrophy goal', () => {
-    const profile: UserProfile = {
+    const profile = {
       trainingGoal: 'hypertrophy',
       experienceLevel: 'intermediate',
       sessionDurationMin: 60,
       schedule: { availableDays: [1, 3, 5] },
     }
-    const cycle = buildCycleFromProfile(profile)
+    const cycle = buildCycleFromProfile(profile as any)
     expect(cycle.methodId).toBeTruthy()
     expect(cycle.trainingDays.length).toBe(3)
     expect(cycle.weekMap[1]).toBe(1)
@@ -73,13 +72,13 @@ describe('buildCycleFromProfile', () => {
   })
 
   it('builds cycle from profile with strength goal 4 days', () => {
-    const profile: UserProfile = {
+    const profile = {
       trainingGoal: 'strength',
       experienceLevel: 'advanced',
       sessionDurationMin: 90,
       schedule: { availableDays: [1, 2, 4, 5] },
     }
-    const cycle = buildCycleFromProfile(profile)
+    const cycle = buildCycleFromProfile(profile as any)
     expect(cycle.methodId).toBeTruthy()
     expect(cycle.trainingDays.length).toBe(4)
   })
