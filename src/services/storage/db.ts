@@ -55,6 +55,13 @@ export class TrainDB extends Dexie {
     this.version(6).stores({
       customExercises: 'id, muscle, bodyPart',
     })
+    // v7: Coach IA v2 — tablas de conocimiento, decisiones y score history.
+    this.version(7).stores({
+      knowledgeDocuments: 'id, topic, evidenceLevel, updatedAt',
+      decisionLog: 'id, timestamp, type, createdAt',
+      scoreSnapshots: 'id, date, score',
+      exerciseKnowledge: 'id, muscle, movementPattern, exerciseDifficulty',
+    })
   }
 }
 export const db = new TrainDB()

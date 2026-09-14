@@ -25,6 +25,19 @@ export type Exercise = {
   origin?: 'PRELOADED' | 'USER_CREATED'
   muscleBreakdown?: MuscleShare[]
   archived?: boolean
+  // ─── Coach IA v2: conocimiento expandido ───
+  movementPattern?: 'push' | 'pull' | 'squat' | 'hinge' | 'rotation' | 'carry' | 'isolation'
+  jointActions?: string[]
+  planesOfMotion?: ('sagittal' | 'frontal' | 'transverse')[]
+  stabilityRequirement?: 'low' | 'medium' | 'high'
+  technicalDemand?: 'low' | 'medium' | 'high'
+  exerciseDifficulty?: 'beginner' | 'intermediate' | 'advanced'
+  exerciseObjective?: 'strength' | 'hypertrophy' | 'endurance' | 'power' | 'mobility' | 'rehabilitation'
+  regressions?: string[]
+  progressions?: string[]
+  commonErrors?: string[]
+  biomechanicalNotes?: string
+  contraindications?: string[]
 }
 
 export type MuscleEntry = { muscle:string; count:number; endpoint:string }

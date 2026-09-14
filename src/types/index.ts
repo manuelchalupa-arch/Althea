@@ -1,6 +1,10 @@
 export type Goal = 'fuerza' | 'hipertrofia' | 'resistencia' | 'perdida_peso' | 'recomposicion' | 'mantenimiento' | 'personalizado'
 export type Level = 'principiante' | 'intermedio' | 'avanzado'
 export type CoachIntensity = 'profesional' | 'motivacional' | 'duro' | 'extremo'
+
+// ─── Coach IA v2: perfiles objetivo ───
+export type TrainingGoal = 'strength' | 'fat_loss' | 'hypertrophy' | 'mobility' | 'general_health'
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced'
 export type MuscleGroup = 'pecho'|'espalda'|'hombros'|'biceps'|'triceps'|'cuadriceps'|'femorales'|'gluteos'|'gemelos'|'abdomen'|'cuerpo_completo'
 export type Equipment = 'barra'|'mancuernas'|'maquina'|'polea'|'peso_corporal'|'banda'|'kettlebell'|'otro'
 export type MovementPattern = 'push'|'pull'|'squat'|'hinge'|'lunge'|'carry'|'core'|'full'
@@ -57,6 +61,42 @@ export interface UserProfile {
   excludedExercises?: string[] // ids "biceps/barbell-curl"
   activityLevel?: 'sedentario'|'poco_activo'|'moderado'|'muy_activo'|'extremadamente_activo'
   coachContext?: any
+
+  // ─── Coach IA v2: perfiles objetivo ───
+  trainingGoal?: TrainingGoal
+  experienceLevel?: ExperienceLevel
+  trainingHistory?: {
+    yearsOfTraining?: number
+    totalSessions?: number
+    consistencyPct?: number
+  }
+  preferences?: {
+    sessionDurationMin?: number
+    preferredEquipment?: string[]
+    avoidExercises?: string[]
+    painExercises?: string[]
+    favoriteExercises?: string[]
+  }
+  schedule?: {
+    availableDays?: number[]
+    preferredTime?: string
+    sessionTimeAvailable?: number
+  }
+  nutritionPrefs?: {
+    restrictions?: string[]
+    allergies?: string[]
+    dislikedFoods?: string[]
+    mealFrequency?: number
+    supplementation?: string[]
+  }
+  bodyComposition?: {
+    bodyFatPct?: number
+    muscleMassKg?: number
+    waistCm?: number
+    chestCm?: number
+    armCm?: number
+    thighCm?: number
+  }
 }
 export interface BodyMeasurement { id: string; localDate: string; weightKg?: number; heightCm?: number; bodyFatPct?: number; muscleMassKg?: number; chestCm?: number; waistCm?: number; hipCm?: number; createdAt: string }
 export interface WeeklySequence { id: string; cycleId: string; weekNumber: number; startDate: string; plannedDays: number[]; completedDays: number[]; createdAt: string }

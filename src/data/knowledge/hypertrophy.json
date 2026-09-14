@@ -1,0 +1,55 @@
+{
+  "id": "doc-hypertrophy-01",
+  "title": "Principios de Hipertrofia muscular",
+  "source": "Schoenfeld et al. 2021, ISSN Position Stand",
+  "author": "Brad Schoenfeld",
+  "date": "2021",
+  "type": "evidence_review",
+  "topic": "hypertrophy",
+  "evidenceLevel": "strong",
+  "updatedAt": "2026-09-14",
+  "chunks": [
+    {
+      "chunkId": "hyp-volume",
+      "documentId": "doc-hypertrophy-01",
+      "content": "El volumen de entrenamiento es el factor más importante para la hipertrofia. Se define como el número de series efectivas por grupo muscular por semana. Rango recomendado: 10-20 series semanales por músculo, con 10 como mínimo para principiantes y hasta 20 para avanzados que puedan recuperarse. El volumen mínimo efectivo para principiantes es ~8 series/semana por grupo muscular.",
+      "tags": ["hipertrofia", "volumen", "series", "frecuencia"],
+      "relevance": "training"
+    },
+    {
+      "chunkId": "hyp-intensity",
+      "documentId": "doc-hypertrophy-01",
+      "content": "La intensidad relativa se mide por proximidad al fallo muscular (RIR - Reps In Reserve). Para hipertrofia, entrenar dentro de 0-3 RIR maximiza la activación muscular. Llegar al fallo absoluto en todas las series aumenta la fatiga sin beneficio adicional significativo. Recomendación: dejarse 1-2 RIR en series principales, permitir fallo en series de acabado o al final de la sesión.",
+      "tags": ["hipertrofia", "intensidad", "RIR", "fallo", "proximidad"],
+      "relevance": "training"
+    },
+    {
+      "chunkId": "hyp-frequency",
+      "documentId": "doc-hypertrophy-01",
+      "content": "La frecuencia de entrenamiento por grupo muscular ideal es 2-3 veces por semana para hipertrofia. Entrenar cada músculo 2x/semana produce mayor hipertrofia que 1x/semana con el mismo volumen total, porque distribuye mejor el estímulo y permite mayor frecuencia de síntesis proteica muscular.",
+      "tags": ["hipertrofia", "frecuencia", "distribución"],
+      "relevance": "training"
+    },
+    {
+      "chunkId": "hyp-rom",
+      "documentId": "doc-hypertrophy-01",
+      "content": "El rango de movimiento completo produce mayor hipertrofia que el rango parcial, especialmente en elongación. Ejercicios como press de banca con rango completo estimulan más el pectoral que press con rango parcial. Excepción: traininning en rango parcial puede ser útil para sobrecarga en puntos débiles específicos del movimiento.",
+      "tags": ["hipertrofia", "ROM", "rango", "movimiento"],
+      "relevance": "training"
+    },
+    {
+      "chunkId": "hyp-progression",
+      "documentId": "doc-hypertrophy-01",
+      "content": "La progresión de sobrecarga es esencial. Métodos: aumentar peso (2.5-5%), aumentar reps dentro del rango, aumentar series, mejorar técnica. La progresión no tiene que ser lineal cada semana. Si el progreso se estanca 2-3 semanas, considerar: 1) deload, 2) variación de ejercicio, 3) cambio de rango de reps, 4) ajuste de volumen.",
+      "tags": ["hipertrofia", "progresión", "sobrecarga", "plateau"],
+      "relevance": "training"
+    },
+    {
+      "chunkId": "hyp-selection",
+      "documentId": "doc-hypertrophy-01",
+      "content": "Selección de ejercicios para hipertrofia: priorizar ejercicios compuestos (press, row, squat, deadlift) como base, complementar con ejercicios de aislamiento para músculos específicos. Los ejercicios compuestos permiten mayor carga y reclutamiento. Los de aislamiento son útiles para enfatizar músculos débiles o que necesitan más volumen.",
+      "tags": ["hipertrofia", "selección_ejercicios", "compuestos", "aislamiento"],
+      "relevance": "training"
+    }
+  ]
+}

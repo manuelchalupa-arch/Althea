@@ -1,0 +1,48 @@
+{
+  "id": "doc-strength-01",
+  "title": "Programación de Fuerza",
+  "source": "NSCA Essentials of Strength Training",
+  "author": "NSCA",
+  "date": "2022",
+  "type": "textbook",
+  "topic": "strength",
+  "evidenceLevel": "strong",
+  "updatedAt": "2026-09-14",
+  "chunks": [
+    {
+      "chunkId": "str-progression",
+      "documentId": "doc-strength-01",
+      "content": "La progresión de fuerza se basa en aumentar la carga externa de forma sistemática. Para principiantes: +2.5-5kg por sesión en ejercicios compuestos. Para intermedios: +1.25-2.5kg por semana. Para avanzados: periodización con ciclos de carga. La fuerza depende de la adaptación neuromuscular: reclutamiento de unidades motoras, frecuencia de activación y coordinación intermuscular.",
+      "tags": ["fuerza", "progresión", "carga", "neuromuscular"],
+      "relevance": "training"
+    },
+    {
+      "chunkId": "str-sets-reps",
+      "documentId": "doc-strength-01",
+      "content": "Para fuerza máxima: 1-5 reps por serie al 85-100% de 1RM. Series: 3-6 por ejercicio. Descanso: 3-5 minutos entre series para permitir recuperación del sistema nervioso. La relación carga-reps es inversa: más carga = menos reps. El descanso largo es crucial para fuerza porque el sistema nervioso necesita más recuperación que el muscular.",
+      "tags": ["fuerza", "series", "reps", "carga", "descanso"],
+      "relevance": "training"
+    },
+    {
+      "chunkId": "str-exercises",
+      "documentId": "doc-strength-01",
+      "content": "Ejercicios fundamentales para fuerza: sentadilla, peso muerto, press de banca, press de hombro, remo con barra. Estos ejercicios permiten la mayor carga externa y reclutan más masa muscular. La técnica es CRÍTICA a cargas altas: errores de forma a 1RM pueden causar lesiones. Priorizar técnica perfecta antes de subir carga.",
+      "tags": ["fuerza", "ejercicios", "compuestos", "técnica"],
+      "relevance": "training"
+    },
+    {
+      "chunkId": "str-deload",
+      "documentId": "doc-strength-01",
+      "content": "El deload (semana de descarga) es esencial para fuerza. Se recomienda cada 4-6 semanas: reducir volumen 40-50% manteniendo intensidad (carga), o reducir intensidad manteniendo volumen. Señales para deload: fatiga persistente, rendimiento descendente, loss of motivation, aumento de dolor articular.",
+      "tags": ["fuerza", "deload", "recuperación", "fatiga"],
+      "relevance": "training"
+    },
+    {
+      "chunkId": "str-periodization",
+      "documentId": "doc-strength-01",
+      "content": "Periodización para fuerza: bloques de 3-4 semanas con objetivo específico. Bloque 1: hipertrofia (8-12 reps, volumen alto). Bloque 2: fuerza (4-6 reps, carga alta). Bloque 3: potencia (2-3 reps, velocidad máxima). Bloque 4: competición/deload. La periodización ondulante (cambiar carga/dentro de la semana) también es efectiva para intermedios.",
+      "tags": ["fuerza", "periodización", "bloques", "ondulante"],
+      "relevance": "training"
+    }
+  ]
+}
