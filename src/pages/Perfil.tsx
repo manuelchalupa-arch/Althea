@@ -197,9 +197,23 @@ function PushSection(){
   )
 }
 
+const TRAINING_GOALS: { value: string; label: string; desc: string; icon: string }[] = [
+  { value: 'strength', label: 'Fuerza', desc: 'Progresión de cargas, multiarticulares, técnica', icon: '💪' },
+  { value: 'fat_loss', label: 'Pérdida de grasa', desc: 'Déficit moderado, adherencia, fuerza', icon: '🔥' },
+  { value: 'hypertrophy', label: 'Hipertrofia', desc: 'Volumen, proximidad al fallo, ROM', icon: '🏋️' },
+  { value: 'mobility', label: 'Movilidad', desc: 'ROM, calidad de movimiento, control', icon: '🧘' },
+  { value: 'general_health', label: 'Salud general', desc: 'Equilibrio, adherencia, sostenibilidad', icon: '❤️' },
+]
+const EXPERIENCE_LEVELS: { value: string; label: string; desc: string }[] = [
+  { value: 'beginner', label: 'Principiante', desc: '<6 meses entrenando' },
+  { value: 'intermediate', label: 'Intermedio', desc: '6 meses - 2 años' },
+  { value: 'advanced', label: 'Avanzado', desc: '>2 años constante' },
+]
+
 export default function Perfil(){
   const [profile,setProfile]=useState<any>(null)
   const [form,setForm]=useState({ age:'', sex:'', heightCm:'', weightKg:'', targetWeightKg:'', bodyFatPct:'', muscleMassKg:'', waistCm:'', chestCm:'', activityLevel:'moderado' })
+  const [coachForm,setCoachForm]=useState({ trainingGoal:'hypertrophy', experienceLevel:'intermediate', sessionDurationMin:'60', preferredTime:'18:00', restrictions:'', allergies:'', dislikedFoods:'', mealFrequency:'4' })
   const [history,setHistory]=useState<any[]>([])
   const [theme,setTheme]=useState(getTheme)
   const [textScale,setTextScale]=useState(getTextScale)
@@ -215,7 +229,18 @@ export default function Perfil(){
         age: String(p.age||''), sex: p.sex||'', heightCm: String(p.heightCm||''), weightKg: String(p.weightKg||''),
         targetWeightKg: String((p as any).targetWeightKg||''), bodyFatPct: String(p.bodyFatPct||''), muscleMassKg: String(p.muscleMassKg||''),
         waistCm:'', chestCm:'', activityLevel: (p as any).activityLevel || 'moderado'
-      } as any)}
+      } as any)
+        setCoachForm({
+          trainingGoal: (p as any).trainingGoal || 'hypertrophy',
+          experienceLevel: (p as any).experienceLevel || 'intermediate',
+          sessionDurationMin: String((p as any).preferences?.sessionDurationMin || '60'),
+          preferredTime: (p as any).schedule?.preferredTime || '18:00',
+          restrictions: ((p as any).nutritionPrefs?.restrictions || []).join(', '),
+          allergies: ((p as any).nutritionPrefs?.allergies || []).join(', '),
+          dislikedFoods: ((p as any).nutritionPrefs?.dislikedFoods || []).join(', '),
+          mealFrequency: String((p as any).nutritionPrefs?.mealFrequency || '4'),
+        })
+      }
     })
     db.table('bodyMeasurements').toArray().then(setHistory).catch(()=> setHistory([]))
   },[])
@@ -230,12 +255,22 @@ export default function Perfil(){
       bodyFatPct: Number(form.bodyFatPct)||undefined,
       muscleMassKg: Number(form.muscleMassKg)||undefined,
       activityLevel: (form as any).activityLevel || 'moderado',
+      trainingGoal: coachForm.trainingGoal,
+      experienceLevel: coachForm.experienceLevel,
+      preferences: { sessionDurationMin: Number(coachForm.sessionDurationMin)||60 },
+      schedule: { preferredTime: coachForm.preferredTime },
+      nutritionPrefs: {
+        restrictions: coachForm.restrictions ? coachForm.restrictions.split(',').map(s=>s.trim()).filter(Boolean) : [],
+        allergies: coachForm.allergies ? coachForm.allergies.split(',').map(s=>s.trim()).filter(Boolean) : [],
+        dislikedFoods: coachForm.dislikedFoods ? coachForm.dislikedFoods.split(',').map(s=>s.trim()).filter(Boolean) : [],
+        mealFrequency: Number(coachForm.mealFrequency)||4,
+      },
     }
     const base = profile ?? { id:'me', goal:'hipertrofia', level:'intermedio', availableDays:[1,3,5], trainingTime:'18:00', equipment:['barra'], units:{weight:'kg',liquid:'ml'}, lang:'es', coachIntensity:'profesional', onboardingDone:true, hydrationGoalMl:2500, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
     await db.userProfile.put({ ...base, ...data, updatedAt: new Date().toISOString() })
     const today = new Date().toISOString().slice(0,10)
     await db.table('bodyMeasurements').put({ id: uuid(), localDate: today, weightKg: data.weightKg, heightCm: data.heightCm, bodyFatPct: data.bodyFatPct, muscleMassKg: data.muscleMassKg, waistCm: Number(form.waistCm)||undefined, chestCm: Number(form.chestCm)||undefined, createdAt: new Date().toISOString() })
-    alert('Datos guardados. No se inventa información faltante.')
+    alert('Datos guardados.')
     setHistory(await db.table('bodyMeasurements').toArray())
   }
 
@@ -276,6 +311,81 @@ export default function Perfil(){
         </div>
 
         <button onClick={save} className="w-full py-3 rounded-xl bg-action text-textMain font-medium">Guardar</button>
+      </div>
+
+      {/* ─── Coach IA v2: Perfil de entrenamiento ─── */}
+      <div className="rounded-xl bg-surface border border-border p-3 space-y-4">
+        <div>
+          <div className="text-aux font-medium">Coach IA — Perfil de entrenamiento</div>
+          <p className="text-aux text-textMuted mt-1">Definí tu objetivo y nivel. El Coach adapta sus recomendaciones a esto.</p>
+        </div>
+
+        <div>
+          <div className="text-aux mb-2">Objetivo principal</div>
+          <div className="grid grid-cols-1 gap-2">
+            {TRAINING_GOALS.map(g=>(
+              <button key={g.value} onClick={()=>setCoachForm({...coachForm, trainingGoal:g.value})}
+                className={`p-3 rounded-xl border text-left transition ${coachForm.trainingGoal===g.value ? 'bg-elevated border-info' : 'bg-bg border-border'}`}>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{g.icon}</span>
+                  <div>
+                    <div className="text-body font-medium">{g.label}</div>
+                    <div className="text-aux text-textMuted">{g.desc}</div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-aux mb-2">Nivel de experiencia</div>
+          <div className="grid grid-cols-3 gap-2">
+            {EXPERIENCE_LEVELS.map(l=>(
+              <button key={l.value} onClick={()=>setCoachForm({...coachForm, experienceLevel:l.value})}
+                className={`py-2 rounded-xl border text-center transition ${coachForm.experienceLevel===l.value ? 'bg-elevated border-info' : 'bg-bg border-border'}`}>
+                <div className="text-body text-sm font-medium">{l.label}</div>
+                <div className="text-aux text-textMuted text-xs">{l.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-aux">Duración sesión (min)
+            <select value={coachForm.sessionDurationMin} onChange={e=>setCoachForm({...coachForm, sessionDurationMin:e.target.value})}
+              className="w-full mt-1 bg-bg border border-border rounded-xl p-2 text-body">
+              <option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option>
+              <option value="75">75 min</option><option value="90">90 min</option>
+            </select>
+          </label>
+          <label className="text-aux">Horario preferido
+            <input type="time" value={coachForm.preferredTime} onChange={e=>setCoachForm({...coachForm, preferredTime:e.target.value})}
+              className="w-full mt-1 bg-bg border border-border rounded-xl p-2 text-body" />
+          </label>
+        </div>
+
+        <div className="rounded-xl bg-bg border border-border p-3 space-y-2">
+          <div className="text-aux font-medium">Nutrición — preferencias</div>
+          <label className="text-aux">Restricciones alimentarias
+            <input value={coachForm.restrictions} onChange={e=>setCoachForm({...coachForm, restrictions:e.target.value})}
+              placeholder="Ej: vegetariano, sin lactosa" className="w-full mt-1 bg-surface border border-border rounded-xl p-2 text-body" />
+          </label>
+          <label className="text-aux">Alergias
+            <input value={coachForm.allergies} onChange={e=>setCoachForm({...coachForm, allergies:e.target.value})}
+              placeholder="Ej: frutos secos, mariscos" className="w-full mt-1 bg-surface border border-border rounded-xl p-2 text-body" />
+          </label>
+          <label className="text-aux">Alimentos que no te gustan
+            <input value={coachForm.dislikedFoods} onChange={e=>setCoachForm({...coachForm, dislikedFoods:e.target.value})}
+              placeholder="Ej: brócoli, atún" className="w-full mt-1 bg-surface border border-border rounded-xl p-2 text-body" />
+          </label>
+          <label className="text-aux">Comidas por día
+            <select value={coachForm.mealFrequency} onChange={e=>setCoachForm({...coachForm, mealFrequency:e.target.value})}
+              className="w-full mt-1 bg-bg border border-border rounded-xl p-2 text-body">
+              <option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
