@@ -45,6 +45,23 @@ Usuario: "No quiero hacer sentadilla con barra, ¿alternativa en casa sin equipo
 Usuario: "Quiero aumentar masa, ¿qué comer en lugar de galletitas?"
 → {"type":"nutrition_recommendation","food":"galletitas","action":"suggest_substitution","suggested_food":"yogur griego + avena","reason":"Más proteína y calorías de calidad para hipertrofia.","confidence":0.82,"why":["+12g proteína","fibra","saciedad"]}
 `
+
+// ─── Perfiles de entrenamiento (5 objetivos) ───
+export const TRAINING_GOAL_PROFILES: Record<string, string> = {
+  strength: 'FUERZA — Priorizá cargas altas (85-100% 1RM), series cortas (1-5 reps), descansos largos (3-5 min). Progresión: +2.5 kg cuando completes todas las series con técnica perfecta. Sin filler: calidad sobre cantidad.',
+  fat_loss: 'PÉRDIDA DE GRASA — Priorizá déficit calórico controlado (300-500 kcal bajo TDEE). Entrenamiento con volumen moderado, circuitos, superseries. Mantené proteína alta (2g/kg). Cardio complementario 2-3x/semana.',
+  hypertrophy: 'HIPERTROFIA — Volumen 10-20 series/músculo/semana. Rango 6-12 reps, RPE 7-9, descanso 60-120s. Progresión gradual: +1-2 reps antes que +peso. Técnica > peso siempre.',
+  mobility: 'MOVILIDAD — Priorizá rango de movimiento completo, estiramientos dinámicos, yoga funcional. Sin carga alta. 3-5 sesiones/semana. Cada ejercicio con control y respiración.',
+  general_health: 'SALUD GENERAL — Balance entre fuerza, cardio y flexibilidad. 3-4 sesiones/semana mixtas. Mantenimiento funcional. Sin extremos: constancia > intensidad.',
+}
+
+// ─── Instrucciones por nivel de experiencia ───
+export const EXPERIENCE_INSTRUCTIONS: Record<string, string> = {
+  beginner: 'PRINCIPIANTE (<6 meses): Progresión lenta, técnicas básicas primero. Priorizá forma sobre carga. 2-3 sesiones/semana.',
+  intermediate: 'INTERMEDIO (6-24 meses): Podés manejar mayor volumen. Progresión lineal + undulante. 3-4 sesiones/semana.',
+  advanced: 'AVANZADO (>24 meses): Periodización ondulante, calistenia pesada, técnica depurada. 4-5 sesiones/semana.',
+}
+
 export const PERSONALITY_INSTRUCTION: Record<string,string> = {
   PADELERO: 'Comprensivo y motivador, poca presión. Coloquial y familiar, como un compañero que te anima sin exigirte de más. Nunca caricatura.',
   ABUELITOS: 'Equilibrado y motivador, con cierta exigencia amable. Tono cálido y claro, te cuida pero te pide constancia.',

@@ -18,6 +18,11 @@ export default function Coach(){
   const [qaMap,setQaMap]=useState<Record<string,{question:string;answer:string;date:string}>>({})
   const [qaDraft,setQaDraft]=useState<Record<string,string>>({})
   const [downloading,setDownloading]=useState(false)
+  // ─── Coach IA v2: nuevos estados ───
+  const [safetyStatus,setSafetyStatus]=useState<{severity:string;message:string;referral?:string}|null>(null)
+  const [progressData,setProgressData]=useState<{trend?:string;rate?:number;confidence?:number}|null>(null)
+  const [recoveryData,setRecoveryData]=useState<{lastScore?:number;trend?:string;consecutiveLow?:number}|null>(null)
+  const [nutritionData,setNutritionData]=useState<{tdee?:number;calorieGoal?:number;proteinPerKg?:number;gap?:string|null}|null>(null)
 
   const refresh = async ()=>{
     const c = await detectCapabilities()
@@ -41,6 +46,11 @@ export default function Coach(){
     import('@/services/ai/globalScore').then(({ buildGlobalScore })=> buildGlobalScore().then((g)=> setBriefScore({ score: g.score, factors: g.factors })).catch(()=>{}))
     import('@/services/ai/coachInsights').then(({ buildInsights })=> buildInsights().then(setBriefInsights).catch(()=>{}))
     import('@/services/ai/coachMemory').then(({ getAllAnswers })=> getAllAnswers().then(setQaMap).catch(()=>{}))
+    // ─── Coach IA v2: cargar datos extendidos ───
+    import('@/services/ai/safetyLayer').then(({ check })=> check({}).then(r=>{ if(r.severity!=='info') setSafetyStatus({ severity:r.severity, message:r.message, referral:r.professionalReferral }) }).catch(()=>{}))
+    import('@/services/ai/progressAnalyzer').then(({ analyzeGlobal })=> analyzeGlobal().then(p=> setProgressData({ trend:p.trend, rate:p.rate, confidence:p.confidence })).catch(()=>{}))
+    import('@/services/ai/recoveryAnalyzer').then(({ analyzeRecovery })=> analyzeRecovery().then(r=> setRecoveryData({ lastScore:r.lastScore ?? undefined, trend:r.trend, consecutiveLow:r.consecutiveLow })).catch(()=>{}))
+    import('@/services/ai/nutritionEngine').then(({ analyzeNutrition })=> db.userProfile.get('me').then(p=> analyzeNutrition(p||{}).then(n=> setNutritionData({ tdee:n.tdee ?? undefined, calorieGoal:n.calorieGoal ?? undefined, proteinPerKg:n.proteinPerKg ?? undefined, gap:n.gap })).catch(()=>{})).catch(()=>{}))
   },[])
 
   const doDownload = async ()=>{
@@ -131,7 +141,49 @@ export default function Coach(){
           </div>
           )
         })}
+        {/* ─── Coach IA v2: Safety ─── */}
+        {safetyStatus && (
+          <div className={`rounded-xl border p-2 ${safetyStatus.severity==='critical'?'bg-red-900/30 border-red-700':'bg-amber-900/20 border-amber-700'}`}>
+            <div className="text-body text-sm font-medium">{safetyStatus.severity==='critical'?'⚠ Seguridad':'⚡ Alerta'}</div>
+            <div className="text-aux mt-0.5">{safetyStatus.message}</div>
+            {safetyStatus.referral && <div className="text-aux text-textMuted">Derivar a: {safetyStatus.referral}</div>}
+          </div>
+        )}
       </div>
+
+      {/* ─── Coach IA v2: Progreso + Recuperación + Nutrición ─── */}
+      {(progressData || recoveryData || nutritionData) && (
+        <div className="rounded-xl bg-surface border border-border p-4 space-y-2">
+          <div className="text-aux tracking-widest">ANÁLISIS V2</div>
+          {progressData && (
+            <div className="flex items-center gap-2 text-aux">
+              <span className="text-body text-sm">Progreso:</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs ${progressData.trend==='improving'?'bg-success/20 text-success':progressData.trend==='declining'?'bg-danger/20 text-danger':'bg-warning/20 text-warning'}`}>
+                {progressData.trend==='improving'?'↑ Mejorando':progressData.trend==='declining'?'↓ Estancado':'→ Manteniendo'}
+              </span>
+              {progressData.rate != null && <span className="text-aux text-xs">({progressData.rate>0?'+':''}{Math.round(progressData.rate*10)/10} kg/sem)</span>}
+            </div>
+          )}
+          {recoveryData && (
+            <div className="flex items-center gap-2 text-aux">
+              <span className="text-body text-sm">Recuperación:</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs ${recoveryData.trend==='improving'?'bg-success/20 text-success':recoveryData.trend==='declining'?'bg-danger/20 text-danger':'bg-warning/20 text-warning'}`}>
+                {recoveryData.lastScore!=null?`${recoveryData.lastScore}/100`: '?'} — {recoveryData.trend==='improving'?'↑':recoveryData.trend==='declining'?'↓':'→'}
+              </span>
+              {recoveryData.consecutiveLow != null && recoveryData.consecutiveLow > 2 && <span className="text-aux text-xs">⚠ {recoveryData.consecutiveLow} días bajos</span>}
+            </div>
+          )}
+          {nutritionData && (
+            <div className="flex items-center gap-2 text-aux">
+              <span className="text-body text-sm">Nutrición:</span>
+              {nutritionData.tdee != null && <span className="text-aux text-xs">TDEE: {Math.round(nutritionData.tdee)} kcal</span>}
+              {nutritionData.calorieGoal != null && <span className="text-aux text-xs">Obj: {Math.round(nutritionData.calorieGoal)} kcal</span>}
+              {nutritionData.proteinPerKg != null && <span className="text-aux text-xs">Prot: {nutritionData.proteinPerKg.toFixed(1)}g/kg</span>}
+              {nutritionData.gap && <span className="text-aux text-xs">⚠ {nutritionData.gap}</span>}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="rounded-xl bg-accentDark border border-border p-4">
         <div className="text-aux tracking-widest text-info">RECOMENDACIÓN</div>

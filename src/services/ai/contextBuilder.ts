@@ -1,7 +1,7 @@
 import type { AIContext } from './aiProvider'
 import { db } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate } from '@/utils/cycle'
-import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone } from './systemPrompt'
+import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone, TRAINING_GOAL_PROFILES, EXPERIENCE_INSTRUCTIONS } from './systemPrompt'
 import { unifiedCompletedSets } from '@/services/history'
 import { retrieveRelevant } from './knowledgeBase'
 import { analyzeExercise, analyzeGlobal } from './progressAnalyzer'
@@ -204,9 +204,25 @@ export function buildPrompt(ctx:AIContext):string{
   const ins = (ctx.insights||[]).map(i=> `[${i.level.toUpperCase()}] ${i.title} — ${i.detail}`).join('\n') || 'Sin patrones detectados (datos insuficientes o todo estable).'
   const sc = ctx.score ? `Estado global: ${ctx.score.score}/100 (${ctx.score.factors.map(f=> `${f.label} ${f.delta>=0?'+':''}${f.delta}: ${f.estado}`).join(' · ')})` : 'Sin puntuación (sin datos suficientes).'
   const qaLines = Object.entries(ctx.qa||{}).map(([k,v])=> `${k}: preguntó "${v.question}" → respondió "${v.answer}" (${v.date})`).join('\n') || 'Sin respuestas registradas.'
+  // ─── Coach IA v2: perfiles de entrenamiento ───
+  const goal = (ctx.userProfile?.trainingGoal as string) || ctx.objetivo || 'hypertrophy'
+  const goalProfile = TRAINING_GOAL_PROFILES[goal] || TRAINING_GOAL_PROFILES.hypertrophy
+  const experience = (ctx.userProfile?.experienceLevel as string) || 'intermediate'
+  const expInstruction = EXPERIENCE_INSTRUCTIONS[experience] || EXPERIENCE_INSTRUCTIONS.intermediate
+  // knowledge chunks
+  const kbChunk = (ctx.knowledgeChunks||[]).length > 0 ? `\nCONOCIMIENTO RELEVANTE:\n${(ctx.knowledgeChunks||[]).join('\n')}` : ''
+  // progress
+  const progressLine = ctx.progress ? `\nPROGRESO: tendencia=${ctx.progress.trend||'desconocido'}, rate=${ctx.progress.rate||0}, conf=${ctx.progress.confidence||0}` : ''
+  // recovery
+  const recoveryLine = ctx.recovery ? `\nRECUPERACIÓN: último score=${ctx.recovery.lastScore||'?'}, tendencia=${ctx.recovery.trend||'desconocida'}, días bajos=${ctx.recovery.consecutiveLow||0}` : ''
+  // nutrition analysis
+  const nutAnalysisLine = ctx.nutritionAnalysis ? `\nNUTRICIÓN: TDEE=${ctx.nutritionAnalysis.tdee||'?'}, objetivo calórico=${ctx.nutritionAnalysis.calorieGoal||'?'}, proteína/kg=${ctx.nutritionAnalysis.proteinPerKg||'?'}gap=${ctx.nutritionAnalysis.gap||'sin gap'}` : ''
   return `${SYSTEM_PROMPT}
 
 ${VERACITY_RULES}
+
+PERFIL DE ENTRENAMIENTO: ${goalProfile}
+NIVEL: ${expInstruction}
 
 PERSONALIDAD ACTUAL: ${ctx.personalidad} — ${tono}
 
@@ -218,6 +234,7 @@ Historial: [${hist}]
 Fatiga: ${ctx.fatiga} | Sueño: ${ctx.sueno} | Energía: ${ctx.energia} | Hidratación: ${ctx.hidratacion} | Dolor: ${ctx.dolor}
 ${ctx.nutricion ? `Nutrición: ${JSON.stringify(ctx.nutricion)}` : ''}
 ${ctx.hidratacion ? `Hidratación: ${ctx.hidratacion}` : ''}
+${kbChunk}${progressLine}${recoveryLine}${nutAnalysisLine}
 
 MEMORIA LONGITUDINAL (datos reales):
 ${sc}

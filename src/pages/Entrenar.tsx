@@ -57,6 +57,7 @@ export default function Entrenar(){
   const [skipReason,setSkipReason]=useState('')
   const [painAlert,setPainAlert]=useState<{zone:string;detail:string}|null>(null)
   const [painAns,setPainAns]=useState('')
+  const [safetyAlert,setSafetyAlert]=useState<{severity:'info'|'warning'|'critical'; message:string; referral?:string}|null>(null)
   // Estados para FINALIZAR ENTRENAMIENTO + máquina de estados
   const [showFinishModal,setShowFinishModal]=useState(false)
   const [isSaving,setIsSaving]=useState(false)
@@ -366,6 +367,26 @@ export default function Entrenar(){
       }
       // guardar ejercicio NO finaliza la sesion: se usa FINALIZAR ENTRENAMIENTO
     }
+  }
+
+  const runSafetyCheck = async (painValue?: number) => {
+    try{
+      const profile = await db.userProfile.get('me')
+      const today2 = new Date().toISOString().slice(0,10)
+      const rec: any = await db.recoveryChecks.get(today2) || JSON.parse(localStorage.getItem('recovery:'+today2)||'null')
+      const { check } = await import('@/services/ai/safetyLayer')
+      const result = await check({
+        recovery: rec ? { pain: rec.pain ?? 0, fatigue: rec.fatigue ?? 5, energy: rec.energy ?? 5 } : undefined,
+        sessionPain: painValue,
+        userProfile: profile || {},
+        qaHistory: undefined,
+      })
+      if(result.severity !== 'info'){
+        setSafetyAlert({ severity: result.severity, message: result.message, referral: result.professionalReferral })
+      } else {
+        setSafetyAlert(null)
+      }
+    }catch{ /* noop */ }
   }
 
   const openViewer = async ()=>{
@@ -1074,7 +1095,19 @@ export default function Entrenar(){
                 <div className="text-body text-sm font-medium">La última vez registraste molestias en {painAlert.zone}. ¿Cómo está hoy?</div>
                 <div className="flex gap-1">
                   <input value={painAns} onChange={e=>setPainAns(e.target.value)} placeholder="Bien / sigue molestando…" maxLength={200} className="flex-1 bg-bg border border-border rounded-xl p-2 text-body"/>
-                  <button onClick={async()=>{ const v=painAns.trim(); if(!v) return; const { saveAnswer } = await import('@/services/ai/coachMemory'); await saveAnswer(`pain:${painAlert.zone.toLowerCase()}`, `¿Cómo está hoy la molestia en ${painAlert.zone}?`, v); setPainAlert(null); setPainAns('') }} className="px-3 rounded-xl bg-action text-textMain">Guardar</button>
+                  <button onClick={async()=>{ const v=painAns.trim(); if(!v) return; const { saveAnswer } = await import('@/services/ai/coachMemory'); await saveAnswer(`pain:${painAlert.zone.toLowerCase()}`, `¿Cómo está hoy la molestia en ${painAlert.zone}?`, v); setPainAlert(null); setPainAns(''); runSafetyCheck() }} className="px-3 rounded-xl bg-action text-textMain">Guardar</button>
+                </div>
+              </div>
+            )}
+
+            {safetyAlert && (
+              <div className={`rounded-xl border p-3 flex items-start gap-2 ${
+                safetyAlert.severity==='critical' ? 'bg-red-900/30 border-red-700' : 'bg-amber-900/20 border-amber-700'
+              }`}>
+                <AlertTriangle size={14} className={`mt-0.5 ${safetyAlert.severity==='critical'?'text-red-400':'text-amber-300'}`}/>
+                <div className="text-body text-sm">
+                  <span className="font-medium">{safetyAlert.message}</span>
+                  {safetyAlert.referral && <span className="text-aux"> Consultá con {safetyAlert.referral}.</span>}
                 </div>
               </div>
             )}
