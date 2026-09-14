@@ -331,6 +331,56 @@ export async function buildInsights(): Promise<CoachInsight[]> {
         push(detectProteinGap(est, range?.low ?? null, diario.length))
       }
     } catch { /* noop */ }
+    // ─── Coach IA v2: progress analyzer insights ───
+    try {
+      const { analyzeGlobal, analyzeExercise } = await import('./progressAnalyzer')
+      const global = await analyzeGlobal()
+      if (global.trend === 'plateau' && global.plateauWeeks >= 3) {
+        out.push({
+          id: 'progress-plateau', kind: 'progress', level: 'warn',
+          title: `Estancamiento detectado (${global.plateauWeeks} semanas)`,
+          detail: 'El volumen se mantiene estable sin mejora. Considerá variar estímulos, periodo de descarga o ajustar volumen.',
+          evidence: `Volumen semanal estable las últimas ${global.plateauWeeks} semanas. Confianza: ${Math.round(global.confidence * 100)}%.`,
+          question: { key: 'progress:plateau', text: '¿Sentís que estás estancado o querés progresar más rápido?' },
+        })
+      } else if (global.trend === 'declining') {
+        out.push({
+          id: 'progress-decline', kind: 'progress', level: 'warn',
+          title: `Tendencia descendente (${global.rate > 0 ? '+' : ''}${Math.round(global.rate)}%/sem)`,
+          detail: 'El volumen de entrenamiento está bajando. Revisá recuperación, nutrición y calidad de sueño.',
+          evidence: `Cambio semanal: ${global.rate > 0 ? '+' : ''}${Math.round(global.rate)}%. Confianza: ${Math.round(global.confidence * 100)}%.`,
+        })
+      } else if (global.trend === 'improving') {
+        out.push({
+          id: 'progress-up', kind: 'progress', level: 'info',
+          title: `Progresión positiva (${global.rate > 0 ? '+' : ''}${Math.round(global.rate)}%/sem)`,
+          detail: 'Seguí así. Tu volumen de entrenamiento está mejorando.',
+          evidence: `Cambio semanal: +${Math.round(global.rate)}%. Confianza: ${Math.round(global.confidence * 100)}%.`,
+        })
+      }
+    } catch { /* noop */ }
+    // ─── Coach IA v2: memory patterns ───
+    try {
+      const { buildUserMemory } = await import('./memoryManager')
+      const mem = await buildUserMemory()
+      if (mem.patterns.avoidedExercises.length >= 3) {
+        out.push({
+          id: 'memory-avoided', kind: 'pattern', level: 'info',
+          title: `${mem.patterns.avoidedExercises.length} ejercicios evitados frecuentemente`,
+          detail: 'Podemos crear variaciones personalizadas o buscar alternativas más adecuadas.',
+          evidence: `Ejercicios evitados: ${mem.patterns.avoidedExercises.slice(0, 3).join(', ')}.`,
+        })
+      }
+      if (mem.patterns.commonPainAreas.length >= 2) {
+        out.push({
+          id: 'memory-pain', kind: 'pattern', level: 'warn',
+          title: `Dolor recurrente en: ${mem.patterns.commonPainAreas.join(', ')}`,
+          detail: 'Estas zonas aparecen en tus respuestas. Considerá consultar con un profesional.',
+          evidence: `Zonas con dolor: ${mem.patterns.commonPainAreas.join(', ')}.`,
+          question: { key: 'memory:pain', text: `¿Cómo se siente tu ${mem.patterns.commonPainAreas[0]} últimamente?` },
+        })
+      }
+    } catch { /* noop */ }
   } catch { /* noop: sin datos → sin insights, nunca inventar */ }
   return out
 }
