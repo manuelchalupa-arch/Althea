@@ -12,9 +12,11 @@ import { buildUserMemory } from './memoryManager'
 import { logDecision } from './decisionLogger'
 import { buildInsights } from './coachInsights'
 import { buildGlobalScore } from './globalScore'
+import { selectMethods } from './methodSelector'
+import type { MethodRecommendation } from './trainingMethods'
 
 export interface CoachRequest {
-  type: 'training' | 'nutrition' | 'recovery' | 'general'
+  type: 'training' | 'nutrition' | 'recovery' | 'general' | 'method_selection'
   exerciseId?: string
   exerciseName?: string
   sessionId?: string
@@ -26,6 +28,7 @@ export interface CoachResponse {
   memory?: { patterns: string[]; preferences: string[] }
   insights?: { title: string; detail: string; level: string }[]
   score?: number
+  methodRecommendation?: MethodRecommendation
 }
 
 /** Procesar una petición del Coach */
@@ -102,6 +105,16 @@ export async function processRequest(request: CoachRequest): Promise<CoachRespon
     },
   })
 
+  // 11. Method selection (siempre, para tener recomendación metodológica)
+  let methodRecommendation: MethodRecommendation | undefined
+  try {
+    const recentFatigue = recovery.lastCheck?.fatigue
+    const sessions: any[] = await db.table('trainingSessions').toArray().catch(() => [])
+    const recentSessions = sessions.filter(s => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus)).slice(-5)
+    const recentVolume = recentSessions.reduce((a, s) => a + Number(s.totalVolume || 0), 0) / Math.max(1, recentSessions.length)
+    methodRecommendation = selectMethods(profile || {}, recentVolume || undefined, recentFatigue)
+  } catch { /* noop */ }
+
   return {
     recommendation,
     safety: safety.severity !== 'info' ? { severity: safety.severity, message: safety.message, referral: safety.professionalReferral } : undefined,
@@ -111,5 +124,6 @@ export async function processRequest(request: CoachRequest): Promise<CoachRespon
     },
     insights: insights.slice(0, 3).map(i => ({ title: i.title, detail: i.detail, level: i.level })),
     score: scoreResult.score,
+    methodRecommendation,
   }
 }

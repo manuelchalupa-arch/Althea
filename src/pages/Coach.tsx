@@ -23,6 +23,7 @@ export default function Coach(){
   const [progressData,setProgressData]=useState<{trend?:string;rate?:number;confidence?:number}|null>(null)
   const [recoveryData,setRecoveryData]=useState<{lastScore?:number;trend?:string;consecutiveLow?:number}|null>(null)
   const [nutritionData,setNutritionData]=useState<{tdee?:number;calorieGoal?:number;proteinPerKg?:number;gap?:string|null}|null>(null)
+  const [methodRec,setMethodRec]=useState<{primary:string;secondary:string[];complementary:string[];justification:string;confidence:number;mixed?:any}|null>(null)
 
   const refresh = async ()=>{
     const c = await detectCapabilities()
@@ -51,6 +52,8 @@ export default function Coach(){
     import('@/services/ai/progressAnalyzer').then(({ analyzeGlobal })=> analyzeGlobal().then(p=> setProgressData({ trend:p.trend, rate:p.rate, confidence:p.confidence })).catch(()=>{}))
     import('@/services/ai/recoveryAnalyzer').then(({ analyzeRecovery })=> analyzeRecovery().then(r=> setRecoveryData({ lastScore:r.lastScore ?? undefined, trend:r.trend, consecutiveLow:r.consecutiveLow })).catch(()=>{}))
     import('@/services/ai/nutritionEngine').then(({ analyzeNutrition })=> db.userProfile.get('me').then(p=> analyzeNutrition(p||{}).then(n=> setNutritionData({ tdee:n.tdee ?? undefined, calorieGoal:n.calorieGoal ?? undefined, proteinPerKg:n.proteinPerKg ?? undefined, gap:n.gap })).catch(()=>{})).catch(()=>{}))
+    // ─── Coach IA v2: Method selection ───
+    import('@/services/ai/methodSelector').then(({ selectMethods })=> db.userProfile.get('me').then(p=>{ const r=selectMethods(p||{} as any); setMethodRec({ primary:r.primary, secondary:r.secondary, complementary:r.complementary, justification:r.justification, confidence:r.confidence, mixed:r.mixed }) }).catch(()=>{})).catch(()=>{})
   },[])
 
   const doDownload = async ()=>{
@@ -182,6 +185,28 @@ export default function Coach(){
               {nutritionData.gap && <span className="text-aux text-xs">⚠ {nutritionData.gap}</span>}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── Coach IA v2: Method Selection ─── */}
+      {methodRec && (
+        <div className="rounded-xl bg-surface border border-border p-4 space-y-2">
+          <div className="text-aux tracking-widest">MÉTODO DE ENTRENAMIENTO</div>
+          <div className="text-body text-sm font-medium">{methodRec.primary}</div>
+          {methodRec.secondary.length > 0 && (
+            <div className="text-aux text-xs">Secundarios: {methodRec.secondary.join(', ')}</div>
+          )}
+          {methodRec.complementary.length > 0 && (
+            <div className="text-aux text-xs">Complementarios: {methodRec.complementary.join(', ')}</div>
+          )}
+          {methodRec.mixed && (
+            <div className="rounded-lg bg-bg border border-border p-2 mt-1">
+              <div className="text-aux text-xs font-medium">Método Mixto:</div>
+              <div className="text-aux text-xs mt-0.5">{methodRec.mixed.structure?.distribution}</div>
+            </div>
+          )}
+          <div className="text-aux text-xs text-textMuted mt-1">{methodRec.justification}</div>
+          <div className="text-aux text-xs">Confianza: {Math.round(methodRec.confidence * 100)}%</div>
         </div>
       )}
 
