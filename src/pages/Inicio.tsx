@@ -26,9 +26,22 @@ export default function Inicio(){
   const [hasActiveSession,setHasActiveSession]=useState(false)
   const [briefScore,setBriefScore]=useState<number|null>(null)
   const [briefWarn,setBriefWarn]=useState<string|null>(null)
+  const [briefV2,setBriefV2]=useState<{progress?:{trend?:string;rate?:number};recovery?:{lastScore?:number;trend?:string};nutrition?:{tdee?:number;proteinPerKg?:number;gap?:string|null}}|null>(null)
   useEffect(()=>{
     import('@/services/ai/globalScore').then(({ buildGlobalScore })=> buildGlobalScore().then((g)=> setBriefScore(g.score)).catch(()=>{}))
     import('@/services/ai/coachInsights').then(({ buildInsights })=> buildInsights().then((all)=>{ const w = all.find((i)=> i.level==='warn'); setBriefWarn(w ? w.title : null) }).catch(()=>{}))
+    // ─── Coach IA v2: brief data ───
+    Promise.all([
+      import('@/services/ai/progressAnalyzer').then(m=> m.analyzeGlobal()),
+      import('@/services/ai/recoveryAnalyzer').then(m=> m.analyzeRecovery()),
+      import('@/services/ai/nutritionEngine').then(m=> db.userProfile.get('me').then(p=> m.analyzeNutrition(p||{}))),
+    ]).then(([prog, rec, nut])=>{
+      setBriefV2({
+        progress: { trend: prog.trend, rate: prog.rate },
+        recovery: { lastScore: rec.lastScore ?? undefined, trend: rec.trend },
+        nutrition: { tdee: nut.tdee ?? undefined, proteinPerKg: nut.proteinPerKg ?? undefined, gap: nut.gap },
+      })
+    }).catch(()=>{})
   },[])
   const [showChangeDay,setShowChangeDay]=useState(false)
   const [changeReason,setChangeReason]=useState('Cambio de horarios')
@@ -223,6 +236,26 @@ export default function Inicio(){
               <ChevronRight size={16} className="text-textMuted"/>
             </div>
             {briefWarn ? <p className="text-body text-sm mt-1">{briefWarn}</p> : <p className="text-aux mt-1">Todo estable por acá.</p>}
+            {/* ─── Coach IA v2: brief ─── */}
+            {briefV2 && (
+              <div className="flex flex-wrap gap-2 mt-2 text-aux text-xs">
+                {briefV2.progress && (
+                  <span className={`px-2 py-0.5 rounded-full ${briefV2.progress.trend==='improving'?'bg-success/20 text-success':briefV2.progress.trend==='declining'?'bg-danger/20 text-danger':'bg-warning/20 text-warning'}`}>
+                    {briefV2.progress.trend==='improving'?'↑ Progresando':briefV2.progress.trend==='declining'?'↓ Bajando':'→ Estable'}
+                  </span>
+                )}
+                {briefV2.recovery && briefV2.recovery.lastScore != null && (
+                  <span className={`px-2 py-0.5 rounded-full ${briefV2.recovery.lastScore>=70?'bg-success/20 text-success':briefV2.recovery.lastScore>=40?'bg-warning/20 text-warning':'bg-danger/20 text-danger'}`}>
+                    Recup {briefV2.recovery.lastScore}/100
+                  </span>
+                )}
+                {briefV2.nutrition && briefV2.nutrition.gap && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-900/20 text-amber-300">
+                    ⚠ {briefV2.nutrition.gap.length > 40 ? briefV2.nutrition.gap.slice(0,40)+'…' : briefV2.nutrition.gap}
+                  </span>
+                )}
+              </div>
+            )}
           </Link>
         </div>
       )}
