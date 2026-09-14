@@ -1,0 +1,32 @@
+{
+  "id": "mobility",
+  "title": "Movilidad y Flexibilidad",
+  "tags": ["movilidad", "flexibilidad", "estiramiento", "yoga"],
+  "chunks": [
+    {
+      "id": "mobility-01",
+      "tags": ["movilidad", "entrenamiento"],
+      "content": "Movilidad ≠ flexibilidad. Movilidad es rango de movimiento CON control. Flexibilidad es rango pasivo. Entrenar ambas: movilidad con peso o bandas, flexibilidad con estiramientos estáticos post-entreno."
+    },
+    {
+      "id": "mobility-02",
+      "tags": ["movilidad", "dolor"],
+      "content": "Restricciones de movilidad frecuentes: cadera (sentadilla profunda), hombro (press overhead), tobillo (sentadilla). Causas: sedentarismo, compensaciones, no dolor. Trabajar 10-15 min/día."
+    },
+    {
+      "id": "mobility-03",
+      "tags": ["estiramiento", "recuperación"],
+      "content": "Estiramientos dinámicos PRE-entreno (leg swings, arm circles). Estiramientos estáticos POST-entreno (mantener 30-60s). No estirar en frío antes de carga pesada: aumenta riesgo de lesión."
+    },
+    {
+      "id": "mobility-04",
+      "tags": ["yoga", "movilidad"],
+      "content": "Yoga funcional para atletas: 2-3 sesiones/semana de 20-30 min. Mejora movilidad de cadera, hombro y columna. Posiciones clave: pigeon, world's greatest stretch, cat-cow, thread the needle."
+    },
+    {
+      "id": "mobility-05",
+      "tags": ["movilidad", "progresión"],
+      "content": "Progresión de movilidad: 1) Foam rolling (2 min/zona) 2) Estiramientos dinámicos (10 reps) 3) Movilidad con carga (10-15 reps) 4) Integración al movimiento compuesto. Siempre en ese orden."
+    }
+  ]
+}

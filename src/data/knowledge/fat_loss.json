@@ -1,0 +1,32 @@
+{
+  "id": "fat_loss",
+  "title": "Pérdida de Grasa",
+  "tags": ["grasa", "déficit", "cardio", "perder peso"],
+  "chunks": [
+    {
+      "id": "fatloss-01",
+      "tags": ["déficit", "grasa"],
+      "content": "Déficit calórico óptimo: 300-500 kcal bajo TDEE (15-20%). Más agresivo (>500) causa pérdida muscular y fatiga. Menos agresivo (<200) es lento pero sostenible."
+    },
+    {
+      "id": "fatloss-02",
+      "tags": ["proteína", "grasa"],
+      "content": "En déficit, proteína alta (2.0-2.4g/kg) preserva masa muscular. Distribuir en 4-5 comidas. Priorizar fuentes magras: pollo, pescado, huevos, legumbres, lácteos descremados."
+    },
+    {
+      "id": "fatloss-03",
+      "tags": ["cardio", "grasa"],
+      "content": "Cardio complementario: 2-3 sesiones/semana de 20-30 min LISS (camina, bici suave) o 1-2 HIIT de 15-20 min. No exceder: el cardio excesivo en déficit aumenta cortisol y fatiga."
+    },
+    {
+      "id": "fatloss-04",
+      "tags": ["peso corporal", "grasa"],
+      "content": "Peso fluctúa 1-3 kg diarios (agua, sodio, comida). Usar promedio semanal, no diario. Si la tendencia de 2+ semanas baja, el déficit funciona. Si se estanca >2 semanas, ajustar 100-200 kcal."
+    },
+    {
+      "id": "fatloss-05",
+      "tags": ["fuerza", "grasa"],
+      "content": "Entrenamiento de fuerza es OBLIGATORIO en pérdida de grasa. Mantiene masa muscular, mejora composición corporal, acelera metabolismo. Priorizar pesas pesadas sobre circuitos aeróbicos."
+    }
+  ]
+}

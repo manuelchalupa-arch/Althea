@@ -1,0 +1,32 @@
+{
+  "id": "recovery",
+  "title": "Recuperación y Descanso",
+  "tags": ["recuperación", "descanso", "sueño", "fatiga", "dolor"],
+  "chunks": [
+    {
+      "id": "recovery-01",
+      "tags": ["recuperación", "sueño"],
+      "content": "El sueño es el factor #1 de recuperación. 7-9 horas para adultos. La fase profunda (N3) libera la hormona del crecimiento. Dormir menos de 6 horas reduce la síntesis proteica muscular un 15-20%."
+    },
+    {
+      "id": "recovery-02",
+      "tags": ["recuperación", "fatiga"],
+      "content": "Señales de sobreentrenamiento: fatiga persistente (>7/10), insomnio, irritabilidad, caída de rendimiento >2 semanas, frecuencia cardíaca en reposo elevada. Acción: reducir volumen 40-50% por 1-2 semanas."
+    },
+    {
+      "id": "recovery-03",
+      "tags": ["recuperación", "dolor"],
+      "content": "Dolor muscular onset (DOMS): pico a 24-72h post-ejercicio. Es normal. Dolor articular o dolor que empeora con el movimiento NO es normal: consultar profesional. Hidratación y movimiento ligero ayudan al DOMS."
+    },
+    {
+      "id": "recovery-04",
+      "tags": ["recuperación", "descanso"],
+      "content": "Periodos de descarga (deload): cada 4-6 semanas, reducir volumen o intensidad un 40-50% por 1 semana. Previene acumulación de fatiga y mejora la respuesta al siguiente bloque de entrenamiento."
+    },
+    {
+      "id": "recovery-05",
+      "tags": ["recuperación", "nutrición"],
+      "content": "Post-entreno: ventana anabólica de ~2-4 horas. Proteína 0.4-0.5g/kg + carbohidratos 0.8-1.2g/kg. La comida completa es suficiente; no se necesitan suplementos urgentes."
+    }
+  ]
+}
