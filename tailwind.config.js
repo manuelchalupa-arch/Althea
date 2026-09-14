@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
-// Design tokens Althea — Olympian Precision (stitch): valores en CSS vars (index.css).
-// :root = Deep Navy #080E18/#0E141E · .light = sand. Mismo producto, dos templos.
+// Design tokens Althea — Hellenic Classic (stitch): valores en CSS vars (index.css).
+// :root = Obsidiana #0A0A10/#13131C · .light = mármol de Paros. Mismo producto, dos santuarios.
 const v = (name) => `rgb(var(${name}) / <alpha-value>)`;
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
@@ -26,20 +26,21 @@ export default {
         disabled: v('--text-3'),
         disabledBg: v('--surface-2'),
         althea: {
-          deep: '#080E18',
-          navy: '#0E141E',
-          card: 'rgba(14,20,30,0.82)',
-          steel: '#4682B4',
-          ocean: '#19376D',
-          dusk: '#7B9EB8',
+          deep: '#0A0A10',
+          navy: '#13131C',
+          card: 'rgba(19,19,28,0.82)',
+          bronze: '#8A6C22',
+          gold: '#D4AF37',
+          goldLight: '#F3CF58',
+          stone: '#ABA395',
           ivory: '#FAF6F0',
-          gold: '#E8D5B5',
+          sand: '#E6C887',
         }
       },
-      borderRadius: { md: '6px', lg: '8px', xl: '10px', '2xl': '12px' },
+      borderRadius: { md: '8px', lg: '10px', xl: '14px', '2xl': '18px' },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"','Inter','system-ui','sans-serif'],
-        serif: ['"EB Garamond"','serif'],
+        serif: ['"Playfair Display"','serif'],
       },
       spacing: { '4': '4px','8':'8px','12':'12px','16':'16px','20':'20px','24':'24px','32':'32px' }
     }
