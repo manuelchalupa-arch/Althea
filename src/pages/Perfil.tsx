@@ -9,6 +9,7 @@ import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearanc
 import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type NotifConfig } from '@/services/notifications/scheduler'
 import { selectMethods } from '@/services/ai/methodSelector'
 import { buildCycleFromRecommendation } from '@/utils/cycle'
+import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import BrandIcon from '@/components/brand/BrandIcon'
 
@@ -219,6 +220,7 @@ export default function Perfil(){
   const [coachForm,setCoachForm]=useState({ trainingGoal:'hypertrophy', experienceLevel:'intermediate', sessionDurationMin:'60', preferredTime:'18:00', restrictions:'', allergies:'', dislikedFoods:'', mealFrequency:'4' })
   const [methodRec,setMethodRec]=useState<{primary:string;secondary:string[];complementary:string[];justification:string;confidence:number;mixed?:any}|null>(null)
   const [applying,setApplying]=useState(false)
+  const [activeCycleMethod,setActiveCycleMethod]=useState<{methodId?:string;days?:number;split?:string}|null>(null)
   const [history,setHistory]=useState<any[]>([])
   const [theme,setTheme]=useState(getTheme)
   const [textScale,setTextScale]=useState(getTextScale)
@@ -253,6 +255,12 @@ export default function Perfil(){
       if(p){
         const rec = selectMethods(p as any)
         setMethodRec({ primary:rec.primary, secondary:rec.secondary, complementary:rec.complementary, justification:rec.justification, confidence:rec.confidence, mixed:rec.mixed })
+        // Load active cycle method
+        const cycle = (p as any).cycle
+        if(cycle?.methodId){
+          const m = getMethod(cycle.methodId)
+          setActiveCycleMethod({ methodId: cycle.methodId, days: cycle.trainingDays?.length, split: m?.structure?.splitType || m?.nameEs })
+        }
       }
     }).catch(()=>{})
   },[])
@@ -411,6 +419,16 @@ export default function Perfil(){
           </label>
         </div>
       </div>
+
+      {/* ─── Ciclo activo ─── */}
+      {activeCycleMethod && activeCycleMethod.methodId && (
+        <div className="rounded-xl bg-elevated border border-info p-4 space-y-1">
+          <div className="text-aux tracking-widest text-info">MÉTODO ACTIVO</div>
+          <div className="text-body text-sm font-medium">{getMethod(activeCycleMethod.methodId as TrainingMethodId)?.nameEs || activeCycleMethod.methodId}</div>
+          {activeCycleMethod.days && <div className="text-aux text-xs">{activeCycleMethod.days} días/semana · {activeCycleMethod.split || '—'}</div>}
+          {profile && (profile as any).cycle?.methodJustification && <div className="text-aux text-xs text-textMuted mt-1">{(profile as any).cycle.methodJustification}</div>}
+        </div>
+      )}
 
       {/* ─── Coach IA v2: Método recomendado ─── */}
       {methodRec && (

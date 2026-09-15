@@ -8,6 +8,7 @@ import BrandIcon from '@/components/brand/BrandIcon'
 import { aiService } from '@/services/ai/aiService'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { detectCapabilities } from '@/services/ai/capabilities'
+import { getMethod } from '@/services/ai/trainingMethodsDB'
 
 export default function Inicio(){
   const nav = useNavigate()
@@ -27,6 +28,7 @@ export default function Inicio(){
   const [briefScore,setBriefScore]=useState<number|null>(null)
   const [briefWarn,setBriefWarn]=useState<string|null>(null)
   const [briefV2,setBriefV2]=useState<{progress?:{trend?:string;rate?:number};recovery?:{lastScore?:number;trend?:string};nutrition?:{tdee?:number;proteinPerKg?:number;gap?:string|null}}|null>(null)
+  const [activeMethodName,setActiveMethodName]=useState<string|null>(null)
   useEffect(()=>{
     import('@/services/ai/globalScore').then(({ buildGlobalScore })=> buildGlobalScore().then((g)=> setBriefScore(g.score)).catch(()=>{}))
     import('@/services/ai/coachInsights').then(({ buildInsights })=> buildInsights().then((all)=>{ const w = all.find((i)=> i.level==='warn'); setBriefWarn(w ? w.title : null) }).catch(()=>{}))
@@ -129,6 +131,11 @@ export default function Inicio(){
       const override = localStorage.getItem(`session:override:${todayStr}`)
       const n = override ? Number(override) : getTrainingDayForDate(todayStr, c).n
       loadDay(c, n)
+      // Load active method name
+      if(c.methodId){
+        const m = getMethod(c.methodId as any)
+        if(m) setActiveMethodName(m.nameEs)
+      }
     })
     const h = Number(localStorage.getItem('hydration:'+todayStr) || '1900')
     setHydration(h)
@@ -166,6 +173,7 @@ export default function Inicio(){
               <div className="text-aux text-info font-medium tracking-widest">{isRest ? 'DÍA DE DESCANSO' : `DÍA DE ENTRENAMIENTO N.º ${agenda.n}`}{isOverridden && <span className="ml-2 text-aux bg-info/20 text-info px-2 py-0.5 rounded-full">cambiado hoy</span>}</div>
               <div className="text-section text-textMain">{isRest ? 'Recuperación' : agenda.name}</div>
               {isOverridden && <div className="text-aux text-textMuted">Programado: DÍA N.º {rawAgenda.n} {rawAgenda.name} → Hoy: N.º {effectiveN}</div>}
+              {activeMethodName && !isRest && <div className="text-aux text-xs text-info mt-0.5">Método: {activeMethodName}</div>}
             </div>
             <span className="text-aux bg-surface border border-border px-3 py-1 rounded-full hidden sm:block">{!isRest ? `${exNames.length} ejercicios` : 'Descanso'}</span>
           </div>

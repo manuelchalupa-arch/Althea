@@ -6,6 +6,7 @@ import { Eye, Clock, Check, ChevronRight, Zap, AlertTriangle, RotateCcw, XCircle
 import BrandIcon from '@/components/brand/BrandIcon'
 import { aiService } from '@/services/ai/aiService'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
+import { getMethod } from '@/services/ai/trainingMethodsDB'
 import * as Gym from '@/services/exerciseGym'
 import { saveDecision } from '@/services/ai/coachMemory'
 import { loadActiveSession, saveActiveSession, type ActiveSession } from '@/services/training/sessionMachine'
@@ -71,6 +72,7 @@ export default function Entrenar(){
   })
   const [pendingReasons,setPendingReasons]=useState<Record<number,{reason:string; comment:string}>>({})
   const [skipReasons,setSkipReasons]=useState<Record<number,string>>({})
+  const methodIdRef=useRef<string|null>(null)
   const [sessionStartTime,setSessionStartTime]=useState<string>(new Date().toISOString())
   const [sessionId,setSessionId]=useState<string>('')
   const [sessionStatus,setSessionStatus]=useState<SessionStatus>('PLANNED')
@@ -210,6 +212,7 @@ export default function Entrenar(){
       const prof = await db.userProfile.get('me') as unknown
       const routine = (activeR as { cycle?: unknown; name?: string; id?: string } | null) || { cycle: (prof as { cycle?: unknown })?.cycle, name: 'Rutina' }
       const cycle = (routine as { cycle?: unknown }).cycle || getCycleFromProfile(prof as never)
+      methodIdRef.current = (cycle as any)?.methodId || null
       const cyc = cycle as { weekMap: (number | null)[]; trainingDays: Array<{ n: number; name: string }>; startDate?: string }
       const dow = new Date().getDay()
       const override = localStorage.getItem(`session:override:${today}`)
@@ -361,7 +364,8 @@ export default function Entrenar(){
     if(doneCount>=plannedCount && plannedCount>0){
       setDone({...done, [current]: true})
       saveDecision({ date: today, type:'accept', exercise: cur.name, reason: coach?.reason, contextSnapshot:{weight:w,reps:r}} as never)
-      setRestSec(90); setRestFlash(false); setRestPaused(false); restPausedRef.current=false; try{ if(navigator.vibrate) navigator.vibrate(12) }catch{ /* noop */ }
+      const methodRest = methodIdRef.current ? (getMethod(methodIdRef.current as any)?.defaults.restSeconds ?? 90) : 90
+      setRestSec(methodRest); setRestFlash(false); setRestPaused(false); restPausedRef.current=false; try{ if(navigator.vibrate) navigator.vibrate(12) }catch{ /* noop */ }
       if(current < exs.length-1){
         setTimeout(()=>{ setCurrent(current+1); nextCoach(current+1) }, 800)
       }
@@ -938,10 +942,13 @@ export default function Entrenar(){
     if(!session) return
     if(!addExReason.trim()){ setFinishError('Indicá el motivo del ejercicio extra.'); return }
     const { addExtraExercise, logEvent } = await import('@/services/training/sessionStore')
-    const created = await addExtraExercise(session.sessionId, { exId: opt.id, name: opt.name, sets: 3, reps: 10, weight: 20, muscle: opt.muscle })
+    const methodDef = methodIdRef.current ? getMethod(methodIdRef.current as any)?.defaults : undefined
+    const exSets = methodDef?.setsPerExercise ?? 3
+    const exReps = methodDef?.repsRange?.[1] ?? 10
+    const created = await addExtraExercise(session.sessionId, { exId: opt.id, name: opt.name, sets: exSets, reps: exReps, weight: 0, muscle: opt.muscle })
     await logEvent(session.sessionId, 'EXERCISE_ADDED', { metadata: { reason: addExReason.trim(), comment: addExComment.trim() || undefined } }).catch(()=>null)
     saveDecision({ date: today, type:'modify', exercise: opt.name, reason:`EXTRA: ${addExReason.trim()}`, contextSnapshot:{} } as never)
-    setExs(prev => [...prev, { exId: opt.id, name: opt.name, sets: 3, reps: 10, weight: 20, muscle: opt.muscle, gifUrl: opt.gifUrl, plannedSets: 0, seId: created.sessionExerciseId, extra: true }])
+    setExs(prev => [...prev, { exId: opt.id, name: opt.name, sets: exSets, reps: exReps, weight: 0, muscle: opt.muscle, gifUrl: opt.gifUrl, plannedSets: 0, seId: created.sessionExerciseId, extra: true }])
     setSeIdByIndex(prev => ({ ...prev, [Object.keys(prev).length]: created.sessionExerciseId }))
     setShowAddEx(false)
     setAddExReason(''); setAddExComment('')

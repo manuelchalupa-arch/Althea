@@ -7,9 +7,19 @@ import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye } fr
 import BrandIcon from '@/components/brand/BrandIcon'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { getCycleFromProfile } from '@/utils/cycle'
+import { getMethod } from '@/services/ai/trainingMethodsDB'
 import * as Gym from '@/services/exerciseGym'
 
 const WEEK_LABELS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+
+function getMethodDefaults(cycle: CycleConfig) {
+  const method = cycle?.methodId ? getMethod(cycle.methodId) : undefined
+  return {
+    sets: method?.defaults.setsPerExercise ?? 3,
+    reps: method?.defaults.repsRange?.[1] ?? 10,
+    weight: 0,
+  }
+}
 
 type RutinaData = {
   id: string
@@ -332,7 +342,8 @@ export default function RutinaPage(){
           dayN={pickerFor}
           dayName={active.cycle.trainingDays.find(d=>d.n===pickerFor)?.name || ''}
           onAdd={(exId,gifUrl,name,muscle,imageDataUrl)=>{
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:3, reps:10, weight:40, gifUrl, name, muscle, imageDataUrl } as any]}}))
+            const d = getMethodDefaults(active.cycle)
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl, name, muscle, imageDataUrl } as any]}}))
             setPickerFor(null)
           }}
           onClose={()=>setPickerFor(null)}
@@ -343,7 +354,8 @@ export default function RutinaPage(){
       {viewer && (
         <ExerciseViewer exercise={viewer} onClose={()=>setViewer(null)} onAdd={()=>{
           if(pickerFor!==null){
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId: viewer.id, sets:3, reps:10, weight:40, gifUrl: viewer.gifUrl, name: viewer.name, muscle: viewer.muscle, imageDataUrl: (viewer as any).imageDataUrl } as any]}}))
+            const d = getMethodDefaults(active.cycle)
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId: viewer.id, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: viewer.gifUrl, name: viewer.name, muscle: viewer.muscle, imageDataUrl: (viewer as any).imageDataUrl } as any]}}))
           }
           setViewer(null); setPickerFor(null)
         }} />

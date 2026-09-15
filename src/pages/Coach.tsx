@@ -27,6 +27,7 @@ export default function Coach(){
   const [nutritionData,setNutritionData]=useState<{tdee?:number;calorieGoal?:number;proteinPerKg?:number;gap?:string|null}|null>(null)
   const [methodRec,setMethodRec]=useState<{primary:string;secondary:string[];complementary:string[];justification:string;confidence:number;mixed?:any}|null>(null)
   const [applyingMethod,setApplyingMethod]=useState(false)
+  const [activeMethod,setActiveMethod]=useState<{name:string;days?:number;split?:string}|null>(null)
 
   const refresh = async ()=>{
     const c = await detectCapabilities()
@@ -57,6 +58,8 @@ export default function Coach(){
     import('@/services/ai/nutritionEngine').then(({ analyzeNutrition })=> db.userProfile.get('me').then(p=> analyzeNutrition(p||{}).then(n=> setNutritionData({ tdee:n.tdee ?? undefined, calorieGoal:n.calorieGoal ?? undefined, proteinPerKg:n.proteinPerKg ?? undefined, gap:n.gap })).catch(()=>{})).catch(()=>{}))
     // ─── Coach IA v2: Method selection ───
     import('@/services/ai/methodSelector').then(({ selectMethods })=> db.userProfile.get('me').then(p=>{ const r=selectMethods(p||{} as any); setMethodRec({ primary:r.primary, secondary:r.secondary, complementary:r.complementary, justification:r.justification, confidence:r.confidence, mixed:r.mixed }) }).catch(()=>{})).catch(()=>{})
+    // ─── Load active method ───
+    import('@/services/ai/trainingMethodsDB').then(({ getMethod })=> db.userProfile.get('me').then(p=>{ const c=(p as any)?.cycle; if(c?.methodId){ const m=getMethod(c.methodId); setActiveMethod({ name:m?.nameEs||c.methodId, days:c.trainingDays?.length, split:m?.structure?.splitType }) } }).catch(()=>{})).catch(()=>{})
   },[])
 
   const doDownload = async ()=>{
@@ -201,6 +204,15 @@ export default function Coach(){
               {nutritionData.gap && <span className="text-aux text-xs">⚠ {nutritionData.gap}</span>}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── Coach IA v2: Active Method ─── */}
+      {activeMethod && (
+        <div className="rounded-xl bg-elevated border border-info p-3 flex items-center gap-3">
+          <div className="text-aux tracking-widest text-info text-xs shrink-0">ACTIVO</div>
+          <div className="text-body text-sm font-medium">{activeMethod.name}</div>
+          {activeMethod.days && <div className="text-aux text-xs">· {activeMethod.days}d/semana · {activeMethod.split || '—'}</div>}
         </div>
       )}
 

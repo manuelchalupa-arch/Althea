@@ -47,7 +47,7 @@ export interface UserProfile {
   equipment: Equipment[]; units: { weight: 'kg'|'lb'; liquid: 'ml'|'oz' }; lang: string
   coachIntensity: CoachIntensity; onboardingDone: boolean; hydrationGoalMl: number
   createdAt: string; updatedAt: string
-  cycle?: { startDate: string; trainingDays: { n:number; name:string }[]; weekMap: (number|null)[] }
+  cycle?: { startDate: string; trainingDays: { n:number; name:string }[]; weekMap: (number|null)[]; methodId?: string; methodJustification?: string }
   // Perfil onboarding Coach IA
   displayName?: string; email?: string
   age?: number; sex?: 'M'|'F'|'X'; heightCm?: number; weightKg?: number
