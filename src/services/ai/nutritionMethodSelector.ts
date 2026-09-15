@@ -7,6 +7,7 @@ import type {
 import { NUTRITION_METHODS, getNutritionMethod } from './nutritionMethodsDB'
 import { checkNutritionCompatibility } from './nutritionCompatibilityEngine'
 import { createMixedNutritionMethod } from './mixedNutritionBuilder'
+import { checkNutritionSafety } from './nutritionSafety'
 
 /** Seleccionar métodos nutricionales para un usuario */
 export function selectNutritionMethods(profile: NutritionUserProfile, trainingMethodId?: string | null): NutritionMethodRecommendation {
@@ -219,7 +220,7 @@ function shouldCreateMixedNutritionMethod(
   return false
 }
 
-/** Recopilar advertencias de seguridad */
+/** Recopilar advertencias de seguridad (usa nutritionSafety.ts) */
 function collectSafetyWarnings(
   profile: NutritionUserProfile,
   primary: NutritionMethodId,
@@ -227,16 +228,20 @@ function collectSafetyWarnings(
   trainingType: string,
 ): string[] {
   const warnings: string[] = []
-  const methods = [primary, ...secondary].map(id => getNutritionMethod(id)).filter(Boolean)
 
-  for (const method of methods) {
-    if (!method) continue
-    if (method.safety.requiresSupervision) {
-      warnings.push(`${method.nameEs}: requiere supervisión profesional`)
+  // Usar el módulo completo de seguridad
+  const safetyResult = checkNutritionSafety(profile, primary, secondary)
+
+  // Agregar alertas críticas y de warning
+  for (const alert of safetyResult.alerts) {
+    if (alert.severity === 'critical' || alert.severity === 'warning') {
+      warnings.push(alert.message)
     }
-    for (const warning of method.safety.warnings) {
-      warnings.push(`${method.nameEs}: ${warning}`)
-    }
+  }
+
+  // También marcar métodos bloqueados en notRecommended
+  for (const blocked of safetyResult.blockedMethods) {
+    warnings.push(`Método bloqueado: ${getNutritionMethod(blocked)?.nameEs || blocked} — requiere supervisión profesional`)
   }
 
   // Detectar combinación peligrosa: déficit extremo + HIIT frecuente
