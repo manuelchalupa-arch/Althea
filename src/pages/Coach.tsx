@@ -5,6 +5,8 @@ import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { detectCapabilities, type AIStatusInfo } from '@/services/ai/capabilities'
 import { buildCycleFromRecommendation } from '@/utils/cycle'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
+import { getNutritionMethod } from '@/services/ai/nutritionMethodsDB'
+import type { NutritionMethodRecommendation } from '@/services/ai/nutritionMethods'
 import { Info, Download, Cpu, HardDrive } from 'lucide-react'
 
 export default function Coach(){
@@ -28,6 +30,8 @@ export default function Coach(){
   const [methodRec,setMethodRec]=useState<{primary:string;secondary:string[];complementary:string[];justification:string;confidence:number;mixed?:any}|null>(null)
   const [applyingMethod,setApplyingMethod]=useState(false)
   const [activeMethod,setActiveMethod]=useState<{name:string;days?:number;split?:string}|null>(null)
+  const [activeNutritionMethod,setActiveNutritionMethod]=useState<string | null>(null)
+  const [nutritionMethodRec,setNutritionMethodRec]=useState<NutritionMethodRecommendation | null>(null)
 
   const refresh = async ()=>{
     const c = await detectCapabilities()
@@ -60,6 +64,9 @@ export default function Coach(){
     import('@/services/ai/methodSelector').then(({ selectMethods })=> db.userProfile.get('me').then(p=>{ const r=selectMethods(p||{} as any); setMethodRec({ primary:r.primary, secondary:r.secondary, complementary:r.complementary, justification:r.justification, confidence:r.confidence, mixed:r.mixed }) }).catch(()=>{})).catch(()=>{})
     // ─── Load active method ───
     import('@/services/ai/trainingMethodsDB').then(({ getMethod })=> db.userProfile.get('me').then(p=>{ const c=(p as any)?.cycle; if(c?.methodId){ const m=getMethod(c.methodId); setActiveMethod({ name:m?.nameEs||c.methodId, days:c.trainingDays?.length, split:m?.structure?.splitType }) } }).catch(()=>{})).catch(()=>{})
+    // ─── Load nutrition method ───
+    import('@/services/ai/nutritionMethodSelector').then(({ selectNutritionMethods })=> db.userProfile.get('me').then(p=>{ const r=selectNutritionMethods(p||{} as any); setNutritionMethodRec(r) }).catch(()=>{})).catch(()=>{})
+    db.userProfile.get('me').then(p=>{ if((p as any)?.activeNutritionMethod) setActiveNutritionMethod((p as any).activeNutritionMethod) }).catch(()=>{})
   },[])
 
   const doDownload = async ()=>{
@@ -213,6 +220,43 @@ export default function Coach(){
           <div className="text-aux tracking-widest text-info text-xs shrink-0">ACTIVO</div>
           <div className="text-body text-sm font-medium">{activeMethod.name}</div>
           {activeMethod.days && <div className="text-aux text-xs">· {activeMethod.days}d/semana · {activeMethod.split || '—'}</div>}
+        </div>
+      )}
+
+      {/* ─── Nutrition Method Active + Recommended ─── */}
+      {activeNutritionMethod && (
+        <div className="rounded-xl bg-elevated border border-info p-3 flex items-center gap-3">
+          <div className="text-aux tracking-widest text-info text-xs shrink-0">NUTRICIÓN</div>
+          <div className="text-body text-sm font-medium">{getNutritionMethod(activeNutritionMethod as any)?.nameEs || activeNutritionMethod}</div>
+          <div className="text-aux text-xs">Activo</div>
+        </div>
+      )}
+      {nutritionMethodRec && (
+        <div className="rounded-xl bg-surface border border-border p-4 space-y-2">
+          <div className="text-aux tracking-widest">ESTRATEGIA NUTRICIONAL</div>
+          <div className="text-body text-sm font-medium">{getNutritionMethod(nutritionMethodRec.primary)?.nameEs || nutritionMethodRec.primary}</div>
+          {nutritionMethodRec.secondary.length > 0 && (
+            <div className="text-aux text-xs">Secundarios: {nutritionMethodRec.secondary.map(id => getNutritionMethod(id)?.nameEs || id).join(', ')}</div>
+          )}
+          {nutritionMethodRec.mixed && (
+            <div className="rounded-lg bg-bg border border-border p-2 mt-1">
+              <div className="text-aux text-xs font-medium">Estrategia Mixta:</div>
+              <div className="text-aux text-xs mt-0.5">{nutritionMethodRec.mixed.strategy?.timingStrategy}</div>
+            </div>
+          )}
+          <div className="text-aux text-xs text-textMuted mt-1">{nutritionMethodRec.justification}</div>
+          <div className="text-aux text-xs">Confianza: {Math.round(nutritionMethodRec.confidence * 100)}%</div>
+          <button onClick={async()=>{
+            try{
+              const profile = await db.userProfile.get('me') as any
+              await db.userProfile.put({ ...(profile || {}), activeNutritionMethod: nutritionMethodRec.primary, updatedAt: new Date().toISOString() })
+              setActiveNutritionMethod(nutritionMethodRec.primary)
+              alert(`Estrategia "${getNutritionMethod(nutritionMethodRec.primary)?.nameEs || nutritionMethodRec.primary}" activada.`)
+            }catch(e:any){ alert('Error: '+(e.message||e)) }
+          }} disabled={activeNutritionMethod === nutritionMethodRec.primary}
+            className="w-full py-2 rounded-xl bg-action text-textMain text-sm font-medium disabled:opacity-50 mt-1">
+            {activeNutritionMethod === nutritionMethodRec.primary ? 'Ya activo' : 'Activar esta estrategia'}
+          </button>
         </div>
       )}
 

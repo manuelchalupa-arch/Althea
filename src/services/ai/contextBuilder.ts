@@ -1,7 +1,7 @@
 import type { AIContext } from './aiProvider'
 import { db } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate } from '@/utils/cycle'
-import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone, TRAINING_GOAL_PROFILES, EXPERIENCE_INSTRUCTIONS, buildMethodContext } from './systemPrompt'
+import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone, TRAINING_GOAL_PROFILES, EXPERIENCE_INSTRUCTIONS, buildMethodContext, buildNutritionMethodContext } from './systemPrompt'
 import { unifiedCompletedSets } from '@/services/history'
 import { retrieveRelevant } from './knowledgeBase'
 import { analyzeExercise, analyzeGlobal } from './progressAnalyzer'
@@ -221,6 +221,10 @@ export function buildPrompt(ctx:AIContext):string{
   const methodId = (ctx.userProfile?.cycle as any)?.methodId
   const methodContext = buildMethodContext(methodId)
   const methodLine = methodContext ? `\n${methodContext}` : ''
+  // ─── Coach IA v2: nutrition method context ───
+  const nutritionMethodId = (ctx.userProfile?.activeNutritionMethod as string) || (ctx.userProfile?.cycle as any)?.nutritionMethodId
+  const nutritionMethodContext = buildNutritionMethodContext(nutritionMethodId as any)
+  const nutritionMethodLine = nutritionMethodContext ? `\n${nutritionMethodContext}` : ''
   return `${SYSTEM_PROMPT}
 
 ${VERACITY_RULES}
@@ -228,6 +232,7 @@ ${VERACITY_RULES}
 PERFIL DE ENTRENAMIENTO: ${goalProfile}
 NIVEL: ${expInstruction}
 ${methodLine}
+${nutritionMethodLine}
 
 PERSONALIDAD ACTUAL: ${ctx.personalidad} — ${tono}
 

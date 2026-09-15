@@ -14,6 +14,8 @@ import { buildInsights } from './coachInsights'
 import { buildGlobalScore } from './globalScore'
 import { selectMethods } from './methodSelector'
 import type { MethodRecommendation } from './trainingMethods'
+import { selectNutritionMethods } from './nutritionMethodSelector'
+import type { NutritionMethodRecommendation } from './nutritionMethods'
 
 export interface CoachRequest {
   type: 'training' | 'nutrition' | 'recovery' | 'general' | 'method_selection'
@@ -29,6 +31,7 @@ export interface CoachResponse {
   insights?: { title: string; detail: string; level: string }[]
   score?: number
   methodRecommendation?: MethodRecommendation
+  nutritionMethodRecommendation?: NutritionMethodRecommendation
 }
 
 /** Procesar una petición del Coach */
@@ -115,6 +118,14 @@ export async function processRequest(request: CoachRequest): Promise<CoachRespon
     methodRecommendation = selectMethods(profile || {}, recentVolume || undefined, recentFatigue)
   } catch { /* noop */ }
 
+  // 12. Nutrition method selection
+  let nutritionMethodRecommendation: NutritionMethodRecommendation | undefined
+  try {
+    const userProfile = await db.userProfile.get('me') as any
+    const trainingMethodId = userProfile?.cycle?.methodId || methodRecommendation?.primary
+    nutritionMethodRecommendation = selectNutritionMethods(profile || {}, trainingMethodId)
+  } catch { /* noop */ }
+
   return {
     recommendation,
     safety: safety.severity !== 'info' ? { severity: safety.severity, message: safety.message, referral: safety.professionalReferral } : undefined,
@@ -125,5 +136,6 @@ export async function processRequest(request: CoachRequest): Promise<CoachRespon
     insights: insights.slice(0, 3).map(i => ({ title: i.title, detail: i.detail, level: i.level })),
     score: scoreResult.score,
     methodRecommendation,
+    nutritionMethodRecommendation,
   }
 }

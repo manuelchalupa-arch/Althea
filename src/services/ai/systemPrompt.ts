@@ -3,6 +3,8 @@
 
 import { getMethod } from './trainingMethodsDB'
 import type { TrainingMethodId } from './trainingMethods'
+import { getNutritionMethod } from './nutritionMethodsDB'
+import type { NutritionMethodId } from './nutritionMethods'
 
 export const SYSTEM_PROMPT = `Eres un asistente especializado en entrenamiento físico y nutrición para usuarios de Argentina y Latinoamérica.
 Responde siempre en español de forma clara, práctica y motivadora.
@@ -109,6 +111,29 @@ export function buildMethodContext(methodId?: TrainingMethodId | null): string {
   }
   ctx += `Patrones de movimiento: ${method.structure.primaryMovementPatterns.join(', ')}\n`
   ctx += `Cuando el usuario pregunte qué hacer, respetá este método. Si pide cambiar, ofrecé alternativa DENTRO del mismo método.\n`
+  return ctx
+}
+
+// ─── Contexto del método nutricional seleccionado ───
+export function buildNutritionMethodContext(methodId?: NutritionMethodId | null): string {
+  if (!methodId) return ''
+  const method = getNutritionMethod(methodId)
+  if (!method) return ''
+
+  let ctx = `\nESTRATEGIA NUTRICIONAL ACTIVA: ${method.nameEs.toUpperCase()}\n`
+  ctx += `Descripción: ${method.descriptionEs}\n`
+  ctx += `Enfoque energético: ${method.characteristics.energyApproach}\n`
+  ctx += `Distribución de macros: proteína ${method.characteristics.proteinStrategy}, carbohidratos ${method.characteristics.carbStrategy}, grasas ${method.characteristics.fatStrategy}\n`
+  ctx += `Proteína: ${method.defaults.proteinPerKg[0]}-${method.defaults.proteinPerKg[1]} g/kg/día\n`
+  ctx += `Calorías: ×${method.defaults.calorieModifier} TDEE\n`
+  ctx += `Comidas/día: ${method.defaults.mealFrequency[0]}-${method.defaults.mealFrequency[1]}\n`
+  ctx += `Alimentos clave: ${method.characteristics.key_foods.join(', ')}\n`
+  ctx += `Restricciones: ${method.characteristics.restrictions.length > 0 ? method.characteristics.restrictions.join(', ') : 'Ninguna'}\n`
+  ctx += `Timing: ${method.characteristics.timingRelevance}\n`
+  if (method.characteristics.proteinStrategy) {
+    ctx += `Estrategia proteica: ${method.characteristics.proteinStrategy}\n`
+  }
+  ctx += `Cuando el usuario pregunte qué comer, respetá esta estrategia. Si pide cambios, sugerí dentro del mismo patrón.\n`
   return ctx
 }
 

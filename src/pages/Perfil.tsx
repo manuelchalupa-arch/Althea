@@ -8,6 +8,9 @@ import * as Sync from '@/services/sync/queue'
 import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearance } from '@/utils/appearance'
 import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type NotifConfig } from '@/services/notifications/scheduler'
 import { selectMethods } from '@/services/ai/methodSelector'
+import { selectNutritionMethods } from '@/services/ai/nutritionMethodSelector'
+import type { NutritionMethodRecommendation } from '@/services/ai/nutritionMethods'
+import { getNutritionMethod } from '@/services/ai/nutritionMethodsDB'
 import { buildCycleFromRecommendation } from '@/utils/cycle'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
@@ -221,6 +224,9 @@ export default function Perfil(){
   const [methodRec,setMethodRec]=useState<{primary:string;secondary:string[];complementary:string[];justification:string;confidence:number;mixed?:any}|null>(null)
   const [applying,setApplying]=useState(false)
   const [activeCycleMethod,setActiveCycleMethod]=useState<{methodId?:string;days?:number;split?:string}|null>(null)
+  const [nutritionRec,setNutritionRec]=useState<NutritionMethodRecommendation | null>(null)
+  const [activeNutritionMethod,setActiveNutritionMethod]=useState<string | null>(null)
+  const [applyingNutrition,setApplyingNutrition]=useState(false)
   const [history,setHistory]=useState<any[]>([])
   const [theme,setTheme]=useState(getTheme)
   const [textScale,setTextScale]=useState(getTextScale)
@@ -261,6 +267,11 @@ export default function Perfil(){
           const m = getMethod(cycle.methodId)
           setActiveCycleMethod({ methodId: cycle.methodId, days: cycle.trainingDays?.length, split: m?.structure?.splitType || m?.nameEs })
         }
+        // Nutrition method
+        const nutRec = selectNutritionMethods(p as any, cycle?.methodId)
+        setNutritionRec(nutRec)
+        const savedNutMethod = (p as any).activeNutritionMethod || (p as any).cycle?.nutritionMethodId
+        if(savedNutMethod) setActiveNutritionMethod(savedNutMethod)
       }
     }).catch(()=>{})
   },[])
@@ -275,6 +286,17 @@ export default function Perfil(){
       alert(`Método "${methodRec.primary}" aplicado. Ciclo actualizado con ${cycle.trainingDays.length} días.`)
     }catch(e:any){ alert('Error: '+(e.message||e)) }
     finally{ setApplying(false) }
+  }
+
+  const applyNutritionMethod = async ()=>{
+    if(!profile || !nutritionRec) return
+    setApplyingNutrition(true)
+    try{
+      await db.userProfile.put({ ...(profile as any), activeNutritionMethod: nutritionRec.primary, updatedAt: new Date().toISOString() })
+      setActiveNutritionMethod(nutritionRec.primary)
+      alert(`Estrategia nutricional "${getNutritionMethod(nutritionRec.primary)?.nameEs || nutritionRec.primary}" activada.`)
+    }catch(e:any){ alert('Error: '+(e.message||e)) }
+    finally{ setApplyingNutrition(false) }
   }
 
   const save = async ()=>{
@@ -450,6 +472,52 @@ export default function Perfil(){
           <button onClick={applyMethod} disabled={applying || !profile}
             className="w-full py-2 rounded-xl bg-action text-textMain text-sm font-medium disabled:opacity-50">
             {applying ? 'Aplicando…' : 'Aplicar este método al ciclo'}
+          </button>
+        </div>
+      )}
+
+      {/* ─── Estrategia nutricional activa ─── */}
+      {activeNutritionMethod && (
+        <div className="rounded-xl bg-elevated border border-info p-4 space-y-1">
+          <div className="text-aux tracking-widest text-info">ESTRATEGIA NUTRICIONAL ACTIVA</div>
+          <div className="text-body text-sm font-medium">{getNutritionMethod(activeNutritionMethod as any)?.nameEs || activeNutritionMethod}</div>
+          <div className="text-aux text-xs text-textMuted">{getNutritionMethod(activeNutritionMethod as any)?.descriptionEs || ''}</div>
+        </div>
+      )}
+
+      {/* ─── Recomendación nutricional ─── */}
+      {nutritionRec && (
+        <div className="rounded-xl bg-surface border border-border p-4 space-y-3">
+          <div className="text-aux tracking-widest">ESTRATEGIA NUTRICIONAL</div>
+          <div>
+            <div className="text-body text-sm font-medium">{getNutritionMethod(nutritionRec.primary)?.nameEs || nutritionRec.primary}</div>
+            {nutritionRec.secondary.length > 0 && (
+              <div className="text-aux text-xs mt-0.5">Secundarios: {nutritionRec.secondary.map(id => getNutritionMethod(id)?.nameEs || id).join(', ')}</div>
+            )}
+            {nutritionRec.complementary.length > 0 && (
+              <div className="text-aux text-xs">Complementarios: {nutritionRec.complementary.map(id => getNutritionMethod(id)?.nameEs || id).join(', ')}</div>
+            )}
+          </div>
+          {nutritionRec.mixed && (
+            <div className="rounded-lg bg-bg border border-border p-2">
+              <div className="text-aux text-xs font-medium">Estrategia Mixta</div>
+              <div className="text-aux text-xs mt-0.5">{nutritionRec.mixed.strategy?.timingStrategy}</div>
+              {nutritionRec.mixed.strategy?.keyPrinciples && (
+                <div className="text-aux text-xs mt-1">Principios: {nutritionRec.mixed.strategy.keyPrinciples.slice(0, 3).join(' · ')}</div>
+              )}
+            </div>
+          )}
+          <div className="text-aux text-xs text-textMuted">{nutritionRec.justification}</div>
+          <div className="text-aux text-xs">Confianza: {Math.round(nutritionRec.confidence * 100)}%</div>
+          {nutritionRec.safetyWarnings.length > 0 && (
+            <div className="rounded-lg bg-yellow-900/30 border border-yellow-700/50 p-2">
+              <div className="text-xs text-yellow-400 font-medium">⚠ Seguridad</div>
+              {nutritionRec.safetyWarnings.map((w,i) => <div key={i} className="text-xs text-yellow-300/80 mt-0.5">• {w}</div>)}
+            </div>
+          )}
+          <button onClick={applyNutritionMethod} disabled={applyingNutrition || !profile || activeNutritionMethod === nutritionRec.primary}
+            className="w-full py-2 rounded-xl bg-action text-textMain text-sm font-medium disabled:opacity-50">
+            {applyingNutrition ? 'Activando…' : activeNutritionMethod === nutritionRec.primary ? 'Ya activo' : 'Activar esta estrategia'}
           </button>
         </div>
       )}
