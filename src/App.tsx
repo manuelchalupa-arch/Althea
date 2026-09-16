@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import AppNav from '@/components/layout/AppNav'
 import ChatWidget from '@/components/chat/ChatWidget'
 import { AppHeader, TempleBackdrop } from '@/components/brand/temple'
-import { BackgroundSlider } from '@/components/brand/BackgroundSlider'
+
 import Inicio from '@/pages/Inicio'
 import Entrenar from '@/pages/Entrenar'
 import Progresos from '@/pages/Progreso'
@@ -93,7 +93,6 @@ function Layout(){
   }
   return (
     <>
-      <BackgroundSlider />
       <TempleBackdrop />
       {!hideNav && <AppHeader />}
       <div className="md:ml-[208px] relative z-10">
