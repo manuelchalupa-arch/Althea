@@ -132,21 +132,26 @@ export default function Entrenar(){
         if (Array.isArray(arr)) for (const x of arr) meta[x.exId || x.id] = { name: x.name, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl }
       }
     } catch { /* noop */ }
-    const list: SessionEx[] = seList.map((se, idx) => ({
-      exId: se.exerciseId,
-      name: meta[se.exerciseId]?.name || se.exerciseId,
-      sets: Math.max(se.plannedSetCount, se.actualSetCount, 1),
-      reps: se.plannedSets[0]?.reps ?? 0,
-      weight: se.plannedSets[0]?.weight ?? 0,
-      muscle: meta[se.exerciseId]?.muscle,
-      gifUrl: meta[se.exerciseId]?.gifUrl,
-      imageDataUrl: meta[se.exerciseId]?.imageDataUrl,
-      plannedSets: se.plannedSetCount,
-      seId: se.sessionExerciseId,
-      swappedFrom: se.replacement?.originalExerciseId,
-      replaced: se.status === 'REPLACED',
-      extra: se.status === 'EXTRA',
-    }))
+    const list: SessionEx[] = seList.map((se, idx) => {
+      const m = meta[se.exerciseId]
+      const plannedReps = se.plannedSets[0]?.reps ?? 0
+      const plannedWeight = se.plannedSets[0]?.weight ?? 0
+      return {
+        exId: se.exerciseId,
+        name: m?.name || se.exerciseId,
+        sets: Math.max(se.plannedSetCount, se.actualSetCount, 1),
+        reps: plannedReps,
+        weight: plannedWeight,
+        muscle: m?.muscle,
+        gifUrl: m?.gifUrl,
+        imageDataUrl: m?.imageDataUrl,
+        plannedSets: se.plannedSetCount,
+        seId: se.sessionExerciseId,
+        swappedFrom: se.replacement?.originalExerciseId,
+        replaced: se.status === 'REPLACED',
+        extra: se.status === 'EXTRA',
+      }
+    })
     const seMap: Record<number, string> = {}
     const d: Record<number, boolean> = {}
     const sk: Record<number, boolean> = {}
@@ -182,15 +187,30 @@ export default function Entrenar(){
         // Verificar que la sesion tenga ejercicios en la DB antes de usarla.
         const seCount = await getSE(active.sessionId).then(l => l.length).catch(() => 0)
         if (seCount > 0) {
-          if (active.sessionStatus === 'READY') {
-            setReadyPlan({ sessionId: active.sessionId, routineName: active.routineName || 'Rutina', plannedDayN: active.plannedDay, plannedName: active.plannedDayName || '', actualDayN: active.actualDay, actualName: active.actualDayName || '', isResume: false })
+          // Verificar si la rutina de la sesion activa coincide con la rutina de hoy
+          const rawList = JSON.parse(localStorage.getItem('rutinas:list') || 'null')
+          const activeId = localStorage.getItem('rutina:activeId')
+          const todayRoutine = rawList?.find((r: { id: string }) => r.id === activeId) || rawList?.[0]
+          const dow = new Date().getDay()
+          const override = localStorage.getItem(`session:override:${today}`)
+          const cyc = todayRoutine?.cycle
+          const todayDayN = override ? Number(override) : cyc?.weekMap?.[dow] ?? null
+          // Si la sesion activa es de otro dia de rutina, limpiar y crear nueva
+          if (active.actualDay != null && todayDayN != null && active.actualDay !== todayDayN) {
+            const { clearActiveSession } = await import('@/services/training/sessionMachine')
+            clearActiveSession()
+          } else {
+            if (active.sessionStatus === 'READY') {
+              setReadyPlan({ sessionId: active.sessionId, routineName: active.routineName || 'Rutina', plannedDayN: active.plannedDay, plannedName: active.plannedDayName || '', actualDayN: active.actualDay, actualName: active.actualDayName || '', isResume: false })
+            }
+            await applyStoreSession(active)
+            return
           }
-          await applyStoreSession(active)
-          return
+        } else {
+          // Sesion sin ejercicios en DB → limpiar y caer al plan de rutina.
+          const { clearActiveSession } = await import('@/services/training/sessionMachine')
+          clearActiveSession()
         }
-        // Sesion sin ejercicios en DB → limpiar y caer al plan de rutina.
-        const { clearActiveSession } = await import('@/services/training/sessionMachine')
-        clearActiveSession()
       }
       if (active && active.calendarDate !== today && ['IN_PROGRESS', 'PAUSED', 'READY'].includes(active.sessionStatus)) {
         // Banner por sessionId (no por fecha): continuar / finalizar / abandonar.
@@ -830,6 +850,10 @@ export default function Entrenar(){
         plannedMuscleGroups: [], actualMuscleGroups: [], exercises: rp.pending.exercises,
         sessionStatus: 'READY', statusHistory: [], createdAt: created.createdAt, updatedAt: created.createdAt,
       } as never)
+      // Guardar metadata de ejercicios para que applyStoreSession la encuentre
+      try {
+        localStorage.setItem(`althea:session:active:ex:${created.sessionId}`, JSON.stringify({ exercises: rp.pending.exercises }))
+      } catch { /* noop */ }
       const nx = await store.transitionSession(created.sessionId, 'IN_PROGRESS')
       setReadyPlan(null)
       await applyStoreSession(nx)
