@@ -1864,95 +1864,85 @@ function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeig
           })()}
         </div>
       </div>
-      {/* Series Data Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-outline-variant/40 text-outline font-label-caps text-[10px] uppercase">
-              <th className="pb-3 px-2 font-semibold">SERIE</th>
-              <th className="pb-3 px-3 font-semibold">ANTERIOR</th>
-              <th className="pb-3 px-3 font-semibold">REPETICIONES</th>
-              <th className="pb-3 px-3 font-semibold">CARGA (KG)</th>
-              <th className="pb-3 px-2 text-center font-semibold">RPE</th>
-              <th className="pb-3 px-3 text-right font-semibold">ESTADO</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/20 font-body-md text-[15px]">
-            {Array.from({length:sets}).map((_,si)=>{
-              const ref:any = refs[si]
-              const w = weights[si] ?? plannedWeight
-              const r = reps[si] ?? plannedReps
-              const isDone = !!checks[si]
-              const isActive = !isDone && si === nextUncompletedIdx
-              const isSkipped = (initialSkipped||[]).includes(si)
-              const roman = romanNumerals[si] || `${si+1}`
-              return (
-                <tr key={si} className={`group transition-colors ${
-                  isDone
-                    ? 'hover:bg-surface-container-high/30'
-                    : isActive
-                      ? 'bg-primary-container/10 border-l-2 border-l-secondary font-medium'
-                      : 'opacity-60 hover:opacity-100 transition-opacity'
-                }`}>
-                  <td className={`py-3 px-2 font-headline-sm text-[20px] ${isDone ? 'text-primary' : isActive ? 'text-secondary' : 'text-outline'}`}>
-                    <div className="flex items-center gap-1.5">
-                      <span>{roman}</span>
-                      {isActive && <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-ping" />}
-                    </div>
-                  </td>
-                  <td className="py-3 px-3 text-outline text-[13px] whitespace-nowrap">
-                    {ref ? `${ref.weight} kg × ${ref.reps}` : `${plannedWeight} kg × ${plannedReps}`}
-                    {ref?.isSeed ? ' · base' : ''}
-                  </td>
-                  <td className="py-3 px-3">
-                    {isActive ? (
-                      <input type="number" value={r} onChange={e=>setReps({...reps, [si]: Number(e.target.value)})} className="w-20 px-3 py-1 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[16px] text-on-surface text-center" placeholder="reps" inputMode="numeric" aria-label="repes"/>
-                    ) : isDone ? (
-                      <span className="inline-block px-3 py-1 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[16px] text-on-surface">{r}</span>
-                    ) : (
-                      <span className="inline-block px-3 py-1 text-outline font-title-md text-[16px]">—</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-3">
-                    {isActive ? (
-                      <input type="number" step="0.1" value={w} onChange={e=>setWeights({...weights, [si]: parseKg(e.target.value)})} className="w-24 px-3 py-1 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[16px] text-on-surface text-center" placeholder="kg" inputMode="decimal" aria-label="kilogramos"/>
-                    ) : isDone ? (
-                      <span className="inline-block px-3 py-1 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[16px] text-on-surface">{w} kg</span>
-                    ) : (
-                      <span className="inline-block px-3 py-1 text-outline font-title-md text-[16px]">—</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-2 text-center">
-                    {isDone ? (
-                      <span className="px-2 py-0.5 rounded bg-surface-container-high text-secondary border border-secondary/30 font-label-caps text-[10px] font-semibold">✓</span>
-                    ) : (
-                      <span className="text-outline">—</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-3 text-right">
-                    {isDone ? (
-                      <button className="w-8 h-8 rounded bg-primary-container text-on-primary-container border border-primary inline-flex items-center justify-center shadow-sm">
-                        <span className="material-symbols-outlined text-[18px]">done</span>
-                      </button>
-                    ) : isActive ? (
-                      <button onClick={(e)=>{
-                        setChecks({...checks, [si]: true})
-                        try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ }
-                        onComplete(si, parseKg(String(w)), r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obs||undefined)
-                      }} className="px-3 py-1.5 rounded bg-secondary text-on-secondary-fixed font-label-caps text-[10px] uppercase font-bold shadow-sm transition-all active:scale-95">
-                        REGISTRAR
-                      </button>
-                    ) : isSkipped ? (
-                      <span className="font-label-caps text-[10px] text-on-surface-variant">Saltado</span>
-                    ) : (
-                      <button onClick={()=> onSkipSet ? onSkipSet(si) : null} className="font-label-caps text-[10px] text-outline hover:text-secondary underline transition-colors">omitir</button>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      {/* Series list — each set is a row with editable inputs */}
+      <div className="space-y-2">
+        {Array.from({length:sets}).map((_,si)=>{
+          const ref:any = refs[si]
+          const w = weights[si] ?? plannedWeight
+          const r = reps[si] ?? plannedReps
+          const isDone = !!checks[si]
+          const isActive = !isDone && si === nextUncompletedIdx
+          const isSkipped = (initialSkipped||[]).includes(si)
+          const roman = romanNumerals[si] || `${si+1}`
+          return (
+            <div key={si} className={`rounded-lg border p-3 transition-all ${
+              isDone
+                ? 'bg-surface-container/60 border-outline-variant/30'
+                : isActive
+                  ? 'bg-primary-container/10 border-secondary/40 shadow-sm'
+                  : 'bg-surface-container-low/40 border-outline-variant/20 opacity-60'
+            }`}>
+              <div className="flex items-center gap-3 mb-2">
+                <span className={`font-headline-sm text-[18px] w-7 ${isDone ? 'text-primary' : isActive ? 'text-secondary' : 'text-outline'}`}>{roman}</span>
+                <span className="text-[12px] text-outline truncate">
+                  {ref ? `${ref.weight}kg × ${ref.reps}` : `${plannedWeight}kg × ${plannedReps}`}
+                  {ref?.isSeed ? ' · base' : ''}
+                </span>
+                {isDone && <span className="ml-auto px-2 py-0.5 rounded bg-primary-container/20 border border-primary/30 text-primary font-label-caps text-[10px] font-bold">✓ HECHA</span>}
+                {isSkipped && <span className="ml-auto text-[11px] text-on-surface-variant">Saltado</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Reps input */}
+                <div className="flex-1">
+                  <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider block mb-1">REPS</label>
+                  <input
+                    type="number"
+                    value={r}
+                    onChange={e=>setReps({...reps, [si]: Number(e.target.value)})}
+                    disabled={isDone}
+                    className="w-full px-3 py-2 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[16px] text-on-surface text-center disabled:opacity-60 disabled:cursor-not-allowed"
+                    placeholder="reps"
+                    inputMode="numeric"
+                    aria-label={`reps serie ${si+1}`}
+                  />
+                </div>
+                {/* Weight input */}
+                <div className="flex-1">
+                  <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider block mb-1">KG</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={w}
+                    onChange={e=>setWeights({...weights, [si]: parseKg(e.target.value)})}
+                    disabled={isDone}
+                    className="w-full px-3 py-2 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[16px] text-on-surface text-center disabled:opacity-60 disabled:cursor-not-allowed"
+                    placeholder="kg"
+                    inputMode="decimal"
+                    aria-label={`kilogramos serie ${si+1}`}
+                  />
+                </div>
+                {/* Action button */}
+                <div className="flex-shrink-0 pt-4">
+                  {isDone ? (
+                    <button className="w-10 h-10 rounded bg-primary-container text-on-primary-container border border-primary inline-flex items-center justify-center shadow-sm">
+                      <span className="material-symbols-outlined text-[18px]">done</span>
+                    </button>
+                  ) : isActive || !isDone ? (
+                    <button onClick={(e)=>{
+                      setChecks({...checks, [si]: true})
+                      try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ }
+                      onComplete(si, parseKg(String(w)), r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obs||undefined)
+                    }} className="px-4 py-2.5 rounded bg-secondary text-on-secondary-fixed font-label-caps text-[10px] uppercase font-bold shadow-sm transition-all active:scale-95 whitespace-nowrap">
+                      {isDone ? 'HECHA' : 'REGISTRAR'}
+                    </button>
+                  ) : (
+                    <button onClick={()=> onSkipSet ? onSkipSet(si) : null} className="font-label-caps text-[10px] text-outline hover:text-secondary underline transition-colors">omitir</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
       {onAddSet ? <button onClick={onAddSet} className="w-full py-2 rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">+ Agregar serie (queda en la sesión, no en la rutina)</button> : null}
       {/* Negativas por ejercicio */}
