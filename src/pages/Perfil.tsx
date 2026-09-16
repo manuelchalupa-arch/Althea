@@ -1,615 +1,578 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { db } from '@/services/storage/db'
 import { v4 as uuid } from 'uuid'
-import { Link } from 'react-router-dom'
-import { exportJSON, exportCSV, downloadBlob, importJSON, exportPDF } from '@/services/storage/export'
-import * as Push from '@/services/notifications/push'
-import * as Sync from '@/services/sync/queue'
 import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearance } from '@/utils/appearance'
-import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type NotifConfig } from '@/services/notifications/scheduler'
-import { selectMethods } from '@/services/ai/methodSelector'
-import { selectNutritionMethods } from '@/services/ai/nutritionMethodSelector'
-import type { NutritionMethodRecommendation } from '@/services/ai/nutritionMethods'
-import { getNutritionMethod } from '@/services/ai/nutritionMethodsDB'
-import { buildCycleFromRecommendation } from '@/utils/cycle'
+import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type NotifConfig, type NotifKind } from '@/services/notifications/scheduler'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import BrandIcon from '@/components/brand/BrandIcon'
-import { AltheaCard, AltheaCardHeader, AltheaInput, AltheaButton } from '@/components/althea'
 
-const WEEK_DAYS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
+const GOAL_MAP: Record<string, { label: string; icon: string; color: string }> = {
+  hypertrophy: { label: 'Hipertrofia', icon: '🏋️', color: 'bg-primary-container/30 border-primary/40 text-primary' },
+  strength: { label: 'Fuerza', icon: '💪', color: 'bg-secondary-container/30 border-secondary/40 text-secondary' },
+  fat_loss: { label: 'Pérdida de grasa', icon: '🔥', color: 'bg-orange-900/30 border-orange-500/40 text-orange-400' },
+  mobility: { label: 'Movilidad', icon: '🧘', color: 'bg-purple-900/30 border-purple-500/40 text-purple-400' },
+  general_health: { label: 'Salud general', icon: '❤️', color: 'bg-red-900/30 border-red-500/40 text-red-400' },
+}
 
-function NotifSection(){
-  const [cfgs,setCfgs]=useState<NotifConfig[]>(()=> loadConfigs())
-  const [perm,setPerm]=useState<NotificationPermission|'unknown'>('unknown')
-  const [newTime,setNewTime]=useState<Record<string,string>>({})
-  useEffect(()=>{ permissionStatus().then(setPerm).catch(()=> setPerm('unknown')) },[])
-  const upd = (id:string, patch:Partial<NotifConfig>)=>{
-    const nx = cfgs.map(c=> c.id===id ? { ...c, ...patch } : c)
-    setCfgs(nx); saveConfigs(nx)
-  }
-  const askPerm = async ()=>{
-    const p = await requestPermission()
-    setPerm(p)
-    if(p!=='granted') alert('Permiso denegado: activá las notificaciones en el navegador para recibir avisos.')
-  }
+const NOTIF_TYPES: { kind: NotifKind | 'custom'; label: string; icon: string }[] = [
+  { kind: 'entrenamiento', label: 'Entrenamiento', icon: '💪' },
+  { kind: 'agua', label: 'Hidratación', icon: '💧' },
+  { kind: 'proteina', label: 'Nutrición', icon: '🥩' },
+  { kind: 'recuperacion', label: 'Recuperación', icon: '😴' },
+  { kind: 'cuestionario', label: 'Check-in', icon: '📋' },
+  { kind: 'comoEstas', label: '¿Cómo estás?', icon: '🫀' },
+  { kind: 'custom', label: 'Personalizada', icon: '✏️' },
+]
+
+function getInitials(name: string) {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+}
+
+function imcCalc(weight: number, height: number) {
+  if (!weight || !height) return null
+  const v = weight / Math.pow(height / 100, 2)
+  const cat = v < 18.5 ? 'Bajo peso' : v < 25 ? 'Normopeso' : v < 30 ? 'Sobrepeso' : 'Obesidad'
+  return { value: v.toFixed(1), cat }
+}
+
+/* ─── Sección colapsable ─── */
+function Section({ title, icon, children, defaultOpen = false }: { title: string; icon?: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-3 marble-slab">
-      <div className="flex items-center justify-between">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Notificaciones</div>
-        <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Permiso: {perm==='granted' ? 'concedido' : perm==='denied' ? 'denegado' : perm}</span>
-      </div>
-      {perm!=='granted' && <button onClick={askPerm} className="w-full py-2 rounded bg-primary text-on-surface">Permitir notificaciones</button>}
-      <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Hora local del dispositivo · se disparan con la app abierta · cada horario se envía una sola vez por día.</p>
-      {cfgs.map((c)=>(
-        <div key={c.id} className="rounded bg-surface/60 border border-outline-variant p-3 space-y-2">
-          <label className="flex items-center justify-between gap-2">
-            <span className="font-body-md text-sm text-on-surface font-medium">{c.title}</span>
-            <input type="checkbox" checked={c.enabled} onChange={e=>upd(c.id,{enabled:e.target.checked})} className="w-5 h-5 accent-action" aria-label={`Activar ${c.title}`} />
-          </label>
-          {c.kind==='proteina' && (
-            <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Objetivo (g)<input type="number" value={c.extra||''} onChange={e=>upd(c.id,{extra:e.target.value})} placeholder="Ej: 140" className="w-full mt-1 bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/></label>
-          )}
-          <div className="flex flex-wrap gap-1">
-            {c.times.map((t)=>(
-              <span key={t} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-surface border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
-                {t}
-                <button onClick={()=>upd(c.id,{times:c.times.filter(x=>x!==t)})} aria-label={`Quitar horario ${t}`} className="text-on-surface-variant flex"><BrandIcon name="close" size={12}/></button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-1">
-            <input type="time" value={newTime[c.id]||''} onChange={e=>setNewTime({...newTime,[c.id]:e.target.value})} className="flex-1 bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface" aria-label="Nuevo horario" />
-            <button onClick={()=>{ const v=(newTime[c.id]||'').slice(0,5); if(!v || c.times.includes(v)) return; upd(c.id,{times:[...c.times,v].sort()}) }} className="px-3 rounded bg-surface border border-outline-variant font-body-md text-sm text-on-surface">+</button>
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {WEEK_DAYS.map((d,i)=>(
-              <label key={d} className={`text-center font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant py-1.5 rounded-lg border cursor-pointer ${c.days[i] ? 'bg-surface-container-high border-info text-on-surface' : 'bg-surface border-outline-variant text-on-surface-variant'}`}>
-                <input type="checkbox" checked={!!c.days[i]} onChange={e=>{ const days=[...c.days]; days[i]=e.target.checked; upd(c.id,{days}) }} className="hidden" />
-                {d}
-              </label>
-            ))}
-          </div>
+    <div className="rounded-xl bg-surface-container-low/80 backdrop-blur-sm border border-outline-variant/50 overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-4 hover:bg-surface-container-high/30 transition-colors">
+        <div className="flex items-center gap-2.5">
+          {icon && <span className="text-lg">{icon}</span>}
+          <span className="font-body-md text-[15px] text-on-surface font-medium">{title}</span>
         </div>
-      ))}
+        <BrandIcon name={open ? 'expand_less' : 'expand_more'} size={20} />
+      </button>
+      {open && <div className="px-4 pb-4 border-t border-outline-variant/30">{children}</div>}
     </div>
   )
 }
 
-function AccountSection(){
-  const [email,setEmail]=useState<string|null>(null)
-  const [configured,setConfigured]=useState(true)
-  const [syncing,setSyncing]=useState(false)
-  const [msg,setMsg]=useState('')
-  const [lastSync,setLastSync]=useState<string|null>(null)
-  useEffect(()=>{
-    import('@/services/firebase/config').then(({ isFirebaseConfigured })=>{
-      setConfigured(isFirebaseConfigured())
-      if(!isFirebaseConfigured()) return
-      import('@/services/firebase/auth').then(({ onUser })=>{
-        onUser((u)=> setEmail(u?.email || null))
-      })
-      import('@/services/firebase/sync').then(({ lastSyncAt })=> setLastSync(lastSyncAt()))
+/* ─── Modal de hora ─── */
+function TimePickerModal({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
+  const [h, setH] = useState(() => { const [hh = '08'] = value.split(':'); return hh })
+  const [m, setM] = useState(() => { const [, mm = '00'] = value.split(':'); return mm })
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-xs p-5 space-y-4">
+        <h3 className="font-headline-lg text-base font-semibold text-on-surface text-center">Seleccionar hora</h3>
+        <div className="flex items-center justify-center gap-2">
+          <select value={h} onChange={e => setH(e.target.value)} className="bg-surface-container-high border border-outline-variant rounded-lg p-3 font-headline-lg text-2xl text-on-surface w-20 text-center">
+            {Array.from({ length: 24 }, (_, i) => <option key={i} value={String(i).padStart(2, '0')}>{String(i).padStart(2, '0')}</option>)}
+          </select>
+          <span className="font-headline-lg text-2xl text-on-surface-variant">:</span>
+          <select value={m} onChange={e => setM(e.target.value)} className="bg-surface-container-high border border-outline-variant rounded-lg p-3 font-headline-lg text-2xl text-on-surface w-20 text-center">
+            {['00', '15', '30', '45'].map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
+          <button onClick={() => { onChange(`${h}:${m}`); onClose() }} className="flex-1 py-2.5 rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Guardar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Modal crear notificación ─── */
+function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; onClose: () => void }) {
+  const [step, setStep] = useState<'type' | 'time'>('type')
+  const [kind, setKind] = useState<NotifKind | 'custom'>('entrenamiento')
+  const [customTitle, setCustomTitle] = useState('')
+  const [time, setTime] = useState('08:00')
+
+  const handleAdd = () => {
+    const title = kind === 'custom' ? customTitle.trim() : NOTIF_TYPES.find(t => t.kind === kind)?.label || 'Recordatorio'
+    if (!title) return
+    onAdd({
+      id: `custom_${Date.now()}`,
+      kind: kind as NotifKind,
+      title,
+      enabled: true,
+      times: [time],
+      days: [true, true, true, true, true, false, false],
     })
-  },[])
-  if(!configured){
+    onClose()
+  }
+
+  if (step === 'time') {
     return (
-      <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2 marble-slab">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cuenta y sincronización</div>
-        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">Firebase no configurado: la app funciona solo en este dispositivo. Agregá las variables VITE_FIREBASE_* en un archivo .env para activar cuenta y nube.</p>
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-xs p-5 space-y-4">
+          <h3 className="font-headline-lg text-base font-semibold text-on-surface">¿A qué hora?</h3>
+          <TimePickerModal value={time} onChange={setTime} onClose={() => {}} />
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => setStep('type')} className="flex-1 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Atrás</button>
+            <button onClick={handleAdd} className="flex-1 py-2.5 rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Agregar</button>
+          </div>
+        </div>
       </div>
     )
   }
-  const doSync = async ()=>{
-    setMsg('')
-    setSyncing(true)
-    try{
-      const { currentUser } = await import('@/services/firebase/auth')
-      const u = currentUser()
-      if(!u){ setMsg('Iniciá sesión para sincronizar.'); return }
-      const { syncAll, lastSyncAt } = await import('@/services/firebase/sync')
-      const r = await syncAll(u.uid, (m)=> setMsg(m))
-      setLastSync(lastSyncAt())
-      setMsg(`Sincronizado: ${r.uploaded} subidos, ${r.downloaded} descargados.`)
-    }catch(e:any){
-      setMsg(e?.message || 'Falló la sincronización.')
-    }finally{
-      setSyncing(false)
-    }
-  }
-  return (
-    <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2 marble-slab">
-      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cuenta y sincronización</div>
-      {email ? (
-        <>
-          <p className="font-body-md text-sm text-on-surface">{email}</p>
-          <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Última sincronización: {lastSync ? new Date(lastSync).toLocaleString('es') : 'nunca'}</p>
-          <button onClick={doSync} disabled={syncing} className="btn-primary w-full disabled:opacity-50">
-            {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
-          </button>
-          <button
-            onClick={async()=>{
-              if(!confirm('¿Cerrar sesión en este dispositivo? Tus datos locales se conservan.')) return
-              setMsg('Haciendo backup antes de salir…')
-              try{
-                const { currentUser } = await import('@/services/firebase/auth')
-                const u = currentUser()
-                if(u && navigator.onLine){
-                  const { syncAll } = await import('@/services/firebase/sync')
-                  await syncAll(u.uid)
-                }
-              }catch(e:any){
-                if(!confirm(`El backup falló (${e?.message || 'sin conexión'}). ¿Salir igual? Tus datos quedan en este dispositivo.`)) return
-              }
-              const { signOut } = await import('@/services/firebase/auth')
-              await signOut()
-              setEmail(null)
-              setMsg('')
-            }}
-            className="btn-secondary w-full"
-          >
-            Cerrar sesión
-          </button>
-        </>
-      ) : (
-        <>
-          <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">Sin sesión iniciada en este dispositivo.</p>
-          <Link to="/login" className="btn-primary w-full">Iniciar sesión / crear cuenta</Link>
-        </>
-      )}
-      {msg && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{msg}</p>}
-    </div>
-  )
-}
 
-function PushSection(){
-  const [supported,setSupported]=useState<boolean|null>(null)
-  const [active,setActive]=useState(false)
-  const [msg,setMsg]=useState('')
-  useEffect(()=>{
-    import('@/services/firebase/messaging').then(async ({ isPushSupported, savedToken })=>{
-      const ok = await isPushSupported()
-      setSupported(ok)
-      setActive(!!savedToken())
-    })
-  },[])
-  if(supported===false) return null
-  const enable = async ()=>{
-    setMsg('')
-    try{
-      const { enablePush } = await import('@/services/firebase/messaging')
-      await enablePush()
-      setActive(true)
-      setMsg('Push activado en este dispositivo.')
-    }catch(e:any){
-      setMsg(e?.message || 'No se pudo activar push.')
-    }
-  }
-  const test = ()=>{
-    try{
-      new Notification('Althea', { body: 'Las notificaciones push funcionan en este dispositivo.' } as any)
-    }catch{
-      setMsg('El navegador bloqueó la notificación de prueba.')
-    }
-  }
   return (
-    <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2 marble-slab">
-      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Notificaciones push</div>
-      <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">Avisos desde la nube (requieren despliegue en Firebase Hosting). Estado: {active ? 'activado' : 'apagado'}</p>
-      <div className="flex gap-2">
-        <button onClick={enable} disabled={active} className="btn-primary flex-1 disabled:opacity-50">Activar push</button>
-        <button onClick={test} className="btn-secondary flex-1">Probar</button>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-xs p-5 space-y-4">
+        <h3 className="font-headline-lg text-base font-semibold text-on-surface">Nueva notificación</h3>
+        <div className="space-y-2">
+          {NOTIF_TYPES.map(t => (
+            <button key={t.kind} onClick={() => setKind(t.kind)}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition ${kind === t.kind ? 'bg-surface-container-high border-primary/50' : 'bg-surface-container/50 border-outline-variant/50 hover:border-outline-variant'}`}>
+              <span className="text-lg">{t.icon}</span>
+              <span className="font-body-md text-[15px] text-on-surface">{t.label}</span>
+            </button>
+          ))}
+        </div>
+        {kind === 'custom' && (
+          <input value={customTitle} onChange={e => setCustomTitle(e.target.value)} placeholder="¿Qué quieres recordar?"
+            className="w-full bg-surface-container-high/50 border border-outline-variant rounded-xl p-3 font-body-md text-[15px] text-on-surface" autoFocus />
+        )}
+        <button onClick={() => setStep('time')} className="w-full py-2.5 rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Siguiente</button>
       </div>
-      {msg && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{msg}</p>}
     </div>
   )
 }
 
-const TRAINING_GOALS: { value: string; label: string; desc: string; icon: string }[] = [
-  { value: 'strength', label: 'Fuerza', desc: 'Progresión de cargas, multiarticulares, técnica', icon: '💪' },
-  { value: 'fat_loss', label: 'Pérdida de grasa', desc: 'Déficit moderado, adherencia, fuerza', icon: '🔥' },
-  { value: 'hypertrophy', label: 'Hipertrofia', desc: 'Volumen, proximidad al fallo, ROM', icon: '🏋️' },
-  { value: 'mobility', label: 'Movilidad', desc: 'ROM, calidad de movimiento, control', icon: '🧘' },
-  { value: 'general_health', label: 'Salud general', desc: 'Equilibrio, adherencia, sostenibilidad', icon: '❤️' },
-]
-const EXPERIENCE_LEVELS: { value: string; label: string; desc: string }[] = [
-  { value: 'beginner', label: 'Principiante', desc: '<6 meses entrenando' },
-  { value: 'intermediate', label: 'Intermedio', desc: '6 meses - 2 años' },
-  { value: 'advanced', label: 'Avanzado', desc: '>2 años constante' },
-]
+/* ─── Main Perfil ─── */
+export default function Perfil() {
+  const [profile, setProfile] = useState<any>(null)
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({ name: '', age: '', sex: '', heightCm: '', weightKg: '', targetWeightKg: '', bodyFatPct: '', muscleMassKg: '', activityLevel: 'moderado', restrictions: '', allergies: '', dislikedFoods: '' })
+  const [notifCfgs, setNotifCfgs] = useState<NotifConfig[]>([])
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission | 'unknown'>('unknown')
+  const [showAddNotif, setShowAddNotif] = useState(false)
+  const [editTimeId, setEditTimeId] = useState<string | null>(null)
+  const [editTimeIdx, setEditTimeIdx] = useState<number>(0)
+  const [theme, setTheme] = useState(getTheme)
+  const [textScale, setTextScale] = useState(getTextScale)
+  const [showLogout, setShowLogout] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [email, setEmail] = useState<string | null>(null)
+  const [firebaseReady, setFirebaseReady] = useState(false)
 
-export default function Perfil(){
-  const [profile,setProfile]=useState<any>(null)
-  const [form,setForm]=useState({ age:'', sex:'', heightCm:'', weightKg:'', targetWeightKg:'', bodyFatPct:'', muscleMassKg:'', waistCm:'', chestCm:'', activityLevel:'moderado' })
-  const [coachForm,setCoachForm]=useState({ trainingGoal:'hypertrophy', experienceLevel:'intermediate', sessionDurationMin:'60', preferredTime:'18:00', restrictions:'', allergies:'', dislikedFoods:'', mealFrequency:'4' })
-  const [methodRec,setMethodRec]=useState<{primary:string;secondary:string[];complementary:string[];justification:string;confidence:number;mixed?:any}|null>(null)
-  const [applying,setApplying]=useState(false)
-  const [activeCycleMethod,setActiveCycleMethod]=useState<{methodId?:string;days?:number;split?:string}|null>(null)
-  const [nutritionRec,setNutritionRec]=useState<NutritionMethodRecommendation | null>(null)
-  const [activeNutritionMethod,setActiveNutritionMethod]=useState<string | null>(null)
-  const [applyingNutrition,setApplyingNutrition]=useState(false)
-  const [history,setHistory]=useState<any[]>([])
-  const [theme,setTheme]=useState(getTheme)
-  const [textScale,setTextScale]=useState(getTextScale)
-  const setAppearance = (t:'dark'|'light', s:'s'|'m'|'l')=>{
-    setTheme(t); setTextScale(s)
-    saveAppearance(t, s)
-    applyAppearance()
-  }
-
-  useEffect(()=>{
-    db.userProfile.get('me').then(p=>{
-      if(p){ setProfile(p); setForm({
-        age: String(p.age||''), sex: p.sex||'', heightCm: String(p.heightCm||''), weightKg: String(p.weightKg||''),
-        targetWeightKg: String((p as any).targetWeightKg||''), bodyFatPct: String(p.bodyFatPct||''), muscleMassKg: String(p.muscleMassKg||''),
-        waistCm:'', chestCm:'', activityLevel: (p as any).activityLevel || 'moderado'
-      } as any)
-        setCoachForm({
-          trainingGoal: (p as any).trainingGoal || 'hypertrophy',
-          experienceLevel: (p as any).experienceLevel || 'intermediate',
-          sessionDurationMin: String((p as any).preferences?.sessionDurationMin || '60'),
-          preferredTime: (p as any).schedule?.preferredTime || '18:00',
-          restrictions: ((p as any).nutritionPrefs?.restrictions || []).join(', '),
+  useEffect(() => {
+    db.userProfile.get('me').then(p => {
+      if (p) {
+        setProfile(p)
+        setForm({
+          name: (p as any).displayName || (p as any).name || '',
+          age: String(p.age || ''),
+          sex: p.sex || '',
+          heightCm: String(p.heightCm || ''),
+          weightKg: String(p.weightKg || ''),
+          targetWeightKg: String((p as any).targetWeightKg || ''),
+          bodyFatPct: String(p.bodyFatPct || ''),
+          muscleMassKg: String(p.muscleMassKg || ''),
+          activityLevel: (p as any).activityLevel || 'moderado',
+          restrictions: ((p as any).nutritionPrefs?.restrictions || (p as any).restrictions || []).join(', '),
           allergies: ((p as any).nutritionPrefs?.allergies || []).join(', '),
           dislikedFoods: ((p as any).nutritionPrefs?.dislikedFoods || []).join(', '),
-          mealFrequency: String((p as any).nutritionPrefs?.mealFrequency || '4'),
         })
       }
     })
-    db.table('bodyMeasurements').toArray().then(setHistory).catch(()=> setHistory([]))
-    // Calcular recomendación de método
-    db.userProfile.get('me').then(p=>{
-      if(p){
-        const rec = selectMethods(p as any)
-        setMethodRec({ primary:rec.primary, secondary:rec.secondary, complementary:rec.complementary, justification:rec.justification, confidence:rec.confidence, mixed:rec.mixed })
-        // Load active cycle method
-        const cycle = (p as any).cycle
-        if(cycle?.methodId){
-          const m = getMethod(cycle.methodId)
-          setActiveCycleMethod({ methodId: cycle.methodId, days: cycle.trainingDays?.length, split: m?.structure?.splitType || m?.nameEs })
-        }
-        // Nutrition method
-        const nutRec = selectNutritionMethods(p as any, cycle?.methodId)
-        setNutritionRec(nutRec)
-        const savedNutMethod = (p as any).activeNutritionMethod || (p as any).cycle?.nutritionMethodId
-        if(savedNutMethod) setActiveNutritionMethod(savedNutMethod)
+    setNotifCfgs(loadConfigs())
+    permissionStatus().then(setNotifPerm).catch(() => setNotifPerm('unknown'))
+
+    import('@/services/firebase/config').then(({ isFirebaseConfigured }) => {
+      const ready = isFirebaseConfigured()
+      setFirebaseReady(ready)
+      if (ready) {
+        import('@/services/firebase/auth').then(({ onUser }) => {
+          onUser(u => setEmail(u?.email || null))
+        })
       }
-    }).catch(()=>{})
-  },[])
+    }).catch(() => {})
+  }, [])
 
-  const applyMethod = async ()=>{
-    if(!profile || !methodRec) return
-    setApplying(true)
-    try{
-      const availableDays = (profile as any).schedule?.availableDays || (profile as any).availableDays || [1,3,5]
-      const cycle = buildCycleFromRecommendation({ primary: methodRec.primary as TrainingMethodId, mixed: methodRec.mixed, justification: methodRec.justification }, availableDays)
-      await db.userProfile.put({ ...(profile as any), cycle, updatedAt: new Date().toISOString() })
-      alert(`Método "${methodRec.primary}" aplicado. Ciclo actualizado con ${cycle.trainingDays.length} días.`)
-    }catch(e:any){ alert('Error: '+(e.message||e)) }
-    finally{ setApplying(false) }
-  }
-
-  const applyNutritionMethod = async ()=>{
-    if(!profile || !nutritionRec) return
-    setApplyingNutrition(true)
-    try{
-      await db.userProfile.put({ ...(profile as any), activeNutritionMethod: nutritionRec.primary, updatedAt: new Date().toISOString() })
-      setActiveNutritionMethod(nutritionRec.primary)
-      alert(`Estrategia nutricional "${getNutritionMethod(nutritionRec.primary)?.nameEs || nutritionRec.primary}" activada.`)
-    }catch(e:any){ alert('Error: '+(e.message||e)) }
-    finally{ setApplyingNutrition(false) }
-  }
-
-  const save = async ()=>{
-    const data:any = {
-      age: Number(form.age)||undefined,
-      sex: form.sex||undefined,
-      heightCm: Number(form.heightCm)||undefined,
-      weightKg: Number(form.weightKg)||undefined,
-      targetWeightKg: Number((form as any).targetWeightKg)||undefined,
-      bodyFatPct: Number(form.bodyFatPct)||undefined,
-      muscleMassKg: Number(form.muscleMassKg)||undefined,
-      activityLevel: (form as any).activityLevel || 'moderado',
-      trainingGoal: coachForm.trainingGoal,
-      experienceLevel: coachForm.experienceLevel,
-      preferences: { sessionDurationMin: Number(coachForm.sessionDurationMin)||60 },
-      schedule: { preferredTime: coachForm.preferredTime },
+  const saveProfile = async () => {
+    const data: any = {
+      displayName: form.name || undefined,
+      age: Number(form.age) || undefined,
+      sex: form.sex || undefined,
+      heightCm: Number(form.heightCm) || undefined,
+      weightKg: Number(form.weightKg) || undefined,
+      targetWeightKg: Number(form.targetWeightKg) || undefined,
+      bodyFatPct: Number(form.bodyFatPct) || undefined,
+      muscleMassKg: Number(form.muscleMassKg) || undefined,
+      activityLevel: form.activityLevel,
+      restrictions: form.restrictions ? form.restrictions.split(',').map(s => s.trim()).filter(Boolean) : [],
       nutritionPrefs: {
-        restrictions: coachForm.restrictions ? coachForm.restrictions.split(',').map(s=>s.trim()).filter(Boolean) : [],
-        allergies: coachForm.allergies ? coachForm.allergies.split(',').map(s=>s.trim()).filter(Boolean) : [],
-        dislikedFoods: coachForm.dislikedFoods ? coachForm.dislikedFoods.split(',').map(s=>s.trim()).filter(Boolean) : [],
-        mealFrequency: Number(coachForm.mealFrequency)||4,
+        restrictions: form.restrictions ? form.restrictions.split(',').map(s => s.trim()).filter(Boolean) : [],
+        allergies: form.allergies ? form.allergies.split(',').map(s => s.trim()).filter(Boolean) : [],
+        dislikedFoods: form.dislikedFoods ? form.dislikedFoods.split(',').map(s => s.trim()).filter(Boolean) : [],
       },
     }
-    const base = profile ?? { id:'me', goal:'hipertrofia', level:'intermedio', availableDays:[1,3,5], trainingTime:'18:00', equipment:['barra'], units:{weight:'kg',liquid:'ml'}, lang:'es', coachIntensity:'profesional', onboardingDone:true, hydrationGoalMl:2500, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
+    const base = profile ?? { id: 'me', onboardingDone: true, createdAt: new Date().toISOString() }
     await db.userProfile.put({ ...base, ...data, updatedAt: new Date().toISOString() })
-    const today = new Date().toISOString().slice(0,10)
-    await db.table('bodyMeasurements').put({ id: uuid(), localDate: today, weightKg: data.weightKg, heightCm: data.heightCm, bodyFatPct: data.bodyFatPct, muscleMassKg: data.muscleMassKg, waistCm: Number(form.waistCm)||undefined, chestCm: Number(form.chestCm)||undefined, createdAt: new Date().toISOString() })
-    alert('Datos guardados.')
-    setHistory(await db.table('bodyMeasurements').toArray())
+    setProfile({ ...base, ...data })
+    const today = new Date().toISOString().slice(0, 10)
+    await db.table('bodyMeasurements').put({
+      id: uuid(), localDate: today, weightKg: data.weightKg, heightCm: data.heightCm,
+      bodyFatPct: data.bodyFatPct, muscleMassKg: data.muscleMassKg, createdAt: new Date().toISOString()
+    })
+    setEditing(false)
   }
 
-  const imc = form.heightCm && form.weightKg ? (Number(form.weightKg) / Math.pow(Number(form.heightCm)/100,2)).toFixed(1) : null
-  const imcCat = imc ? (Number(imc)<18.5?'Bajo peso': Number(imc)<25?'Normopeso': Number(imc)<30?'Sobrepeso':'Obesidad') : null
+  const updateGoal = async (goal: string) => {
+    if (!profile) return
+    await db.userProfile.put({ ...profile, trainingGoal: goal, updatedAt: new Date().toISOString() })
+    setProfile({ ...profile, trainingGoal: goal })
+  }
+
+  const toggleNotif = (id: string) => {
+    const nx = notifCfgs.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c)
+    setNotifCfgs(nx); saveConfigs(nx)
+  }
+
+  const addNotif = (cfg: NotifConfig) => {
+    const nx = [...notifCfgs, cfg]
+    setNotifCfgs(nx); saveConfigs(nx)
+  }
+
+  const removeNotif = (id: string) => {
+    const nx = notifCfgs.filter(c => c.id !== id)
+    setNotifCfgs(nx); saveConfigs(nx)
+  }
+
+  const updateTime = (id: string, oldTime: string, newTime: string) => {
+    const nx = notifCfgs.map(c => {
+      if (c.id !== id) return c
+      const times = c.times.map(t => t === oldTime ? newTime : t).sort()
+      return { ...c, times }
+    })
+    setNotifCfgs(nx); saveConfigs(nx)
+  }
+
+  const addTime = (id: string, time: string) => {
+    const nx = notifCfgs.map(c => c.id === id && !c.times.includes(time) ? { ...c, times: [...c.times, time].sort() } : c)
+    setNotifCfgs(nx); saveConfigs(nx)
+  }
+
+  const removeTime = (id: string, time: string) => {
+    const nx = notifCfgs.map(c => c.id === id ? { ...c, times: c.times.filter(t => t !== time) } : c)
+    setNotifCfgs(nx); saveConfigs(nx)
+  }
+
+  const handleLogout = async () => {
+    if (!firebaseReady) return
+    try {
+      const { currentUser } = await import('@/services/firebase/auth')
+      const u = currentUser()
+      if (u && navigator.onLine) {
+        const { syncAll } = await import('@/services/firebase/sync')
+        await syncAll(u.uid)
+      }
+    } catch { /* noop */ }
+    const { signOut } = await import('@/services/firebase/auth')
+    await signOut()
+    setEmail(null)
+    setShowLogout(false)
+    window.location.href = '/login'
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'ELIMINAR') return
+    try {
+      const { currentUser } = await import('@/services/firebase/auth')
+      const u = currentUser()
+      if (u) {
+        const { deleteUser } = await import('firebase/auth')
+        await deleteUser(u)
+      }
+    } catch { /* noop — local data still gets cleared */ }
+    localStorage.clear()
+    try { indexedDB.deleteDatabase('althea') } catch { /* noop */ }
+    window.location.href = '/login'
+  }
+
+  const imc = imcCalc(Number(form.weightKg), Number(form.heightCm))
+  const goal = GOAL_MAP[profile?.trainingGoal] || GOAL_MAP.hypertrophy
+  const cycleMethod = profile?.cycle?.methodId ? getMethod(profile.cycle.methodId as TrainingMethodId) : null
 
   return (
-    <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
-      <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Perfil corporal</h1>
-      <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Edad, sexo, altura, peso, medidas. El IMC se calcula solo si hay datos suficientes y se contextualiza — no es único indicador.</p>
+    <div className="min-h-screen bg-transparent pb-24 max-w-[640px] w-full mx-auto px-4 py-6 space-y-4">
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div className="lg:col-span-8 space-y-3">
-      <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-3 marble-slab">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Edad<input value={form.age} onChange={e=>setForm({...form, age:e.target.value})} type="number" placeholder="ej: 28" className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/></label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sexo
-            <select value={form.sex} onChange={e=>setForm({...form, sex:e.target.value})} className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface">
-              <option value="">—</option><option value="M">M</option><option value="F">F</option><option value="X">X</option>
-            </select>
-          </label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Altura cm<input value={form.heightCm} onChange={e=>setForm({...form, heightCm:e.target.value})} type="number" placeholder="175" className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/></label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Peso kg<input value={form.weightKg} onChange={e=>setForm({...form, weightKg:e.target.value})} type="number" step={0.1} placeholder="72" className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/></label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Peso objetivo kg<input value={(form as any).targetWeightKg} onChange={e=>setForm({...form, targetWeightKg:e.target.value} as any)} type="number" step={0.1} placeholder="75" className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/></label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Grasa %<input value={form.bodyFatPct} onChange={e=>setForm({...form, bodyFatPct:e.target.value})} type="number" step={0.1} placeholder="opcional" className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/></label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Músculo kg<input value={form.muscleMassKg} onChange={e=>setForm({...form, muscleMassKg:e.target.value})} type="number" step={0.1} placeholder="opcional" className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/></label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cintura cm<input value={form.waistCm} onChange={e=>setForm({...form, waistCm:e.target.value})} type="number" placeholder="opcional" className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/></label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Pecho cm<input value={form.chestCm} onChange={e=>setForm({...form, chestCm:e.target.value})} type="number" placeholder="opcional" className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/></label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Actividad
-            <select value={(form as any).activityLevel} onChange={e=>setForm({...form, activityLevel:e.target.value} as any)} className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface">
-              <option value="sedentario">Sedentario</option><option value="poco_activo">Poco activo</option><option value="moderado">Moderadamente activo</option><option value="muy_activo">Muy activo</option><option value="extremadamente_activo">Extremadamente activo</option>
-            </select>
-          </label>
+      {/* ═══ HEADER ═══ */}
+      <div className="bg-surface-container-low/80 backdrop-blur-sm border border-outline-variant/50 rounded-2xl p-5 stone-slab relative overflow-hidden">
+        <div className="absolute -right-16 -top-16 w-48 h-48 bg-primary-container/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-primary-container/30 border-2 border-primary/30 flex items-center justify-center shrink-0">
+            <span className="font-headline-lg text-xl text-primary font-bold">{getInitials(form.name || 'A')}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-headline-lg text-lg text-on-surface font-semibold truncate">{form.name || 'Atleta'}</h1>
+            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border mt-1 text-xs font-medium ${goal.color}`}>
+              <span>{goal.icon}</span> {goal.label}
+            </div>
+          </div>
         </div>
-
-        <div className="rounded bg-surface/60 border border-outline-variant p-3">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">IMC</div>
-          {imc ? <><div className="font-headline-lg text-base font-semibold text-on-surface">{imc} · {imcCat}</div><p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Contexto: IMC solo con peso/altura. No evalúa composición. Para grasa/músculo registrar % y medidas.</p></> : <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Faltan altura y peso para calcular IMC. Una vez cargados, el sistema lo calculará.</p>}
-          {form.bodyFatPct && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Grasa {form.bodyFatPct}% · Masa muscular {form.muscleMassKg||'—'} kg — datos registrados, no inferidos.</p>}
-        </div>
-
-        <button onClick={save} className="w-full py-3 rounded bg-primary text-on-surface font-medium">Guardar</button>
+        {(form.weightKg || form.heightCm) && (
+          <div className="relative z-10 flex gap-4 mt-4 pt-3 border-t border-outline-variant/30">
+            {form.weightKg && <div className="text-center"><div className="font-headline-sm text-[18px] text-on-surface font-semibold">{form.weightKg}</div><div className="font-label-caps text-[9px] uppercase text-on-surface-variant">kg</div></div>}
+            {form.heightCm && <div className="text-center"><div className="font-headline-sm text-[18px] text-on-surface font-semibold">{form.heightCm}</div><div className="font-label-caps text-[9px] uppercase text-on-surface-variant">cm</div></div>}
+            {imc && <div className="text-center"><div className="font-headline-sm text-[18px] text-on-surface font-semibold">{imc.value}</div><div className="font-label-caps text-[9px] uppercase text-on-surface-variant">IMC</div></div>}
+          </div>
+        )}
       </div>
 
-      {/* ─── Coach IA v2: Perfil de entrenamiento ─── */}
-      <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-4 marble-slab">
-        <div>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Coach IA — Perfil de entrenamiento</div>
-          <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">Definí tu objetivo y nivel. El Coach adapta sus recomendaciones a esto.</p>
-        </div>
+      {/* ═══ DATOS PERSONALES ═══ */}
+      <Section title="Datos personales" icon="👤" defaultOpen={false}>
+        {editing ? (
+          <div className="space-y-3 pt-3">
+            <div className="grid grid-cols-2 gap-2">
+              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Nombre
+                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              </label>
+              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Edad
+                <input value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} type="number" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              </label>
+              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Sexo
+                <select value={form.sex} onChange={e => setForm({ ...form, sex: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface">
+                  <option value="">—</option><option value="M">M</option><option value="F">F</option><option value="X">X</option>
+                </select>
+              </label>
+              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Actividad
+                <select value={form.activityLevel} onChange={e => setForm({ ...form, activityLevel: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface">
+                  <option value="sedentario">Sedentario</option><option value="poco_activo">Poco activo</option><option value="moderado">Moderado</option><option value="muy_activo">Muy activo</option><option value="extremadamente_activo">Extremadamente activo</option>
+                </select>
+              </label>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Peso kg
+                <input value={form.weightKg} onChange={e => setForm({ ...form, weightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              </label>
+              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Altura cm
+                <input value={form.heightCm} onChange={e => setForm({ ...form, heightCm: e.target.value })} type="number" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              </label>
+              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Peso obj.
+                <input value={form.targetWeightKg} onChange={e => setForm({ ...form, targetWeightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Grasa %
+                <input value={form.bodyFatPct} onChange={e => setForm({ ...form, bodyFatPct: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              </label>
+              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Músculo kg
+                <input value={form.muscleMassKg} onChange={e => setForm({ ...form, muscleMassKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              </label>
+            </div>
+            <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Restricciones alimentarias
+              <input value={form.restrictions} onChange={e => setForm({ ...form, restrictions: e.target.value })} placeholder="Ej: vegetariano, sin lactosa" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+            </label>
+            <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Alergias
+              <input value={form.allergies} onChange={e => setForm({ ...form, allergies: e.target.value })} placeholder="Ej: frutos secos" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+            </label>
+            <div className="flex gap-2">
+              <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
+              <button onClick={saveProfile} className="flex-1 py-2.5 rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Guardar</button>
+            </div>
+          </div>
+        ) : (
+          <div className="pt-3 space-y-2">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+              {[
+                ['Nombre', form.name || '—'],
+                ['Edad', form.age ? `${form.age} años` : '—'],
+                ['Sexo', form.sex || '—'],
+                ['Peso', form.weightKg ? `${form.weightKg} kg` : '—'],
+                ['Altura', form.heightCm ? `${form.heightCm} cm` : '—'],
+                ['Peso obj.', form.targetWeightKg ? `${form.targetWeightKg} kg` : '—'],
+                ['Grasa', form.bodyFatPct ? `${form.bodyFatPct}%` : '—'],
+                ['Músculo', form.muscleMassKg ? `${form.muscleMassKg} kg` : '—'],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between"><span className="text-on-surface-variant">{k}</span><span className="text-on-surface font-medium">{v}</span></div>
+              ))}
+            </div>
+            {(form.restrictions || form.allergies) && (
+              <div className="pt-2 border-t border-outline-variant/30 space-y-1 text-sm">
+                {form.restrictions && <div className="flex justify-between"><span className="text-on-surface-variant">Restricciones</span><span className="text-on-surface font-medium text-right max-w-[60%] truncate">{form.restrictions}</span></div>}
+                {form.allergies && <div className="flex justify-between"><span className="text-on-surface-variant">Alergias</span><span className="text-on-surface font-medium text-right max-w-[60%] truncate">{form.allergies}</span></div>}
+              </div>
+            )}
+            <button onClick={() => setEditing(true)} className="w-full py-2.5 rounded-lg bg-surface-container-high border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-primary/50 transition-colors mt-2">
+              Editar datos
+            </button>
+          </div>
+        )}
+      </Section>
 
-        <div>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-2">Objetivo principal</div>
+      {/* ═══ OBJETIVO ═══ */}
+      <Section title="Objetivo" icon="🎯">
+        <div className="pt-3 space-y-2">
           <div className="grid grid-cols-1 gap-2">
-            {TRAINING_GOALS.map(g=>(
-              <button key={g.value} onClick={()=>setCoachForm({...coachForm, trainingGoal:g.value})}
-                className={`p-3 rounded border text-left transition ${coachForm.trainingGoal===g.value ? 'bg-surface-container-high border-info' : 'bg-surface/60 border-outline-variant'}`}>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{g.icon}</span>
-                  <div>
-                    <div className="font-body-md text-sm text-on-surface font-medium">{g.label}</div>
-                    <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{g.desc}</div>
+            {Object.entries(GOAL_MAP).map(([key, g]) => (
+              <button key={key} onClick={() => updateGoal(key)}
+                className={`flex items-center gap-3 p-3 rounded-xl border transition ${profile?.trainingGoal === key ? `${g.color} border-current` : 'bg-surface-container/50 border-outline-variant/50 hover:border-outline-variant'}`}>
+                <span className="text-lg">{g.icon}</span>
+                <span className="font-body-md text-[15px]">{g.label}</span>
+              </button>
+            ))}
+          </div>
+          {cycleMethod && (
+            <div className="mt-3 p-3 rounded-xl bg-primary-container/10 border border-primary/20">
+              <div className="font-label-caps text-[9px] uppercase text-primary tracking-wider">Método activo</div>
+              <div className="font-body-md text-[15px] text-on-surface font-medium mt-0.5">{cycleMethod.nameEs || profile?.cycle?.methodId}</div>
+            </div>
+          )}
+        </div>
+      </Section>
+
+      {/* ═══ NOTIFICACIONES ═══ */}
+      <Section title="Notificaciones" icon="🔔">
+        <div className="pt-3 space-y-3">
+          {notifPerm !== 'granted' && (
+            <button onClick={async () => { const p = await requestPermission(); setNotifPerm(p) }}
+              className="w-full py-2.5 rounded-lg bg-primary/20 border border-primary/30 text-primary font-label-caps text-[10px] uppercase font-bold">
+              Permitir notificaciones
+            </button>
+          )}
+
+          {notifCfgs.length === 0 && (
+            <p className="text-center text-on-surface-variant text-sm py-4">Sin notificaciones configuradas</p>
+          )}
+
+          {notifCfgs.map(c => (
+            <div key={c.id} className="rounded-xl bg-surface-container/50 border border-outline-variant/30 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="font-body-md text-[15px] text-on-surface font-medium truncate">{c.title}</div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {c.times.map(t => (
+                      <button key={t} onClick={() => { setEditTimeId(c.id); setEditTimeIdx(c.times.indexOf(t)) }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-container-high border border-outline-variant/50 font-mono text-[12px] text-on-surface-variant hover:border-primary/50 transition-colors">
+                        {t}
+                        <span onClick={e => { e.stopPropagation(); removeTime(c.id, t) }} className="text-on-surface-variant/60 hover:text-red-400">×</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-2">Nivel de experiencia</div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {EXPERIENCE_LEVELS.map(l=>(
-              <button key={l.value} onClick={()=>setCoachForm({...coachForm, experienceLevel:l.value})}
-                className={`py-2 rounded border text-center transition ${coachForm.experienceLevel===l.value ? 'bg-surface-container-high border-info' : 'bg-surface/60 border-outline-variant'}`}>
-                <div className="font-body-md text-sm text-on-surface font-medium">{l.label}</div>
-                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs">{l.desc}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Duración sesión (min)
-            <select value={coachForm.sessionDurationMin} onChange={e=>setCoachForm({...coachForm, sessionDurationMin:e.target.value})}
-              className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface">
-              <option value="30">30 min</option><option value="45">45 min</option><option value="60">60 min</option>
-              <option value="75">75 min</option><option value="90">90 min</option>
-            </select>
-          </label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Horario preferido
-            <input type="time" value={coachForm.preferredTime} onChange={e=>setCoachForm({...coachForm, preferredTime:e.target.value})}
-              className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface" />
-          </label>
-        </div>
-
-        <div className="rounded bg-surface/60 border border-outline-variant p-3 space-y-2">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nutrición — preferencias</div>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Restricciones alimentarias
-            <input value={coachForm.restrictions} onChange={e=>setCoachForm({...coachForm, restrictions:e.target.value})}
-              placeholder="Ej: vegetariano, sin lactosa" className="w-full mt-1 bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface" />
-          </label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Alergias
-            <input value={coachForm.allergies} onChange={e=>setCoachForm({...coachForm, allergies:e.target.value})}
-              placeholder="Ej: frutos secos, mariscos" className="w-full mt-1 bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface" />
-          </label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Alimentos que no te gustan
-            <input value={coachForm.dislikedFoods} onChange={e=>setCoachForm({...coachForm, dislikedFoods:e.target.value})}
-              placeholder="Ej: brócoli, atún" className="w-full mt-1 bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface" />
-          </label>
-          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Comidas por día
-            <select value={coachForm.mealFrequency} onChange={e=>setCoachForm({...coachForm, mealFrequency:e.target.value})}
-              className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface">
-              <option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
-            </select>
-          </label>
-        </div>
-      </div>
-
-      {/* ─── Ciclo activo ─── */}
-      {activeCycleMethod && activeCycleMethod.methodId && (
-        <div className="rounded bg-surface-container-high border border-info p-4 space-y-1 marble-slab">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant tracking-widest text-primary">MÉTODO ACTIVO</div>
-          <div className="font-body-md text-sm text-on-surface font-medium">{getMethod(activeCycleMethod.methodId as TrainingMethodId)?.nameEs || activeCycleMethod.methodId}</div>
-          {activeCycleMethod.days && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs">{activeCycleMethod.days} días/semana · {activeCycleMethod.split || '—'}</div>}
-          {profile && (profile as any).cycle?.methodJustification && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs text-on-surface-variant mt-1">{(profile as any).cycle.methodJustification}</div>}
-        </div>
-      )}
-
-      {/* ─── Coach IA v2: Método recomendado ─── */}
-      {methodRec && (
-        <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-4 space-y-3 marble-slab">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant tracking-widest">MÉTODO DE ENTRENAMIENTO</div>
-          <div>
-            <div className="font-body-md text-sm text-on-surface font-medium">{methodRec.primary}</div>
-            {methodRec.secondary.length > 0 && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs mt-0.5">Secundarios: {methodRec.secondary.join(', ')}</div>}
-            {methodRec.complementary.length > 0 && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs">Complementarios: {methodRec.complementary.join(', ')}</div>}
-          </div>
-          {methodRec.mixed && (
-            <div className="rounded-lg bg-surface/60 border border-outline-variant p-2">
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs font-medium">Método Mixto</div>
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs mt-0.5">{methodRec.mixed.structure?.distribution}</div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => removeNotif(c.id)} className="p-1.5 rounded-lg text-on-surface-variant/60 hover:text-red-400 hover:bg-red-900/20 transition-colors">
+                    <BrandIcon name="delete" size={16} />
+                  </button>
+                  <button onClick={() => toggleNotif(c.id)}
+                    className={`w-10 h-6 rounded-full transition-colors relative ${c.enabled ? 'bg-primary' : 'bg-surface-container-high'}`}>
+                    <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-on-primary shadow transition-transform ${c.enabled ? 'left-[18px]' : 'left-0.5'}`} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-0.5">
+                {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
+                  <button key={d} onClick={() => {
+                    const days = [...c.days]; days[i] = !days[i]
+                    const nx = notifCfgs.map(x => x.id === c.id ? { ...x, days } : x)
+                    setNotifCfgs(nx); saveConfigs(nx)
+                  }}
+                    className={`flex-1 py-1 rounded text-[10px] font-bold ${c.days[i] ? 'bg-primary/20 text-primary' : 'bg-surface-container-high text-on-surface-variant/40'}`}>
+                    {d}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs text-on-surface-variant">{methodRec.justification}</div>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs">Confianza: {Math.round(methodRec.confidence * 100)}%</div>
-          <button onClick={applyMethod} disabled={applying || !profile}
-            className="w-full py-2 rounded bg-primary text-on-surface text-sm font-medium disabled:opacity-50">
-            {applying ? 'Aplicando…' : 'Aplicar este método al ciclo'}
+          ))}
+
+          <button onClick={() => setShowAddNotif(true)}
+            className="w-full py-2.5 rounded-xl border border-dashed border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-primary/50 hover:text-primary transition-colors">
+            + Agregar notificación
           </button>
         </div>
-      )}
+      </Section>
 
-      {/* ─── Estrategia nutricional activa ─── */}
-      {activeNutritionMethod && (
-        <div className="rounded bg-surface-container-high border border-info p-4 space-y-1 marble-slab">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant tracking-widest text-primary">ESTRATEGIA NUTRICIONAL ACTIVA</div>
-          <div className="font-body-md text-sm text-on-surface font-medium">{getNutritionMethod(activeNutritionMethod as any)?.nameEs || activeNutritionMethod}</div>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs text-on-surface-variant">{getNutritionMethod(activeNutritionMethod as any)?.descriptionEs || ''}</div>
-        </div>
-      )}
-
-      </div>
-
-      {/* ─── Recomendación nutricional ─── */}
-      {nutritionRec && (
-        <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-4 space-y-3 marble-slab">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant tracking-widest">ESTRATEGIA NUTRICIONAL</div>
+      {/* ═══ PREFERENCIAS ═══ */}
+      <Section title="Preferencias" icon="⚙️">
+        <div className="pt-3 space-y-3">
           <div>
-            <div className="font-body-md text-sm text-on-surface font-medium">{getNutritionMethod(nutritionRec.primary)?.nameEs || nutritionRec.primary}</div>
-            {nutritionRec.secondary.length > 0 && (
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs mt-0.5">Secundarios: {nutritionRec.secondary.map(id => getNutritionMethod(id)?.nameEs || id).join(', ')}</div>
-            )}
-            {nutritionRec.complementary.length > 0 && (
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs">Complementarios: {nutritionRec.complementary.map(id => getNutritionMethod(id)?.nameEs || id).join(', ')}</div>
-            )}
-          </div>
-          {nutritionRec.mixed && (
-            <div className="rounded-lg bg-surface/60 border border-outline-variant p-2">
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs font-medium">Estrategia Mixta</div>
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs mt-0.5">{nutritionRec.mixed.strategy?.timingStrategy}</div>
-              {nutritionRec.mixed.strategy?.keyPrinciples && (
-                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs mt-1">Principios: {nutritionRec.mixed.strategy.keyPrinciples.slice(0, 3).join(' · ')}</div>
-              )}
+            <div className="font-label-caps text-[10px] uppercase text-outline tracking-wider mb-2">Apariencia</div>
+            <div className="grid grid-cols-2 gap-2">
+              {(['dark', 'light'] as const).map(t => (
+                <button key={t} onClick={() => { setTheme(t); saveAppearance(t, textScale); applyAppearance() }}
+                  className={`py-2.5 rounded-lg border font-body-md text-[15px] text-on-surface transition ${theme === t ? 'bg-surface-container-high border-primary/50' : 'bg-surface-container/50 border-outline-variant/50'}`}>
+                  {t === 'dark' ? '🌙 Oscuro' : '☀️ Claro'}
+                </button>
+              ))}
             </div>
-          )}
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs text-on-surface-variant">{nutritionRec.justification}</div>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs">Confianza: {Math.round(nutritionRec.confidence * 100)}%</div>
-          {nutritionRec.safetyWarnings.length > 0 && (
-            <div className="rounded-lg bg-yellow-900/30 border border-yellow-700/50 p-2">
-              <div className="text-xs text-yellow-400 font-medium">⚠ Seguridad</div>
-              {nutritionRec.safetyWarnings.map((w,i) => <div key={i} className="text-xs text-yellow-300/80 mt-0.5">• {w}</div>)}
+          </div>
+          <div>
+            <div className="font-label-caps text-[10px] uppercase text-outline tracking-wider mb-2">Tamaño del texto</div>
+            <div className="grid grid-cols-3 gap-2">
+              {([['s', 'Chico'], ['m', 'Mediano'], ['l', 'Grande']] as const).map(([v, label]) => (
+                <button key={v} onClick={() => { setTextScale(v as any); saveAppearance(theme, v as any); applyAppearance() }}
+                  className={`py-2.5 rounded-lg border font-body-md text-[15px] text-on-surface transition ${textScale === v ? 'bg-surface-container-high border-primary/50' : 'bg-surface-container/50 border-outline-variant/50'}`}>
+                  {label}
+                </button>
+              ))}
             </div>
-          )}
-          <button onClick={applyNutritionMethod} disabled={applyingNutrition || !profile || activeNutritionMethod === nutritionRec.primary}
-            className="w-full py-2 rounded bg-primary text-on-surface text-sm font-medium disabled:opacity-50">
-            {applyingNutrition ? 'Activando…' : activeNutritionMethod === nutritionRec.primary ? 'Ya activo' : 'Activar esta estrategia'}
-          </button>
-        </div>
-      )}
-
-      </div>
-
-      <div className="lg:col-span-4 space-y-3 hidden lg:block">
-      <div className="rounded bg-surface-container-high border border-info p-4 space-y-1 marble-slab">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant tracking-widest text-primary">RESUMEN</div>
-        {imc && <div className="font-body-md text-sm text-on-surface">IMC: {imc} · {imcCat}</div>}
-        {form.weightKg && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs">Peso: {form.weightKg} kg</div>}
-        {form.heightCm && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs">Altura: {form.heightCm} cm</div>}
-      </div>
-
-      <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-3 marble-slab">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Apariencia</div>
-        <div>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-1">Tema</div>
-          <div className="grid grid-cols-2 gap-2">
-            {(['dark','light'] as const).map((t)=>(
-              <button key={t} onClick={()=> setAppearance(t, textScale)} className={`py-2 rounded border font-body-md text-sm text-on-surface ${theme===t ? 'bg-surface-container-high border-info' : 'bg-surface/60 border-outline-variant'}`}>
-                {t==='dark' ? 'Oscuro navy' : 'Claro arena'}
-              </button>
-            ))}
           </div>
         </div>
-        <div>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-1">Tamaño del texto</div>
-          <div className="grid grid-cols-3 gap-2">
-            {([['s','Chico'],['m','Mediano'],['l','Grande']] as const).map(([v,label])=>(
-              <button key={v} onClick={()=> setAppearance(theme, v)} className={`py-2 rounded border font-body-md text-sm text-on-surface ${textScale===v ? 'bg-surface-container-high border-info' : 'bg-surface/60 border-outline-variant'}`}>
-                {label}
-              </button>
-            ))}
+      </Section>
+
+      {/* ═══ CUENTA ═══ */}
+      <div className="space-y-2">
+        {firebaseReady && email && (
+          <div className="rounded-xl bg-surface-container-low/80 border border-outline-variant/50 p-4">
+            <div className="font-label-caps text-[9px] uppercase text-on-surface-variant tracking-wider">Sesión activa</div>
+            <div className="font-body-md text-[15px] text-on-surface font-medium mt-0.5">{email}</div>
           </div>
-        </div>
-      </div>
+        )}
 
-      </div>
+        <button onClick={() => setShowLogout(true)}
+          className="w-full py-3.5 rounded-xl bg-surface-container-low/80 border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/50 hover:text-secondary transition-colors">
+          Cerrar sesión
+        </button>
 
-      <AccountSection />
-
-      <PushSection />
-
-      <NotifSection />
-
-      <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 marble-slab">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Historial corporal (no se pierde al cerrar app)</div>
-        {history.length===0 ? <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">Sin registros aún.</p> : history.slice(-5).reverse().map((h:any)=><div key={h.id} className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">{h.localDate}: {h.weightKg||'—'}kg · {h.bodyFatPct||'—'}% grasa</div>)}
-      </div>
-
-      <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2 marble-slab">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Datos de prueba</div>
-        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Poblá historial coherente o borrá todo para iniciar de cero.</p>
-        <button onClick={async()=>{
-          const { seedCoherentHistory } = await import('@/services/storage/seeder')
-          if(!confirm('¿Poblar con historial coherente de 4 semanas (12 sesiones) para probar sin estados vacíos?')) return
-          await seedCoherentHistory(); alert('Seed coherente cargado — 4 semanas, progreso realista.')
-        }} className="w-full py-2 rounded bg-primary text-bg">Poblar datos de prueba (Seeder)</button>
-        <button onClick={async()=>{
-          if(!confirm('¿Borrar PERMANENTEMENTE todo el historial? Esta acción no se puede deshacer.')) return
-          if(!confirm('Confirmá nuevamente: se eliminarán sesiones, series, recuperación, peso e historial. ¿Continuar?')) return
-          const { wipeDatabase } = await import('@/services/storage/seeder')
-          await wipeDatabase(); alert('Base borrada. Podés poblar con Seeder para seguir probando.')
-        }} className="w-full py-3 rounded bg-red-600 hover:bg-red-700 text-white font-bold flex items-center justify-center gap-2 border border-red-700 shadow-lg">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M8 6V4h8v2M10 11v6M14 11v6M5 6l1 14h12l1-14"/></svg>
-          Borrar base de datos
+        <button onClick={() => setShowDelete(true)}
+          className="w-full py-3.5 rounded-xl bg-red-950/30 border border-red-900/40 font-label-caps text-[10px] uppercase text-red-400 hover:bg-red-950/50 transition-colors">
+          Eliminar cuenta
         </button>
       </div>
 
-      <details className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 marble-slab">
-        <summary className="font-body-md text-sm text-on-surface font-medium cursor-pointer">Ajustes avanzados</summary>
-        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">Funciones movidas desde Más para mantenerlo simple. Siguen disponibles aquí.</p>
-        <div className="mt-3 space-y-2">
-          <button onClick={async()=> downloadBlob(await exportJSON(), `trainpwa-backup-${new Date().toISOString().slice(0,10)}.json`)} className="w-full py-2 rounded bg-surface/60 border border-outline-variant font-body-md text-sm text-on-surface">Exportar JSON</button>
-          <button onClick={async()=> downloadBlob(await exportCSV(), `trainpwa-sets-${new Date().toISOString().slice(0,10)}.csv`)} className="w-full py-2 rounded bg-surface/60 border border-outline-variant font-body-md text-sm text-on-surface">Exportar CSV</button>
-          <button onClick={()=>exportPDF()} className="w-full py-2 rounded bg-surface/60 border border-outline-variant font-body-md text-sm text-on-surface">Exportar PDF</button>
-          <label className="w-full py-2 rounded bg-surface/60 border border-outline-variant font-body-md text-sm text-on-surface text-center block cursor-pointer">Importar JSON<input type="file" accept=".json" onChange={async e=>{ const f=e.target.files?.[0]; if(!f) return; try{ await importJSON(f); alert('Importado OK')}catch(err:any){alert(err.message)}}} className="hidden"/></label>
-          <button onClick={async()=>{
-            const today=new Date().toISOString().slice(0,10); const sid=uuid(); await db.sessions.put({id:sid, localDate:today, startedAt:new Date().toISOString(), createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}); for(let i=0;i<4;i++) await db.setLogs.put({id:uuid(), sessionId:sid, exerciseId:'ex-001', setNumber:i+1, weight:70+i*2.5, reps:8, completed:true, createdAt:new Date().toISOString()}); alert('Demo cargado')
-          }} className="w-full py-2 rounded bg-primary text-on-surface">Cargar demo</button>
-          <button onClick={async()=>{ await db.setLogs.clear(); await db.sessions.clear(); localStorage.removeItem('syncQueue'); alert('Demo eliminado')}} className="w-full py-2 rounded bg-surface border border-outline-variant font-body-md text-sm text-on-surface">Eliminar demo</button>
-          <button onClick={async()=>{ const ok=await Push.sendNotification('seguimiento','Train PWA','¿Cómo venís con agua?'); if(!ok) alert('Límite 2/día o permiso denegado') }} className="w-full py-2 rounded bg-primary text-on-surface">Probar notificación</button>
-          <button onClick={async()=>{ const r=await Sync.syncNow(); alert(`Sync ${r.synced}`)}} className="w-full py-2 rounded bg-surface/60 border border-outline-variant font-body-md text-sm text-on-surface">Sincronizar ahora</button>
-          <Link to="/onboarding" className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-primary underline block text-center">Reconfigurar Coach / Ciclo</Link>
+      {/* ═══ MODALS ═══ */}
+      {showAddNotif && <AddNotifModal onAdd={addNotif} onClose={() => setShowAddNotif(false)} />}
+
+      {editTimeId && (
+        <TimePickerModal
+          value={notifCfgs.find(c => c.id === editTimeId)?.times[editTimeIdx] || '08:00'}
+          onChange={newTime => {
+            const cfg = notifCfgs.find(c => c.id === editTimeId)
+            if (cfg) updateTime(editTimeId, cfg.times[editTimeIdx], newTime)
+          }}
+          onClose={() => setEditTimeId(null)}
+        />
+      )}
+
+      {showLogout && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowLogout(false)}>
+          <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-xs p-5 space-y-4">
+            <h3 className="font-headline-lg text-base font-semibold text-on-surface text-center">¿Cerrar sesión?</h3>
+            <p className="text-sm text-on-surface-variant text-center">Tus datos locales se conservan.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowLogout(false)} className="flex-1 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
+              <button onClick={handleLogout} className="flex-1 py-2.5 rounded-lg bg-secondary text-on-secondary font-label-caps text-[10px] uppercase font-bold">Cerrar sesión</button>
+            </div>
+          </div>
         </div>
-      </details>
+      )}
+
+      {showDelete && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowDelete(false); setDeleteConfirm('') }}>
+          <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-red-900/50 rounded-2xl w-full max-w-xs p-5 space-y-4">
+            <h3 className="font-headline-lg text-base font-semibold text-red-400 text-center">Eliminar cuenta</h3>
+            <p className="text-sm text-on-surface-variant text-center">Esta acción eliminará tu cuenta y los datos asociados. No se puede deshacer.</p>
+            <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder='Escribí "ELIMINAR"'
+              className="w-full bg-surface-container-high/50 border border-red-900/50 rounded-xl p-3 font-body-md text-[15px] text-on-surface text-center" />
+            <div className="flex gap-2">
+              <button onClick={() => { setShowDelete(false); setDeleteConfirm('') }} className="flex-1 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
+              <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'ELIMINAR'} className="flex-1 py-2.5 rounded-lg bg-red-600 text-white font-label-caps text-[10px] uppercase font-bold disabled:opacity-30">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
