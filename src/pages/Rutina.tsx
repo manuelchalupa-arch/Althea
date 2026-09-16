@@ -5,6 +5,7 @@ import { DEFAULT_CYCLE, type CycleConfig } from '@/utils/cycle'
 import { v4 as uuid } from 'uuid'
 import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye, Sparkles, X, Check, RefreshCw } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
+import { IconDumbbell, IconFire, IconLightning, IconBody, IconTarget } from '@/components/brand/FitnessIcons'
 import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaSection } from '@/components/althea'
 import { generateRoutineWithAI, isRoutineAIAvailable, type GeneratedRoutine, type UserWants } from '@/services/ai/routineBuilderIA'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
@@ -783,11 +784,11 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
   const [injury,setInjury]=useState('')
 
   const goals = [
-    { id:'hipertrofia', label:'Hipertrofia', desc:'Más músculo y tamaño', icon:'💪' },
-    { id:'fuerza', label:'Fuerza', desc:'Más peso en compuestos', icon:'🏋️' },
-    { id:'perdida_grasa', label:'Pérdida de grasa', desc:'Definición y calorías', icon:'🔥' },
-    { id:'resistencia', label:'Resistencia', desc:'Más repeticiones y stamina', icon:'🏃' },
-    { id:'general', label:'General', desc:'Fitness整体 bienestar', icon:'⚡' },
+    { id:'hipertrofia', label:'Hipertrofia', desc:'Más músculo y tamaño', icon:<IconDumbbell className="w-5 h-5" /> },
+    { id:'fuerza', label:'Fuerza', desc:'Más peso en compuestos', icon:<IconFire className="w-5 h-5" /> },
+    { id:'perdida_grasa', label:'Pérdida de grasa', desc:'Definición y calorías', icon:<IconLightning className="w-5 h-5" /> },
+    { id:'resistencia', label:'Resistencia', desc:'Más repeticiones y stamina', icon:<IconBody className="w-5 h-5" /> },
+    { id:'general', label:'General', desc:'Fitness y bienestar', icon:<IconTarget className="w-5 h-5" /> },
   ]
   const focuses = [
     { id:'general', label:'General', desc:'Todos los grupos musculares' },
@@ -833,7 +834,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
             <div className="space-y-2">
               {goals.map(g=>(
                 <button key={g.id} onClick={()=>setGoal(g.id)} className={`w-full text-left rounded border p-3 flex items-center gap-3 transition-all ${goal===g.id ? 'bg-primary/20 border-primary' : 'bg-surface border-outline-variant hover:border-outline-variant'}`}>
-                  <span className="text-xl">{g.icon}</span>
+                  <span className="text-primary">{g.icon}</span>
                   <div>
                     <div className="font-body-md text-sm text-on-surface font-medium">{g.label}</div>
                     <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{g.desc}</div>

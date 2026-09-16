@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { ICONS, iconSrc } from './icons'
 
-// Icono por nombre semántico. Usa el SVG del usuario si existe en /assets;
-// si falta, usa el fallback Lucide y avisa en consola (placeholder de desarrollo §18).
-// Nunca inventa el diseño definitivo: el SVG del usuario siempre gana cuando existe.
+// Icono por nombre semático. Prioriza: SVG del usuario → custom fitness SVG → Lucide fallback.
 const warned = new Set<string>()
 
 export default function BrandIcon({
@@ -18,31 +16,45 @@ export default function BrandIcon({
   const [missing, setMissing] = useState(false)
   const def = (ICONS as Record<string, (typeof ICONS)[keyof typeof ICONS]>)[name]
   const src = iconSrc(name)
-  if (!def || !src || missing) {
-    const Fallback = def?.lucide
-    if (!def) return null
+
+  // Si hay icono custom fitness, usarlo directamente (SVG inline, siempre disponible)
+  if (def?.custom) {
+    const CustomIcon = def.custom
     return (
-      <span className={className} role="img" aria-label={label || def.label} data-icon-fallback={name}>
-        <Fallback size={size} strokeWidth={strokeWidth} aria-hidden />
+      <span className={className} role="img" aria-label={label || def.label} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: size, height: size }}>
+        <CustomIcon className="w-full h-full" />
       </span>
     )
   }
+
+  // Si hay SVG del usuario en /assets, intentar cargarlo
+  if (def && src && !missing) {
+    return (
+      <img
+        src={src}
+        alt=""
+        aria-label={label || def.label}
+        role="img"
+        width={size}
+        height={size}
+        className={className}
+        onError={() => {
+          if (!warned.has(name)) {
+            warned.add(name)
+            console.warn(`[ICONO PENDIENTE: ${def.group}/${def.file}] usando fallback temporal.`)
+          }
+          setMissing(true)
+        }}
+      />
+    )
+  }
+
+  // Fallback a Lucide
+  if (!def) return null
+  const Fallback = def.lucide
   return (
-    <img
-      src={src}
-      alt=""
-      aria-label={label || def.label}
-      role="img"
-      width={size}
-      height={size}
-      className={className}
-      onError={() => {
-        if (!warned.has(name)) {
-          warned.add(name)
-          console.warn(`[ICONO PENDIENTE: ${def.group}/${def.file}] usando fallback temporal.`)
-        }
-        setMissing(true)
-      }}
-    />
+    <span className={className} role="img" aria-label={label || def.label} data-icon-fallback={name}>
+      <Fallback size={size} strokeWidth={strokeWidth} aria-hidden />
+    </span>
   )
 }

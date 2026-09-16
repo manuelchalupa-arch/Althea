@@ -3,29 +3,11 @@ import { NavLink } from 'react-router-dom'
 import { NAV_ITEMS, MAS_GROUPS } from '@/components/brand/icons'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { Meander } from '@/components/brand/temple'
-import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 
 function applyNavWidth(collapsed: boolean) {
   try {
     document.documentElement.style.setProperty('--navw', collapsed ? 'var(--navw-collapsed)' : '208px')
   } catch { /* noop */ }
-}
-
-function LogoSlot({ size = 32 }: { size?: number }) {
-  const [ok, setOk] = useState(true)
-  if (ok) {
-    return (
-      <img
-        src="/assets/icons/navigation/logo.png"
-        alt="Althea"
-        width={size}
-        height={size}
-        className="object-contain"
-        onError={() => setOk(false)}
-      />
-    )
-  }
-  return <span className="temple-mark" aria-hidden="true">A</span>
 }
 
 export default function AppNav() {
@@ -50,7 +32,7 @@ export default function AppNav() {
         <div className="flex flex-col gap-6">
           {/* Brand Header */}
           <div className={`flex items-center gap-3 px-2 pb-4 mb-3 border-b border-outline-variant/20 ${collapsed ? 'justify-center' : ''}`}>
-            <LogoSlot size={32} />
+            <BrandIcon name="logo" size={32} />
             {!collapsed && (
               <div>
                 <h2 className="font-headline-md text-title-md font-semibold tracking-widest text-primary">ALTHEA</h2>
@@ -73,11 +55,7 @@ export default function AppNav() {
                   }`
                 }
               >
-                <img
-                  src={`/assets/icons/navigation/${icon}.png`}
-                  alt={label}
-                  className="w-6 h-6 object-contain inline-block drop-shadow-sm"
-                />
+                <BrandIcon name={icon} size={24} />
                 {!collapsed && <span className="font-label-md text-label-md tracking-wide">{label}</span>}
               </NavLink>
             ))}
@@ -97,11 +75,7 @@ export default function AppNav() {
                     }`
                   }
                 >
-                  <img
-                    src={`/assets/icons/more/${item.icon}.png`}
-                    alt={item.label}
-                    className="w-5 h-5 object-contain inline-block drop-shadow-sm"
-                  />
+                  <BrandIcon name={item.icon} size={20} />
                   <span>{item.label}</span>
                 </NavLink>
               ))}
@@ -115,7 +89,7 @@ export default function AppNav() {
             aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
             className="tpress w-full flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors font-medium"
           >
-            {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+            <BrandIcon name={collapsed ? 'expand' : 'collapse'} size={18} />
             {!collapsed && <span className="font-label-md text-label-md tracking-wide">Contraer</span>}
           </button>
         </div>
@@ -135,11 +109,7 @@ export default function AppNav() {
                 }`
               }
             >
-              <img
-                src={`/assets/icons/navigation/${icon}.png`}
-                alt={label}
-                className="w-6 h-6 object-contain inline-block drop-shadow-sm transition-transform duration-200 active:scale-90"
-              />
+              <BrandIcon name={icon} size={24} />
               <span className="text-[10px] tracking-wider mt-0.5 font-medium">{label}</span>
             </NavLink>
           ))}

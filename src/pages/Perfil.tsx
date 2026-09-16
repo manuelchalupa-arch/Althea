@@ -6,23 +6,24 @@ import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type Not
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import BrandIcon from '@/components/brand/BrandIcon'
+import { IconDumbbell, IconFire, IconBody, IconHeart, IconWater, IconUtensils, IconSleep, IconClipboard, IconLightning, IconTarget, IconUser, IconShield, IconChart } from '@/components/brand/FitnessIcons'
 
-const GOAL_MAP: Record<string, { label: string; icon: string; color: string }> = {
-  hypertrophy: { label: 'Hipertrofia', icon: '🏋️', color: 'bg-primary-container/30 border-primary/40 text-primary' },
-  strength: { label: 'Fuerza', icon: '💪', color: 'bg-secondary-container/30 border-secondary/40 text-secondary' },
-  fat_loss: { label: 'Pérdida de grasa', icon: '🔥', color: 'bg-orange-900/30 border-orange-500/40 text-orange-400' },
-  mobility: { label: 'Movilidad', icon: '🧘', color: 'bg-purple-900/30 border-purple-500/40 text-purple-400' },
-  general_health: { label: 'Salud general', icon: '❤️', color: 'bg-red-900/30 border-red-500/40 text-red-400' },
+const GOAL_MAP: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  hypertrophy: { label: 'Hipertrofia', icon: <IconDumbbell className="w-5 h-5" />, color: 'bg-primary-container/30 border-primary/40 text-primary' },
+  strength: { label: 'Fuerza', icon: <IconFire className="w-5 h-5" />, color: 'bg-secondary-container/30 border-secondary/40 text-secondary' },
+  fat_loss: { label: 'Pérdida de grasa', icon: <IconLightning className="w-5 h-5" />, color: 'bg-orange-900/30 border-orange-500/40 text-orange-400' },
+  mobility: { label: 'Movilidad', icon: <IconBody className="w-5 h-5" />, color: 'bg-purple-900/30 border-purple-500/40 text-purple-400' },
+  general_health: { label: 'Salud general', icon: <IconHeart className="w-5 h-5" />, color: 'bg-red-900/30 border-red-500/40 text-red-400' },
 }
 
-const NOTIF_TYPES: { kind: NotifKind | 'custom'; label: string; icon: string }[] = [
-  { kind: 'entrenamiento', label: 'Entrenamiento', icon: '💪' },
-  { kind: 'agua', label: 'Hidratación', icon: '💧' },
-  { kind: 'proteina', label: 'Nutrición', icon: '🥩' },
-  { kind: 'recuperacion', label: 'Recuperación', icon: '😴' },
-  { kind: 'cuestionario', label: 'Check-in', icon: '📋' },
-  { kind: 'comoEstas', label: '¿Cómo estás?', icon: '🫀' },
-  { kind: 'custom', label: 'Personalizada', icon: '✏️' },
+const NOTIF_TYPES: { kind: NotifKind | 'custom'; label: string; icon: React.ReactNode }[] = [
+  { kind: 'entrenamiento', label: 'Entrenamiento', icon: <IconDumbbell className="w-5 h-5" /> },
+  { kind: 'agua', label: 'Hidratación', icon: <IconWater className="w-5 h-5" /> },
+  { kind: 'proteina', label: 'Nutrición', icon: <IconUtensils className="w-5 h-5" /> },
+  { kind: 'recuperacion', label: 'Recuperación', icon: <IconSleep className="w-5 h-5" /> },
+  { kind: 'cuestionario', label: 'Check-in', icon: <IconClipboard className="w-5 h-5" /> },
+  { kind: 'comoEstas', label: '¿Cómo estás?', icon: <IconHeart className="w-5 h-5" /> },
+  { kind: 'custom', label: 'Personalizada', icon: <IconTarget className="w-5 h-5" /> },
 ]
 
 function getInitials(name: string) {
@@ -37,13 +38,13 @@ function imcCalc(weight: number, height: number) {
 }
 
 /* ─── Sección colapsable ─── */
-function Section({ title, icon, children, defaultOpen = false }: { title: string; icon?: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function Section({ title, icon, children, defaultOpen = false }: { title: string; icon?: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="rounded-xl bg-surface-container-low/80 backdrop-blur-sm border border-outline-variant/50 overflow-hidden">
       <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-4 hover:bg-surface-container-high/30 transition-colors">
         <div className="flex items-center gap-2.5">
-          {icon && <span className="text-lg">{icon}</span>}
+          {icon && <span className="text-primary">{icon}</span>}
           <span className="font-body-md text-[15px] text-on-surface font-medium">{title}</span>
         </div>
         <BrandIcon name={open ? 'expand_less' : 'expand_more'} size={20} />
@@ -123,7 +124,7 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
           {NOTIF_TYPES.map(t => (
             <button key={t.kind} onClick={() => setKind(t.kind)}
               className={`w-full flex items-center gap-3 p-3 rounded-xl border transition ${kind === t.kind ? 'bg-surface-container-high border-primary/50' : 'bg-surface-container/50 border-outline-variant/50 hover:border-outline-variant'}`}>
-              <span className="text-lg">{t.icon}</span>
+              <span className="text-primary">{t.icon}</span>
               <span className="font-body-md text-[15px] text-on-surface">{t.label}</span>
             </button>
           ))}
@@ -322,7 +323,7 @@ export default function Perfil() {
       </div>
 
       {/* ═══ DATOS PERSONALES ═══ */}
-      <Section title="Datos personales" icon="👤" defaultOpen={false}>
+      <Section title="Datos personales" icon={<IconUser className="w-5 h-5" />} defaultOpen={false}>
         {editing ? (
           <div className="space-y-3 pt-3">
             <div className="grid grid-cols-2 gap-2">
@@ -403,13 +404,13 @@ export default function Perfil() {
       </Section>
 
       {/* ═══ OBJETIVO ═══ */}
-      <Section title="Objetivo" icon="🎯">
+      <Section title="Objetivo" icon={<IconTarget className="w-5 h-5" />}>
         <div className="pt-3 space-y-2">
           <div className="grid grid-cols-1 gap-2">
             {Object.entries(GOAL_MAP).map(([key, g]) => (
               <button key={key} onClick={() => updateGoal(key)}
                 className={`flex items-center gap-3 p-3 rounded-xl border transition ${profile?.trainingGoal === key ? `${g.color} border-current` : 'bg-surface-container/50 border-outline-variant/50 hover:border-outline-variant'}`}>
-                <span className="text-lg">{g.icon}</span>
+                <span className="text-primary">{g.icon}</span>
                 <span className="font-body-md text-[15px]">{g.label}</span>
               </button>
             ))}
@@ -424,7 +425,7 @@ export default function Perfil() {
       </Section>
 
       {/* ═══ NOTIFICACIONES ═══ */}
-      <Section title="Notificaciones" icon="🔔">
+      <Section title="Notificaciones" icon={<IconLightning className="w-5 h-5" />}>
         <div className="pt-3 space-y-3">
           {notifPerm !== 'granted' && (
             <button onClick={async () => { const p = await requestPermission(); setNotifPerm(p) }}
@@ -485,7 +486,7 @@ export default function Perfil() {
       </Section>
 
       {/* ═══ PREFERENCIAS ═══ */}
-      <Section title="Preferencias" icon="⚙️">
+      <Section title="Preferencias" icon={<IconShield className="w-5 h-5" />}>
         <div className="pt-3 space-y-3">
           <div>
             <div className="font-label-caps text-[10px] uppercase text-outline tracking-wider mb-2">Apariencia</div>

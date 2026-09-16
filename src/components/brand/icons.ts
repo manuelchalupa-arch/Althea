@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Home, Dumbbell, Apple, TrendingUp, LayoutGrid, BookOpen, ClipboardList, Calendar,
   Moon, Brain, User, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight,
@@ -6,42 +7,51 @@ import {
   Globe, WifiOff, Box, Layers, Heart, History, Cpu, HardDrive, Droplets, Zap,
   type LucideIcon,
 } from 'lucide-react'
+import {
+  IconHome, IconDumbbell, IconApple, IconTrendingUp, IconMenu, IconBrain,
+  IconMoon, IconCalendar, IconBook, IconClipboard, IconUser, IconPlay,
+  IconPause, IconCheck, IconTimer, IconSearch, IconPlus, IconTrash,
+  IconChevronLeft, IconChevronRight, IconX, IconAlert, IconEye,
+  IconRefresh, IconSun, IconSparkles, IconUtensils, IconSleep,
+  IconBody, IconSwap, IconWeight, IconReps, IconFire, IconWater,
+  IconScale, IconHeart as IconHeartCustom, IconTarget, IconLightning,
+  IconChart, IconMedal, IconShield, IconClock, IconMacro,
+} from './FitnessIcons'
 
 // Fuente única de iconografía (§44: no duplicar). Cada entrada resuelve a un
-// SVG de usuario en /assets/icons/<grupo>/<archivo> (ver ICON_MANIFEST).
-// Hasta que el usuario los provea, BrandIcon usa el fallback Lucide.
-export interface BrandIconDef { name: string; file: string; group: 'navigation' | 'more' | 'actions' | 'modules'; label: string; lucide: LucideIcon }
+// SVG fitness-themed custom o fallback Lucide.
+export interface BrandIconDef { name: string; file: string; group: 'navigation' | 'more' | 'actions' | 'modules'; label: string; lucide: LucideIcon; custom?: React.FC<{ className?: string }> }
 
 export const ICONS: Record<string, BrandIconDef> = {
-  logo:        { name: 'logo',        file: 'logo.png',        group: 'navigation', label: 'Logo Althea',            lucide: Dumbbell },
-  home:        { name: 'home',        file: 'home.png',        group: 'navigation', label: 'Inicio',                 lucide: Home },
-  training:    { name: 'training',    file: 'training.png',    group: 'navigation', label: 'Entrenamiento',          lucide: Dumbbell },
-  nutrition:   { name: 'nutrition',   file: 'nutrition.png',   group: 'navigation', label: 'Nutrición',              lucide: Apple },
-  progress:    { name: 'progress',    file: 'progress.png',    group: 'navigation', label: 'Progreso',               lucide: TrendingUp },
-  more:        { name: 'more',        file: 'more.png',        group: 'navigation', label: 'Menú',                   lucide: LayoutGrid },
-  library:     { name: 'library',     file: 'library.svg',     group: 'more',       label: 'Biblioteca',             lucide: BookOpen },
-  routines:    { name: 'routines',    file: 'routines.png',    group: 'more',       label: 'Rutinas',                lucide: ClipboardList },
-  calendar:    { name: 'calendar',    file: 'calendar.svg',    group: 'more',       label: 'Calendario',             lucide: Calendar },
-  recovery:    { name: 'recovery',    file: 'recovery.png',    group: 'more',       label: 'Recuperación',           lucide: Moon },
-  coach:       { name: 'coach',       file: 'coach.png',       group: 'more',       label: 'Coach y objetivos',      lucide: Brain },
-  profile:     { name: 'profile',     file: 'profile.png',     group: 'more',       label: 'Perfil y configuración', lucide: User },
-  add:         { name: 'add',         file: 'add.png',         group: 'actions',    label: 'Agregar',                lucide: Plus },
-  confirm:     { name: 'confirm',     file: 'confirm.png',     group: 'actions',    label: 'Confirmar',              lucide: Check },
-  back:        { name: 'back',        file: 'back.svg',        group: 'actions',    label: 'Volver',                 lucide: ChevronLeft },
-  forward:     { name: 'forward',     file: 'forward.svg',     group: 'actions',    label: 'Avanzar',                lucide: ChevronRight },
+  logo:        { name: 'logo',        file: 'logo.png',        group: 'navigation', label: 'Logo Althea',            lucide: Dumbbell, custom: IconDumbbell },
+  home:        { name: 'home',        file: 'home.png',        group: 'navigation', label: 'Inicio',                 lucide: Home, custom: IconHome },
+  training:    { name: 'training',    file: 'training.png',    group: 'navigation', label: 'Entrenamiento',          lucide: Dumbbell, custom: IconDumbbell },
+  nutrition:   { name: 'nutrition',   file: 'nutrition.png',   group: 'navigation', label: 'Nutrición',              lucide: Apple, custom: IconApple },
+  progress:    { name: 'progress',    file: 'progress.png',    group: 'navigation', label: 'Progreso',               lucide: TrendingUp, custom: IconTrendingUp },
+  more:        { name: 'more',        file: 'more.png',        group: 'navigation', label: 'Menú',                   lucide: LayoutGrid, custom: IconMenu },
+  library:     { name: 'library',     file: 'library.svg',     group: 'more',       label: 'Biblioteca',             lucide: BookOpen, custom: IconBook },
+  routines:    { name: 'routines',    file: 'routines.png',    group: 'more',       label: 'Rutinas',                lucide: ClipboardList, custom: IconClipboard },
+  calendar:    { name: 'calendar',    file: 'calendar.svg',    group: 'more',       label: 'Calendario',             lucide: Calendar, custom: IconCalendar },
+  recovery:    { name: 'recovery',    file: 'recovery.png',    group: 'more',       label: 'Recuperación',           lucide: Moon, custom: IconMoon },
+  coach:       { name: 'coach',       file: 'coach.png',       group: 'more',       label: 'Coach y objetivos',      lucide: Brain, custom: IconBrain },
+  profile:     { name: 'profile',     file: 'profile.png',     group: 'more',       label: 'Perfil y configuración', lucide: User, custom: IconUser },
+  add:         { name: 'add',         file: 'add.png',         group: 'actions',    label: 'Agregar',                lucide: Plus, custom: IconPlus },
+  confirm:     { name: 'confirm',     file: 'confirm.png',     group: 'actions',    label: 'Confirmar',              lucide: Check, custom: IconCheck },
+  back:        { name: 'back',        file: 'back.svg',        group: 'actions',    label: 'Volver',                 lucide: ChevronLeft, custom: IconChevronLeft },
+  forward:     { name: 'forward',     file: 'forward.svg',     group: 'actions',    label: 'Avanzar',                lucide: ChevronRight, custom: IconChevronRight },
   collapse:    { name: 'collapse',    file: 'collapse.svg',    group: 'actions',    label: 'Contraer',               lucide: ChevronsLeft },
   expand:      { name: 'expand',      file: 'expand.svg',      group: 'actions',    label: 'Expandir',               lucide: ChevronsRight },
-  search:      { name: 'search',      file: 'search.svg',      group: 'actions',    label: 'Buscar',                 lucide: Search },
-  view:        { name: 'view',        file: 'view.svg',        group: 'actions',    label: 'Ver',                    lucide: Eye },
-  play:        { name: 'play',        file: 'play.svg',        group: 'actions',    label: 'Iniciar',                lucide: Play },
-  pause:       { name: 'pause',       file: 'pause.svg',       group: 'actions',    label: 'Pausar',                 lucide: Pause },
-  clock:       { name: 'clock',       file: 'clock.svg',       group: 'actions',    label: 'Reloj / descanso',       lucide: Clock },
-  rotate:      { name: 'rotate',      file: 'rotate.svg',      group: 'actions',    label: 'Rotar / cambiar',        lucide: RotateCcw },
-  close:       { name: 'close',       file: 'close.svg',       group: 'actions',    label: 'Cerrar',                 lucide: XCircle },
-  closeplain:  { name: 'closeplain',  file: 'closeplain.svg',  group: 'actions',    label: 'Cerrar simple',          lucide: X },
+  search:      { name: 'search',      file: 'search.svg',      group: 'actions',    label: 'Buscar',                 lucide: Search, custom: IconSearch },
+  view:        { name: 'view',        file: 'view.svg',        group: 'actions',    label: 'Ver',                    lucide: Eye, custom: IconEye },
+  play:        { name: 'play',        file: 'play.svg',        group: 'actions',    label: 'Iniciar',                lucide: Play, custom: IconPlay },
+  pause:       { name: 'pause',       file: 'pause.svg',       group: 'actions',    label: 'Pausar',                 lucide: Pause, custom: IconPause },
+  clock:       { name: 'clock',       file: 'clock.svg',       group: 'actions',    label: 'Reloj / descanso',       lucide: Clock, custom: IconClock },
+  rotate:      { name: 'rotate',      file: 'rotate.svg',      group: 'actions',    label: 'Rotar / cambiar',        lucide: RotateCcw, custom: IconRefresh },
+  close:       { name: 'close',       file: 'close.svg',       group: 'actions',    label: 'Cerrar',                 lucide: XCircle, custom: IconX },
+  closeplain:  { name: 'closeplain',  file: 'closeplain.svg',  group: 'actions',    label: 'Cerrar simple',          lucide: X, custom: IconX },
   download:    { name: 'download',    file: 'download.svg',    group: 'actions',    label: 'Descargar',              lucide: Download },
   info:        { name: 'info',        file: 'info.svg',        group: 'actions',    label: 'Información',            lucide: Info },
-  alert:       { name: 'alert',       file: 'alert.svg',       group: 'actions',    label: 'Alerta',                 lucide: AlertTriangle },
+  alert:       { name: 'alert',       file: 'alert.svg',       group: 'actions',    label: 'Alerta',                 lucide: AlertTriangle, custom: IconAlert },
   copy:        { name: 'copy',        file: 'copy.svg',        group: 'actions',    label: 'Copiar',                 lucide: Copy },
   code:        { name: 'code',        file: 'code.svg',        group: 'actions',    label: 'Código',                 lucide: Code2 },
   camera:      { name: 'camera',      file: 'camera.svg',      group: 'actions',    label: 'Cámara',                 lucide: Camera },
@@ -51,12 +61,34 @@ export const ICONS: Record<string, BrandIconDef> = {
   offline:     { name: 'offline',     file: 'offline.svg',     group: 'actions',    label: 'Sin conexión',           lucide: WifiOff },
   box:         { name: 'box',         file: 'box.svg',         group: 'actions',    label: 'Categoría',              lucide: Box },
   layers:      { name: 'layers',      file: 'layers.svg',      group: 'actions',    label: 'Partes / capas',         lucide: Layers },
-  heart:       { name: 'heart',       file: 'heart.svg',       group: 'actions',    label: 'Músculo / favorito',     lucide: Heart },
+  heart:       { name: 'heart',       file: 'heart.svg',       group: 'actions',    label: 'Músculo / favorito',     lucide: Heart, custom: IconHeartCustom },
   history:     { name: 'history',     file: 'history.svg',     group: 'actions',    label: 'Historial',              lucide: History },
   cpu:         { name: 'cpu',         file: 'cpu.svg',         group: 'actions',    label: 'IA / modelo',            lucide: Cpu },
   drive:       { name: 'drive',       file: 'drive.svg',       group: 'actions',    label: 'Almacenamiento',         lucide: HardDrive },
-  droplets:    { name: 'droplets',    file: 'droplets.svg',    group: 'actions',    label: 'Hidratación',            lucide: Droplets },
-  energy:      { name: 'energy',      file: 'energy.svg',      group: 'actions',    label: 'Energía',                lucide: Zap },
+  droplets:    { name: 'droplets',    file: 'droplets.svg',    group: 'actions',    label: 'Hidratación',            lucide: Droplets, custom: IconWater },
+  energy:      { name: 'energy',      file: 'energy.svg',      group: 'actions',    label: 'Energía',                lucide: Zap, custom: IconLightning },
+}
+
+// Extra fitness-specific icons not in the main registry
+export const FITNESS_ICONS = {
+  fire: IconFire,
+  water: IconWater,
+  scale: IconScale,
+  target: IconTarget,
+  lightning: IconLightning,
+  chart: IconChart,
+  medal: IconMedal,
+  shield: IconShield,
+  timer: IconTimer,
+  sleep: IconSleep,
+  body: IconBody,
+  swap: IconSwap,
+  weight: IconWeight,
+  reps: IconReps,
+  sparkles: IconSparkles,
+  utensils: IconUtensils,
+  sun: IconSun,
+  macro: IconMacro,
 }
 
 export interface NavItem { to: string; label: string; icon: keyof typeof ICONS; priority?: boolean }
