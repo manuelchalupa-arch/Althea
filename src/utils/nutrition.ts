@@ -34,8 +34,8 @@ export function calcTDEE(tmb:number | null, activity: ActivityLevel, trainingDay
 export function calorieGoal(tdee:number | null, goalPrimary?:string){
   if(!tdee) return null
   const g = (goalPrimary||'').toLowerCase()
-  if(g.includes('grasa') || g.includes('perder') || g.includes('bajar')) return Math.round(tdee * 0.85) // -15% déficit moderado
-  if(g.includes('masa') || g.includes('ganar')) return Math.round(tdee * 1.10) // +10% superávit moderado
+  if(g.includes('fat_loss') || g.includes('grasa') || g.includes('perder') || g.includes('bajar')) return Math.round(tdee * 0.85) // -15% déficit moderado
+  if(g.includes('hypertrophy') || g.includes('masa') || g.includes('ganar') || g.includes('strength') || g.includes('fuerza')) return Math.round(tdee * 1.10) // +10% superávit moderado
   return tdee // mantenimiento
 }
 
@@ -43,8 +43,8 @@ export function proteinRange(weightKg:number, goalPrimary?:string){
   if(!weightKg) return null
   const g = (goalPrimary||'').toLowerCase()
   let low=1.6, high=2.2
-  if(g.includes('fuerza')) { low=1.8; high=2.2 }
-  else if(g.includes('grasa')) { low=1.8; high=2.4 }
-  else if(g.includes('masa')) { low=1.8; high=2.2 }
+  if(g.includes('strength') || g.includes('fuerza')) { low=1.8; high=2.2 }
+  else if(g.includes('fat_loss') || g.includes('grasa')) { low=1.8; high=2.4 }
+  else if(g.includes('hypertrophy') || g.includes('masa')) { low=1.8; high=2.2 }
   return { low: Math.round(weightKg*low), high: Math.round(weightKg*high), text: `${Math.round(weightKg*low)}–${Math.round(weightKg*high)} g/día` }
 }

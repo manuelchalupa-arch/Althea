@@ -55,15 +55,23 @@ describe('identidad estable de serie (§18, §38)', () => {
 })
 
 describe('encuesta post-entrenamiento (§15)', () => {
-  const ok = { energy: 5, fatigue: 5, pain: 0, mood: 5, motivation: 5, perceivedExertion: 5, stress: 5 }
+  const ok = { sessionRating: 3, pain: 0 }
   it('acepta encuesta válida', () => { expect(validateSurvey(ok)).toEqual([]) })
-  it('rechaza rangos fuera de límite', () => {
-    expect(validateSurvey({ ...ok, energy: 11 })).toContain('energy 1–10')
-    expect(validateSurvey({ ...ok, pain: -1 })).toContain('pain 0–10')
+  it('acepta sessionRating 1–5', () => {
+    expect(validateSurvey({ sessionRating: 1, pain: 0 })).toEqual([])
+    expect(validateSurvey({ sessionRating: 5, pain: 0 })).toEqual([])
   })
-  it('exige zona si pain>3', () => {
-    expect(validateSurvey({ ...ok, pain: 7 })).toContain('painArea u observación requerida si pain>3')
-    expect(validateSurvey({ ...ok, pain: 7, painArea: 'hombro' })).toEqual([])
+  it('rechaza sessionRating fuera de rango', () => {
+    expect(validateSurvey({ sessionRating: 0, pain: 0 })).toContain('sessionRating 1–5')
+    expect(validateSurvey({ sessionRating: 6, pain: 0 })).toContain('sessionRating 1–5')
+  })
+  it('rechaza pain que no es 0 o 1', () => {
+    expect(validateSurvey({ sessionRating: 3, pain: 2 })).toContain('pain 0 o 1')
+    expect(validateSurvey({ sessionRating: 3, pain: -1 })).toContain('pain 0 o 1')
+  })
+  it('exige painZone si pain=1', () => {
+    expect(validateSurvey({ sessionRating: 3, pain: 1 })).toContain('painZone requerido si hay dolor')
+    expect(validateSurvey({ sessionRating: 3, pain: 1, painZone: 'hombro' })).toEqual([])
   })
 })
 

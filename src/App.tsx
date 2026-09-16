@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import AppNav from '@/components/layout/AppNav'
+import ChatWidget from '@/components/chat/ChatWidget'
 import { AppHeader, TempleBackdrop } from '@/components/brand/temple'
+import { BackgroundSlider } from '@/components/brand/BackgroundSlider'
 import Inicio from '@/pages/Inicio'
 import Entrenar from '@/pages/Entrenar'
 import Progresos from '@/pages/Progreso'
@@ -91,9 +93,10 @@ function Layout(){
   }
   return (
     <>
+      <BackgroundSlider />
       <TempleBackdrop />
       {!hideNav && <AppHeader />}
-      <div className="md:pl-[var(--navw)]">
+      <div className="md:ml-[208px] relative z-10">
       <Routes>
         <Route path="/login" element={<Login onDone={()=> navigate('/', { replace: true })} />} />
         <Route path="/" element={<Inicio/>} />
@@ -113,6 +116,7 @@ function Layout(){
       </Routes>
       </div>
       {!hideNav && <AppNav/>}
+      {!hideNav && <ChatWidget/>}
       {updateReady && <div className="fixed top-2 left-2 right-2 bg-amber-500 text-black text-sm p-3 rounded-xl text-center">Nueva versión disponible — recargá la app</div>}
       <OnlineBanner/>
     </>

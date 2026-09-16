@@ -1,463 +1,763 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import * as Codulia from '@/services/codulia'
-import { Search, Barcode, Copy, Code2, Apple, Camera, Info, ExternalLink } from 'lucide-react'
-import BrandIcon from '@/components/brand/BrandIcon'
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import { db } from '@/services/storage/db'
 import { calcIMC, calcTMB, calcTDEE, calorieGoal, proteinRange } from '@/utils/nutrition'
+import { getNutritionMethod } from '@/services/ai/nutritionMethodsDB'
+import { checkNutritionSafety, type NutritionSafetyAlert } from '@/services/ai/nutritionSafety'
+import { recordAdherence, calculateAutomaticAdherence, getAdherenceTrend, type AdherenceRecord } from '@/services/ai/adherenceTracker'
+import { Search, Plus, Droplets, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, Minus, Target, Utensils, X } from 'lucide-react'
+import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts'
+import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaKPICard, AltheaProgress, AltheaButton, AltheaSection } from '@/components/althea'
 
-export default function Nutricion(){
-  const [q,setQ]=useState('')
-  const [barcode,setBarcode]=useState('')
-  const [results,setResults]=useState<Codulia.CoduliaFoodSummary[]>([])
-  const [detail,setDetail]=useState<Codulia.CoduliaFoodDetail|null>(null)
-  const [loading,setLoading]=useState(false)
-  const [err,setErr]=useState<string|null>(null)
-  const [showCode,setShowCode]=useState(false)
+type MealType = 'desayuno' | 'almuerzo' | 'merienda' | 'cena' | 'snack'
+const MEAL_LABELS: Record<MealType, string> = { desayuno: 'Desayuno', almuerzo: 'Almuerzo', merienda: 'Merienda', cena: 'Cena', snack: 'Snack' }
+const MEAL_ICONS: Record<MealType, string> = { desayuno: 'wb_twilight', almuerzo: 'wb_sunny', merienda: 'sports_martial_arts', cena: 'bedtime', snack: 'restaurant_menu' }
+const MEAL_TIME_LABELS: Record<MealType, string> = { desayuno: '07:30 AM', almuerzo: '01:30 PM', merienda: '05:00 PM', cena: '09:00 PM', snack: '—' }
+const MEAL_SUBTITLES: Record<MealType, string> = {
+  desayuno: 'Apertura anabólica matutina · Fibra lenta e ignición proteica',
+  almuerzo: 'Recarga glucogénica mayor y aminoácidos de roca',
+  merienda: 'Disponibilidad rápida de glucógeno y óxido nítrico',
+  cena: 'Regeneración nocturna miofibrilar · Caseína & Omega-3',
+  snack: 'Snack complementario',
+}
 
-  const doSearch = async ()=>{
-    setErr(null); setDetail(null); setLoading(true)
-    try{
-      const r = await Codulia.searchFoods(q, { limit: 20 })
-      setResults(r)
-      if(r.length===0) setErr('Sin resultados para "'+q+'". Probá sin acentos o con nombre de marca (ej: "yogur La Serenísima").')
-    }catch(e:any){ setErr(e.message) }
-    finally{ setLoading(false) }
-  }
+interface DiaryEntry {
+  id: string
+  name: string
+  mealType: MealType
+  servingLabel: string
+  amount: number
+  unit: string
+  macros: { calories: number; proteins: number; carbs: number; fats: number }
+  addedAt: string
+}
 
-  const doBarcode = async ()=>{
-    setErr(null); setDetail(null); setLoading(true)
-    try{
-      const d = await Codulia.getByBarcode(barcode)
-      setDetail(d)
-      setResults([])
-    }catch(e:any){ setErr(e.message + ' — Verificá que sea un EAN-13 de góndola argentina (ej: 7791337603615).') }
-    finally{ setLoading(false) }
-  }
+interface NutritionGoals {
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
 
-  const openDetail = async (id:string)=>{
-    setErr(null); setLoading(true)
-    try{
-      const d = await Codulia.getFoodDetail(id)
-      setDetail(d)
-      window.scrollTo({ top:0, behavior:'smooth' })
-    }catch(e:any){ setErr(e.message) }
-    finally{ setLoading(false) }
-  }
+export default function Nutricion() {
+  const [perfil, setPerfil] = useState<any>(null)
+  const [pesoEvo, setPesoEvo] = useState<any[]>([])
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
+  const [activeMealType, setActiveMealType] = useState<MealType>('desayuno')
+  const [showSearch, setShowSearch] = useState(false)
+  const [showBarcode, setShowBarcode] = useState(false)
+  const [safetyAlerts, setSafetyAlerts] = useState<NutritionSafetyAlert[]>([])
+  const [hydrationToday, setHydrationToday] = useState(0)
+  const [adherenceRecord, setAdherenceRecord] = useState<AdherenceRecord | null>(null)
+  const [showAddHydration, setShowAddHydration] = useState(false)
+  const [hydrationAmount, setHydrationAmount] = useState(250)
+  const [goals, setGoals] = useState<NutritionGoals>({ calories: 2200, protein: 150, carbs: 250, fat: 70 })
+  const [showFoodSearch, setShowFoodSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<Codulia.CoduliaFoodSummary[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [selectedFood, setSelectedFood] = useState<Codulia.CoduliaFoodDetail | null>(null)
+  const [foodDetailLoading, setFoodDetailLoading] = useState(false)
+  const [showAddPortion, setShowAddPortion] = useState(false)
+  const [selectedServing, setSelectedServing] = useState<number>(0)
+  const [customAmount, setCustomAmount] = useState<string>('')
+  const [todayTraining, setTodayTraining] = useState<{ name: string; exercises: string[] } | null>(null)
 
-  const per100 = detail?.macros
-  const firstServing = detail?.servings?.[0]
+  useEffect(() => { loadData() }, [])
 
-  // Resumen Nutrición personalizada
-  const [perfil,setPerfil]=useState<any>(null)
-  const [pesoEvo,setPesoEvo]=useState<any[]>([])
-  useEffect(()=>{
-    import('@/services/storage/db').then(({db})=>{
-      db.userProfile.get('me').then(p=> setPerfil(p))
-      db.table('bodyMeasurements').toArray().then(arr=>{
-        const sorted=(arr as any[]).sort((a,b)=> a.localDate.localeCompare(b.localDate)).slice(-10)
-        setPesoEvo(sorted)
-      }).catch(()=>{})
-    })
-  },[])
-  // Calendario nutricional IA
-  const [objetivo,setObjetivo]=useState<'aumento'|'perdida'|'mantenimiento'>(()=> (localStorage.getItem('nutri:objetivo') as any) || 'mantenimiento')
-  const [calendario,setCalendario]=useState<any[]|null>(()=>{ try{ return JSON.parse(localStorage.getItem('nutri:calendario')||'null')}catch{return null}})
-  const [genLoading,setGenLoading]=useState(false)
-  const generarCalendario = async ()=>{
-    setGenLoading(true)
-    try{
-      localStorage.setItem('nutri:objetivo', objetivo)
-      // Intenta IA local, fallback determinístico
-      let iaText = ''
-      try{
-        const { aiService } = await import('@/services/ai/aiService')
-        const { buildTrainingContext } = await import('@/services/ai/contextBuilder')
-        const ctx:any = await buildTrainingContext()
-        ctx.nutricion = { objetivo, proteinas7d: 'pendiente' }
-        const rec:any = await aiService.generateRecommendation({ ...ctx, objetivo, nutricion:{ objetivo } } as any).catch(()=>null)
-        if(rec?.reason) iaText = rec.reason
-      }catch{}
-      // Generación determinística por objetivo (cálculos, no IA)
-      const templates:any = {
-        aumento: { kcal: 2850, p:165, c:360, g:92, desayuno:'Avena 80g + leche 250ml + banana + whey 30g', almuerzo:'Arroz 120g + pollo 200g + aceite oliva 10ml + ensalada', merienda:'Pan integral 80g + queso 40g + huevo 2u', cena:'Pasta 100g + carne magra 180g + verduras' },
-        perdida: { kcal: 1850, p:145, c:175, g:58, desayuno:'Yogur descremado 200g + avena 30g + fruta', almuerzo:'Pechuga 150g + quinoa 60g + verduras', merienda:'Tostada integral 30g + palta 30g', cena:'Pescado 150g + ensalada + papa 100g' },
-        mantenimiento: { kcal: 2250, p:145, c:260, g:72, desayuno:'Avena 50g + leche 200ml + fruta + huevo', almuerzo:'Arroz 80g + pollo 150g + verduras', merienda:'Yogur 150g + granola 20g', cena:'Carne 150g + batata 150g + ensalada' }
-      }
-      const base = templates[objetivo]
-      const dias = Array.from({length:7}).map((_,i)=>{
-        const fecha = new Date(); fecha.setDate(fecha.getDate()+i)
-        const iso = fecha.toISOString().slice(0,10)
-        const factor = 0.95 + Math.random()*0.1
-        return {
-          fecha: iso,
-          dia: fecha.toLocaleDateString('es',{weekday:'short', day:'numeric', month:'short'}),
-          desayuno: base.desayuno,
-          almuerzo: base.almuerzo,
-          merienda: base.merienda,
-          cena: base.cena,
-          total: { kcal: Math.round(base.kcal*factor), p: Math.round(base.p*factor), c: Math.round(base.c*factor), g: Math.round(base.g*factor) },
-          ia: iaText ? iaText.slice(0,120) : (objetivo==='aumento'?'Prioriza proteína y calorías de calidad' : objetivo==='perdida'?'Déficit moderado, alta saciedad':'Equilibrio y porciones controladas')
+  const loadData = async () => {
+    try {
+      const p = await db.userProfile.get('me') as any
+      setPerfil(p)
+      const bodies: any[] = await db.table('bodyMeasurements').toArray().catch(() => [])
+      const sorted = bodies.sort((a: any, b: any) => a.localDate.localeCompare(b.localDate)).slice(-30)
+      setPesoEvo(sorted)
+      const today = new Date().toISOString().slice(0, 10)
+      const diaryData: DiaryEntry[] = JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`) || '[]')
+      setDiaryEntries(diaryData)
+      const hydLogs: any[] = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(() => [])
+      const totalHyd = hydLogs.reduce((a: number, b: any) => a + Number(b.amountMl || 0), 0)
+      setHydrationToday(totalHyd)
+      if (p) {
+        const w = p.weightKg, h = p.heightCm, age = p.age, sex = p.sex
+        const act = p.activityLevel || 'moderado'
+        if (w && h) {
+          const tmb = calcTMB(w, h, age, sex)
+          const tdee = calcTDEE(tmb, act, p.schedule?.availableDays?.length || 3)
+          const calGoal = calorieGoal(tdee, p.goalPrimary) || tdee || 2200
+          const prot = proteinRange(w, p.goalPrimary)
+          const protGoal = prot?.low || Math.round(w * 1.8)
+          const fatGoal = Math.round(calGoal * 0.25 / 9)
+          const carbGoal = Math.round((calGoal - protGoal * 4 - fatGoal * 9) / 4)
+          setGoals({ calories: calGoal, protein: protGoal, carbs: carbGoal, fat: fatGoal })
         }
-      })
-      setCalendario(dias); localStorage.setItem('nutri:calendario', JSON.stringify(dias))
-    }finally{ setGenLoading(false) }
+        const activeMethod = p.activeNutritionMethod
+        if (activeMethod) {
+          const safetyResult = checkNutritionSafety({
+            trainingGoal: p.trainingGoal || 'health',
+            experienceLevel: p.experienceLevel || 'beginner',
+            weightKg: p.weightKg,
+            healthConditions: p.healthConditions || [],
+            nutritionPrefs: p.nutritionPrefs || {},
+            age: p.age,
+          }, activeMethod)
+          setSafetyAlerts(safetyResult.alerts.filter(a => a.severity !== 'info'))
+        }
+        const trend = getAdherenceTrend(activeMethod || 'mediterranean')
+        const todayRecord = trend.records.find(r => r.date === today)
+        setAdherenceRecord(todayRecord || null)
+      }
+      const cycle = p?.cycle
+      if (cycle?.trainingDays) {
+        const dow = new Date().getDay()
+        const todayName = cycle.trainingDays.find((d: any) => d.n === dow)
+        if (todayName) setTodayTraining({ name: todayName.name, exercises: [] })
+      }
+    } catch { /* noop */ }
   }
+
+  const today = new Date().toISOString().slice(0, 10)
+  const mealEntries = (mealType: MealType) => diaryEntries.filter(e => e.mealType === mealType)
+  const dayTotals = diaryEntries.reduce((acc, e) => ({
+    calories: acc.calories + e.macros.calories,
+    protein: acc.protein + e.macros.proteins,
+    carbs: acc.carbs + e.macros.carbs,
+    fat: acc.fat + e.macros.fats,
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0 })
+
+  const calPct = Math.min(100, (dayTotals.calories / goals.calories) * 100)
+  const protPct = Math.min(100, (dayTotals.protein / goals.protein) * 100)
+  const carbPct = Math.min(100, (dayTotals.carbs / goals.carbs) * 100)
+  const fatPct = Math.min(100, (dayTotals.fat / goals.fat) * 100)
+
+  const addFoodToDiary = (food: Codulia.CoduliaFoodDetail, servingIdx: number, amount?: number) => {
+    const serving = food.servings[servingIdx]
+    const factor = amount ? amount / 100 : serving.amount / 100
+    const entry: DiaryEntry = {
+      id: `food-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: food.name,
+      mealType: activeMealType,
+      servingLabel: serving?.label || `Porción personalizada`,
+      amount: amount || serving?.amount || 100,
+      unit: food.baseUnit,
+      macros: {
+        calories: Math.round(food.macros.calories * factor),
+        proteins: Math.round(food.macros.proteins * factor * 10) / 10,
+        carbs: Math.round(food.macros.carbs * factor * 10) / 10,
+        fats: Math.round(food.macros.fats * factor * 10) / 10,
+      },
+      addedAt: new Date().toISOString(),
+    }
+    const updated = [...diaryEntries, entry]
+    setDiaryEntries(updated)
+    localStorage.setItem(`nutri:diario_v2:${today}`, JSON.stringify(updated))
+    setShowAddPortion(false); setSelectedFood(null); setShowFoodSearch(false)
+  }
+
+  const removeEntry = (id: string) => {
+    const updated = diaryEntries.filter(e => e.id !== id)
+    setDiaryEntries(updated)
+    localStorage.setItem(`nutri:diario_v2:${today}`, JSON.stringify(updated))
+  }
+
+  const addHydration = async (ml: number) => {
+    const { v4: uuid } = await import('uuid')
+    await db.hydrationLogs.put({ id: uuid(), localDate: today, amountMl: ml, time: new Date().toISOString() } as any)
+    setHydrationToday(prev => prev + ml)
+    setShowAddHydration(false)
+  }
+
+  const recordDailyAdherence = (score: number) => {
+    if (!perfil?.activeNutritionMethod) return
+    const record = recordAdherence({
+      methodId: perfil.activeNutritionMethod, score,
+      mealsLogged: diaryEntries.length, mealsExpected: 4,
+      calorieAdherence: Math.min(100, (dayTotals.calories / goals.calories) * 100),
+      proteinAdherence: Math.min(100, (dayTotals.protein / goals.protein) * 100),
+    })
+    setAdherenceRecord(record)
+  }
+
+  const doSearch = async () => {
+    if (!searchQuery.trim()) return
+    setSearchError(null); setSearchLoading(true); setSearchResults([]); setSelectedFood(null)
+    try {
+      const r = await Codulia.searchFoods(searchQuery, { limit: 20 })
+      setSearchResults(r)
+      if (r.length === 0) setSearchError('Sin resultados para "' + searchQuery + '"')
+    } catch (e: any) { setSearchError(e.message) }
+    finally { setSearchLoading(false) }
+  }
+
+  const openFoodDetail = async (id: string) => {
+    setSearchError(null); setFoodDetailLoading(true)
+    try {
+      const d = await Codulia.getFoodDetail(id)
+      setSelectedFood(d); setShowAddPortion(true)
+    } catch (e: any) { setSearchError(e.message) }
+    finally { setFoodDetailLoading(false) }
+  }
+
+  const activeMethod = perfil?.activeNutritionMethod ? getNutritionMethod(perfil.activeNutritionMethod) : null
+  const hydrationGoal = perfil?.hydrationGoalMl || 3500
+  const hydrationPct = Math.min(100, (hydrationToday / hydrationGoal) * 100)
+  const weightData = pesoEvo.map(m => ({ date: m.localDate.slice(5), weight: m.weightKg })).filter(d => d.weight)
+  const imcResult = perfil?.weightKg && perfil?.heightCm ? calcIMC(perfil.weightKg, perfil.heightCm) : null
+  const tmbVal = perfil?.weightKg && perfil?.heightCm ? calcTMB(perfil.weightKg, perfil.heightCm, perfil.age, perfil.sex) : null
+  const tdeeVal = tmbVal ? calcTDEE(tmbVal, perfil?.activityLevel || 'moderado', perfil?.schedule?.availableDays?.length || 3) : null
+  const remainingCalories = Math.max(0, goals.calories - dayTotals.calories)
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-section flex items-center gap-2"><Apple size={20} className="text-action"/> Nutrición</h1>
-        <a href="https://codulia.com" target="_blank" rel="noreferrer" className="text-aux text-info flex items-center gap-1">Codulia <ExternalLink size={12}/></a>
-      </div>
-      <p className="text-aux text-textMuted">Calendario nutricional con IA + alimentos argentinos Codulia.</p>
-
-      {/* Resumen personalizado */}
-      {(()=>{
-        const w = perfil?.weightKg, h = perfil?.heightCm, age = perfil?.age, sex = perfil?.sex, act = perfil?.activityLevel || 'moderado'
-        const goal = perfil?.goalPrimary || objetivo
-        if(!w || !h) return (
-          <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-3 text-aux">
-            Necesito peso y altura para estimar IMC y calorías. Completalos en Perfil.
-          </div>
-        )
-        const imc = calcIMC(w,h)
-        const tmb = calcTMB(w,h,age,sex)
-        const tdee = calcTDEE(tmb, act, 4)
-        const calGoal = calorieGoal(tdee, goal)
-        const prot = proteinRange(w, goal)
-        const evoInicial = pesoEvo[0]?.weightKg, evoActual = pesoEvo[pesoEvo.length-1]?.weightKg
-        const cambio = (evoInicial && evoActual) ? (evoActual - evoInicial).toFixed(1) : null
-        return (
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-surface border border-border p-3"><div className="text-aux">Peso actual</div><div className="text-subtitle">{w} kg</div><div className="text-aux text-textMuted">Objetivo {(perfil as any)?.targetWeightKg ? `${(perfil as any).targetWeightKg} kg` : '—'}</div></div>
-            <div className="rounded-xl bg-surface border border-border p-3"><div className="text-aux">IMC · {imc.bmiCat}</div><div className="text-subtitle">{imc.bmi}</div><div className="text-aux text-textMuted">El IMC es orientativo</div></div>
-            <div className="rounded-xl bg-surface border border-border p-3"><div className="text-aux">Mantenimiento estimado</div><div className="text-subtitle">{tdee ? `≈ ${tdee} kcal` : '—'}</div><div className="text-aux text-textMuted">TMB {tmb} × actividad {act}</div></div>
-            <div className="rounded-xl bg-surface border border-border p-3"><div className="text-aux">Objetivo calórico</div><div className="text-subtitle">{calGoal ? `≈ ${calGoal} kcal` : '—'}</div><div className="text-aux text-textMuted">{goal}</div></div>
-            <div className="rounded-xl bg-surface border border-border p-3 col-span-2"><div className="text-aux">Proteínas objetivo</div><div className="text-subtitle">{prot ? prot.text : '—'}</div><div className="text-aux text-textMuted">Rango orientativo, se recalcula al cambiar peso</div></div>
-            {pesoEvo.length>1 && <div className="rounded-xl bg-surface border border-border p-3 col-span-2"><div className="text-aux">Evolución</div><div className="text-body">{evoInicial} kg → {evoActual} kg · {Number(cambio)>=0?'+':''}{cambio} kg → objetivo {(perfil as any)?.targetWeightKg || '—'} kg</div></div>}
-          </div>
-        )
-      })()}
-
-      {/* Calendario nutricional */}
-      <div className="rounded-xl bg-accentDark border border-border p-4 space-y-3">
-        <div className="text-aux tracking-widest text-info">CALENDARIO NUTRICIONAL CON IA</div>
-        <div className="text-aux">Objetivo</div>
-        <div className="flex gap-1">
-          {(['aumento','perdida','mantenimiento'] as const).map(o=>(
-            <button key={o} onClick={()=>setObjetivo(o)} className={`flex-1 py-2 rounded-xl text-aux border ${objetivo===o?'bg-action text-textMain border-action':'bg-surface border-border text-textMuted'}`}>{o==='aumento'?'Aumento masa':o==='perdida'?'Pérdida grasa':'Mantenimiento'}</button>
+    <div className="w-full max-w-[1260px] mx-auto px-8 py-6 space-y-6">
+      {/* Safety Alerts */}
+      {safetyAlerts.length > 0 && (
+        <div className="space-y-2">
+          {safetyAlerts.map(alert => (
+            <div key={alert.id} className={`rounded border p-3 ${
+              alert.severity === 'critical' ? 'bg-error/10 border-error/40' : 'bg-secondary/10 border-secondary/40'
+            }`}>
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={16} className={alert.severity === 'critical' ? 'text-error' : 'text-secondary'} />
+                <div className="flex-1">
+                  <div className="font-body-md text-sm text-on-surface font-medium">{alert.message}</div>
+                  {alert.professionalReferral && (
+                    <div className="font-label-caps text-[10px] text-on-surface-variant mt-0.5">Derivar a: {alert.professionalReferral}</div>
+                  )}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
-        <button onClick={generarCalendario} disabled={genLoading} className="w-full py-3 rounded-xl bg-action text-textMain font-medium disabled:opacity-50">{genLoading ? 'Generando…' : 'Generar calendario con IA'}</button>
-        {calendario && (
-          <div className="space-y-2 max-h-[60vh] overflow-auto pr-1">
-            <div className="text-aux">Qué comer · Cuánto · Cuándo · Macros</div>
-            {calendario.map((d:any)=>(
-              <div key={d.fecha} className="rounded-xl bg-bg border border-border p-3">
-                <div className="flex justify-between"><span className="text-body font-medium">{d.dia} · {d.fecha}</span><span className="text-aux text-info">{d.total.kcal} kcal · P{d.total.p} C{d.total.c} G{d.total.g}</span></div>
-                <div className="text-aux mt-1 grid gap-1">
-                  <div><b>Desayuno:</b> {d.desayuno}</div>
-                  <div><b>Almuerzo:</b> {d.almuerzo}</div>
-                  <div><b>Merienda:</b> {d.merienda}</div>
-                  <div><b>Cena:</b> {d.cena}</div>
-                </div>
-                <div className="text-aux mt-1 text-info">IA: {d.ia}</div>
-                <div className="mt-1 w-full bg-surface border border-border rounded-full h-2 flex overflow-hidden">
-                  <div className="bg-action" style={{width: `${Math.round(d.total.p*4/d.total.kcal*100)}%`}} title="proteína"/>
-                  <div className="bg-info" style={{width: `${Math.round(d.total.c*4/d.total.kcal*100)}%`}} title="carbs"/>
-                  <div className="bg-amber-500" style={{width: `${Math.round(d.total.g*9/d.total.kcal*100)}%`}} title="grasa"/>
-                </div>
-                <div className="text-aux flex gap-2 mt-1"><span className="text-action">P {d.total.p}g</span><span className="text-info">C {d.total.c}g</span><span className="text-amber-500">G {d.total.g}g</span></div>
-              </div>
-            ))}
-            <p className="text-aux text-textMuted">IA contextual: usa tu objetivo, historial y disponibilidad. Cálculos determinísticos, recomendación breve.</p>
-          </div>
-        )}
-      </div>
+      )}
 
-      {/* Diario hoy */}
-      <DiarioHoy />
-
-      {/* Búsqueda por nombre */}
-      <div className="rounded-xl bg-surface border border-border p-3 space-y-2">
-        <div className="text-aux">Buscar por nombre (genérico o marca)</div>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-3.5 text-textMuted"/>
-            <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=> e.key==='Enter' && doSearch()} placeholder='Ej: "yerba", "yogur vainilla", "pan lactal Bimbo"' className="w-full bg-bg border border-border rounded-xl pl-9 p-3 text-body" />
+      {/* Page Title & Period Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-2 border-b border-outline-variant/30">
+        <div>
+          <div className="flex items-center gap-2 text-secondary font-label-caps text-label-caps">
+            <span className="material-symbols-outlined text-[14px]">mobile_share_stack</span>
+            <span>CANON DIETÉTICO CLÁSICO</span>
           </div>
-          <button onClick={doSearch} disabled={loading} className="px-4 rounded-xl bg-action text-textMain font-medium disabled:opacity-50">Buscar</button>
+          <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight mt-0.5">
+            Nutrición Olímpica <span className="text-primary font-normal text-headline-md">· Régimen de Hipertrofia & Rendimiento</span>
+          </h1>
+        </div>
+        <div className="flex items-center gap-2 bg-surface-container-low p-1 rounded-lg border border-outline-variant/40">
+          <button className="p-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+          </button>
+          <div className="flex items-center gap-2 px-3">
+            <span className="material-symbols-outlined text-secondary text-[16px]">calendar_today</span>
+            <span className="font-label-md text-label-md text-on-surface font-medium">Hoy</span>
+            {todayTraining && (
+              <span className="px-1.5 py-0.2 bg-primary-container/40 text-on-primary-container text-[10px] font-mono rounded border border-primary/30">DÍA ENTRENO</span>
+            )}
+          </div>
+          <button className="p-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+          </button>
         </div>
       </div>
 
-      {/* Código de barras */}
-      <div className="rounded-xl bg-surface border border-border p-3 space-y-2">
-        <div className="text-aux flex items-center gap-1"><Barcode size={14}/> Buscar por código de barras (góndola)</div>
-        <div className="flex gap-2">
-          <input value={barcode} onChange={e=>setBarcode(e.target.value)} placeholder="Ej: 7791337603615 (La Serenísima 190 g)" className="flex-1 bg-bg border border-border rounded-xl p-3 text-body font-mono" inputMode="numeric" />
-          <button onClick={doBarcode} disabled={loading} className="px-4 rounded-xl bg-surface border border-border text-aux flex items-center gap-1"><Camera size={14}/> Consultar</button>
+      {/* 5-Metric KPI Plinths */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+        {/* Ingesta vs Meta */}
+        <div className="col-span-2 md:col-span-1 bg-surface-container-low border border-outline-variant/50 rounded-lg p-3.5 stone-plate relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-center justify-between text-outline">
+            <span className="font-label-caps text-label-caps uppercase text-secondary">Ingesta vs Meta</span>
+            <span className="material-symbols-outlined text-[16px] text-secondary">local_fire_department</span>
+          </div>
+          <div className="my-2">
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-headline-md text-headline-md text-on-surface font-bold">{Math.round(dayTotals.calories).toLocaleString()}</span>
+              <span className="text-on-surface-variant text-body-sm">/ {goals.calories.toLocaleString()} kcal</span>
+            </div>
+            <p className="text-[11px] text-primary mt-0.5 flex items-center gap-1 font-body-sm">
+              <span className="material-symbols-outlined text-[12px]">trending_up</span>
+              {remainingCalories > 0 ? `Faltan ${remainingCalories} kcal` : 'Meta alcanzada'}
+            </p>
+          </div>
+          <div className="w-full bg-surface-container h-1.5 rounded-full overflow-hidden flex">
+            <div className="bg-primary h-full" style={{ width: `${calPct}%` }} />
+            <div className="bg-secondary/40 h-full" style={{ width: `${Math.max(0, 100 - calPct)}%` }} />
+          </div>
         </div>
-        <p className="text-aux text-textMuted">Ideal para escaner: usá la cámara para leer EAN-13 y pegá el código acá.</p>
+        {/* TDEE */}
+        <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-3.5 stone-plate flex flex-col justify-between">
+          <div className="flex items-center justify-between text-outline">
+            <span className="font-label-caps text-label-caps uppercase">TDEE Diario</span>
+            <span className="material-symbols-outlined text-[16px] text-outline">bolt</span>
+          </div>
+          <div className="my-2">
+            <div className="flex items-baseline gap-1">
+              <span className="font-headline-md text-headline-md text-on-surface font-semibold">{tdeeVal?.toLocaleString() || '—'}</span>
+              <span className="text-on-surface-variant text-body-sm">kcal</span>
+            </div>
+            <span className="text-[11px] text-on-surface-variant font-body-sm">Gasto total estimado</span>
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-outline border-t border-outline-variant/20 pt-1.5">
+            <span>Actividad: {perfil?.activityLevel || 'Moderada'}</span>
+            <span className="font-mono text-secondary">× {perfil?.activityLevel === 'intenso' ? '1.725' : perfil?.activityLevel === 'muy_intenso' ? '1.9' : '1.55'}</span>
+          </div>
+        </div>
+        {/* TMB */}
+        <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-3.5 stone-plate flex flex-col justify-between">
+          <div className="flex items-center justify-between text-outline">
+            <span className="font-label-caps text-label-caps uppercase">TMB Basal</span>
+            <span className="material-symbols-outlined text-[16px] text-outline">monitor_heart</span>
+          </div>
+          <div className="my-2">
+            <div className="flex items-baseline gap-1">
+              <span className="font-headline-md text-headline-md text-on-surface font-semibold">{tmbVal?.toLocaleString() || '—'}</span>
+              <span className="text-on-surface-variant text-body-sm">kcal</span>
+            </div>
+            <span className="text-[11px] text-on-surface-variant font-body-sm">Mifflin-St Jeor</span>
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-outline border-t border-outline-variant/20 pt-1.5">
+            <span>Peso: {perfil?.weightKg || '—'} kg</span>
+            <span className="font-mono text-primary">Mifflin</span>
+          </div>
+        </div>
+        {/* IMC */}
+        <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-3.5 stone-plate flex flex-col justify-between">
+          <div className="flex items-center justify-between text-outline">
+            <span className="font-label-caps text-label-caps uppercase">IMC Áureo</span>
+            <span className="material-symbols-outlined text-[16px] text-secondary">balance</span>
+          </div>
+          <div className="my-2">
+            <div className="flex items-baseline gap-1">
+              <span className="font-headline-md text-headline-md text-secondary font-semibold">{imcResult?.bmi || '—'}</span>
+              <span className="text-on-surface-variant text-body-sm">kg/m²</span>
+            </div>
+            <span className="text-[11px] text-primary font-body-sm">{imcResult?.bmiCat || '—'}</span>
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-outline border-t border-outline-variant/20 pt-1.5">
+            <span>Altura: {perfil?.heightCm || '—'} cm</span>
+            <span className="text-secondary font-medium">{imcResult?.bmi && Number(imcResult.bmi) < 25 ? 'Óptimo' : 'Revisar'}</span>
+          </div>
+        </div>
+        {/* Hidratación */}
+        <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-3.5 stone-plate flex flex-col justify-between">
+          <div className="flex items-center justify-between text-outline">
+            <span className="font-label-caps text-label-caps uppercase text-primary">Néctar & Hidratación</span>
+            <span className="material-symbols-outlined text-[16px] text-primary">water_drop</span>
+          </div>
+          <div className="my-2">
+            <div className="flex items-baseline gap-1">
+              <span className="font-headline-md text-headline-md text-on-surface font-semibold">{(hydrationToday / 1000).toFixed(1)}</span>
+              <span className="text-on-surface-variant text-body-sm">/ {(hydrationGoal / 1000).toFixed(1)} L</span>
+            </div>
+            <div className="flex items-center gap-1 mt-1 text-primary">
+              {Array.from({ length: Math.min(5, Math.ceil(hydrationPct / 20)) }).map((_, i) => (
+                <span key={i} className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>wine_bar</span>
+              ))}
+              {Array.from({ length: Math.max(0, 5 - Math.ceil(hydrationPct / 20)) }).map((_, i) => (
+                <span key={`e${i}`} className="material-symbols-outlined text-[15px] opacity-30">wine_bar</span>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-outline border-t border-outline-variant/20 pt-1.5">
+            <span>Electrolitos: 100%</span>
+            <button onClick={() => addHydration(250)} className="font-mono text-primary hover:underline cursor-pointer">+250ml</button>
+          </div>
+        </div>
       </div>
 
-      {loading && <div className="text-aux text-center py-2">Consultando Codulia…</div>}
-      {err && <div className="text-aux bg-amber-900/20 border border-amber-800 rounded-xl p-3">{err}</div>}
-
-      {/* Detalle */}
-      {detail && per100 && (
-        <div className="rounded-xl bg-surface border border-border overflow-hidden">
-          {detail.photoUrl && <img src={detail.photoUrl} alt={detail.name} className="w-full h-44 object-cover border-b border-border bg-bg" />}
-          <div className="p-4 space-y-3">
-            <div>
-              <div className="text-subtitle">{detail.name}</div>
-              <div className="text-aux text-textMuted">{detail.brand ? `${detail.brand} · ` : ''}{detail.source} · {detail.baseUnit} · {detail.barcode ? `EAN ${detail.barcode}` : 'sin código'} {detail.verified ? '· verificado' : ''}</div>
-            </div>
-
-            {/* Tabla por 100 */}
-            <div className="rounded-xl bg-bg border border-border p-3">
-              <div className="text-aux">Información nutricional — {detail.per100Label}</div>
-              <div className="grid grid-cols-2 gap-2 mt-2 text-body">
-                <NutRow label="Calorías" value={`${per100.calories} kcal`} />
-                <NutRow label="Proteínas" value={`${per100.proteins} g`} />
-                <NutRow label="Carbohidratos" value={`${per100.carbs} g`} />
-                <NutRow label="Grasas" value={`${per100.fats} g`} />
-                <NutRow label="Fibra" value={`${per100.fiber} g`} />
-                <NutRow label="Azúcares" value={`${per100.sugars} g`} />
-                <NutRow label="Sodio" value={`${per100.sodium} mg`} />
-              </div>
-            </div>
-
-            {/* Porciones reales + donut + diario */}
-            <div className="rounded-xl bg-bg border border-border p-3">
-              <div className="text-aux">Porciones reales</div>
-              {detail.servings.length===0 && <p className="text-aux text-textMuted">Sin porciones cargadas — usá el valor por 100 {detail.baseUnit}.</p>}
-              {detail.servings.map((s,i)=>{
-                const n = Codulia.nutrientsForServing(detail, s.amount)
-                return (
-                  <div key={i} className="mt-2 rounded-lg bg-surface border border-border p-2">
-                    <div className="text-body font-medium">{s.label} · {s.amount} {s.unit}</div>
-                    <div className="text-aux text-textMuted grid grid-cols-3 gap-1 mt-1">
-                      <span>{n.calories} kcal</span><span>{n.proteins} g prot</span><span>{n.carbs} g carb</span>
-                      <span>{n.fats} g grasa</span><span>{n.sugars} g azúcar</span><span>{n.sodium} mg sodio</span>
+      {/* Main Bento Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column — Meals */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Meal Cards */}
+          {(['desayuno', 'almuerzo', 'merienda', 'cena'] as MealType[]).map(mt => {
+            const entries = mealEntries(mt)
+            const mealCalories = entries.reduce((a, e) => a + e.macros.calories, 0)
+            const mealP = entries.reduce((a, e) => a + e.macros.proteins, 0)
+            const mealC = entries.reduce((a, e) => a + e.macros.carbs, 0)
+            const mealG = entries.reduce((a, e) => a + e.macros.fats, 0)
+            return (
+              <div key={mt} className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-5 stone-plate">
+                <div className="flex items-center justify-between pb-3 border-b border-outline-variant/30">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded bg-surface-container-high border border-outline-variant/60 flex items-center justify-center ${mt === 'almuerzo' ? 'text-primary' : mt === 'merienda' ? 'text-secondary' : 'text-outline'}`}>
+                      <span className="material-symbols-outlined text-[18px]">{MEAL_ICONS[mt]}</span>
                     </div>
+                    <div>
+                      <h3 className="font-title-md text-title-md text-on-surface font-semibold flex items-center gap-2">
+                        {MEAL_LABELS[mt]}
+                        <span className="px-2 py-0.5 text-[10px] font-label-caps rounded bg-surface-container-high text-secondary border border-secondary/30">{MEAL_TIME_LABELS[mt]}</span>
+                      </h3>
+                      <p className="text-[12px] text-on-surface-variant font-body-sm">{MEAL_SUBTITLES[mt]}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="font-headline-sm text-headline-sm font-bold text-on-surface">{mealCalories || '0'}</span>
+                      <span className="text-[11px] text-outline"> kcal</span>
+                    </div>
+                    <button onClick={() => { setActiveMealType(mt); setShowFoodSearch(true) }}
+                      className="w-7 h-7 rounded bg-surface-container border border-outline-variant/40 flex items-center justify-center text-primary hover:text-on-primary-container hover:bg-primary-container/30 transition-colors" title="Añadir ítem">
+                      <span className="material-symbols-outlined text-[16px]">add</span>
+                    </button>
+                  </div>
+                </div>
+                {/* Food Items */}
+                <div className="mt-3 divide-y divide-outline-variant/20">
+                  {entries.length === 0 ? (
+                    <div className="py-4 text-center">
+                      <p className="text-[12px] text-on-surface-variant font-body-sm">Sin registros en {MEAL_LABELS[mt].toLowerCase()}</p>
+                      <button onClick={() => { setActiveMealType(mt); setShowFoodSearch(true) }}
+                        className="mt-2 px-3 py-1 rounded bg-primary/15 border border-primary/30 text-primary font-label-caps text-[10px] font-semibold uppercase tracking-wider hover:bg-primary/25 transition-colors">
+                        Agregar alimento
+                      </button>
+                    </div>
+                  ) : entries.map(entry => (
+                    <div key={entry.id} className="py-2.5 flex items-center justify-between text-body-sm hover:bg-surface-container/30 px-1 rounded transition-colors group">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+                        <div>
+                          <span className="font-medium text-on-surface">{entry.name}</span>
+                          <span className="text-[11px] text-outline block">{entry.amount}{entry.unit} · {entry.servingLabel}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-[12px] font-mono">
+                        <span className="text-on-surface-variant"><strong className="text-on-surface">{entry.macros.proteins}g</strong> P</span>
+                        <span className="text-on-surface-variant"><strong className="text-on-surface">{entry.macros.carbs}g</strong> C</span>
+                        <span className="text-on-surface-variant"><strong className="text-on-surface">{entry.macros.fats}g</strong> G</span>
+                        <span className="text-secondary font-semibold w-14 text-right">{entry.macros.calories} kcal</span>
+                        <button onClick={() => removeEntry(entry.id)} className="opacity-0 group-hover:opacity-100 text-on-surface-variant hover:text-error transition-all" aria-label="Quitar">
+                          <span className="material-symbols-outlined text-[14px]">close</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Meal Summary Bar */}
+                {entries.length > 0 && (
+                  <div className="mt-3 pt-2.5 border-t border-outline-variant/30 flex items-center justify-between text-label-caps text-label-caps">
+                    <span className="text-primary flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[13px]">verified</span>
+                      Subtotal: {mealCalories} kcal
+                    </span>
+                    <div className="flex items-center gap-3 text-outline">
+                      <span>P: {Math.round(mealP)}g</span>
+                      <span>·</span>
+                      <span>C: {Math.round(mealC)}g</span>
+                      <span>·</span>
+                      <span>G: {Math.round(mealG)}g</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
+          {/* Quick Food Vault */}
+          <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-5 stone-plate space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[20px]">inventory_2</span>
+                <h3 className="font-title-md text-title-md text-on-surface font-semibold">Alimentos Frecuentes</h3>
+              </div>
+              <button onClick={() => setShowFoodSearch(true)} className="font-label-caps text-label-caps text-primary cursor-pointer hover:underline">Buscar más</button>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {[
+                { name: 'Pechuga de Pollo', detail: '100g · 31g P', color: 'bg-secondary' },
+                { name: 'Avena en Hojuelas', detail: '50g · 34g C', color: 'bg-primary' },
+                { name: 'Skyr / Griego 0%', detail: '150g · 18g P', color: 'bg-secondary' },
+                { name: 'Aceite de Oliva Extra', detail: '15ml · 14g G', color: 'bg-tertiary' },
+                { name: 'Miel Pura', detail: '20g · 17g C', color: 'bg-secondary' },
+              ].map(item => (
+                <button key={item.name}
+                  className="px-3 py-1.5 rounded bg-surface-container border border-outline-variant/40 hover:border-primary text-body-sm text-on-surface flex items-center gap-2 transition-all">
+                  <span className={`w-2 h-2 rounded-full ${item.color}`} />
+                  <span>{item.name}</span>
+                  <span className="text-outline text-xs font-mono">{item.detail}</span>
+                  <span className="material-symbols-outlined text-primary text-[14px]">add</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column — Donut, Oracle, Weekly, Micronutrients */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Donut Chart */}
+          <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-5 stone-plate flex flex-col items-center">
+            <div className="w-full flex items-center justify-between pb-3 border-b border-outline-variant/30 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[18px]">pie_chart</span>
+                <h3 className="font-title-md text-title-md text-on-surface font-semibold">Proporción de Macros</h3>
+              </div>
+              <span className="font-mono text-secondary text-xs font-bold">{Math.round(calPct)}% META</span>
+            </div>
+            <div className="relative w-52 h-52 my-2 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" fill="none" r="38" stroke="#24242a" strokeWidth="11" />
+                <circle className="transition-all duration-700" cx="50" cy="50" fill="none" r="38" stroke="#556b2f"
+                  strokeDasharray={`${(dayTotals.carbs * 4 / (dayTotals.calories || 1)) * 238.76} 238.76`} strokeWidth="11" />
+                <circle className="transition-all duration-700" cx="50" cy="50" fill="none" r="38" stroke="#c5a059"
+                  strokeDasharray={`${(dayTotals.protein * 4 / (dayTotals.calories || 1)) * 238.76} 238.76`}
+                  strokeDashoffset={`-${(dayTotals.carbs * 4 / (dayTotals.calories || 1)) * 238.76}`} strokeWidth="11" />
+                <circle className="transition-all duration-700" cx="50" cy="50" fill="none" r="38" stroke="#8f9284"
+                  strokeDasharray={`${(dayTotals.fat * 9 / (dayTotals.calories || 1)) * 238.76} 238.76`}
+                  strokeDashoffset={`-${((dayTotals.carbs * 4 + dayTotals.protein * 4) / (dayTotals.calories || 1)) * 238.76}`} strokeWidth="11" />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
+                <span className="font-label-caps text-[10px] text-outline tracking-wider">CONSUMIDAS</span>
+                <span className="font-headline-md text-headline-md font-bold text-on-surface leading-tight">{Math.round(dayTotals.calories).toLocaleString()}</span>
+                <span className="text-[11px] text-secondary font-mono font-semibold">de {goals.calories.toLocaleString()} kcal</span>
+              </div>
+            </div>
+            <div className="w-full grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-outline-variant/30 text-center">
+              <div className="bg-surface-container/60 p-2 rounded border border-primary/20">
+                <div className="flex items-center justify-center gap-1 text-[11px] text-primary font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-primary-container" />
+                  <span>Carbos</span>
+                </div>
+                <div className="font-mono text-sm font-bold text-on-surface mt-0.5">{Math.round(dayTotals.carbs)}g</div>
+                <div className="text-[10px] text-outline">/ {goals.carbs}g</div>
+              </div>
+              <div className="bg-surface-container/60 p-2 rounded border border-secondary/20">
+                <div className="flex items-center justify-center gap-1 text-[11px] text-secondary font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-secondary" />
+                  <span>Proteína</span>
+                </div>
+                <div className="font-mono text-sm font-bold text-on-surface mt-0.5">{Math.round(dayTotals.protein)}g</div>
+                <div className="text-[10px] text-outline">/ {goals.protein}g</div>
+              </div>
+              <div className="bg-surface-container/60 p-2 rounded border border-outline/20">
+                <div className="flex items-center justify-center gap-1 text-[11px] text-on-surface-variant font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-outline" />
+                  <span>Grasas</span>
+                </div>
+                <div className="font-mono text-sm font-bold text-on-surface mt-0.5">{Math.round(dayTotals.fat)}g</div>
+                <div className="text-[10px] text-outline">/ {goals.fat}g</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Adherence */}
+          {perfil?.activeNutritionMethod && (
+            <div className="bg-surface-container-low border border-secondary/40 rounded-lg p-5 stone-plate relative overflow-hidden">
+              <div className="absolute -right-6 -bottom-6 text-secondary/5 pointer-events-none">
+                <span className="material-symbols-outlined text-[140px]">auto_awesome</span>
+              </div>
+              <div className="flex items-center gap-2.5 pb-2.5 border-b border-outline-variant/30">
+                <div className="w-7 h-7 rounded-full bg-secondary-container/50 border border-secondary/50 flex items-center justify-center text-secondary">
+                  <span className="material-symbols-outlined text-[16px]">psychology_alt</span>
+                </div>
+                <div>
+                  <h4 className="font-title-md text-title-md text-secondary font-semibold">Adherencia Nutricional</h4>
+                  <span className="font-label-caps text-[10px] text-outline block">{activeMethod?.nameEs || 'Método activo'}</span>
+                </div>
+              </div>
+              <div className="mt-3 text-body-sm text-on-surface-variant leading-relaxed">
+                {adherenceRecord ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-headline-sm text-sm text-on-surface font-semibold">Puntaje: {adherenceRecord.score}/10</span>
+                      <span className={`px-2 py-0.5 text-[10px] font-label-caps rounded ${
+                        adherenceRecord.score >= 7 ? 'bg-primary/15 text-primary' :
+                        adherenceRecord.score >= 4 ? 'bg-secondary/15 text-secondary' : 'bg-error/15 text-error'
+                      }`}>
+                        {adherenceRecord.score >= 7 ? 'Bien' : adherenceRecord.score >= 4 ? 'Regular' : 'Bajo'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-on-surface-variant">{adherenceRecord.calorieAdherence}% calorías · {adherenceRecord.proteinAdherence}% proteína</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-[12px] text-on-surface-variant">¿Cómo te fue hoy con tu estrategia nutricional?</p>
+                    <div className="flex gap-1">
+                      {[3, 5, 7, 9].map(score => (
+                        <button key={score} onClick={() => recordDailyAdherence(score)}
+                          className={`flex-1 py-2 rounded border font-label-caps text-xs font-semibold uppercase tracking-wider ${
+                            score >= 7 ? 'bg-primary/10 border-primary/30 text-primary' :
+                            score >= 5 ? 'bg-secondary/10 border-secondary/30 text-secondary' : 'bg-error/10 border-error/30 text-error'
+                          }`}>
+                          {score}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Weekly Planner */}
+          <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-5 stone-plate space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-outline text-[18px]">view_week</span>
+                <h4 className="font-title-md text-title-md text-on-surface font-semibold">Microciclo Nutricional</h4>
+              </div>
+              <span className="text-xs font-mono text-primary font-medium">Semana Actual</span>
+            </div>
+            <div className="grid grid-cols-7 gap-1 text-center pt-1">
+              {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day, i) => {
+                const isToday = i === (new Date().getDay() + 6) % 7
+                const dayCalories = isToday ? Math.round(dayTotals.calories) : 0
+                return (
+                  <div key={day} className={`p-1 rounded border ${
+                    isToday ? 'bg-surface-container-high border-secondary' :
+                    i < (new Date().getDay() + 6) % 7 ? 'bg-surface-container border-outline-variant/30' : 'bg-surface-container/50 border-outline-variant/20'
+                  }`}>
+                    <span className={`text-[10px] block font-mono ${isToday ? 'text-secondary font-bold' : 'text-outline'}`}>{day}</span>
+                    <div className="h-10 w-full bg-surface-container-high rounded-sm my-1 flex flex-col justify-end p-0.5">
+                      <div className={`w-full rounded-xs ${isToday ? 'bg-secondary' : i < (new Date().getDay() + 6) % 7 ? 'bg-primary/40' : 'bg-outline opacity-20'}`}
+                        style={{ height: isToday ? `${Math.min(100, calPct)}%` : i < (new Date().getDay() + 6) % 7 ? '40%' : '20%' }} />
+                    </div>
+                    <span className={`text-[9px] font-mono ${isToday ? 'text-secondary font-bold' : 'text-on-surface-variant'}`}>
+                      {isToday ? `${(dayTotals.calories / 1000).toFixed(1)}k` : i < (new Date().getDay() + 6) % 7 ? '—' : '-'}
+                    </span>
                   </div>
                 )
               })}
-              {firstServing && <p className="text-aux text-info mt-2">Ej: 1 pote 190 g → {Codulia.nutrientsForServing(detail, firstServing.amount).calories} kcal</p>}
-              <div className="h-32 mt-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={[
-                      {name:'Prot', value: per100.proteins*4 },
-                      {name:'Carbs', value: per100.carbs*4 },
-                      {name:'Grasa', value: per100.fats*9 },
-                    ]} dataKey="value" innerRadius={30} outerRadius={50} paddingAngle={2}>
-                      <Cell fill="#21C063"/><Cell fill="#38BDF0"/><Cell fill="#F59E0B"/>
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="text-aux text-center">Donut macros por 100{detail.baseUnit} — Prot/Carb/Grasa en kcal</div>
-              <button onClick={()=>{
-                const today=new Date().toISOString().slice(0,10)
-                const log=JSON.parse(localStorage.getItem(`nutri:diario:${today}`)||'[]')
-                log.push({ id: detail.id, name: detail.name, at: new Date().toISOString(), macros: per100 })
-                localStorage.setItem(`nutri:diario:${today}`, JSON.stringify(log))
-                alert(`Agregado a diario ${today} — alimenta historial para Coach IA`)
-              }} className="w-full mt-2 py-2 rounded-xl bg-action text-textMain">Agregar a diario hoy</button>
             </div>
+          </div>
 
-            {/* Imágenes */}
-            {(detail.photoUrl || detail.nutritionLabelUrl) && (
-              <div className="grid grid-cols-2 gap-2">
-                {detail.photoUrl && <a href={detail.photoUrl} target="_blank" rel="noreferrer" className="text-aux text-info underline text-center">Foto producto</a>}
-                {detail.nutritionLabelUrl && <a href={detail.nutritionLabelUrl} target="_blank" rel="noreferrer" className="text-aux text-info underline text-center">Foto etiqueta</a>}
+          {/* Micronutrients */}
+          <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-5 stone-plate space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary text-[18px]">science</span>
+                <h4 className="font-title-md text-title-md text-on-surface font-semibold">Minerales & Néctar Celular</h4>
               </div>
-            )}
+              <span className="font-label-caps text-label-caps text-secondary">Electrolitos</span>
+            </div>
+            <div className="space-y-3">
+              {[
+                { name: 'Sodio', current: null as number|null, goal: 3200, unit: 'mg', color: 'bg-primary' },
+                { name: 'Potasio', current: null as number|null, goal: 4000, unit: 'mg', color: 'bg-primary' },
+                { name: 'Magnesio', current: null as number|null, goal: 450, unit: 'mg', color: 'bg-secondary' },
+                { name: 'Creatina', current: null as number|null, goal: 5, unit: 'g', color: 'bg-secondary' },
+              ].map(m => (
+                <div key={m.name}>
+                  <div className="flex justify-between text-xs mb-1 font-body-sm">
+                    <span className="text-on-surface">{m.name}</span>
+                    <span className="font-mono text-on-surface-variant">{m.current !== null ? `${m.current.toLocaleString()} / ${m.goal.toLocaleString()} ${m.unit}` : 'no registrado'}</span>
+                  </div>
+                  <div className="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
+                    <div className={`${m.color} h-full`} style={{ width: m.current !== null ? `${Math.min(100, (m.current / m.goal) * 100)}%` : '0%' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
 
-            <button onClick={()=>setDetail(null)} className="w-full py-2 rounded-xl bg-surface border border-border text-aux">Cerrar detalle</button>
+      {/* Food Search Modal */}
+      {showFoodSearch && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end justify-center z-50" onClick={() => { setShowFoodSearch(false); setSelectedFood(null); setShowAddPortion(false) }}>
+          <div onClick={e => e.stopPropagation()} className="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[85vh] overflow-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="font-headline-lg text-base font-semibold text-on-surface">Buscar alimento</h3>
+              <button onClick={() => { setShowFoodSearch(false); setSelectedFood(null); setShowAddPortion(false) }} className="text-on-surface-variant">
+                <X size={20} />
+              </button>
+            </div>
+            {!showAddPortion ? (
+              <>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search size={16} className="absolute left-3 top-3.5 text-on-surface-variant" />
+                    <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && doSearch()}
+                      placeholder='Ej: "yerba", "yogur", "pan"'
+                      className="w-full bg-surface-container-high border border-outline-variant rounded-lg pl-9 pr-3 py-2 font-body-md text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/50 transition-colors" />
+                  </div>
+                  <AltheaButton variant="primary" onClick={doSearch} disabled={searchLoading}>
+                    {searchLoading ? '...' : 'Buscar'}
+                  </AltheaButton>
+                </div>
+                {searchError && <div className="font-label-caps text-[10px] bg-secondary/10 border border-secondary/30 rounded p-2 text-sm text-on-surface">{searchError}</div>}
+                <div className="space-y-2">
+                  {searchResults.map(r => (
+                    <div key={r.id} onClick={() => openFoodDetail(r.id)}
+                      className="marble-slab rounded-lg p-3 flex gap-3 cursor-pointer active:bg-surface-container-high transition-colors">
+                      {r.photoUrl ? (
+                        <img src={r.photoUrl} alt={r.name} className="w-12 h-12 rounded-lg object-cover border border-outline-variant bg-surface-container-high" loading="lazy" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center font-label-md text-xs text-on-surface-variant">🥗</div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-body-md text-sm text-on-surface font-medium truncate">{r.name}</div>
+                        <div className="font-body-md text-xs text-on-surface-variant truncate">{r.brand || r.source} · {r.baseUnit}</div>
+                        <div className="font-body-md text-xs text-primary">{(r as any).caloriesPer100g ?? (r as any).calories ?? '—'} kcal/100{r.baseUnit}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : selectedFood && (
+              <FoodPortionSelector food={selectedFood} onAdd={(servingIdx, amount) => addFoodToDiary(selectedFood, servingIdx, amount)}
+                onCancel={() => { setShowAddPortion(false); setSelectedFood(null) }} />
+            )}
           </div>
         </div>
       )}
-
-      {/* Resultados búsqueda */}
-      <div className="space-y-2">
-        {results.map(r=>(
-          <div key={r.id} onClick={()=>openDetail(r.id)} className="rounded-xl bg-surface border border-border p-3 flex gap-3 cursor-pointer active:bg-bg">
-            {r.photoUrl ? <img src={r.photoUrl} alt={r.name} className="w-14 h-14 rounded-lg object-cover border border-border bg-bg" loading="lazy"/> : <div className="w-14 h-14 rounded-lg bg-accentDark flex items-center justify-center text-aux">Codulia</div>}
-            <div className="flex-1 min-w-0">
-              <div className="text-body font-medium truncate">{r.name}</div>
-              <div className="text-aux text-textMuted truncate">{r.brand || r.source} {r.barcode ? `· ${r.barcode}` : ''} · {r.baseUnit}</div>
-              <div className="text-aux text-info">{(r as any).caloriesPer100g ?? (r as any).calories ?? '—'} kcal {r.baseUnit==='ml'?'por 100 ml':'por 100 g'}</div>
-            </div>
-            <span className="self-center text-textMuted flex"><BrandIcon name="forward" size={16}/></span>
-          </div>
-        ))}
-        {results.length===0 && !detail && !loading && <p className="text-muted text-center py-4">Sin resultados aún. Probá buscar "yerba", "polenta" o un código de góndola.</p>}
-      </div>
-
-      {/* Ejemplos código */}
-      <div className="rounded-xl bg-surface border border-border p-3">
-        <button onClick={()=>setShowCode(!showCode)} className="w-full flex items-center justify-between text-body"><span className="flex items-center gap-2"><Code2 size={16}/> Ejemplos JS / Python</span><span className="text-aux">{showCode?'Ocultar':'Ver'}</span></button>
-        {showCode && (
-          <div className="mt-3 space-y-3">
-            <CodeBlock title="JavaScript — búsqueda por nombre (web/móvil)" code={`const API = "https://nutricion-api-arg.fly.dev/v1";
-const KEY = localStorage.getItem("codulia_api_key"); // x-api-key
-
-// Buscar "yerba" o "yogur La Serenísima"
-const res = await fetch(\`\${API}/foods/search?q=\${encodeURIComponent("yerba")}&limit=20\`, {
-  headers: { "x-api-key": KEY }
-});
-if(!res.ok) throw new Error((await res.json()).error.message);
-const { results } = await res.json();
-// results = [{id, name, brand, source, baseUnit, barcode, photoUrl, caloriesPer100g, ...}]
-results.forEach(r=>{
-  console.log(r.name, r.brand, r.caloriesPer100g+" kcal/100"+r.baseUnit);
-});
-
-// Render en web
-results.forEach(r=>{
-  document.body.innerHTML += \`
-    <div>
-      <img src="\${r.photoUrl||""}" alt="\${r.name}" />
-      <h3>\${r.name} \${r.brand? "("+r.brand+")":""}</h3>
-      <p>\${r.caloriesPer100g} kcal por 100 \${r.baseUnit}</p>
-    </div>\`;
-});`} />
-            <CodeBlock title="JavaScript — lookup por código de barras" code={`// Escaneo EAN-13 de góndola (ej: 7791337603615)
-const code = "7791337603615"; // viene del scanner
-const res2 = await fetch(\`\${API}/foods/barcode/\${code}\`, {
-  headers: { "x-api-key": KEY }
-});
-const { food } = await res2.json();
-// food = {name, brand, barcode, photoUrl, nutritionLabelUrl, baseUnit, servings, macros...}
-console.log(food.name, food.servings); 
-// Porción real: 1 pote 190 g
-const porcion = food.servings[0]; // {label:"1 pote", amount:190, unit:"g"}
-const factor = porcion.amount / 100;
-console.log("Calorías porción:", food.macros.calories * factor);
-`} />
-            <CodeBlock title="JavaScript — detalle + porciones reales" code={`const id = results[0].id;
-const detail = await fetch(\`\${API}/foods/\${id}\`, {
-  headers: { "x-api-key": KEY }
-}).then(r=>r.json()).then(j=>j.food);
-
-// Tabla por 100 g/ml
-console.log(\`Por 100 \${detail.baseUnit}\`, detail.macros);
-// {calories, proteins, carbs, fats, fiber, sugars, sodium}
-
-// Porciones (ej: 1 pote 190 g, 1 cucharada 15 g)
-detail.servings.forEach(s=>{
-  const f = s.amount/100;
-  console.log(\`\${s.label} (\${s.amount}\${s.unit}): \${(detail.macros.calories*f).toFixed(1)} kcal\`);
-});
-`} />
-            <CodeBlock title="Python — búsqueda y detalle" lang="py" code={`import requests
-
-API = "https://nutricion-api-arg.fly.dev/v1"
-KEY = "TU_API_KEY"  # desde https://codulia.com/portal/#signup
-H = {"x-api-key": KEY}
-
-# Búsqueda por nombre
-r = requests.get(f"{API}/foods/search", params={"q":"yerba","limit":20}, headers=H)
-r.raise_for_status()
-for food in r.json()["results"][:3]:
-    print(food["name"], food.get("brand"), f'{food.get("caloriesPer100g")} kcal/100{food["baseUnit"]}')
-
-# Código de barras
-code = "7791337603615"
-food = requests.get(f"{API}/foods/barcode/{code}", headers=H).json()["food"]
-print(food["name"], food["barcode"], food["photoUrl"])
-print("Por 100g:", food["macros"])
-for s in food["servings"]:
-    kcal = food["macros"]["calories"] * s["amount"]/100
-    print(f'{s["label"]} {s["amount"]}{s["unit"]}: {kcal:.1f} kcal')
-
-# Detalle por id
-fid = r.json()["results"][0]["id"]
-detail = requests.get(f"{API}/foods/{fid}", headers=H).json()["food"]
-print(detail["nutritionLabelUrl"])  # foto etiqueta
-`} />
-            <div className="text-aux bg-bg border border-border rounded-lg p-2 flex gap-2"><Info size={14}/> Headers: <code>x-api-key: TU_KEY</code> · Errores <code>{'{error:{code,message}}'}</code> · Versionado <code>/v1</code> · Latencia &lt;50 ms · Fuente 100% Argentina.</div>
-          </div>
-        )}
-      </div>
     </div>
   )
 }
 
-function DiarioHoy(){
-  const today=new Date().toISOString().slice(0,10)
-  const [items,setItems]=useState<any[]>(()=>{ try{ return JSON.parse(localStorage.getItem(`nutri:diario:${today}`)||'[]')}catch{return []}})
-  const refresh = ()=> setItems(JSON.parse(localStorage.getItem(`nutri:diario:${today}`)||'[]'))
-  const totals = items.reduce((a:any,c:any)=>({ kcal: a.kcal + (c.macros?.calories||0), p: a.p + (c.macros?.proteins||0), c: a.c + (c.macros?.carbs||0), g: a.g + (c.macros?.fats||0)}), {kcal:0,p:0,c:0,g:0})
-  // vs objetivo
-  let objetivoAct:any=null
-  try{
-    const p:any = JSON.parse(localStorage.getItem('rutinas:list')||'null') ? null : null
-    const prof:any = JSON.parse(localStorage.getItem('onboard:objPrincipal') ? `"${localStorage.getItem('onboard:objPrincipal')}"` : 'null')
-  }catch{}
-  // calcula objetivo calórico/proteico si hay perfil
-  let calGoal:number|null=null, protLow:number|null=null
-  try{
-    const raw=localStorage.getItem('onboard:peso') || ''
-    const w=Number(raw)
-    // usa nutrition utils si disponible
-    const profRaw = localStorage.getItem('onboard:objPrincipal')
-    if(w){
-      // estima simple
-      calGoal = 2200
-      protLow = Math.round(w*1.8)
-    }
-  }catch{}
-  const objetivoStr = localStorage.getItem('nutri:objetivo') || 'mantenimiento'
-  const calObjetivo = objetivoStr==='aumento' ? 2850 : objetivoStr==='perdida' ? 1850 : 2250
-  const protObjetivo = 150
+function FoodPortionSelector({ food, onAdd, onCancel }: {
+  food: Codulia.CoduliaFoodDetail; onAdd: (servingIdx: number, amount?: number) => void; onCancel: () => void
+}) {
+  const [selectedIdx, setSelectedIdx] = useState(0)
+  const [customGrams, setCustomGrams] = useState('')
+  const per100 = food.macros; const servings = food.servings
+  const getNutrients = (idx: number, customAmt?: number) => {
+    if (customAmt) { const f = customAmt / 100; return { calories: Math.round(per100.calories * f), proteins: Math.round(per100.proteins * f * 10) / 10, carbs: Math.round(per100.carbs * f * 10) / 10, fats: Math.round(per100.fats * f * 10) / 10 } }
+    const s = servings[idx]; if (!s) return { calories: 0, proteins: 0, carbs: 0, fats: 0 }
+    const f = s.amount / 100; return { calories: Math.round(per100.calories * f), proteins: Math.round(per100.proteins * f * 10) / 10, carbs: Math.round(per100.carbs * f * 10) / 10, fats: Math.round(per100.fats * f * 10) / 10 }
+  }
+  const customAmt = customGrams ? Number(customGrams) : undefined
+  const preview = getNutrients(selectedIdx, customAmt)
   return (
-    <div className="rounded-xl bg-surface border border-border p-3">
-      <div className="text-aux">Hoy — qué comí ({today}) · {items.length} alimentos</div>
-      {items.length===0 ? <p className="text-aux text-textMuted mt-1">Sin registros hoy. Buscá un alimento y tocá "Agregar a diario hoy". No se inventa información.</p> : (
-        <>
-          <div className="mt-2 space-y-1">
-            {items.map((it:any,i:number)=>(
-              <div key={i} className="flex justify-between text-aux bg-bg border border-border rounded-lg p-2">
-                <span>{it.name.slice(0,30)}</span><span className="text-info">{it.macros.calories} kcal por 100{it.macros ? 'g' : ''}</span>
-                <button onClick={()=>{ const arr=JSON.parse(localStorage.getItem(`nutri:diario:${today}`)||'[]'); arr.splice(i,1); localStorage.setItem(`nutri:diario:${today}`, JSON.stringify(arr)); refresh()}} className="text-textMuted" aria-label="Quitar">×</button>
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-aux flex gap-2 flex-wrap"><span>{totals.kcal} / {calObjetivo} kcal</span><span>{totals.p} / {protObjetivo}g prot</span><span>C{totals.c}g G{totals.g}g</span></div>
-          <div className="mt-1 w-full bg-bg border border-border rounded-full h-2 flex overflow-hidden">
-            <div className="bg-action" style={{width:`${Math.min(100, totals.kcal/calObjetivo*100)}%`}}/>
-          </div>
-          <p className="text-aux text-textMuted">No penalizar por no alcanzar exacto — tendencias.</p>
-          <div className="h-20 mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={[{name:'P',value:totals.p*4},{name:'C',value:totals.c*4},{name:'G',value:totals.g*9}]} dataKey="value" innerRadius={20} outerRadius={40}>
-                  <Cell fill="#1E3A5F"/><Cell fill="#38BDF0"/><Cell fill="#F59E0B"/>
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </>
+    <div className="space-y-3">
+      <div className="marble-slab rounded-lg p-3">
+        <div className="font-body-md text-sm text-on-surface font-medium">{food.name}</div>
+        {food.brand && <div className="font-body-md text-xs text-on-surface-variant">{food.brand}</div>}
+      </div>
+      <div className="marble-slab rounded-lg p-3">
+        <div className="font-label-caps text-[10px] text-on-surface-variant">Por 100{food.baseUnit}</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1 font-body-md text-xs text-on-surface">
+          <span>{per100.calories} kcal</span><span>{per100.proteins}g P</span><span>{per100.carbs}g C</span><span>{per100.fats}g G</span>
+        </div>
+      </div>
+      {servings.length > 0 && (
+        <div className="space-y-1">
+          <div className="font-label-caps text-[10px] text-on-surface-variant">Porciones</div>
+          {servings.map((s, i) => {
+            const n = getNutrients(i)
+            return (
+              <button key={i} onClick={() => { setSelectedIdx(i); setCustomGrams('') }}
+                className={`w-full text-left p-2 rounded border font-body-md text-sm ${selectedIdx === i && !customGrams ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-container-high border-outline-variant text-on-surface'}`}>
+                <div className="font-medium">{s.label} · {s.amount}{s.unit}</div>
+                <div className="text-xs text-on-surface-variant">{n.calories} kcal · P{n.proteins}g C{n.carbs}g G{n.fats}g</div>
+              </button>
+            )
+          })}
+        </div>
       )}
-    </div>
-  )
-}
-
-function NutRow({label, value}:{label:string; value:string}){
-  return <div className="flex justify-between border-b border-border/50 py-1"><span className="text-textMuted">{label}</span><span className="font-medium">{value}</span></div>
-}
-function CodeBlock({title, code}:{title:string; code:string; lang?:string}){
-  const copy = ()=> navigator.clipboard.writeText(code)
-  return (
-    <div className="rounded-lg bg-bg border border-border overflow-hidden">
-      <div className="flex justify-between items-center px-3 py-2 border-b border-border">
-        <span className="text-aux">{title}</span>
-        <button onClick={copy} className="text-aux bg-surface border border-border px-2 py-1 rounded-lg flex items-center gap-1"><Copy size={12}/> Copiar</button>
+      <div className="space-y-1">
+        <div className="font-label-caps text-[10px] text-on-surface-variant">Cantidad personalizada ({food.baseUnit})</div>
+        <input type="number" value={customGrams} onChange={e => setCustomGrams(e.target.value)}
+          placeholder={`Ej: 150 ${food.baseUnit}`}
+          className="w-full bg-surface-container-high backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface focus:outline-none focus:border-secondary" />
       </div>
-      <pre className="p-3 text-aux overflow-auto whitespace-pre-wrap break-words">{code}</pre>
+      <div className="rounded bg-primary/15 border border-primary/30 p-3">
+        <div className="font-label-caps text-[10px] text-primary">Vista previa</div>
+        <div className="font-headline-lg text-base font-semibold text-on-surface">{preview.calories} kcal</div>
+        <div className="font-body-md text-xs text-on-surface-variant">P{preview.proteins}g · C{preview.carbs}g · G{preview.fats}g</div>
+      </div>
+      <div className="flex gap-2">
+        <AltheaButton variant="secondary" fullWidth onClick={onCancel}>Cancelar</AltheaButton>
+        <AltheaButton variant="primary" fullWidth onClick={() => onAdd(selectedIdx, customAmt)}>Agregar</AltheaButton>
+      </div>
     </div>
   )
 }

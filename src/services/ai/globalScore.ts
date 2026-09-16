@@ -44,8 +44,8 @@ export function computeGlobalScore(i: ScoreInput): GlobalScore {
   else factors.push({ label: 'Progreso', delta: 0, estado: 'sin datos suficientes' })
 
   if (i.painMax7d == null) factors.push({ label: 'Dolor', delta: 0, estado: 'sin registros' })
-  else if (i.painMax7d >= 4) add('Dolor', -5, `máx ${i.painMax7d}/10 en 7d`)
-  else add('Dolor', 0, `máx ${i.painMax7d}/10: leve`)
+  else if (i.painMax7d >= 1) add('Dolor', -5, `dolor reportado en los últimos 7d`)
+  else add('Dolor', 0, `sin dolor reportado`)
 
   if (i.proteinPctGoal == null) factors.push({ label: 'Proteína', delta: 0, estado: 'sin datos' })
   else if (i.proteinPctGoal >= 80) add('Proteína', 5, `${Math.round(i.proteinPctGoal)}% del objetivo`)
@@ -129,7 +129,7 @@ export async function buildGlobalScore(): Promise<GlobalScore> {
     if (w > 0) {
       const { proteinRange } = await import('@/utils/nutrition')
       const range = proteinRange(w, p?.goalPrimary)
-      const diario = JSON.parse(localStorage.getItem(`nutri:diario:${today}`) || '[]')
+      const diario = JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`) || '[]')
       if (range && diario.length > 0) {
         const est = (diario as any[]).reduce((a, it) => a + Number(it?.macros?.proteins ?? 0), 0)
         proteinPctGoal = (est / range.low) * 100

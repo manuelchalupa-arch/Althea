@@ -40,18 +40,18 @@ export default function Login({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-bg p-4 max-w-lg lg:max-w-3xl mx-auto flex flex-col justify-center gap-4">
+    <div className="min-h-screen bg-transparent p-4 max-w-lg md:max-w-3xl mx-auto flex flex-col justify-center gap-4">
       <div className="text-center">
-        <div className="text-title">Althea</div>
-        <p className="text-aux text-textMuted mt-1">
+        <div className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">Althea</div>
+        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">
           {mode === 'in' && 'Iniciá sesión para sincronizar tu entrenamiento'}
           {mode === 'up' && 'Creá tu cuenta con correo electrónico'}
           {mode === 'reset' && 'Recuperá tu contraseña'}
         </p>
       </div>
 
-      <div className="rounded-xl bg-surface border border-border p-4 space-y-3">
-        <label className="text-aux">
+      <div className="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-4 space-y-3">
+        <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
           Correo electrónico
           <input
             type="email"
@@ -59,11 +59,11 @@ export default function Login({ onDone }: { onDone: () => void }) {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="vos@correo.com"
             autoComplete="email"
-            className="w-full mt-1 bg-bg border border-border rounded-xl p-3 text-body"
+            className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface"
           />
         </label>
         {mode !== 'reset' && (
-          <label className="text-aux">
+          <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
             Contraseña
             <input
               type="password"
@@ -71,12 +71,12 @@ export default function Login({ onDone }: { onDone: () => void }) {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Mínimo 6 caracteres"
               autoComplete={mode === 'up' ? 'new-password' : 'current-password'}
-              className="w-full mt-1 bg-bg border border-border rounded-xl p-3 text-body"
+              className="w-full mt-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface"
             />
           </label>
         )}
-        {error && <p className="text-aux st-error-text">{error}</p>}
-        {ok && <p className="text-aux st-success-text">{ok}</p>}
+        {error && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant st-error-text">{error}</p>}
+        {ok && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant st-success-text">{ok}</p>}
         <button onClick={submit} disabled={busy} className="btn-primary w-full disabled:opacity-50">
           {busy
             ? 'Procesando…'
@@ -86,14 +86,14 @@ export default function Login({ onDone }: { onDone: () => void }) {
                 ? 'Crear cuenta'
                 : 'Enviar correo'}
         </button>
-        <div className="flex justify-between text-aux">
+        <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
           {mode === 'in' ? (
             <>
-              <button onClick={() => setMode('reset')} className="text-info">Olvidé mi contraseña</button>
-              <button onClick={() => setMode('up')} className="text-info">Crear cuenta</button>
+              <button onClick={() => setMode('reset')} className="text-primary">Olvidé mi contraseña</button>
+              <button onClick={() => setMode('up')} className="text-primary">Crear cuenta</button>
             </>
           ) : (
-            <button onClick={() => setMode('in')} className="text-info">Ya tengo cuenta</button>
+            <button onClick={() => setMode('in')} className="text-primary">Ya tengo cuenta</button>
           )}
         </div>
       </div>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 60" fill="none">
+  <defs>
+    <pattern id="greekMeander" width="40" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 0 10 L 15 10 L 15 5 L 5 5 L 5 15 L 25 15 L 25 0 L 0 0 M 20 10 L 35 10 L 35 5 L 25 5 L 25 15 L 40 15" fill="none" stroke="#C5A059" stroke-width="1.75" stroke-linecap="square" opacity="0.85"/>
+    </pattern>
+  </defs>
+  <line x1="0" y1="2" x2="800" y2="2" stroke="#C5A059" stroke-width="1.5" opacity="0.6"/>
+  <rect x="0" y="5" width="800" height="20" fill="url(#greekMeander)" />
+  <line x1="0" y1="27" x2="800" y2="27" stroke="#C5A059" stroke-width="1.5" opacity="0.6"/>
+</svg>

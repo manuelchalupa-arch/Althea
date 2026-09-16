@@ -31,7 +31,7 @@ export const SESSION_TRANSITIONS: Record<SessionStatus, SessionStatus[]> = {
   READY: ['IN_PROGRESS', 'CANCELLED'],
   IN_PROGRESS: ['PAUSED', 'COMPLETING', 'CANCELLED', 'ABANDONED'],
   PAUSED: ['IN_PROGRESS', 'COMPLETING', 'CANCELLED', 'ABANDONED'],
-  COMPLETING: ['COMPLETED', 'PARTIAL'],
+  COMPLETING: ['IN_PROGRESS', 'COMPLETED', 'PARTIAL'],
   COMPLETED: [],
   PARTIAL: [],
   CANCELLED: [],
@@ -187,31 +187,29 @@ export interface PostWorkoutSurvey {
   sessionId: string;
   userId: string;
   calendarDate: string;
-  energy: number;
-  fatigue: number;
-  pain: number;
-  mood: number;
-  motivation: number;
-  perceivedExertion: number;
-  stress: number;
+  sessionRating: number; // 1–5: cómo fue la sesión
+  pain: number; // 0 = sin dolor, 1 = con dolor
+  painZone?: string; // zona del dolor (si pain=1)
+  painDetail?: string; // descripción del dolor (si pain=1)
+  comment?: string; // observación libre
+  createdAt: string;
+  // Legacy fields (kept for backwards compat reads, not written)
+  energy?: number;
+  fatigue?: number;
+  mood?: number;
+  motivation?: number;
+  perceivedExertion?: number;
+  stress?: number;
   painArea?: string;
   painObservation?: string;
-  createdAt: string;
 }
 
 export function validateSurvey(s: Partial<PostWorkoutSurvey>): string[] {
   const errs: string[] = [];
   const range = (v: unknown, lo: number, hi: number) => typeof v === 'number' && v >= lo && v <= hi;
-  if (!range(s.energy, 1, 10)) errs.push('energy 1–10');
-  if (!range(s.fatigue, 1, 10)) errs.push('fatigue 1–10');
-  if (!range(s.pain, 0, 10)) errs.push('pain 0–10');
-  if (!range(s.mood, 1, 10)) errs.push('mood 1–10');
-  if (!range(s.motivation, 1, 10)) errs.push('motivation 1–10');
-  if (!range(s.perceivedExertion, 1, 10)) errs.push('perceivedExertion 1–10');
-  if (!range(s.stress, 1, 10)) errs.push('stress 1–10');
-  if (typeof s.pain === 'number' && s.pain > 3 && !(s.painArea || '').trim() && !(s.painObservation || '').trim()) {
-    errs.push('painArea u observación requerida si pain>3');
-  }
+  if (!range(s.sessionRating, 1, 5)) errs.push('sessionRating 1–5');
+  if (s.pain !== 0 && s.pain !== 1) errs.push('pain 0 o 1');
+  if (s.pain === 1 && !(s.painZone || '').trim()) errs.push('painZone requerido si hay dolor');
   return errs;
 }
 

@@ -92,7 +92,7 @@ describe('tonos (§17) y score (§21)', () => {
     const a = computeGlobalScore(input)
     const b = computeGlobalScore(input)
     expect(a).toEqual(b)
-    expect(a.score).toBe(50 + 15 + 10 + 5 + 10 + 0 + 5 + 3)
+    expect(a.score).toBe(50 + 15 + 10 + 5 + 10 + (-5) + 5 + 3)
     expect(a.factors.find((f) => f.label === 'Adherencia')?.estado).toContain('positivo')
   })
 

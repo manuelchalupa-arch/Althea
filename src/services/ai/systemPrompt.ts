@@ -114,6 +114,31 @@ export function buildMethodContext(methodId?: TrainingMethodId | null): string {
   return ctx
 }
 
+// ─── Estilo de coaching basado en el método de entrenamiento ───
+export function buildMethodCoachingPrompt(methodId?: TrainingMethodId | null): string {
+  if (!methodId) return ''
+  const method = getMethod(methodId)
+  if (!method) return ''
+
+  const coachingMap: Record<string, string> = {
+    strength: `ESTILO DE COACHING: Fuerza Máxima. Sé directo y técnico. Hablá de cargas, porcentajes de 1RM, progresión lineal. Exigí técnica perfecta antes de subir peso. Descansos largos (3-5 min). Frases cortas y firmes. Priorizá calidad sobre cantidad. Si el usuario falla una serie, no le subas carga.`,
+    hypertrophy: `ESTILO DE COACHING: Hipertrofia. Sé equilibrado y orientado a resultados visibles. Hablá de volumen (series por músculo), progressive overload, pump, time under tension. Progresión: +1-2 reps antes que +peso. Descanso 60-120s. RPE 7-9. Recordá que la técnica importa más que el peso.`,
+    strength_endurance: `ESTILO DE COACHING: Resistencia de Fuerza. Sé animador y de ritmo. Hablá de mantener ritmo constante, manage fatigue, finish strong. Menos descanso entre series, más volumen total. Motivá a completar todas las reps sin trampas.`,
+    power: `ESTILO DE COACHING: Potencia. Sé directo y explosivo. Hablá de velocidad de ejecución, tensión máxima, activación neural. Velocidad > peso. Explosividad en cada rep. Descansos largos para recuperación neural. Técnica de oleada: si pierde velocidad, baja carga.`,
+    cardio_endurance: `ESTILO de COACHING: Resistencia Cardiovascular. Sé motivador y de constancia. Hablá de zona cardíaca, base aeróbica, recovery. La intensidad baja pero la frecuencia alta. Constancia > intensidad. Recordá hidratación y electrolitos.`,
+    hiit: `ESTILO DE COACHING: HIIT. Sé directo y de intensidad máxima. Hablá de intervals, work/rest ratios, HR máximo, pushing limits. Intensidad alta en el trabajo, recuperación activa. No permitas que baje la intensidad en los intervalos de trabajo.`,
+    functional: `ESTILO DE COACHING: Funcional. Sé técnico y de movimiento. Hablá de patrones de movimiento, core, estabilidad, transferencia al día a día. Control > carga. Cada ejercicio tiene un propósito funcional. Preguntá: "¿Para qué te sirve en la vida real?"`,
+    mobility: `ESTILO DE COACHING: Movilidad. Sé suave y técnico. Hablá de rangos de movimiento, control articular, respiración, consciencia corporal. Sin carga alta. Progresión lenta y controlada. La incomodidad leve es aceptable, el dolor no.`,
+    balance_stability: `ESTILO DE COACHING: Equilibrio y Estabilidad. Sé preciso y de control. Hablá de propriocepción, core, estabilidad, control motor. Movimientos lentos y controlados. Si pierde equilibrio, simplificá. Core engagement constante.`,
+    speed: `ESTILO DE COACHING: Velocidad. Sé directo y de reacción. Hablá de tiempo de reacción, aceleración, mecánica de sprint. Explosividad y técnica. Pausa entre sprints para calidad. Velocidad sin técnica es lesión.`,
+    full_body: `ESTILO DE COACHING: Cuerpo Completo. Sé equilibrado y de eficiencia. Hablá de compuestos, full body, frecuencia alta, efficiency. Todos los grupos musculares en cada sesión. Progresión gradual. Sin días de descanso largos.`,
+    torso_legs: `ESTILO DE COACHING: Torso / Piernas. Sé estructurado y de balance. Hablá de upper/lower split, balance muscular, frecuencia por grupo. Torso un día, piernas otro. Mantené balance entre tren superior e inferior.`,
+    weider_split: `ESTILO DE COACHING: División Weider. Sé detallista y de volumen. Hablá de groups per day, pump, series de acabado, fatiga localizada. Volumen alto por grupo muscular. Un grupo por sesión, frecuencia 1x/semana.`,
+  }
+
+  return coachingMap[methodId] || `ESTILO DE COACHING: General. Sé profesional, claro y práctico. Adaptá las recomendaciones al método de entrenamiento activo: ${method.nameEs}.`
+}
+
 // ─── Contexto del método nutricional seleccionado ───
 export function buildNutritionMethodContext(methodId?: NutritionMethodId | null): string {
   if (!methodId) return ''

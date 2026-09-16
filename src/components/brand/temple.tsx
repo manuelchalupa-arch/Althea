@@ -1,10 +1,6 @@
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
-
-// Design System griego: lenguaje arquitectónico/escultórico reutilizable.
-// Todo usa currentColor + vars de paleta existentes (NO se cambia la gama).
-// Motivos abstractos originales de una misma familia (trazo grueso, simetría,
-// extremos redondos): misma dirección artística en todas las secciones.
+import { ThemeToggle } from './ThemeToggle'
 
 export type TempleSection =
   | 'inicio' | 'entrenar' | 'nutricion' | 'progreso' | 'mas'
@@ -128,7 +124,6 @@ export function SectionSigil({ section, className = '' }: { section: TempleSecti
   )
 }
 
-// Cenefa de grecas (meandro) sutil para header/sidebar.
 export function Meander({ className = '' }: { className?: string }) {
   return (
     <svg className={className} aria-hidden="true" focusable="false" preserveAspectRatio="none" viewBox="0 0 120 10">
@@ -142,12 +137,10 @@ export function Meander({ className = '' }: { className?: string }) {
   )
 }
 
-// Velo de mármol: estratos + vetas con la paleta existente, muy sutil.
 export function MarbleVeil({ className = '' }: { className?: string }) {
   return <div aria-hidden="true" className={`temple-veil ${className}`} />
 }
 
-// Fondo global: color sólido fijo + velo sutil. Sin fotos ni sigilos en las 4 pestañas principales.
 const HIDE_SIGIL: TempleSection[] = ['entrenar', 'nutricion', 'progreso', 'mas']
 export function TempleBackdrop() {
   const { pathname } = useLocation()
@@ -161,28 +154,46 @@ export function TempleBackdrop() {
   )
 }
 
-// Header móvil: nombre centrado + logo del usuario (o marca de mármol temporal).
 export function AppHeader() {
   const [logoOk, setLogoOk] = useState(true)
   return (
-    <header className="md:hidden sticky top-0 z-40 bg-bg/95 backdrop-blur border-b border-border">
-      <div className="flex items-center justify-center gap-2 h-[52px] px-4">
-        {logoOk ? (
-          <img
-            src="/assets/logo/logo.svg"
-            alt="Althea"
-            className="w-7 h-7"
-            onError={() => {
-              console.warn('[ICONO PENDIENTE: logo/logo.svg] usando marca temporal.')
-              setLogoOk(false)
-            }}
-          />
-        ) : (
-          <span className="temple-mark" aria-hidden="true">A</span>
-        )}
-        <span className="temple-word">ALTHEA</span>
+    <header className="sticky top-0 z-30 flex items-center justify-between px-6 h-[52px] w-full backdrop-blur-md bg-surface/90 border-b border-outline-variant/30 shadow-sm transition-colors duration-500">
+      {/* Left: Brand Logo & Title */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 flex items-center justify-center">
+            {logoOk ? (
+              <img
+                src="/assets/icons/navigation/logo.png"
+                alt="Althea"
+                className="w-full h-full object-contain"
+                onError={() => setLogoOk(false)}
+              />
+            ) : (
+              <span className="material-symbols-outlined text-secondary" style={{ fontSize: 22 }}>temple_hindu</span>
+            )}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-headline-md text-headline-sm font-semibold tracking-[0.2em] text-primary">ALTHEA</span>
+            <span className="font-label-caps text-[9px] tracking-widest text-secondary uppercase font-semibold">TEMPLO DE LA VIRTUD FÍSICA</span>
+          </div>
+        </div>
       </div>
-      <Meander className="temple-frieze" />
+      {/* Center: Meander accent */}
+      <div className="hidden lg:flex items-center h-4 w-72 greek-meander-bar" />
+      {/* Right: Theme Toggle + Status */}
+      <div className="flex items-center justify-end gap-3">
+        <ThemeToggle />
+        <div className="flex items-center gap-2 pl-2 border-l border-outline-variant/30">
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-container-high border border-secondary/40 flex items-center justify-center">
+            <img
+              src="/assets/icons/navigation/logo.png"
+              alt="Perfil"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      </div>
     </header>
   )
 }

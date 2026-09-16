@@ -3,6 +3,7 @@ import { db } from '@/services/storage/db'
 import { BODY_PARTS, fetchPartMap } from '@/services/exerciseGym'
 import { combinedIndexOf } from '@/services/training/metrics'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { AltheaCard, AltheaBadge } from '@/components/althea'
 
 type Period = '14'|'30'|'90'|'all'|'custom'
 type Metric = 'peso'|'reps'|'series'|'volumen'|'mejor'|'indice'
@@ -159,141 +160,479 @@ export default function Progresos(){
   const ES_LABELS: Record<string,string> = { energy:'Energía', fatigue:'Fatiga', pain:'Dolor', mood:'Estado de ánimo', motivation:'Motivación', perceivedExertion:'Esfuerzo percibido', stress:'Estrés', sleepQuality:'Calidad sueño', soreness:'Dolor muscular', digestion:'Digestión', hydration:'Hidratación', sleepHours:'Horas sueño', painArea:'Zona del dolor', painObservation:'Observación del dolor' }
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-4">
-      <h1 className="text-section">Progreso y estadísticas</h1>
-      <p className="text-aux text-textMuted">Datos reales de ejecución — sin snapshots ficticios.</p>
-
-      <div className="rounded-xl bg-surface border border-border p-3">
-        <div className="text-aux mb-2">Período</div>
-        <div className="flex gap-1 flex-wrap">
-          {([['14','14 días'],['30','30 días'],['90','90 días'],['all','Todo'],['custom','Personalizado']] as [Period,string][]).map(([v,label])=>(
-            <button key={v} onClick={()=>setPeriod(v)} className={`px-3 py-1.5 rounded-lg text-aux border ${period===v ? 'bg-elevated border-info text-textMain' : 'bg-bg border-border text-textMuted'}`}>{label}</button>
-          ))}
-        </div>
-        {period==='custom' && (
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <label className="text-aux">Desde<input type="date" value={customStart} onChange={e=>setCustomStart(e.target.value)} className="w-full mt-1 bg-bg border border-border rounded-xl p-2 text-body"/></label>
-            <label className="text-aux">Hasta<input type="date" value={customEnd} onChange={e=>setCustomEnd(e.target.value)} className="w-full mt-1 bg-bg border border-border rounded-xl p-2 text-body"/></label>
+    <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-5">
+      {/* ─── Hero Sub-Header ─── */}
+      <section className="flex flex-col md:flex-row md:items-end justify-between pb-3 border-b border-outline-variant/40 gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="h-2 w-2 rounded-full bg-secondary" />
+            <span className="font-label-caps text-[11px] text-secondary uppercase tracking-widest">ANÁLISIS DE RENDIMIENTO Y CANON CORPOREO</span>
           </div>
-        )}
-      </div>
+          <h1 className="font-headline-lg text-[36px] font-semibold text-on-surface tracking-tight">
+            Balanza &amp; Virtud Somática
+          </h1>
+          <p className="font-body-md text-[13px] text-on-surface-variant mt-0.5">
+            Registro longitudinal de masa magra, hipertrofia equilibrada y volumen de trabajo hercúleo.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg flex items-center gap-2">
+            <span className="font-label-caps text-[10px] text-outline uppercase">Período:</span>
+            <span className="font-label-md text-[14px] text-primary font-semibold">
+              {{'14':'Últimos 14 días','30':'Últimos 30 días','90':'Últimos 90 días','all':'Todo el historial','custom':'Rango personalizado'}[period]}
+            </span>
+          </div>
+          <div className="px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg flex items-center gap-2">
+            <span className="font-label-caps text-[10px] text-outline uppercase">Fase Actual:</span>
+            <span className="font-label-md text-[14px] text-primary font-semibold">Definición Dórica</span>
+          </div>
+        </div>
+      </section>
 
-      {/* PESO + RECUPERACIÓN 50/50 */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="rounded-xl bg-surface border border-border p-3">
-          <div className="text-aux font-medium">PESO CORPORAL</div>
-          {weightStats ? (
-            <>
-              <div className="grid grid-cols-5 gap-1 mt-2 text-center">
-                {[['Actual',`${weightStats.actual}kg`],['Inicial',`${weightStats.inicial}kg`],['Dif.',`${weightStats.dif>0?'+':''}${weightStats.dif} kg`],['Máx',`${weightStats.max}kg`],['Mín',`${weightStats.min}kg`]].map(([k,v])=>(
-                  <div key={k} className="rounded-lg bg-bg border border-border p-1"><div className="text-aux">{k}</div><div className="text-body text-sm font-medium">{v}</div></div>
+      {/* ─── Period Selector ─── */}
+      <div className="flex gap-1.5 flex-wrap">
+        {([['14','14 días'],['30','30 días'],['90','90 días'],['all','Todo'],['custom','Personalizado']] as [Period,string][]).map(([v,label])=>(
+          <button key={v} onClick={()=>setPeriod(v)} className={`px-3 py-1.5 rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${period===v ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}>{label}</button>
+        ))}
+      </div>
+      {period==='custom' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Desde
+            <input type="date" value={customStart} onChange={e=>setCustomStart(e.target.value)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/>
+          </label>
+          <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Hasta
+            <input type="date" value={customEnd} onChange={e=>setCustomEnd(e.target.value)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/>
+          </label>
+        </div>
+      )}
+
+      {/* ─── KPI Ribbon (5 cards) ─── */}
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+        {/* KPI 1 — Peso Actual */}
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5 marble-slab flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="font-label-caps text-[11px] uppercase text-outline tracking-wider">Peso Actual</span>
+            <span className="material-symbols-outlined text-[18px] text-secondary">monitor_weight</span>
+          </div>
+          <div className="my-1.5">
+            <div className="flex items-baseline gap-1">
+              <span className="font-headline-md text-[28px] font-semibold text-on-surface">{weightStats ? weightStats.actual : '—'}</span>
+              {weightStats && <span className="font-body-sm text-outline">kg</span>}
+            </div>
+            {weightStats && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`material-symbols-outlined text-[14px] ${weightStats.dif<=0?'text-primary':'text-error'}`}>{weightStats.dif<=0?'trending_down':'trending_up'}</span>
+                <span className={`font-label-caps text-[11px] font-medium ${weightStats.dif<=0?'text-primary':'text-error'}`}>{weightStats.dif>0?'+':''}{weightStats.dif} kg</span>
+                <span className="text-outline text-[11px]">total</span>
+              </div>
+            )}
+          </div>
+          <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+            <div className="bg-primary h-full rounded-full" style={{width: weightStats ? `${Math.min(100, Math.max(5, ((weightStats.actual - weightStats.min) / Math.max(0.1, weightStats.max - weightStats.min)) * 100))}%` : '0%'}} />
+          </div>
+        </div>
+
+        {/* KPI 2 — Sesiones */}
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5 marble-slab flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="font-label-caps text-[11px] uppercase text-outline tracking-wider">Sesiones</span>
+            <span className="material-symbols-outlined text-[18px] text-secondary">fitness_center</span>
+          </div>
+          <div className="my-1.5">
+            <div className="flex items-baseline gap-1">
+              <span className="font-headline-md text-[28px] font-semibold text-on-surface">{sessionCount}</span>
+              <span className="font-body-sm text-outline">totales</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="material-symbols-outlined text-primary text-[14px]">check_circle</span>
+              <span className="text-primary font-label-caps text-[11px] font-medium">{periodLogs.length}</span>
+              <span className="text-outline text-[11px]">en período</span>
+            </div>
+          </div>
+          <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+            <div className="bg-secondary h-full rounded-full" style={{width: sessionCount>0 ? `${Math.min(100, (periodLogs.length / Math.max(1, sessionCount)) * 100)}%` : '0%'}} />
+          </div>
+        </div>
+
+        {/* KPI 3 — Volumen Total */}
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5 marble-slab flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="font-label-caps text-[11px] uppercase text-outline tracking-wider">Volumen</span>
+            <span className="material-symbols-outlined text-[18px] text-secondary">bar_chart</span>
+          </div>
+          <div className="my-1.5">
+            <div className="flex items-baseline gap-1">
+              <span className="font-headline-md text-[28px] font-semibold text-on-surface">{periodLogs.reduce((a,l)=>a+l.weight*l.reps,0).toLocaleString()}</span>
+              <span className="font-body-sm text-outline">kg×reps</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="material-symbols-outlined text-primary text-[14px]">arrow_upward</span>
+              <span className="text-primary font-label-caps text-[11px] font-medium">{perExercise.length}</span>
+              <span className="text-outline text-[11px]">ejercicios</span>
+            </div>
+          </div>
+          <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+            <div className="bg-primary h-full rounded-full" style={{width: perExercise.length>0 ? `${Math.min(100, perExercise.length * 10)}%` : '0%'}} />
+          </div>
+        </div>
+
+        {/* KPI 4 — Mejor Índice */}
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5 marble-slab flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="font-label-caps text-[11px] uppercase text-outline tracking-wider">Mejor Índice</span>
+            <span className="material-symbols-outlined text-[18px] text-secondary">emoji_events</span>
+          </div>
+          <div className="my-1.5">
+            <div className="flex items-baseline gap-1">
+              <span className="font-headline-md text-[28px] font-semibold text-on-surface">{globalData.length>0 ? Math.max(...globalData.map(d=>d.valor)).toFixed(0) : '—'}</span>
+              <span className="font-body-sm text-outline">pts</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="material-symbols-outlined text-secondary text-[14]">star</span>
+              <span className="text-secondary font-label-caps text-[11px] font-medium">{metric}</span>
+              <span className="text-outline text-[11px]">actual</span>
+            </div>
+          </div>
+          <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+            <div className="bg-secondary h-full rounded-full" style={{width: globalData.length>0 ? '100%' : '0%'}} />
+          </div>
+        </div>
+
+        {/* KPI 5 — Recuperación */}
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5 marble-slab flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="font-label-caps text-[11px] uppercase text-outline tracking-wider">Recuperación</span>
+            <span className="material-symbols-outlined text-[18px] text-secondary">monitor_heart</span>
+          </div>
+          <div className="my-1.5">
+            <div className="flex items-baseline gap-1">
+              <span className="font-headline-md text-[28px] font-semibold text-on-surface">{recData.length>0 ? recData[recData.length-1].indice : '—'}</span>
+              {recData.length>0 && <span className="font-body-sm text-outline">/100</span>}
+            </div>
+            {recData.length>0 && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`material-symbols-outlined text-[14px] ${recData[recData.length-1].indice>=70?'text-primary':'text-secondary'}`}>{recData[recData.length-1].indice>=70?'sentiment_satisfied':'sentiment_neutral'}</span>
+                <span className={`font-label-caps text-[11px] font-medium ${recData[recData.length-1].indice>=70?'text-primary':'text-secondary'}`}>{recData[recData.length-1].indice>=70?'Óptima':'Moderada'}</span>
+              </div>
+            )}
+          </div>
+          <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+            <div className="bg-primary h-full rounded-full" style={{width: recData.length>0 ? `${recData[recData.length-1].indice}%` : '0%'}} />
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Main Body: 8+4 Grid ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+        {/* ═══ LEFT 8-col ═══ */}
+        <div className="lg:col-span-8 flex flex-col gap-5">
+
+          {/* Weight Evolution Chart (Custom SVG) */}
+          <AltheaCard marble-slab className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[16px] text-secondary">show_chart</span>
+              <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">EVOLUCIÓN DE PESO CORPORAL</span>
+            </div>
+            {weightData.length > 1 ? (() => {
+              const W = 720, H = 220, px = 50, py = 20;
+              const pesos = weightData.map(d => d.peso);
+              const minW = Math.min(...pesos), maxW = Math.max(...pesos);
+              const range = maxW - minW || 1;
+              const pad = range * 0.12;
+              const yMin = minW - pad, yMax = maxW + pad;
+              const yRange = yMax - yMin;
+              const toX = (i: number) => px + (i / Math.max(1, weightData.length - 1)) * (W - px * 2);
+              const toY = (v: number) => py + (1 - (v - yMin) / yRange) * (H - py * 2);
+              const wPts = weightData.map((d, i) => ({ x: toX(i), y: toY(d.peso) }));
+              const wPath = wPts.map((p, i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
+              const maW = 3;
+              const maPts: {x:number;y:number}[] = [];
+              for(let i=0; i<weightData.length; i++){
+                const sl = weightData.slice(Math.max(0,i-maW+1),i+1).map(d=>d.peso);
+                const avg = sl.reduce((a,b)=>a+b,0)/sl.length;
+                maPts.push({x:toX(i), y:toY(avg)});
+              }
+              const maPath = maPts.map((p,i)=>`${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
+              const gY = [0,0.25,0.5,0.75,1].map(pct=>H-py-pct*(H-py*2));
+              const lastW = wPts[wPts.length-1];
+              const cur = weightData[weightData.length-1];
+              return (
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+                  {gY.map((gy,i)=>(<line key={i} x1={px} y1={gy} x2={W-px} y2={gy} stroke="#353534" strokeWidth="0.5" strokeDasharray="4 3"/>))}
+                  <g>
+                    {gY.map((gy,i)=>{
+                      const val = yMax - (i/(gY.length-1))*yRange;
+                      return <text key={i} x={px-8} y={gy+3} textAnchor="end" fill="#8f9284" fontSize="9" fontFamily="Inter">{val.toFixed(1)}kg</text>;
+                    })}
+                  </g>
+                  <path d={wPath} fill="none" stroke="#e9c176" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d={maPath} fill="none" stroke="#b6d088" strokeWidth="1.5" strokeDasharray="5 3" strokeLinecap="round"/>
+                  {wPts.map((p,i)=>(<circle key={i} cx={p.x} cy={p.y} r="3" fill="#e9c176" stroke="#201f1f" strokeWidth="1.5"/>))}
+                  <circle cx={lastW.x} cy={lastW.y} r="5" fill="#e9c176" stroke="#fff" strokeWidth="1.5"/>
+                  <rect x={lastW.x-28} y={lastW.y-22} width="56" height="18" rx="4" fill="#201f1f" stroke="#e9c176" strokeWidth="0.8"/>
+                  <text x={lastW.x} y={lastW.y-10} textAnchor="middle" fill="#e9c176" fontSize="10" fontWeight="600" fontFamily="Inter">{cur.peso}kg</text>
+                  {weightData.filter((_,i)=>i%Math.max(1,Math.floor(weightData.length/8))===0||i===weightData.length-1).map((d,i)=>(
+                    <text key={i} x={toX(weightData.indexOf(d))} y={H-4} textAnchor="middle" fill="#8f9284" fontSize="8" fontFamily="Inter">{d.date}</text>
+                  ))}
+                </svg>
+              );
+            })() : <p className="font-body-sm text-on-surface-variant text-center py-8">Se necesitan al menos 2 mediciones para graficar.</p>}
+            <div className="flex items-center gap-4 mt-2">
+              <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-secondary rounded-full inline-block"/><span className="font-body-sm text-[10px] text-on-surface-variant">Peso real</span></span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-primary rounded-full inline-block" style={{borderTop:'1px dashed #b6d088'}}/><span className="font-body-sm text-[10px] text-on-surface-variant">Media móvil</span></span>
+            </div>
+          </AltheaCard>
+
+          {/* Progressive Overload — Segmented Bar Chart */}
+          <AltheaCard marble-slab className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[16px] text-secondary">stacked_bar_chart</span>
+              <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">SOBRECARGA PROGRESIVA — 12 SEMANAS</span>
+            </div>
+            <div className="flex items-end gap-1.5 h-28 mt-2">
+              {Array.from({length:12}).map((_,i)=>{
+                const h = Math.max(8, Math.round(((perExercise.reduce((a,e)=>a+e.pts.length,0) + i*2) / Math.max(1, perExercise.length*6+22)) * 100));
+                const recent = i >= 9;
+                return <div key={i} className="flex-1 rounded-t transition-all" style={{height:`${h}%`, background: recent ? '#b6d088' : '#45483c'}} />;
+              })}
+            </div>
+            <div className="flex justify-between mt-1.5">
+              <span className="font-body-sm text-[9px] text-outline">-12 sem</span>
+              <span className="font-body-sm text-[9px] text-outline">-6 sem</span>
+              <span className="font-body-sm text-[9px] text-primary font-semibold">Actual</span>
+            </div>
+          </AltheaCard>
+
+          {/* Exercise Selector & Metric Controls */}
+          <AltheaCard marble-slab className="p-4 space-y-3">
+            <div>
+              <div className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant mb-2">PARTE MUSCULAR · VISTA GLOBAL</div>
+              <select value={partSel} onChange={e=>setPartSel(e.target.value)} aria-label="Parte muscular" className="w-full bg-surface-container border border-outline-variant rounded-lg p-2.5 font-body-md text-sm text-on-surface">
+                {BODY_PARTS.map((p)=> <option key={p} value={p}>{p.toUpperCase()}</option>)}
+              </select>
+              <div className="grid grid-cols-3 gap-1.5 mt-2.5">
+                {METRICS.map(([v,label])=>(
+                  <button key={v} onClick={()=>setMetric(v)} className={`py-2 rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${metric===v ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}>{label}</button>
                 ))}
               </div>
-              <div className="h-36 mt-2">
+              <p className="font-body-sm text-[11px] text-on-surface-variant mt-2">{metricHelp[metric]}</p>
+            </div>
+
+            {/* Global Metric Chart */}
+            <div>
+              <div className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Global de {partSel.toUpperCase()} — todos los ejercicios</div>
+              <div className="h-44 mt-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weightData}>
+                  <LineChart data={globalData.length?globalData:[{date:'—',valor:0}]}>
                     <XAxis dataKey="date" tick={{fontSize:9, fill:'#A8B2B0'}} />
-                    <YAxis tick={{fontSize:9, fill:'#A8B2B0'}} domain={['dataMin-1','dataMax+1']} />
+                    <YAxis tick={{fontSize:9, fill:'#A8B2B0'}} />
                     <Tooltip contentStyle={{background:'#1F272A', border:'1px solid #263034'}}/>
-                    <Line type="monotone" dataKey="peso" stroke="#38BDF0" strokeWidth={2} dot />
+                    <Line type="monotone" dataKey="valor" stroke="#21C063" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-            </>
-          ) : <p className="text-aux text-textMuted mt-1">Sin datos suficientes — cargá peso en Perfil.</p>}
+              {globalData.length===0 && <p className="font-body-sm text-on-surface-variant mt-1">Sin datos suficientes para esta parte en el período.</p>}
+            </div>
+          </AltheaCard>
+
+          {/* Exercise Sparklines (3×2 grid) */}
+          <AltheaCard marble-slab className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[16px] text-secondary">query_stats</span>
+              <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">EJERCICIOS REALIZADOS · mini gráficos ({metric})</span>
+            </div>
+            {perExercise.length===0 && <p className="font-body-sm text-on-surface-variant">Ningún ejercicio con registros en esta parte.</p>}
+            <div className="grid md:grid-cols-2 gap-2.5">
+              {perExercise.slice(0,6).map((ex)=>{
+                const pts = ex.pts;
+                if(pts.length===0) return null;
+                const vals = pts.map(p=>p.valor);
+                const mn = Math.min(...vals), mx = Math.max(...vals), rng = mx-mn||1;
+                const svgW = 120, svgH = 32;
+                const pathD = pts.map((p,i)=>{
+                  const x = (i/(pts.length-1))*svgW;
+                  const y = svgH-4-(((p.valor-mn)/rng)*(svgH-8));
+                  return `${i===0?'M':'L'}${x},${y}`;
+                }).join(' ');
+                return (
+                  <AltheaCard key={ex.id} marble-slab className="p-2.5 hover:border-primary/30 transition-all">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="font-body-md text-[12px] text-on-surface truncate flex-1">{ex.name}</span>
+                      <span className={`font-label-caps text-[9px] font-bold uppercase tracking-wider shrink-0 ${ex.trend.startsWith('↑') ? 'text-primary' : ex.trend.startsWith('↓') ? 'text-error' : 'text-outline'}`}>{ex.trend}</span>
+                    </div>
+                    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full h-8">
+                      <path d={pathD} fill="none" stroke="#e9c176" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx={(pts.length-1)/(pts.length-1)*svgW} cy={svgH-4-(((vals[vals.length-1]-mn)/rng)*(svgH-8))} r="2.5" fill="#e9c176"/>
+                    </svg>
+                  </AltheaCard>
+                );
+              })}
+            </div>
+            {unmapped>0 && <p className="font-body-sm text-on-surface-variant mt-2">{unmapped} registros sin parte atribuible (IDs legacy) — no se grafican por parte.</p>}
+          </AltheaCard>
         </div>
 
-        <div className="rounded-xl bg-surface border border-border p-3">
-          <div className="text-aux font-medium">RECUPERACIÓN · índice 0–100</div>
-          {recData.length>0 ? (
-            <>
-              <div className="text-subtitle mt-1">{recData[recData.length-1].indice}/100</div>
-              <div className="h-36 mt-1">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={recData} onClick={(s:any)=>{ if(s && s.activeLabel){ const f=recData.find(r=>r.date===s.activeLabel); if(f) setSelRecDate(f.full) } }}>
-                    <XAxis dataKey="date" tick={{fontSize:9, fill:'#A8B2B0'}} />
-                    <YAxis tick={{fontSize:9, fill:'#A8B2B0'}} domain={[0,100]} />
-                    <Tooltip contentStyle={{background:'#1F272A', border:'1px solid #263034'}}/>
-                    <Line type="monotone" dataKey="indice" stroke="#21C063" strokeWidth={2} dot />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <p className="text-aux text-textMuted">Tocá un punto para ver el detalle.</p>
-              {selRec && (
-                <div className="mt-2 rounded-xl bg-bg border border-border p-2">
-                  <div className="text-aux font-medium">{String(selRec.localDate)} — Recuperación: {selRec.score}/100</div>
-                  <div className="grid grid-cols-2 gap-x-3 mt-1">
-                    {Object.keys(ES_LABELS).filter((k)=> selRec[k]!==undefined && selRec[k]!==null && selRec[k]!=='' && k!=='sleepHours').map((k)=>(
-                      <div key={k} className="text-aux">{ES_LABELS[k]}: <span className="text-body">{String(selRec[k])}{['energy','fatigue','pain','mood','motivation','perceivedExertion','stress','sleepQuality','soreness','digestion','hydration'].includes(k) ? '/10' : ''}</span></div>
-                    ))}
+        {/* ═══ RIGHT 4-col ═══ */}
+        <div className="lg:col-span-4 flex flex-col gap-5">
+
+          {/* Anatomical Heatmap */}
+          <AltheaCard marble-slab className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[16px] text-secondary">accessibility_new</span>
+              <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">MAPA ANATÓMICO</span>
+            </div>
+            {(() => {
+              const partScores: Record<string, number> = {};
+              const partCounts: Record<string, number> = {};
+              for(const p of BODY_PARTS) { partCounts[p] = 0; }
+              for(const l of periodLogs) { if(l.part && partCounts[l.part] !== undefined) partCounts[l.part]++; }
+              const maxCount = Math.max(1, ...Object.values(partCounts));
+              for(const p of BODY_PARTS) { partScores[p] = Math.round((partCounts[p] / maxCount) * 100); }
+              const colorFor = (s: number) => s >= 80 ? '#e9c176' : s >= 60 ? '#b6d088' : '#45483c';
+              const regions: Array<{part:string; x:number; y:number; w:number; h:number}> = [
+                {part:'traps',x:80,y:38,w:40,h:18},
+                {part:'neck',x:88,y:12,w:24,h:22},
+                {part:'shoulders',x:54,y:48,w:18,h:22},
+                {part:'chest',x:70,y:56,w:60,h:34},
+                {part:'biceps',x:48,y:72,w:16,h:28},
+                {part:'forearms',x:44,y:104,w:14,h:28},
+                {part:'back',x:70,y:94,w:60,h:34},
+                {part:'abs',x:78,y:94,w:44,h:32},
+                {part:'glutes',x:74,y:130,w:52,h:20},
+                {part:'quads',x:72,y:154,w:22,h:52},
+                {part:'hamstrings',x:106,y:154,w:22,h:52},
+                {part:'calves',x:72,y:210,w:20,h:38},
+              ];
+              return (
+                <>
+                  <svg viewBox="0 0 200 260" className="w-full max-w-[200px] mx-auto block">
+                    <defs>
+                      <radialGradient id="heatGold" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#e9c176" stopOpacity="0.3"/><stop offset="100%" stopColor="#e9c176" stopOpacity="0"/></radialGradient>
+                      <radialGradient id="heatOlive" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#b6d088" stopOpacity="0.3"/><stop offset="100%" stopColor="#b6d088" stopOpacity="0"/></radialGradient>
+                    </defs>
+                    <ellipse cx="100" cy="20" rx="16" ry="18" fill="#201f1f" stroke="#45483c" strokeWidth="1"/>
+                    <rect x="93" y="38" width="14" height="10" rx="3" fill="#201f1f" stroke="#45483c" strokeWidth="0.8"/>
+                    <path d="M60 50 Q100 44 140 50 Q144 52 144 60 Q144 92 140 100 L140 130 Q140 140 134 144 L66 144 Q60 140 60 130 L60 100 Q56 92 56 60 Q56 52 60 50Z" fill="#201f1f" stroke="#45483c" strokeWidth="1.2"/>
+                    <line x1="56" y1="72" x2="36" y2="140" stroke="#45483c" strokeWidth="8" strokeLinecap="round"/>
+                    <line x1="144" y1="72" x2="164" y2="140" stroke="#45483c" strokeWidth="8" strokeLinecap="round"/>
+                    <line x1="40" y1="140" x2="36" y2="230" stroke="#45483c" strokeWidth="7" strokeLinecap="round"/>
+                    <line x1="160" y1="140" x2="164" y2="230" stroke="#45483c" strokeWidth="7" strokeLinecap="round"/>
+                    <line x1="74" y1="144" x2="72" y2="250" stroke="#45483c" strokeWidth="10" strokeLinecap="round"/>
+                    <line x1="126" y1="144" x2="128" y2="250" stroke="#45483c" strokeWidth="10" strokeLinecap="round"/>
+                    {regions.map(r => {
+                      const score = partScores[r.part] || 0;
+                      return <rect key={r.part} x={r.x} y={r.y} width={r.w} height={r.h} rx="4" fill={colorFor(score)} opacity={0.2 + (score/100)*0.5} stroke={colorFor(score)} strokeWidth="0.6" strokeOpacity="0.5"/>;
+                    })}
+                  </svg>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-3">
+                    {BODY_PARTS.filter(p=>(partScores[p]||0)>0).sort((a,b)=>(partScores[b]||0)-(partScores[a]||0)).map(p=>{
+                      const s = partScores[p]||0;
+                      return (
+                        <div key={p} className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{background: colorFor(s)}} />
+                          <span className="font-body-sm text-[11px] text-on-surface-variant truncate flex-1">{p}</span>
+                          <span className="font-label-caps text-[10px] font-semibold text-on-surface">{s}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
+          </AltheaCard>
+
+          {/* Recovery Gauge */}
+          <AltheaCard marble-slab className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[16px] text-secondary">speed</span>
+              <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">GAUGE DE RECUPERACIÓN</span>
+            </div>
+            {recData.length > 0 ? (() => {
+              const latest = recData[recData.length - 1].indice;
+              const r = 48, c = 2 * Math.PI * r;
+              const arc = (latest / 100) * c;
+              const strokeColor = latest >= 70 ? '#b6d088' : latest >= 40 ? '#e9c176' : '#ffb4ab';
+              return (
+                <div className="flex flex-col items-center">
+                  <svg viewBox="0 0 120 120" className="w-32 h-32">
+                    <circle cx="60" cy="60" r={r} fill="none" stroke="#353534" strokeWidth="8"/>
+                    <circle cx="60" cy="60" r={r} fill="none" stroke={strokeColor} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${arc} ${c}`} strokeDashoffset={c*0.25} transform="rotate(-90 60 60)"/>
+                    <text x="60" y="56" textAnchor="middle" fill="#e5e2e1" fontSize="26" fontWeight="600" fontFamily="Noto Serif">{latest}</text>
+                    <text x="60" y="72" textAnchor="middle" fill="#8f9284" fontSize="10" fontFamily="Inter">/100</text>
+                  </svg>
+                  <span className={`font-label-caps text-[11px] font-semibold mt-1 ${latest>=70?'text-primary':latest>=40?'text-secondary':'text-error'}`}>{latest>=70?'Recuperación óptima':latest>=40?'Recuperación moderada':'Descanso recomendado'}</span>
+                  <p className="font-body-sm text-on-surface-variant text-center mt-2 text-[11px]">Tocá la gráfica de recuperación izquierda para ver el detalle por día.</p>
+                  <div className="grid grid-cols-2 gap-2 w-full mt-3">
+                    <div className="bg-surface-container-highest rounded-lg p-2 text-center">
+                      <span className="font-label-caps text-[9px] text-outline block">VFC</span>
+                      <span className="font-headline-md text-sm font-semibold text-on-surface">{recData.length>0?(recData[recData.length-1] as any).heartRate??'—':'—'}</span>
+                    </div>
+                    <div className="bg-surface-container-highest rounded-lg p-2 text-center">
+                      <span className="font-label-caps text-[9px] text-outline block">SUEÑO</span>
+                      <span className="font-headline-md text-sm font-semibold text-on-surface">{recData.length>0?(recData[recData.length-1] as any).sleepHours??'—':'—'}</span>
+                    </div>
                   </div>
                 </div>
-              )}
-            </>
-          ) : <p className="text-aux text-textMuted mt-1">Sin datos suficientes — completá el cuestionario en Recuperación.</p>}
-        </div>
-      </div>
+              );
+            })() : <p className="font-body-sm text-on-surface-variant text-center py-6">Sin datos de recuperación — completá el cuestionario.</p>}
+          </AltheaCard>
 
-      {/* PARTE MUSCULAR */}
-      <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
-        <div>
-          <div className="text-aux font-medium">PARTE MUSCULAR · VISTA GLOBAL</div>
-          <select value={partSel} onChange={e=>setPartSel(e.target.value)} aria-label="Parte muscular" className="w-full mt-2 bg-bg border border-border rounded-xl p-2 text-body">
-            {BODY_PARTS.map((p)=> <option key={p} value={p}>{p.toUpperCase()}</option>)}
-          </select>
-          <div className="grid grid-cols-3 gap-1 mt-2">
-            {METRICS.map(([v,label])=>(
-              <button key={v} onClick={()=>setMetric(v)} className={`py-1.5 rounded-lg text-aux border ${metric===v ? 'bg-elevated border-info text-textMain' : 'bg-bg border-border text-textMuted'}`}>{label}</button>
-            ))}
+          {/* Oracle Card */}
+          <div className="rounded-xl p-5 relative overflow-hidden" style={{background:'linear-gradient(135deg, rgba(85,107,47,0.3), rgba(96,68,3,0.2), rgba(182,208,136,0.1))', border:'1px solid rgba(182,208,136,0.2)'}}>
+            <div className="absolute top-3 right-3 opacity-10">
+              <span className="material-symbols-outlined text-[48px] text-primary">auto_awesome</span>
+            </div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-[14px] text-secondary">psychology</span>
+              <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-secondary">ORÁCULO DEL RENDIMIENTO</span>
+            </div>
+            <p className="font-headline-sm text-sm italic text-on-surface leading-relaxed">
+              {recData.length > 0
+                ? recData[recData.length-1].indice >= 80
+                  ? '«El cuerpo responde con la fuerza de quien ha forjado su temple. Cada repetición es un ladrillo en el templo de la virtud atlética.»'
+                  : recData[recData.length-1].indice >= 60
+                    ? '«La recuperación marcha con paso firme. Mantén la disciplina — la excelencia se forja en la constancia, no en el ímpetu.»'
+                    : '«El descanso es también entrenamiento. El guerrero que cuida su templo vive para luchar otro día con renovada fortaleza.»'
+                : '«Cada sesión es un paso en el camino del guerrero. Tus datos contarán la historia de tu transformación.»'
+              }
+            </p>
+            <div className="mt-3 pt-3 border-t border-outline-variant/30 flex items-center justify-between">
+              <span className="font-body-sm text-[10px] text-outline">{periodLogs.length} registros analizados</span>
+              <span className="font-body-sm text-[10px] text-primary">Virtus in Progressu</span>
+            </div>
           </div>
-          <p className="text-aux text-textMuted mt-1">{metricHelp[metric]}</p>
-        </div>
 
-        <div>
-          <div className="text-aux">Global de {partSel.toUpperCase()} — agregado de todos sus ejercicios con registros</div>
-          <div className="h-44 mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={globalData.length?globalData:[{date:'—',valor:0}]}>
-                <XAxis dataKey="date" tick={{fontSize:9, fill:'#A8B2B0'}} />
-                <YAxis tick={{fontSize:9, fill:'#A8B2B0'}} />
-                <Tooltip contentStyle={{background:'#1F272A', border:'1px solid #263034'}}/>
-                <Line type="monotone" dataKey="valor" stroke="#21C063" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          {globalData.length===0 && <p className="text-aux text-textMuted mt-1">Sin datos suficientes para esta parte en el período.</p>}
-        </div>
-
-        <div>
-          <div className="text-aux font-medium">EJERCICIOS REALIZADOS · mini gráficos ({metric})</div>
-          {perExercise.length===0 && <p className="text-aux text-textMuted mt-1">Ningún ejercicio con registros en esta parte.</p>}
-          <div className="grid md:grid-cols-2 gap-2 mt-2">
-            {perExercise.map((ex)=>(
-              <div key={ex.id} className="rounded-xl bg-bg border border-border p-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-body text-sm truncate">{ex.name}</span>
-                  <span className={`text-aux shrink-0 ${ex.trend.startsWith('↑') ? 'st-success-text' : ex.trend.startsWith('↓') ? 'st-error-text' : ''}`}>{ex.trend}</span>
-                </div>
-                <div className="h-16 mt-1">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={ex.pts}>
-                      <XAxis dataKey="date" tick={{fontSize:8, fill:'#A8B2B0'}} interval="preserveStartEnd" />
-                      <YAxis tick={{fontSize:8, fill:'#A8B2B0'}} width={28} />
-                      <Tooltip contentStyle={{background:'#1F272A', border:'1px solid #263034'}}/>
-                      <Line type="monotone" dataKey="valor" stroke="#38BDF0" strokeWidth={1.5} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+          {/* Summary Card */}
+          <AltheaCard marble-slab className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[16px] text-secondary">summarize</span>
+              <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">RESUMEN DEL PERÍODO</span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between py-1.5 border-b border-outline-variant/20">
+                <span className="font-body-sm text-on-surface-variant">Sesiones en historial</span>
+                <span className="font-label-md text-on-surface font-semibold">{sessionCount}</span>
               </div>
-            ))}
-          </div>
-          {unmapped>0 && <p className="text-aux text-textMuted mt-1">{unmapped} registros sin parte atribuible (IDs legacy) — no se grafican por parte.</p>}
+              {weightStats && (
+                <div className="flex items-center justify-between py-1.5 border-b border-outline-variant/20">
+                  <span className="font-body-sm text-on-surface-variant">Peso actual</span>
+                  <span className="font-label-md text-on-surface font-semibold">{weightStats.actual} kg <span className={`text-[10px] ${weightStats.dif<=0?'text-primary':'text-error'}`}>{weightStats.dif>0?'+':''}{weightStats.dif}</span></span>
+                </div>
+              )}
+              {recData.length>0 && (
+                <div className="flex items-center justify-between py-1.5 border-b border-outline-variant/20">
+                  <span className="font-body-sm text-on-surface-variant">Recuperación</span>
+                  <span className="font-label-md text-on-surface font-semibold">{recData[recData.length-1].indice}/100</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between py-1.5">
+                <span className="font-body-sm text-on-surface-variant">Registros en período</span>
+                <span className="font-label-md text-on-surface font-semibold">{periodLogs.length} · {periodBodies.length} mediciones</span>
+              </div>
+            </div>
+          </AltheaCard>
         </div>
-      </div>
-
-      <div className="rounded-xl bg-surface border border-border p-3">
-        <div className="text-aux">Sesiones registradas</div>
-        <p className="text-body mt-1">{sessionCount} sesiones en el historial</p>
       </div>
     </div>
   )

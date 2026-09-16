@@ -2,170 +2,424 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ============ ALTHEA — Olympian Precision (stitch) ============ */
-/* Dark: #080E18→#0E141E temple · Light: Sand sanctuary. Roles idénticos. */
+/* ============ ALTHEA — Modo Oscuro Clásico Helénico (Oliva & Oro Viejo) ============ */
 :root {
-  --bg: 8 14 24;            /* surface-container-lowest #080E18 */
-  --bg-2: 14 20 30;          /* background/surface #0E141E */
-  --surface: 14 20 30;       /* surface */
-  --surface-2: 36 42 53;     /* surface-container-high #242A35 */
-  --tint: 25 55 109;         /* ocean #19376D */
-  --border: 65 71 79;        /* outline-variant #41474F @ 0.18 */
-  --text: 221 226 241;       /* on-surface #DDE2F1 */
-  --text-2: 193 199 208;     /* on-surface-variant #C1C7D0 */
-  --text-3: 139 145 154;     /* outline #8B919A */
-  --primary: 70 130 180;     /* steel #4682B4 — kinetic focus */
-  --primary-soft: 150 204 255; /* #96CCFF tint */
-  --info: 70 130 180;
-  --success: 47 163 107;
-  --warning: 201 138 43;
-  --danger: 255 180 171;     /* stitch error soft on dark */
-  --navw: 230px;
+  /* Legacy RGB tokens (for backward compat with pages still using rgb(var())) */
+  --bg: 19 19 19;
+  --surface: 19 19 19;
+  --surface-2: 32 31 31;
+  --tint: 182 208 136;
+  --border: 69 72 60;
+  --text: 229 226 225;
+  --text-2: 197 200 184;
+  --text-3: 143 146 132;
+  --primary: 182 208 136;
+  --primary-soft: 210 236 162;
+  --info: 182 208 136;
+  --success: 182 208 136;
+  --warning: 233 193 118;
+  --danger: 255 180 171;
+  --navw: 208px;
   --navw-collapsed: 60px;
+  /* Semantic color tokens */
+  --c-background: #131313;
+  --c-surface: #131313;
+  --c-surface-dim: #131313;
+  --c-surface-bright: #393939;
+  --c-surface-container-lowest: #0e0e0e;
+  --c-surface-container-low: #1c1b1b;
+  --c-surface-container: #201f1f;
+  --c-surface-container-high: #2a2a2a;
+  --c-surface-container-highest: #353534;
+  --c-primary: #b6d088;
+  --c-primary-container: #556b2f;
+  --c-on-primary: #233600;
+  --c-secondary: #e9c176;
+  --c-secondary-container: #604403;
+  --c-outline: #8f9284;
+  --c-outline-variant: #45483c;
+  --c-on-surface: #e5e2e1;
+  --c-on-surface-variant: #c5c8b8;
+  --c-error: #ffb4ab;
+  --c-error-container: #93000a;
+  /* Card tokens */
+  --veil-color: rgba(19, 19, 19, 0.86);
+  --card-bg: linear-gradient(180deg, rgba(28, 27, 27, 0.88) 0%, rgba(19, 19, 19, 0.92) 100%);
+  --card-border: rgba(182, 208, 136, 0.18);
+  --card-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
 }
 .light {
-  --bg: 253 251 247;       /* #FDFBF7 ivory */
-  --bg-2: 250 246 240;     /* #FAF6F0 */
-  --surface: 244 237 226;  /* #F4EDE2 soft beige */
-  --surface-2: 255 255 255;
-  --tint: 232 213 181;     /* #E8D5B5 gold sand */
-  --border: 220 210 190;
-  --text: 15 27 46;        /* #0F1B2E stygian ink */
-  --text-2: 100 116 139;
-  --text-3: 139 145 154;
-  --primary: 25 55 109;
-  --primary-soft: 70 130 180;
-  --info: 25 55 109;
-  --success: 30 122 76;
-  --warning: 154 107 26;
+  --bg: 251 249 245;
+  --surface: 247 245 240;
+  --surface-2: 237 234 226;
+  --tint: 85 107 47;
+  --border: 212 207 195;
+  --text: 28 26 23;
+  --text-2: 94 89 79;
+  --text-3: 140 133 119;
+  --primary: 85 107 47;
+  --primary-soft: 182 208 136;
+  --info: 85 107 47;
+  --success: 85 107 47;
+  --warning: 96 68 3;
   --danger: 147 0 10;
+  --c-background: #fbf9f5;
+  --c-surface: #f7f5f0;
+  --c-surface-dim: #edebe6;
+  --c-surface-bright: #ffffff;
+  --c-surface-container-lowest: #ffffff;
+  --c-surface-container-low: #f4f2ec;
+  --c-surface-container: #edeae2;
+  --c-surface-container-high: #e5e1d7;
+  --c-surface-container-highest: #ded8cb;
+  --c-primary: #556b2f;
+  --c-primary-container: #b6d088;
+  --c-on-primary: #ffffff;
+  --c-secondary: #604403;
+  --c-secondary-container: #e9c176;
+  --c-outline: #8c8577;
+  --c-outline-variant: #d4cfc3;
+  --c-on-surface: #1c1a17;
+  --c-on-surface-variant: #5e594f;
+  --c-error: #93000a;
+  --c-error-container: #ffb4ab;
+  --veil-color: rgba(251, 249, 245, 0.88);
+  --card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(247, 245, 240, 0.85) 100%);
+  --card-border: rgba(85, 107, 47, 0.25);
+  --card-shadow: 0 10px 30px rgba(80, 60, 20, 0.08);
 }
 
-/* Tamaño de texto global: S 87.5% · M 100% · L 112.5% */
+/* Text scale */
 html[data-textscale="s"] { font-size: 87.5%; }
 html[data-textscale="m"] { font-size: 100%; }
 html[data-textscale="l"] { font-size: 112.5%; }
 
 * { -webkit-tap-highlight-color: transparent; }
-html { scrollbar-gutter: stable; }
-body { overscroll-behavior-y: contain; background: rgb(var(--bg)); color: rgb(var(--text)); font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif; }
-h1, h2, h3, .font-serifs { font-family: "EB Garamond", serif; letter-spacing: -0.015em; }
+html { scrollbar-gutter: stable; background: transparent; }
+body {
+  overscroll-behavior-y: contain;
+  background: transparent;
+  color: var(--c-on-surface);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+h1, h2, h3, .font-serifs { font-family: 'Noto Serif', serif; letter-spacing: -0.015em; }
 
-/* bottom nav safe area */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-::placeholder { color: rgb(var(--text-2)); opacity: 1; }
-input:disabled, select:disabled { color: rgb(var(--text)); background: rgb(var(--surface-2)); }
+::placeholder { color: var(--c-on-surface-variant); opacity: 1; }
+input:disabled, select:disabled { color: var(--c-on-surface); background: var(--c-surface-container); }
 
-/* ============ TIPOGRAFÍA — Olympian Precision ============ */
-.text-title { font-family: "EB Garamond", serif; font-size: 1.75rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
-.text-section { font-family: "EB Garamond", serif; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.015em; }
-.text-subtitle { font-family: "EB Garamond", serif; font-size: 1rem; font-weight: 600; }
-.text-body { font-family: "Plus Jakarta Sans", Inter, system-ui, sans-serif; font-size: 1rem; font-weight: 400; line-height: 1.5; }
-.text-muted { font-family: "Plus Jakarta Sans", sans-serif; font-size: 0.8125rem; color: rgb(var(--text-2)); }
-.text-aux { font-family: "Plus Jakarta Sans", sans-serif; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: rgb(var(--text-2)); }
-.label-olymp { font-family: "Plus Jakarta Sans", sans-serif; font-size: 0.625rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+/* ============ TIPOGRAFÍA — Hellenic Precision ============ */
+.text-title { font-family: 'Noto Serif', serif; font-size: 1.75rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
+.text-section { font-family: 'Noto Serif', serif; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.015em; }
+.text-subtitle { font-family: 'Noto Serif', serif; font-size: 1rem; font-weight: 600; }
+.text-body { font-family: 'Inter', system-ui, sans-serif; font-size: 1rem; font-weight: 400; line-height: 1.5; }
+.text-muted { font-family: 'Inter', sans-serif; font-size: 0.8125rem; color: var(--c-on-surface-variant); }
+.text-aux { font-family: 'Inter', sans-serif; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--c-on-surface-variant); }
+.label-olymp { font-family: 'Inter', sans-serif; font-size: 0.625rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
 
-/* ============ COMPONENTES — Sacred Glass ============ */
+/* ============ COMPONENTES — Hellenic Architecture ============ */
 .btn-primary {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  background: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(25 55 109) 100%);
-  color: #FAF6F0; font-family: "Plus Jakarta Sans", sans-serif;
-  font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.875rem;
-  border-radius: 10px; padding: 12px 16px;
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 24px rgba(8,14,24,0.45);
+  background: var(--c-primary);
+  color: var(--c-on-primary); font-family: 'Inter', sans-serif;
+  font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.875rem;
+  border-radius: 0.125rem; padding: 12px 16px;
+  border: 1px solid var(--c-outline-variant);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px -2px rgba(0,0,0,0.06);
+}
+.light .btn-primary {
+  background: var(--c-primary); color: var(--c-on-primary); border-color: var(--c-outline-variant);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 4px 20px -2px rgba(30,43,55,0.06);
 }
 .btn-primary:active { transform: scale(0.98); filter: brightness(1.06); }
 .btn-primary:disabled { opacity: .5; }
+
 .btn-secondary {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  background: transparent; color: rgb(var(--text));
-  border: 1px solid rgba(123,158,184,0.30); font-weight: 500; border-radius: 10px;
+  background: transparent; color: var(--c-on-surface);
+  border: 1px solid var(--c-outline-variant); font-weight: 500; border-radius: 0.125rem;
   padding: 10px 14px;
 }
-.btn-secondary:active { background: rgb(var(--surface-2) / 0.6); }
-.card {
-  background: rgba(14,20,30,0.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(123,158,184,0.16);
-  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.6), 0 0 1px 1px rgba(255,255,255,0.03);
-  border-radius: 10px;
-}
-.light .card { background: rgba(244,237,226,0.82); border-color: rgba(220,210,190,0.9); }
-.glass-card {
-  background: rgba(14,20,30,0.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(123,158,184,0.16);
-  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.6), 0 0 1px 1px rgba(255,255,255,0.03);
-  border-radius: 12px;
-}
-.glass-card-interactive:hover { background: rgba(22,28,38,0.86); border-color: rgba(70,130,180,0.38); transform: translateY(-2px); transition: all 250ms ease; }
-.meander-pattern { background-image: radial-gradient(rgba(123,158,184,0.12) 1px, transparent 1px); background-size: 16px 16px; }
+.light .btn-secondary { border-color: var(--c-outline-variant); }
+.btn-secondary:active { background: var(--c-surface-container); }
+
 .input {
-  background: rgba(8,14,24,0.62); border: 1px solid rgba(123,158,184,0.18);
-  border-radius: 10px; color: rgb(var(--text)); padding: 10px 12px; width: 100%;
+  background: var(--c-surface-dim); border: 1px solid var(--c-outline-variant);
+  border-radius: 0.125rem; color: var(--c-on-surface); padding: 10px 12px; width: 100%;
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.45);
 }
-.input:focus { outline: none; border-color: rgba(70,130,180,0.45); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 3px rgba(70,130,180,0.22); }
+.light .input { background: var(--c-surface-container-lowest); border-color: var(--c-outline-variant); box-shadow: none; }
+.input:focus { outline: none; border-color: var(--c-primary); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 3px rgba(182,208,136,0.15); }
 
-/* ============ ESTADOS GLOBALES (§33) ============ */
-.st-completed { background: rgb(var(--success) / .14); border-color: rgb(var(--success) / .45); color: rgb(var(--success)); }
-.st-pending { background: rgb(var(--surface)); border-color: rgb(var(--border)); color: rgb(var(--text-3)); }
-.st-skipped { background: rgb(var(--warning) / .12); border-color: rgb(var(--warning) / .45); color: rgb(var(--warning)); }
-.st-cancelled, .st-abandoned { background: transparent; border-color: rgb(var(--border)); color: rgb(var(--text-3)); }
-.st-partial { background: rgb(var(--info) / .12); border-color: rgb(var(--info) / .45); color: rgb(var(--info)); }
-.st-active { border-color: rgb(var(--primary)); }
-.st-error-text { color: rgb(var(--danger)); }
-.st-success-text { color: rgb(var(--success)); }
+/* ============ MARBLE SLAB — Hellenic Dark Card ============================== */
+.marble-slab {
+  background: radial-gradient(circle at 10% 20%, rgba(255,255,255,0.03) 0%, transparent 40%),
+              radial-gradient(circle at 80% 80%, rgba(197,160,89,0.02) 0%, transparent 45%),
+              var(--c-surface-container-low);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+.light .marble-slab {
+  background: radial-gradient(circle at 10% 20%, rgba(255,255,255,0.5) 0%, transparent 40%),
+              radial-gradient(circle at 80% 80%, rgba(85,107,47,0.04) 0%, transparent 45%),
+              var(--c-surface-container-lowest);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+}
 
-/* Foco visible global */
-:focus-visible { outline: 2px solid rgb(var(--info)); outline-offset: 2px; }
+/* ============ MARBLE CARD — Glassmorphism ==================================== */
+.marble-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 0.25rem;
+}
 
-/* Haptic visual: pulso corto al confirmar (clase toggleada desde JS) */
+/* ============ STONE PLATE — Chiseled Container ============================== */
+.stone-plate {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 4px 20px -2px rgba(0, 0, 0, 0.75);
+}
+
+/* ============ STONE ETCH BORDER ============================================= */
+.stone-etch-border {
+  border: 1px solid var(--c-outline-variant);
+  border-radius: 0.125rem;
+}
+
+/* ============ STONE SLAB — Dark Elevated Surface ============================ */
+.stone-slab {
+  background: var(--c-surface-container-high);
+  border: 1px solid var(--c-outline-variant);
+  border-radius: 0.125rem;
+}
+.light .stone-slab {
+  background: var(--c-surface-container);
+}
+
+/* ============ STONE CARD — Subtle Background ================================= */
+.stone-card {
+  background: var(--c-surface-container-low);
+  border: 1px solid var(--c-outline-variant);
+  border-radius: 0.125rem;
+}
+.light .stone-card {
+  background: var(--c-surface-container-lowest);
+}
+
+/* ============ STONE CARD HOVER ============================================== */
+.stone-card-hover {
+  background: var(--c-surface-container-low);
+  border: 1px solid var(--c-outline-variant);
+  border-radius: 0.125rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.stone-card-hover:hover {
+  background: var(--c-surface-container);
+  border-color: var(--c-primary);
+}
+
+/* ============ PLINTH ACTIVE — Active State =================================== */
+.plinth-active {
+  background: var(--c-primary-container);
+  border: 1px solid var(--c-primary);
+  border-radius: 0.125rem;
+}
+
+/* ============ CHISELED CARD — Sharp Corners ================================== */
+.chiseled-card {
+  background: var(--c-surface-container);
+  border: 1px solid var(--c-outline-variant);
+  border-radius: 0.125rem;
+}
+.light .chiseled-card {
+  background: var(--c-surface-container-lowest);
+}
+
+/* ============ CHISELED STELE — Thin Border Accent =========================== */
+.chiseled-stele {
+  border: 1px solid var(--c-outline-variant);
+  border-radius: 0.125rem;
+  background: transparent;
+}
+
+/* ============ GOLD GLOW — Primary Accent Glow =============================== */
+.gold-glow {
+  box-shadow: 0 0 20px rgba(182, 208, 136, 0.15), 0 0 40px rgba(182, 208, 136, 0.05);
+}
+
+/* ============ GREEK MEANDER BAR — Image-based Frieze ======================== */
+.greek-meander-bar {
+  background-image: url('https://lh3.googleusercontent.com/aida/AEtjO1W2tBJqDDan5xwFscFtN-ix7WOrQjkDgXOvg58XpSxyD1zJtZ_GwSjLhnv7JIzWKSes7lawI-uesCKO7I0ordR4QtFDCkO7BdGrb8iYnD0ArY-tn8M0nzYWUwiDHGHSwrqi0TXMtallMsT01VLkn3iUpO2jHxfQsmeF9Fd4Bld9gLcwkl0grVlxlzaMfVFmOOR6P4CfXxzwS2SIt6pKaq5jThtEVnROJnnbPhw9OHdw-ZzKPdtCNmq4KuA');
+  background-repeat: repeat-x;
+  background-size: auto 100%;
+  opacity: 0.35;
+}
+
+/* ============ GREEK MEANDER — CSS Pattern ==================================== */
+.greek-meander {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--c-outline-variant) 0px,
+    var(--c-outline-variant) 8px,
+    transparent 8px,
+    transparent 12px
+  );
+  height: 2px;
+  opacity: 0.4;
+}
+
+/* ============ GREEK MEANDER PATTERN — Radial Dots =========================== */
+.greek-meander-pattern {
+  background-image: radial-gradient(circle, var(--c-outline-variant) 1px, transparent 1px);
+  background-size: 8px 8px;
+  opacity: 0.2;
+}
+
+/* ============ MEANDER BORDER BOTTOM — Olive Frieze ========================== */
+.meander-border-b {
+  background-image: repeating-linear-gradient(90deg, #556b2f 0, #556b2f 6px, transparent 6px, transparent 10px);
+  background-size: 10px 1px;
+  background-repeat: repeat-x;
+  background-position: bottom;
+}
+
+/* ============ CUSTOM SCROLLBAR ============================================= */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #131313; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #353534; border-radius: 2px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #556b2f; }
+
+/* ============ MEANDER STRIP — SVG Pattern ==================================== */
+.meander-strip {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20" fill="none"><path d="M 0 10 L 15 10 L 15 5 L 5 5 L 5 15 L 25 15 L 25 0 L 0 0 M 20 10 L 35 10 L 35 5 L 25 5 L 25 15 L 40 15" fill="none" stroke="%23b6d088" stroke-width="1.8" stroke-linecap="square" opacity="0.85"/></svg>');
+  background-repeat: repeat-x;
+  background-size: 28px 14px;
+  background-position: center;
+}
+
+/* ============ STATUS TAGS =================================================== */
+.status-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 0.125rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+}
+.status-tag--completed { background: rgba(182,208,136,0.14); color: var(--c-primary); }
+.status-tag--rest { background: var(--c-surface-container); color: var(--c-secondary); }
+.status-tag--planned { background: var(--c-surface-container); color: var(--c-on-surface-variant); }
+.status-tag--active { background: var(--c-primary); color: var(--c-on-primary); font-weight: 700; }
+.status-tag--skipped { background: rgba(233,193,118,0.12); color: var(--c-secondary); }
+
+/* ============ SCROLLBAR — Minimal =========================================== */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #0e0e0e; }
+::-webkit-scrollbar-thumb { background: #353534; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-primary); }
+
+/* ============ MATERIAL SYMBOLS — Outlined =================================== */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+}
+.material-symbols-outlined.fill-1 {
+  font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+}
+
+/* ============ THEME TOGGLE ================================================== */
+.theme-toggle-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 9999px;
+  border: 1px solid rgba(182, 208, 136, 0.3);
+  background: var(--c-surface-container);
+  transition: all 0.2s ease; cursor: pointer;
+}
+.theme-toggle-btn:hover { background: var(--c-surface-container-high); }
+.theme-toggle-btn .icon-sun, .theme-toggle-btn .icon-moon {
+  font-size: 17px; transition: transform 0.2s ease;
+}
+.theme-toggle-btn:hover .icon-sun { transform: rotate(12deg); }
+.theme-toggle-btn:hover .icon-moon { transform: rotate(-12deg); }
+
+/* ============ BACKGROUND SLIDER ============================================= */
+@keyframes cycleSlide1 {
+  0%, 28% { opacity: 1; transform: scale(1.02); }
+  33%, 95% { opacity: 0; transform: scale(1.0); }
+  100% { opacity: 1; transform: scale(1.02); }
+}
+@keyframes cycleSlide2 {
+  0%, 28% { opacity: 0; transform: scale(1.0); }
+  33%, 61% { opacity: 1; transform: scale(1.02); }
+  66%, 100% { opacity: 0; transform: scale(1.0); }
+}
+@keyframes cycleSlide3 {
+  0%, 61% { opacity: 0; transform: scale(1.0); }
+  66%, 95% { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 0; transform: scale(1.0); }
+}
+.bg-slide-1 { animation: cycleSlide1 21s infinite ease-in-out; }
+.bg-slide-2 { animation: cycleSlide2 21s infinite ease-in-out; }
+.bg-slide-3 { animation: cycleSlide3 21s infinite ease-in-out; }
+
+/* ============ ESTADOS GLOBALES ============================================= */
+.st-completed { background: rgba(182,208,136,0.14); border-color: rgba(182,208,136,0.45); color: var(--c-primary); }
+.st-pending { background: var(--c-surface-container); border-color: var(--c-outline-variant); color: var(--c-outline); }
+.st-skipped { background: rgba(233,193,118,0.12); border-color: rgba(233,193,118,0.45); color: var(--c-secondary); }
+.st-cancelled, .st-abandoned { background: transparent; border-color: var(--c-outline-variant); color: var(--c-outline); }
+.st-partial { background: rgba(182,208,136,0.12); border-color: rgba(182,208,136,0.45); color: var(--c-primary); }
+.st-active { border-color: var(--c-primary); }
+.st-error-text { color: var(--c-error); }
+.st-success-text { color: var(--c-primary); }
+
+/* ============ FOCUS & ANIMATIONS ============================================ */
+:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
+
 @keyframes pulse-confirm { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
 .flash-confirm { animation: pulse-confirm .25s ease-out; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .fade-in { animation: fade-in .2s ease-out; }
 
-/* Movimiento reducido: sin animaciones no esenciales */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-/* Utilidad: oculta scrollbar horizontal del nav */
 .scrollbar-none { scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
-/* ============ SISTEMA GRIEGO / TEMPLO — color sólido fijo (sin fotos) ============ */
+/* ============ TEMPLE BACKDROP =============================================== */
 .temple-backdrop {
   position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
-  background: rgb(var(--bg));
+  background: transparent;
 }
 .temple-veil {
   position: absolute; inset: 0;
   background:
-    radial-gradient(70% 45% at 85% 8%, rgb(var(--surface-2) / 0.14), transparent 70%),
-    radial-gradient(55% 40% at 8% 92%, rgb(var(--surface-2) / 0.10), transparent 70%),
-    repeating-linear-gradient(175deg, transparent 0 30px, rgb(var(--border) / 0.06) 30px 31px);
-  opacity: 0.45;
+    radial-gradient(70% 45% at 85% 8%, rgba(182,208,136,0.06), transparent 70%),
+    radial-gradient(55% 40% at 8% 92%, rgba(182,208,136,0.04), transparent 70%),
+    repeating-linear-gradient(175deg, transparent 0 30px, rgba(69,72,60,0.06) 30px 31px);
+  opacity: 0.35;
 }
 .temple-sigil {
   position: absolute; right: -48px; bottom: 72px;
   width: min(46vw, 420px); height: auto;
-  color: rgb(var(--text)); opacity: 0.09;
+  color: var(--c-on-surface); opacity: 0.06;
 }
-.light .temple-sigil { opacity: 0.11; }
-.temple-frieze { display: block; width: 100%; height: 5px; color: rgb(var(--text-3)); opacity: 0.5; }
+.light .temple-sigil { opacity: 0.08; }
+.temple-frieze { display: block; width: 100%; height: 5px; color: var(--c-outline-variant); opacity: 0.5; }
 .temple-mark {
-  width: 28px; height: 28px; border-radius: 8px;
+  width: 28px; height: 28px; border-radius: 0.125rem;
   display: inline-flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 16px; color: #fff;
-  background: linear-gradient(135deg, rgb(var(--primary)), rgb(var(--surface-2)));
-  border: 1px solid rgb(var(--border));
+  font-weight: 700; font-size: 16px; color: var(--c-on-primary);
+  background: linear-gradient(135deg, var(--c-primary-container), var(--c-primary));
+  border: 1px solid var(--c-outline-variant);
 }
 .temple-word { letter-spacing: 0.35em; font-weight: 600; font-size: 0.8125rem; text-indent: 0.35em; }
 @media (max-width: 767px) {
-  .temple-sigil { width: 180px; right: -32px; bottom: 84px; opacity: 0.045; }
+  .temple-sigil { width: 180px; right: -32px; bottom: 84px; opacity: 0.03; }
 }
-/* Microinteracciones sutiles */
 .tpress { transition: transform 0.12s ease-out, background-color 0.15s ease-out; }
 .tpress:active { transform: scale(0.96); }
 .tfade { animation: fade-in 0.2s ease-out; }

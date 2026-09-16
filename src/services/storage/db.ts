@@ -62,6 +62,11 @@ export class TrainDB extends Dexie {
       scoreSnapshots: 'id, date, score',
       exerciseKnowledge: 'id, muscle, movementPattern, exerciseDifficulty',
     })
+    // v8: Chat conversacional — mensajes persistidos entre sesiones.
+    this.version(8).stores({
+      chatMessages: 'id, conversationId, role, createdAt',
+      chatConversations: 'id, pageContext, createdAt, updatedAt',
+    })
   }
 }
 export const db = new TrainDB()

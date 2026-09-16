@@ -1,7 +1,7 @@
 import type { AIContext } from './aiProvider'
 import { db } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate } from '@/utils/cycle'
-import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone, TRAINING_GOAL_PROFILES, EXPERIENCE_INSTRUCTIONS, buildMethodContext, buildNutritionMethodContext } from './systemPrompt'
+import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone, TRAINING_GOAL_PROFILES, EXPERIENCE_INSTRUCTIONS, buildMethodContext, buildNutritionMethodContext, buildMethodCoachingPrompt } from './systemPrompt'
 import { unifiedCompletedSets } from '@/services/history'
 import { retrieveRelevant } from './knowledgeBase'
 import { analyzeExercise, analyzeGlobal } from './progressAnalyzer'
@@ -32,9 +32,9 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
 
   // recuperación hoy
   const rec:any = await db.recoveryChecks.get(today) || JSON.parse(localStorage.getItem('recovery:'+today)||'null')
-  const fatiga = rec ? (rec.fatigue>7?'alta': rec.fatigue>4?'moderada':'baja') : 'moderada'
-  const sueno = rec ? `${rec.sleepHours}h` : '7h 20m'
-  const energia = rec ? `${rec.energy}/10` : '8/10'
+  const fatiga = rec ? (rec.fatigue>7?'alta': rec.fatigue>4?'moderada':'baja') : 'no registrada'
+  const sueno = rec ? `${rec.sleepHours}h` : 'no registrado'
+  const energia = rec ? `${rec.energy}/10` : 'no registrada'
 
   // hidratación hoy
   const hyd = Number(localStorage.getItem('hydration:'+today) || localStorage.getItem('hydrationToday') || '1500')
@@ -46,7 +46,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     const surveys: any[] = await db.table('postWorkoutSurveys').toArray().catch(()=>[])
     const withPain = surveys.filter(s=> Number(s.pain) > 0).sort((a,b)=> String(a.calendarDate) < String(b.calendarDate) ? -1 : 1)
     const lastP = withPain[withPain.length-1]
-    if(lastP) pain = `${lastP.calendarDate}: ${lastP.pain}/10${lastP.painZone ? ` en ${lastP.painZone}` : ''}${lastP.painDetail ? ` (${lastP.painDetail})` : ''}`
+    if(lastP) pain = `${lastP.calendarDate}: dolor${lastP.painZone ? ` en ${lastP.painZone}` : ''}${lastP.painDetail ? ` (${lastP.painDetail})` : ''}`
   }catch{ /* noop */ }
   // datos corporales
   const peso = profile?.weightKg ? `${profile.weightKg}kg` : 'no registrado'
@@ -55,7 +55,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   // nutrición diaria (diario + calendario)
   let nutriDaily:any = null
   try{
-    const diario = JSON.parse(localStorage.getItem(`nutri:diario:${today}`)||'[]')
+    const diario = JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`)||'[]')
     const cal = JSON.parse(localStorage.getItem('nutri:calendario')||'null')
     nutriDaily = { diarioCount: diario.length, calendario: cal ? 'generado' : 'no', objetivo, ultimoAlimento: diario[diario.length-1]?.name || '—' }
   }catch{}
@@ -100,7 +100,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
         calorieGoal: cg2, proteinGoal: pr2?.text, proteinRange: pr2,
         weightHistory: sortedB.map(b=> ({date:b.localDate, weight:b.weightKg})),
         nutritionPreferences: (profile as any)?.restrictions || [],
-        foodLogCount: (()=>{ try{ return JSON.parse(localStorage.getItem(`nutri:diario:${today}`)||'[]').length }catch{return 0}})()
+        foodLogCount: (()=>{ try{ return JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`)||'[]').length }catch{return 0}})()
       }
     }
   }catch{}
@@ -216,7 +216,7 @@ export function buildPrompt(ctx:AIContext):string{
   // recovery
   const recoveryLine = ctx.recovery ? `\nRECUPERACIÓN: último score=${ctx.recovery.lastScore||'?'}, tendencia=${ctx.recovery.trend||'desconocida'}, días bajos=${ctx.recovery.consecutiveLow||0}` : ''
   // nutrition analysis
-  const nutAnalysisLine = ctx.nutritionAnalysis ? `\nNUTRICIÓN: TDEE=${ctx.nutritionAnalysis.tdee||'?'}, objetivo calórico=${ctx.nutritionAnalysis.calorieGoal||'?'}, proteína/kg=${ctx.nutritionAnalysis.proteinPerKg||'?'}gap=${ctx.nutritionAnalysis.gap||'sin gap'}` : ''
+  const nutAnalysisLine = ctx.nutritionAnalysis ? `\nNUTRICIÓN: TDEE=${ctx.nutritionAnalysis.tdee||'?'}, objetivo calórico=${ctx.nutritionAnalysis.calorieGoal||'?'}, proteína/kg=${ctx.nutritionAnalysis.proteinPerKg||'?'}, gap=${ctx.nutritionAnalysis.gap||'sin gap'}` : ''
   // ─── Coach IA v2: method context ───
   const methodId = (ctx.userProfile?.cycle as any)?.methodId
   const methodContext = buildMethodContext(methodId)
@@ -225,6 +225,9 @@ export function buildPrompt(ctx:AIContext):string{
   const nutritionMethodId = (ctx.userProfile?.activeNutritionMethod as string) || (ctx.userProfile?.cycle as any)?.nutritionMethodId
   const nutritionMethodContext = buildNutritionMethodContext(nutritionMethodId as any)
   const nutritionMethodLine = nutritionMethodContext ? `\n${nutritionMethodContext}` : ''
+  // ─── Method coaching style ───
+  const methodCoaching = buildMethodCoachingPrompt(methodId)
+  const methodCoachingLine = methodCoaching ? `\n${methodCoaching}` : ''
   return `${SYSTEM_PROMPT}
 
 ${VERACITY_RULES}
@@ -232,6 +235,7 @@ ${VERACITY_RULES}
 PERFIL DE ENTRENAMIENTO: ${goalProfile}
 NIVEL: ${expInstruction}
 ${methodLine}
+${methodCoachingLine}
 ${nutritionMethodLine}
 
 PERSONALIDAD ACTUAL: ${ctx.personalidad} — ${tono}

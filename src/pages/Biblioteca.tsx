@@ -4,6 +4,7 @@ import { effectiveBreakdown, listCustomExercises } from '@/services/training/cus
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Dumbbell, Layers, Box, Heart, Globe, WifiOff } from 'lucide-react'
+import { AltheaCard, AltheaBadge, AltheaInput } from '@/components/althea'
 
 type Tab = 'muscle'|'equipment'|'bodypart'|'category'
 
@@ -64,7 +65,7 @@ export default function Biblioteca(){
   const filtered = exercises.filter(ex=>{ if(!q) return true; const s=q.toLowerCase(); return ex.name.toLowerCase().includes(s) || String(ex.muscle||'').toLowerCase().includes(s) || String(ex.bodyPart||'').toLowerCase().includes(s) || String(ex.equipment||'').toLowerCase().includes(s) || String(ex.category||'').toLowerCase().includes(s) })
 
   const Chip = ({active, children, onClick}:{active:boolean; children:string; onClick:()=>void})=>(
-    <button onClick={onClick} className={`px-3 py-1.5 rounded-full text-aux whitespace-nowrap border ${active?'bg-action text-textMain border-action':'bg-surface border-border text-textMuted'}`}>{children}</button>
+    <button onClick={onClick} className={`px-3 py-1.5 rounded-full font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant whitespace-nowrap border ${active?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{children}</button>
   )
 
   const handleDeleteCustom = async (ex: Gym.Exercise)=>{
@@ -81,28 +82,29 @@ export default function Biblioteca(){
   }
 
   return (
-    <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto space-y-3">
+    <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-3">
       <div className="flex items-center justify-between">
-        <h1 className="text-section">Biblioteca</h1>
-        <span className="text-aux bg-surface border border-border px-2 py-1 rounded-full flex items-center gap-1"><Globe size={12}/> 1323 ejercicios</span>
+        <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Biblioteca</h1>
+        <AltheaBadge variant="outline"><Globe size={12}/> 1323 ejercicios</AltheaBadge>
       </div>
-      <p className="text-aux text-textMuted">Consulta técnica y % muscular — sin copiar.</p>
-      <button onClick={()=>{ setEditing(null); setShowForm(true) }} className="w-full py-3 rounded-xl bg-action text-textMain font-medium">+ Agregar ejercicio</button>
+      <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">Consulta técnica y % muscular — sin copiar.</p>
 
-      {!online && <div className="text-aux bg-amber-900/30 border border-amber-800 rounded-lg p-2 flex items-center gap-2"><WifiOff size={14}/> Sin conexión — se muestra caché.</div>}
-      {error && <div className="text-aux bg-amber-900/30 border border-amber-800 rounded-lg p-2">{error}</div>}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="lg:col-span-8 space-y-3">
+      {!online && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant bg-amber-900/30 border border-amber-800 rounded-lg p-2 flex items-center gap-2"><WifiOff size={14}/> Sin conexión — se muestra caché.</div>}
+      {error && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant bg-amber-900/30 border border-amber-800 rounded-lg p-2">{error}</div>}
 
       {/* Tabs (al entrar a cada filtro: selectedFilter = Todos) */}
-      <div className="flex gap-1 p-1 rounded-xl bg-surface border border-border overflow-x-auto">
-        <button onClick={()=>{ setTab('muscle'); load('muscle','__all__') }} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='muscle'?'bg-action text-textMain':'text-textMuted'}`}><Heart size={12}/> Músculo</button>
-        <button onClick={()=>{ setTab('equipment'); load('equipment','__all__') }} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='equipment'?'bg-action text-textMain':'text-textMuted'}`}><Dumbbell size={12}/> Equipo</button>
-        <button onClick={()=>{ setTab('bodypart'); load('bodypart','__all__') }} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='bodypart'?'bg-action text-textMain':'text-textMuted'}`}><Layers size={12}/> Parte</button>
-        <button onClick={()=>{ setTab('category'); load('category','__all__') }} className={`flex-1 py-2 rounded-lg text-aux flex items-center justify-center gap-1 ${tab==='category'?'bg-action text-textMain':'text-textMuted'}`}><Box size={12}/> Categoría</button>
+      <div className="flex gap-1 p-1 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-x-auto">
+        <button onClick={()=>{ setTab('muscle'); load('muscle','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 ${tab==='muscle'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Heart size={12}/> Músculo</button>
+        <button onClick={()=>{ setTab('equipment'); load('equipment','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 ${tab==='equipment'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Dumbbell size={12}/> Equipo</button>
+        <button onClick={()=>{ setTab('bodypart'); load('bodypart','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 ${tab==='bodypart'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Layers size={12}/> Parte</button>
+        <button onClick={()=>{ setTab('category'); load('category','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 ${tab==='category'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Box size={12}/> Categoría</button>
       </div>
 
       {/* Listado índices */}
-      <div className="rounded-xl bg-surface border border-border p-3">
-        <div className="text-aux mb-2">
+      <AltheaCard className="p-3">
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-2">
           {tab==='muscle' && '19 músculos · ej: pectorals 158, biceps 151, abs 169'}
           {tab==='equipment' && '11 equipamientos · bodyweight 458, dumbbell 287 · /api/es/equipment/<equipment>.json'}
           {tab==='bodypart' && '7 partes · arms/legs/chest/back/core/shoulders/cardio'}
@@ -114,91 +116,114 @@ export default function Biblioteca(){
           {tab==='equipment' && equipment.map(e=> <Chip key={e.equipment} active={selectedKey===e.equipment} onClick={()=>load('equipment', e.equipment)}>{`${e.equipment} (${e.count})`}</Chip>)}
           {tab==='bodypart' && bodyparts.map(b=> <Chip key={b.bodyPart} active={selectedKey===b.bodyPart} onClick={()=>load('bodypart', b.bodyPart)}>{`${b.bodyPart} (${b.count})`}</Chip>)}
           {tab==='category' && categories.map(c=> <Chip key={c.category} active={selectedKey===c.category} onClick={()=>load('category', c.category)}>{`${c.category} (${c.count})`}</Chip>)}
-          {(muscles.length===0 && tab==='muscle') && <span className="text-aux">Cargando...</span>}
+          {(muscles.length===0 && tab==='muscle') && <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cargando...</span>}
         </div>
-      </div>
+      </AltheaCard>
 
       {/* Buscador + filtros avanzados */}
       <div className="relative">
-        <Search size={16} className="absolute left-3 top-3.5 text-textMuted"/>
-        <input placeholder={`Filtrar en ${selectedKey==='__all__' ? 'todos' : selectedKey}...`} value={q} onChange={e=>setQ(e.target.value)} className="w-full bg-surface border border-border rounded-xl pl-9 p-3 text-body" />
+        <Search size={16} className="absolute left-3 top-3.5 text-on-surface-variant"/>
+        <AltheaInput placeholder={`Filtrar en ${selectedKey==='__all__' ? 'todos' : selectedKey}...`} value={q} onChange={e=>setQ(e.target.value)} className="w-full bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded pl-9 p-3 font-body-md text-sm text-on-surface" />
       </div>
-      <div className="rounded-xl bg-surface border border-border p-3">
-        <div className="text-aux">Filtros avanzados · dificultad / patrón movimiento</div>
+      <AltheaCard className="p-3">
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Filtros avanzados · dificultad / patrón movimiento</div>
         <div className="flex gap-2 mt-2">
           <select onChange={e=>{
             const v=e.target.value; const el=document.getElementById('list-ex'); if(!el) return;
             // patrón simple: filtra por nombre
-          }} className="flex-1 bg-bg border border-border rounded-xl p-2 text-aux">
+          }} className="flex-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
             <option value="">Patrón: todos</option><option>push</option><option>pull</option><option>squat</option><option>hinge</option><option>core</option>
           </select>
-          <select className="flex-1 bg-bg border border-border rounded-xl p-2 text-aux">
+          <select className="flex-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
             <option>Dificultad: todos</option><option>principiante</option><option>intermedio</option><option>avanzado</option>
           </select>
         </div>
-        <p className="text-aux text-textMuted mt-1">Usa ExerciseGym + filtro local. Variantes: al ver detalle, sugiere mismo músculo/equipo.</p>
-      </div>
+        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant mt-1">Usa ExerciseGym + filtro local. Variantes: al ver detalle, sugiere mismo músculo/equipo.</p>
+      </AltheaCard>
 
       {/* Resultados — solo consulta */}
-      <div className="text-aux text-textMuted">{loading ? 'Cargando ejercicios...' : `${filtered.length} ejercicios para consultar`}</div>
+      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">{loading ? 'Cargando ejercicios...' : `${filtered.length} ejercicios para consultar`}</div>
 
       <div className="grid gap-3">
         {filtered.map(ex=>(
-          <div key={ex.id} onClick={()=>setDetail(ex)} className="rounded-xl bg-surface border border-border overflow-hidden cursor-pointer active:bg-bg">
-            <div className="relative w-full aspect-[4/3] bg-bg border-b border-border flex items-center justify-center">
-              <span className="absolute text-aux">GIF no disponible</span>
-              {(ex.gifUrl || (ex as any).imageDataUrl) ? <img src={ex.gifUrl || (ex as any).imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative w-full h-full object-contain" /> : null}
-            </div>
-            <div className="p-3">
-              <div className="text-body font-medium flex items-center gap-2"><span className="truncate">{ex.name}</span>{(ex as any).origin==='USER_CREATED' ? <span className="text-aux px-2 py-0.5 rounded-full bg-elevated border border-info text-info shrink-0">Mío</span> : null}</div>
-              <div className="text-aux text-textMuted">{ex.muscle} · {ex.equipment} · {ex.bodyPart}</div>
-              <div className="text-aux mt-1">
-                {musclePct(ex).map(m=> (
-                  <span key={m.name} className={`inline-block mr-1 px-2 py-0.5 rounded-full border text-aux ${m.role==='Principal'?'bg-accentDark border-info text-info':'bg-bg border-border text-textMuted'}`}>{m.name} {m.pct}%</span>
-                ))}
+          <div key={ex.id} onClick={()=>setDetail(ex)} className="marble-slab rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden cursor-pointer active:bg-surface-container-low/90">
+            <div className="flex gap-3 p-3">
+              <div className="w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant flex items-center justify-center overflow-hidden">
+                {(ex.gifUrl || (ex as any).imageDataUrl) ? <img src={ex.gifUrl || (ex as any).imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="w-full h-full object-cover" /> : <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-[10px] text-center">GIF</span>}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-body-md text-sm text-on-surface font-medium text-sm flex items-center gap-2"><span className="truncate">{ex.name}</span>{(ex as any).origin==='USER_CREATED' ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[10px]">Mío</AltheaBadge> : null}</div>
+                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant text-xs">{ex.muscle} · {ex.equipment}</div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {musclePct(ex).slice(0,3).map(m=> (
+                    <span key={m.name} className={`px-1.5 py-0.5 rounded border text-[10px] ${m.role==='Principal'?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{m.name} {m.pct}%</span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         ))}
-        {filtered.length===0 && !loading && <p className="text-muted text-center py-6">Sin resultados</p>}
+        {filtered.length===0 && !loading && <p className="font-body-md text-xs text-on-surface-variant text-center py-6">Sin resultados</p>}
+      </div>
+      </div>
+
+      <div className="lg:col-span-4 space-y-3 hidden lg:block">
+      <button onClick={()=>{ setEditing(null); setShowForm(true) }} className="w-full py-3 rounded bg-primary text-on-surface font-medium">+ Agregar ejercicio</button>
+      <AltheaCard className="p-3">
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Filtros</div>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant mt-1">{filtered.length} de {exercises.length} ejercicios</div>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">{tab}: {selectedKey==='__all__' ? 'Todos' : selectedKey}</div>
+      </AltheaCard>
+      <AltheaCard className="p-3">
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Índice</div>
+        <div className="flex gap-2 overflow-x-auto pb-1 mt-2">
+          <Chip active={selectedKey==='__all__'} onClick={()=>load(tab, '__all__')}>{`Todos (${exercises.length || '…'})`}</Chip>
+          {tab==='muscle' && muscles.map(m=> <Chip key={m.muscle} active={selectedKey===m.muscle} onClick={()=>load('muscle', m.muscle)}>{`${m.muscle} (${m.count})`}</Chip>)}
+          {tab==='equipment' && equipment.map(e=> <Chip key={e.equipment} active={selectedKey===e.equipment} onClick={()=>load('equipment', e.equipment)}>{`${e.equipment} (${e.count})`}</Chip>)}
+          {tab==='bodypart' && bodyparts.map(b=> <Chip key={b.bodyPart} active={selectedKey===b.bodyPart} onClick={()=>load('bodypart', b.bodyPart)}>{`${b.bodyPart} (${b.count})`}</Chip>)}
+          {tab==='category' && categories.map(c=> <Chip key={c.category} active={selectedKey===c.category} onClick={()=>load('category', c.category)}>{`${c.category} (${c.count})`}</Chip>)}
+        </div>
+      </AltheaCard>
+      </div>
+
       </div>
 
       {/* Detalle solo informativo */}
       {detail && (
         <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setDetail(null)}>
-          <div onClick={e=>e.stopPropagation()} className="bg-bg border-t border-border rounded-t-2xl w-full max-w-lg lg:max-w-3xl max-h-[85vh] overflow-auto">
-            <div className="relative w-full bg-black/40 border-b border-border flex items-center justify-center min-h-[240px] p-2">
-              <span className="absolute text-aux">GIF no disponible</span>
+          <div onClick={e=>e.stopPropagation()} className="bg-surface-container-low/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[85vh] overflow-auto">
+            <div className="relative w-full bg-black/40 border-b border-outline-variant flex items-center justify-center min-h-[240px] p-2">
+              <span className="absolute font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">GIF no disponible</span>
               {(detail.gifUrl || (detail as any).imageDataUrl) ? <img src={detail.gifUrl || (detail as any).imageDataUrl} alt={detail.name} onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative max-w-full w-auto h-auto max-h-[55vh] object-contain" /> : null}
             </div>
             <div className="p-4 space-y-3">
-              <h2 className="text-subtitle">{detail.name}</h2>
-              <p className="text-aux text-textMuted">{detail.muscle} · {detail.bodyPart} · {detail.equipment} · {detail.category}</p>
-              <div className="rounded-xl bg-surface border border-border p-3">
-                <div className="text-aux">Músculos trabajados</div>
+              <h2 className="font-headline-lg text-base font-semibold text-on-surface">{detail.name}</h2>
+              <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">{detail.muscle} · {detail.bodyPart} · {detail.equipment} · {detail.category}</p>
+              <AltheaCard className="p-3">
+                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Músculos trabajados</div>
                 <div className="mt-2 space-y-2">
                   {musclePct(detail).map(m=>(
                     <div key={m.name} className="flex items-center gap-2">
-                      <span className="flex-1 text-body">{m.name} <span className="text-aux text-textMuted">· {m.role}</span></span>
-                      <span className="text-body font-medium">{m.pct}%</span>
-                      <div className="w-20 h-2 bg-bg border border-border rounded-full overflow-hidden"><div className={`h-full ${m.role==='Principal'?'bg-action':'bg-info'}`} style={{width:`${m.pct}%`}}/></div>
+                      <span className="flex-1 font-body-md text-sm text-on-surface">{m.name} <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">· {m.role}</span></span>
+                      <span className="font-body-md text-sm text-on-surface font-medium">{m.pct}%</span>
+                      <div className="w-20 h-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-full overflow-hidden"><div className={`h-full ${m.role==='Principal'?'bg-primary':'bg-primary'}`} style={{width:`${m.pct}%`}}/></div>
                     </div>
                   ))}
                 </div>
-                <p className="text-aux text-textMuted mt-2">Principal ~70% · Secundarios comparten ~30% (estimado orientativo).</p>
-              </div>
-              <div className="rounded-xl bg-surface border border-border p-3">
-                <div className="text-aux">Cómo hacerlo</div>
-                <ol className="list-decimal list-inside text-body space-y-1 mt-1">{detail.instructions.map((s,i)=><li key={i}>{s}</li>)}</ol>
-              </div>
+                <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant mt-2">Principal ~70% · Secundarios comparten ~30% (estimado orientativo).</p>
+              </AltheaCard>
+              <AltheaCard className="p-3">
+                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cómo hacerlo</div>
+                <ol className="list-decimal list-inside font-body-md text-sm text-on-surface space-y-1 mt-1">{detail.instructions.map((s,i)=><li key={i}>{s}</li>)}</ol>
+              </AltheaCard>
               {(detail as any).origin==='USER_CREATED' ? (
                 <div className="flex gap-2">
-                  <button onClick={()=>{ setEditing(detail as any) }} className="flex-1 py-3 rounded-xl bg-surface border border-border text-body">Editar</button>
-                  <button onClick={()=>handleDeleteCustom(detail)} className="flex-1 py-3 rounded-xl bg-surface border border-danger/50 text-aux">Eliminar</button>
+                  <button onClick={()=>{ setEditing(detail as any) }} className="flex-1 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Editar</button>
+                  <button onClick={()=>handleDeleteCustom(detail)} className="flex-1 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-danger/50 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Eliminar</button>
                 </div>
               ) : null}
-              <button onClick={()=>setDetail(null)} className="w-full py-3 rounded-xl bg-action text-textMain">Cerrar</button>
-              <p className="text-aux text-textMuted text-center">Solo informativo — sin copiar. Usá Rutina para agregar con selector inteligente.</p>
+              <button onClick={()=>setDetail(null)} className="w-full py-3 rounded bg-primary text-on-surface">Cerrar</button>
+              <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant text-center">Solo informativo — sin copiar. Usá Rutina para agregar con selector inteligente.</p>
             </div>
           </div>
         </div>

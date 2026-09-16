@@ -1,12 +1,9 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { NAV_ITEMS } from '@/components/brand/icons'
+import { NAV_ITEMS, MAS_GROUPS } from '@/components/brand/icons'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { Meander } from '@/components/brand/temple'
 import { ChevronsLeft, ChevronsRight } from 'lucide-react'
-
-// 5 secciones principales visibles simultáneamente (§10).
-// Móvil: SOLO ICONOS (§21), activo = cambio de fondo (§22), Entrenamiento con prioridad.
 
 function applyNavWidth(collapsed: boolean) {
   try {
@@ -19,10 +16,11 @@ function LogoSlot({ size = 32 }: { size?: number }) {
   if (ok) {
     return (
       <img
-        src="/assets/logo/logo.svg"
+        src="/assets/icons/navigation/logo.png"
         alt="Althea"
         width={size}
         height={size}
+        className="object-contain"
         onError={() => setOk(false)}
       />
     )
@@ -47,42 +45,102 @@ export default function AppNav() {
 
   return (
     <>
-      {/* Desktop: sidebar colapsable */}
-      <aside className="hidden md:flex fixed left-0 top-0 bottom-0 z-50 flex-col bg-surface border-r border-border transition-all" style={{ width: 'var(--navw)' }}>
-        <div className={`flex items-center gap-2 px-4 h-16 ${collapsed ? 'justify-center px-0' : ''}`}>
-          <LogoSlot size={32} />
-          {!collapsed && <span className="text-subtitle tracking-wide">Althea</span>}
+      {/* Desktop: sidebar — Hellenic side rail */}
+      <aside className="hidden md:flex fixed left-0 top-[52px] h-[calc(100vh-52px)] w-[208px] z-40 flex-col justify-between py-6 px-3 bg-surface-container-low border-r border-outline-variant/30 shadow-sm transition-colors duration-500">
+        <div className="flex flex-col gap-6">
+          {/* Brand Header */}
+          <div className={`flex items-center gap-3 px-2 pb-4 mb-3 border-b border-outline-variant/20 ${collapsed ? 'justify-center' : ''}`}>
+            <LogoSlot size={32} />
+            {!collapsed && (
+              <div>
+                <h2 className="font-headline-md text-title-md font-semibold tracking-widest text-primary">ALTHEA</h2>
+                <p className="font-label-caps text-[9px] tracking-widest text-secondary uppercase font-semibold">PALAESTRA VIRTUE</p>
+              </div>
+            )}
+          </div>
+          {/* Main Navigation */}
+          <nav className="space-y-1.5">
+            {NAV_ITEMS.map(({ to, label, icon }) => (
+              <NavLink
+                key={to} to={to} title={label}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all font-medium ${
+                    collapsed ? 'justify-center px-0' : ''
+                  } ${
+                    isActive
+                      ? 'bg-primary/20 text-primary border-l-2 border-primary font-bold'
+                      : 'text-on-surface-variant hover:bg-surface-container hover:text-primary'
+                  }`
+                }
+              >
+                <img
+                  src={`/assets/icons/navigation/${icon}.png`}
+                  alt={label}
+                  className="w-6 h-6 object-contain inline-block drop-shadow-sm"
+                />
+                {!collapsed && <span className="font-label-md text-label-md tracking-wide">{label}</span>}
+              </NavLink>
+            ))}
+          </nav>
+          {/* Secondary Modules */}
+          {!collapsed && (
+            <div className="pt-4 border-t border-outline-variant/40 flex flex-col gap-1.5">
+              <p className="font-label-caps text-[9px] uppercase tracking-widest text-on-surface-variant px-3 mb-1 font-semibold">Módulos</p>
+              {MAS_GROUPS.flatMap(g => g.items).filter(item => !NAV_ITEMS.some(n => n.to === item.to)).slice(0, 5).map(item => (
+                <NavLink
+                  key={item.to} to={item.to} title={item.label}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 px-3 py-2 rounded text-xs transition-colors ${
+                      isActive
+                        ? 'bg-primary/20 text-primary font-bold'
+                        : 'text-on-surface-variant hover:bg-surface-container hover:text-primary'
+                    }`
+                  }
+                >
+                  <img
+                    src={`/assets/icons/more/${item.icon}.png`}
+                    alt={item.label}
+                    className="w-5 h-5 object-contain inline-block drop-shadow-sm"
+                  />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          )}
         </div>
-        <Meander className="temple-frieze mx-3" />
-        <nav className="flex-1 py-3 space-y-1 px-2">
-          {NAV_ITEMS.map(({ to, label, icon }) => (
-            <NavLink
-              key={to} to={to} title={label}
-              className={({ isActive }) => `tpress flex items-center gap-3 rounded-lg px-3 py-2.5 text-body ${collapsed ? 'justify-center px-0' : ''} ${isActive ? 'bg-elevated text-textMain st-active border' : 'text-textMuted'}`}
-            >
-              <BrandIcon name={icon} size={20} strokeWidth={2} />
-              {!collapsed && <span className="text-body">{label}</span>}
-            </NavLink>
-          ))}
-        </nav>
-        <button onClick={toggle} aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'} className="tpress m-2 p-2 rounded-lg bg-bg border border-border text-textMuted flex items-center justify-center">
-          {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
-        </button>
+        {/* Footer Collapse Toggle */}
+        <div className="pt-4 border-t border-outline-variant/40">
+          <button
+            onClick={toggle}
+            aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
+            className="tpress w-full flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors font-medium"
+          >
+            {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+            {!collapsed && <span className="font-label-md text-label-md tracking-wide">Contraer</span>}
+          </button>
+        </div>
       </aside>
 
-      {/* Mobile: bottom navigation solo iconos */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-bg border-t border-border pb-safe" aria-label="Navegación principal">
-        <div className="mx-auto max-w-lg lg:max-w-3xl flex justify-around px-1">
-          {NAV_ITEMS.map(({ to, label, icon, priority }) => (
+      {/* Mobile: bottom navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-lg border-t border-outline-variant/30 py-1.5 px-3 shadow-lg transition-colors duration-500 pb-safe" aria-label="Navegación principal">
+        <div className="max-w-[440px] mx-auto flex items-center justify-around">
+          {NAV_ITEMS.map(({ to, label, icon }) => (
             <NavLink
               key={to} to={to} aria-label={label} title={label}
-              className="tpress flex items-center justify-center py-2 min-w-[56px] min-h-[52px]"
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-colors active:scale-[0.97] ${
+                  isActive
+                    ? 'text-primary font-bold border-b-2 border-primary'
+                    : 'text-on-surface-variant hover:text-primary'
+                }`
+              }
             >
-              {({ isActive }) => (
-                <span className={`flex items-center justify-center rounded-xl transition-colors ${isActive ? 'bg-elevated text-textMain st-active border px-4 py-2' : 'text-textMuted px-4 py-2'} ${priority && isActive ? 'ring-1 ring-primary' : ''}`}>
-                  <BrandIcon name={icon} size={priority ? 23 : 21} strokeWidth={isActive ? 2.5 : 2} />
-                </span>
-              )}
+              <img
+                src={`/assets/icons/navigation/${icon}.png`}
+                alt={label}
+                className="w-6 h-6 object-contain inline-block drop-shadow-sm transition-transform duration-200 active:scale-90"
+              />
+              <span className="text-[10px] tracking-wider mt-0.5 font-medium">{label}</span>
             </NavLink>
           ))}
         </div>

@@ -4,6 +4,7 @@ import { getCycleFromProfile } from '@/utils/cycle'
 import { v4 as uuid } from 'uuid'
 import { Eye, Clock, Check, ChevronRight, Zap, AlertTriangle, RotateCcw, XCircle } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
+import { AltheaCard, AltheaCardHeader, AltheaBadge, StatusTag, AltheaProgress, AltheaButton } from '@/components/althea'
 import { aiService } from '@/services/ai/aiService'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
@@ -65,10 +66,7 @@ export default function Entrenar(){
   const [isStarting,setIsStarting]=useState(false)
   const finishingAt=useRef(0)
   const [finishSurvey,setFinishSurvey]=useState<Record<string,any>>({
-    energy: 5, fatigue: 5, pain: 0, mood: 5,
-    motivation: 5, effort: 5, stress: 5,
-    painZone: '', painDetail: '',
-    generalObservation: ''
+    sessionRating: 3, pain: 0, painZone: '', painDetail: '', comment: ''
   })
   const [pendingReasons,setPendingReasons]=useState<Record<number,{reason:string; comment:string}>>({})
   const [skipReasons,setSkipReasons]=useState<Record<number,string>>({})
@@ -76,6 +74,8 @@ export default function Entrenar(){
   const [sessionStartTime,setSessionStartTime]=useState<string>(new Date().toISOString())
   const [sessionId,setSessionId]=useState<string>('')
   const [sessionStatus,setSessionStatus]=useState<SessionStatus>('PLANNED')
+  const sessionStatusRef=useRef<SessionStatus>('PLANNED')
+  sessionStatusRef.current = sessionStatus
   const [plannedDayN,setPlannedDayN]=useState<number|null>(null)
   const [actualDayN,setActualDayN]=useState<number|null>(null)
   const [plannedName,setPlannedName]=useState<string>('')
@@ -156,12 +156,17 @@ export default function Entrenar(){
       seMap[i] = se.sessionExerciseId
       const recs = await getSetRecords(se.sessionExerciseId)
       const doneRecs = recs.filter((r) => r.status === 'COMPLETED')
-      lg[i] = doneRecs.map((r) => ({ weight: r.actualWeight, reps: r.actualReps, setType: r.setType, observation: r.observation }))
+      const skippedRecs = recs.filter((r) => r.status === 'SKIPPED')
+      lg[i] = [
+        ...doneRecs.map((r) => ({ weight: r.actualWeight, reps: r.actualReps, setType: r.setType, observation: r.observation })),
+        ...skippedRecs.map((r) => ({ weight: r.actualWeight ?? r.plannedWeight ?? 0, reps: r.actualReps ?? r.plannedReps ?? 0, setType: r.setType, observation: r.observation, skipped: true })),
+      ]
       if (se.status === 'COMPLETED') d[i] = true
       if (se.status === 'SKIPPED') { sk[i] = true; d[i] = true }
     }
+    const restoredIndex = Math.min(storeS.currentExerciseIndex ?? 0, list.length - 1)
     setSeIdByIndex(seMap)
-    setExs(list); setCurrent(0); setDone(d); setSkipped(sk); setLogs(lg as Record<number, unknown[]>)
+    setExs(list); setCurrent(restoredIndex); setDone(d); setSkipped(sk); setLogs(lg as Record<number, unknown[]>)
     if (list[0]) {
       const ctx: unknown = await buildTrainingContext(list[0].exId, list[0].name)
       const rec = await aiService.generateRecommendation(ctx as never).catch(() => ({ reason: `Vamos con ${list[0].weight}kg x ${list[0].reps}.`, suggested_weight: list[0].weight, confidence: 0.6, factors: ['determinístico'] }))
@@ -170,18 +175,22 @@ export default function Entrenar(){
   }
 
   const load = async () => {
-      const { getActiveSession, getSession } = await import('@/services/training/sessionStore')
+      const { getActiveSession, getSession, getSessionExercises: getSE } = await import('@/services/training/sessionStore')
       // PRIORIDAD 1: sesion activa por activeSessionId (nunca calendario por encima).
       const active = await getActiveSession().catch(() => null)
       if (active && active.calendarDate === today && ['READY', 'IN_PROGRESS', 'PAUSED', 'COMPLETING'].includes(active.sessionStatus)) {
-        if (active.sessionStatus === 'READY') {
-          // §7: la sesion existe pero NO inicio -> pantalla COMENZAR.
-          setReadyPlan({ sessionId: active.sessionId, routineName: active.routineName || 'Rutina', plannedDayN: active.plannedDay, plannedName: active.plannedDayName || '', actualDayN: active.actualDay, actualName: active.actualDayName || '', isResume: false })
+        // Verificar que la sesion tenga ejercicios en la DB antes de usarla.
+        const seCount = await getSE(active.sessionId).then(l => l.length).catch(() => 0)
+        if (seCount > 0) {
+          if (active.sessionStatus === 'READY') {
+            setReadyPlan({ sessionId: active.sessionId, routineName: active.routineName || 'Rutina', plannedDayN: active.plannedDay, plannedName: active.plannedDayName || '', actualDayN: active.actualDay, actualName: active.actualDayName || '', isResume: false })
+          }
           await applyStoreSession(active)
           return
         }
-        await applyStoreSession(active)
-        return
+        // Sesion sin ejercicios en DB → limpiar y caer al plan de rutina.
+        const { clearActiveSession } = await import('@/services/training/sessionMachine')
+        clearActiveSession()
       }
       if (active && active.calendarDate !== today && ['IN_PROGRESS', 'PAUSED', 'READY'].includes(active.sessionStatus)) {
         // Banner por sessionId (no por fecha): continuar / finalizar / abandonar.
@@ -275,11 +284,17 @@ export default function Entrenar(){
     const onStorage = (e:StorageEvent)=>{ if(e.key?.startsWith('session:override:')){ loadedRef.current=''; load() } }
     const onFocus = ()=> load()
     const onCustom = ()=>{ loadedRef.current=''; load() }
+    const onBeforeUnload = (e: BeforeUnloadEvent)=>{
+      if(['IN_PROGRESS','PAUSED','COMPLETING'].includes(sessionStatusRef.current)){
+        e.preventDefault(); e.returnValue = ''
+      }
+    }
     window.addEventListener('storage', onStorage)
     window.addEventListener('focus', onFocus)
     window.addEventListener('routineChange', onCustom as any)
+    window.addEventListener('beforeunload', onBeforeUnload)
     const id = setInterval(()=>{ if(restPausedRef.current) return; if(restSecRef.current>0){ restSecRef.current -= 1; setRestSec(restSecRef.current); if(restSecRef.current===0) setRestFlash(true) } }, 1000)
-    return ()=>{ clearInterval(id); window.removeEventListener('storage', onStorage); window.removeEventListener('focus', onFocus); window.removeEventListener('routineChange', onCustom as any) }
+    return ()=>{ clearInterval(id); window.removeEventListener('storage', onStorage); window.removeEventListener('focus', onFocus); window.removeEventListener('routineChange', onCustom as any); window.removeEventListener('beforeunload', onBeforeUnload) }
   },[])
 
   const cur = exs[current]
@@ -315,6 +330,8 @@ export default function Entrenar(){
     return { completed, skipped }
   },[logs, current])
   const progress = exs.length ? Math.round(Object.keys(done).filter(k=>done[Number(k)]).length / exs.length * 100) : 0
+  const completedSets = Object.keys(logs).reduce((sum, k) => sum + (logs[Number(k)]?.length ?? 0), 0)
+  const totalSets = exs.reduce((sum, ex) => sum + (ex.plannedSets ?? ex.sets), 0)
 
   const nextCoach = async (nextIdx:number)=>{
     if(nextIdx>=exs.length) return
@@ -714,11 +731,11 @@ export default function Entrenar(){
       const fs = finishSurvey || {}
       const surveyInput = {
         sessionId: sess.sessionId, userId: 'me', calendarDate: today,
-        energy: Number(fs.energy ?? 5), fatigue: Number(fs.fatigue ?? 5),
-        pain: Number(fs.pain ?? 0), mood: Number(fs.mood ?? 5),
-        motivation: Number(fs.motivation ?? 5), perceivedExertion: Number(fs.effort ?? 5),
-        stress: Number(fs.stress ?? 5),
-        painArea: String(fs.painZone || ''), painObservation: String(fs.painDetail || fs.generalObservation || ''),
+        sessionRating: Number(fs.sessionRating ?? 3),
+        pain: Number(fs.pain ?? 0),
+        painZone: String(fs.painZone || ''),
+        painDetail: String(fs.painDetail || ''),
+        comment: String(fs.comment || ''),
       }
       const surveyErrs = validateSurvey(surveyInput)
       if(surveyErrs.length>0){ setFinishError('Encuesta incompleta: ' + surveyErrs.join(', ')); setIsSaving(false); return }
@@ -743,7 +760,7 @@ export default function Entrenar(){
         plannedSets: comp.plannedSets, completedSets: comp.completedSets,
         totalReps: vol.reps, totalVolume: vol.volume,
         actualMuscleGroups: Array.from(new Set(exs.map(e=> e.muscle || 'general'))),
-        generalObservation: String(fs.generalObservation || ''),
+        generalObservation: String(fs.comment || ''),
         surveyId: survey.surveyId,
         dayChange: (changed?.changeReason || sess.dayChange?.reason) ? { reason: changed?.changeReason || sess.dayChange?.reason || '', comment: changed?.changeComment ?? sess.dayChange?.comment, at: new Date().toISOString() } : sess.dayChange,
       })
@@ -765,7 +782,7 @@ export default function Entrenar(){
       }catch{ /* noop */ }
       try{ await db.table('coachMemory').put({ id: `obs-${today}`, type: 'observation', date: today, sessionId: sess.sessionId, sessionStatus: status, routineName: rutinaName, ...({}) } as never) }catch{ /* noop */ }
       for(const ex of exs){ try{ localStorage.removeItem(`exstate:${today}:${ex.exId}`) }catch{ /* noop */ } }
-      try{ localStorage.setItem(`althea:result:${today}`, JSON.stringify({ date: today, sessionId: sess.sessionId, sessionStatus: status, exPct: s.exPct, setPct: s.setPct, completedEx: s.completedEx, plannedEx: s.plannedEx, completedSets: s.completedSets, plannedSets: s.plannedSets, totalVol: s.totalVol, totalReps: s.totalReps, durMin: s.durMin, survey: { energy: Number(fs.energy??5), fatigue: Number(fs.fatigue??5), pain: Number(fs.pain??0), mood: Number(fs.mood??5) }, highlights: Object.values(progressLines) })) }catch{ /* noop */ }
+      try{ localStorage.setItem(`althea:result:${today}`, JSON.stringify({ date: today, sessionId: sess.sessionId, sessionStatus: status, exPct: s.exPct, setPct: s.setPct, completedEx: s.completedEx, plannedEx: s.plannedEx, completedSets: s.completedSets, plannedSets: s.plannedSets, totalVol: s.totalVol, totalReps: s.totalReps, durMin: s.durMin, survey: { sessionRating: Number(fs.sessionRating??3), pain: Number(fs.pain??0) }, highlights: Object.values(progressLines) })) }catch{ /* noop */ }
       try{ if(navigator.vibrate) navigator.vibrate([20,40,20]) }catch{ /* noop */ }
       localStorage.removeItem(`session:active:${today}`)
       try{
@@ -957,49 +974,50 @@ export default function Entrenar(){
   if(readyPlan && !session){
     const rp = readyPlan
     return (
-      <div className="min-h-screen bg-bg pb-24">
-        <div className="max-w-lg lg:max-w-3xl mx-auto px-4 py-6 space-y-4">
-          <div className="text-aux">ENTRENAR · {rp.routineName}</div>
-          <div className="rounded-2xl bg-surface border border-border p-4 space-y-3">
-            <h2 className="text-title">{rp.sessionId ? 'Sesión preparada' : 'Plan de hoy'}</h2>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-              <span className="text-aux">Día planificado</span><span className="text-body text-right">{rp.plannedDayN!=null ? `N°${rp.plannedDayN} ${rp.plannedName}` : '—'}</span>
-              <span className="text-aux">Día a realizar</span><span className="text-body text-right">{rp.actualDayN!=null ? `N°${rp.actualDayN} ${rp.actualName}` : 'Descanso'}</span>
-              <span className="text-aux">Ejercicios</span><span className="text-body text-right">{exs.length}</span>
+      <div className="min-h-screen bg-transparent pb-24">
+        <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
+          <div className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">ENTRENAR · {rp.routineName}</div>
+          <section className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 stone-slab relative overflow-hidden">
+            <div className="absolute -right-20 -top-20 w-80 h-80 bg-primary-container/10 rounded-full blur-3xl pointer-events-none" />
+            <h2 className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface relative z-10">{rp.sessionId ? 'Sesión preparada' : 'Plan de hoy'}</h2>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mt-4 relative z-10">
+              <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Día planificado</span><span className="font-body-md text-[15px] text-on-surface text-right">{rp.plannedDayN!=null ? `N°${rp.plannedDayN} ${rp.plannedName}` : '—'}</span>
+              <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Día a realizar</span><span className="font-body-md text-[15px] text-on-surface text-right">{rp.actualDayN!=null ? `N°${rp.actualDayN} ${rp.actualName}` : 'Descanso'}</span>
+              <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios</span><span className="font-body-md text-[15px] text-on-surface text-right">{exs.length}</span>
             </div>
             {(rp.reason || rp.comment) && (
-              <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-3">
-                <div className="text-aux text-amber-300">Cambio de día: {rp.reason || '—'}</div>
-                {rp.comment ? <p className="text-aux mt-1">{rp.comment}</p> : null}
+              <div className="rounded bg-secondary-container/20 border border-secondary/30 p-3 mt-4 relative z-10">
+                <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider">Cambio de día: {rp.reason || '—'}</div>
+                {rp.comment ? <p className="font-body-sm text-[13px] text-on-surface-variant mt-1">{rp.comment}</p> : null}
               </div>
             )}
             {rp.plannedDayN!==rp.actualDayN && rp.plannedDayN!=null && (
-              <p className="text-aux text-sm">Hoy estaba planificado {rp.plannedName} y vas a realizar {rp.actualName}. Quedará registrado para análisis.</p>
+              <p className="font-body-sm text-[13px] text-on-surface-variant mt-4 relative z-10">Hoy estaba planificado {rp.plannedName} y vas a realizar {rp.actualName}. Quedará registrado para análisis.</p>
             )}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 mt-4 relative z-10">
               {exs.map((ex,i)=>(
-                <div key={i} className="flex items-center gap-2 text-body text-sm">
-                  <span className="w-1.5 h-1.5 bg-action rounded-full"></span>{ex.name} <span className="text-aux">· {ex.sets}x{ex.reps}</span>
+                <div key={i} className="flex items-center gap-2 font-body-md text-[15px] text-on-surface">
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full shrink-0"></span>{ex.name} <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">· {ex.sets}x{ex.reps}</span>
                 </div>
               ))}
             </div>
-            {finishError ? <p className="text-sm text-red-400">{finishError}</p> : null}
-            <button onClick={startSession} disabled={isStarting} className="w-full py-3 rounded-xl bg-action text-textMain font-medium disabled:opacity-50">{isStarting ? 'Iniciando…' : 'COMENZAR ENTRENAMIENTO'}</button>
-            <button onClick={openCancelModal} className="w-full py-2 rounded-xl bg-surface border border-border text-aux">Cancelar</button>
-          </div>
+            {finishError ? <p className="text-sm text-red-400 mt-4 relative z-10">{finishError}</p> : null}
+            <button onClick={startSession} disabled={isStarting} className="w-full py-3 px-5 rounded bg-primary hover:bg-primary-fixed text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm mt-4 relative z-10 disabled:opacity-50">{isStarting ? 'Iniciando…' : 'COMENZAR ENTRENAMIENTO'}</button>
+            <button onClick={openCancelModal} className="w-full py-2 px-3 rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant mt-2 relative z-10">Cancelar</button>
+          </section>
         </div>
         {showCancel && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowCancel(false)}>
-            <div onClick={(e)=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-md p-4 space-y-3">
-              <h3 className="text-subtitle">Cancelar entrenamiento</h3>
-              <select value={cancelReason} onChange={(e)=>setCancelReason(e.target.value)} className="w-full bg-surface border border-border rounded-xl p-2 text-body">
+            <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
+              <h3 className="font-headline-lg text-base font-semibold text-on-surface">Cancelar entrenamiento</h3>
+              <select value={cancelReason} onChange={(e)=>setCancelReason(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface">
                 <option value="">Seleccioná motivo…</option>
                 {['Falta de tiempo','Cansancio','Indisposición','Cambio de planes','Falta de equipamiento','Falta de disponibilidad','Otro'].map((r)=>(<option key={r} value={r}>{r}</option>))}
               </select>
-              <textarea value={cancelComment} onChange={(e)=>setCancelComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface border border-border rounded-xl p-2 text-body"/>
+              <textarea value={cancelComment} onChange={(e)=>setCancelComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"/>
               <div className="flex gap-2">
-                <button onClick={confirmCancel} className="flex-1 py-3 rounded-xl bg-action text-textMain">Confirmar cancelación</button>
-                <button onClick={()=>setShowCancel(false)} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">Volver</button>
+                <button onClick={confirmCancel} className="flex-1 py-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Confirmar cancelación</button>
+                <button onClick={()=>setShowCancel(false)} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Volver</button>
               </div>
             </div>
           </div>
@@ -1008,16 +1026,38 @@ export default function Entrenar(){
     )
   }
 
-  if(exs.length===0) return <div className="min-h-screen bg-bg p-4 pb-24 max-w-lg lg:max-w-3xl mx-auto"><p className="text-body">Hoy es descanso o sin ejercicios. Cambiá el día en Inicio.</p></div>
+  if(exs.length===0) return <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto"><p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios. Cambiá el día en Inicio.</p></div>
   return (
-    <div className="min-h-screen bg-bg pb-24">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-bg border-b border-border">
-        <div className="max-w-lg lg:max-w-3xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
+    <div className="min-h-screen bg-transparent pb-24">
+      <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
+        {/* Resume Banner */}
+        {resumeBanner && (
+          <div className="rounded-xl bg-secondary-container/20 border border-secondary/30 p-4 space-y-2">
+            <div className="font-body-md text-[15px] text-on-surface font-medium">Tenés un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
+            <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} — {resumeBanner.dayName} · estado {resumeBanner.status} · {resumeBanner.exerciseCount} ejercicios</div>
+            <div className="flex gap-2">
+              <button onClick={()=> adoptResumeSession(resumeBanner, false)} className="flex-1 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Continuar</button>
+              <button onClick={()=> adoptResumeSession(resumeBanner, true)} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Finalizar</button>
+              <button onClick={abandonResume} className="flex-1 py-2 rounded bg-surface-container/60 border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Abandonar</button>
+            </div>
+          </div>
+        )}
+        {(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') && <ResultPanel today={today} sessionStatus={sessionStatus} />}
+
+        {/* Session Hero Header */}
+        <section className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 stone-slab relative overflow-hidden">
+          <div className="absolute -right-20 -top-20 w-80 h-80 bg-primary-container/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
             <div>
-              <div className="text-aux">ENTRENAR · {rutinaName}</div>
-              <div className="text-subtitle">{dayName}</div>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="px-2.5 py-0.5 rounded-lg bg-secondary-container/40 border border-secondary/40 text-secondary font-label-caps text-[10px] uppercase tracking-widest">
+                  ENTRENAR · {rutinaName}
+                </span>
+                <span className="font-body-sm text-[13px] text-outline">Semana {weekNumber}</span>
+              </div>
+              <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
+                {dayName}
+              </h1>
               <button onClick={()=>{
                 const raw=JSON.parse(localStorage.getItem('rutinas:list')||'null')
                 const activeId=localStorage.getItem('rutina:activeId')
@@ -1033,165 +1073,324 @@ export default function Entrenar(){
                     location.reload()
                   }
                 }
-              }} className="text-aux text-info underline text-xs mt-1">Cambiar día de entrenamiento</button>
+              }} className="hidden md:inline font-body-sm text-[13px] text-primary underline mt-1">Cambiar día de entrenamiento</button>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="text-aux bg-surface border border-border px-3 py-1 rounded-full">{Object.keys(done).length}/{exs.length} · {progress}%</div>
-              <button onClick={openFinishModal} className="px-4 py-2 rounded-xl bg-action text-textMain font-medium text-sm flex items-center gap-2">
-                <Check className="w-4 h-4"/> FINALIZAR ENTRENAMIENTO
+            <div className="flex items-center gap-2.5">
+              <button onClick={openCancelModal} className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
+                <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
+                <span className="hidden sm:inline">Cancelar sesión</span>
+              </button>
+              <button onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
+                <span className="material-symbols-outlined text-[18px]">reorder</span>
+                <span className="hidden sm:inline">Abandonar</span>
+              </button>
+              <button onClick={openFinishModal} className="flex items-center gap-1.5 px-4 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98]">
+                <Check size={14}/> <span className="hidden sm:inline">FINALIZAR</span><span className="sm:hidden">FIN</span>
               </button>
             </div>
           </div>
-          <div className="mt-2 h-2 bg-surface border border-border rounded-full overflow-hidden flex">
-            {exs.map((_,i)=> <div key={i} className={`flex-1 ${done[i]?'bg-action': i===current?'bg-info':'bg-transparent'}`} />)}
+          {/* Metrics row + progress bar */}
+          <div className="mt-6 pt-5 border-t border-outline-variant/30 grid grid-cols-1 md:grid-cols-4 gap-4 items-center relative z-10">
+            <div className="flex flex-col">
+              <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-headline-sm text-[20px] font-semibold text-secondary">{Object.keys(done).length}</span>
+                <span className="font-body-md text-[15px] text-outline">/ {exs.length}</span>
+              </div>
+              <span className="font-label-caps text-[10px] text-primary mt-0.5">{progress}% de Virtud Cumplida</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series Hechas</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-headline-sm text-[20px] font-semibold text-secondary">{completedSets}</span>
+                <span className="font-body-md text-[15px] text-outline">/ {totalSets}</span>
+              </div>
+            </div>
+            {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED') && (
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full border font-label-caps text-[10px] uppercase ${sessionStatus==='PAUSED' ? 'bg-secondary-container/20 border-secondary/30 text-secondary' : 'bg-primary-container/20 border-primary/30 text-primary'}`}>Estado: {sessionStatus}</span>
+                <button onClick={togglePause} className="px-3 py-1 rounded-full bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/40 transition-colors">{sessionStatus==='PAUSED' ? 'Continuar' : 'Pausar'}</button>
+              </div>
+            )}
           </div>
-          {restSec>0 && <div className="mt-2 flex items-center gap-2 text-aux bg-surface border border-border rounded-xl px-2 py-1.5"><button onClick={()=>{ const v=!restPaused; setRestPaused(v); restPausedRef.current=v }} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="px-2 py-1 rounded-lg bg-bg border border-border text-body">{restPaused ? <BrandIcon name="play" size={14}/> : <BrandIcon name="pause" size={14}/>}</button><Clock size={14}/><span className="text-body font-medium tabular-nums">{Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</span><span>Descanso</span><span className="ml-auto flex gap-1"><button onClick={()=>setRestSec((s)=>Math.max(0,s-15))} className="px-2 py-1 rounded-lg bg-bg border border-border">−15</button><button onClick={()=>setRestSec((s)=>s+30)} className="px-2 py-1 rounded-lg bg-bg border border-border">+30</button><button onClick={()=>{ setRestSec(0); setRestFlash(false) }} className="px-2 py-1 rounded-lg bg-bg border border-border text-info">Saltar</button></span></div>}
-          {restFlash && restSec===0 && <button onClick={()=>setRestFlash(false)} className="mt-2 w-full flex items-center justify-center gap-2 text-body st-completed border rounded-xl p-2 fade-in"><Check size={14}/> Descanso terminado — a entrenar</button>}
-          {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED') && (
-            <div className="mt-2 flex gap-2">
-              <button onClick={openCancelModal} className="flex-1 py-1.5 rounded-xl bg-surface border border-border text-aux text-sm">Cancelar sesión</button>
-              <button onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex-1 py-1.5 rounded-xl bg-surface border border-border text-aux text-sm">Abandonar</button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="max-w-lg lg:max-w-3xl mx-auto px-4 py-4 space-y-4">
-        {resumeBanner && (
-          <div className="rounded-2xl bg-amber-900/20 border border-amber-800 p-4 space-y-2">
-            <div className="text-body font-medium">Tenés un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
-            <div className="text-aux">{resumeBanner.routineName} — {resumeBanner.dayName} · estado {resumeBanner.status} · {resumeBanner.exerciseCount} ejercicios</div>
-            <div className="flex gap-2">
-              <button onClick={()=> adoptResumeSession(resumeBanner, false)} className="flex-1 py-2 rounded-xl bg-action text-textMain">Continuar</button>
-              <button onClick={()=> adoptResumeSession(resumeBanner, true)} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">Finalizar</button>
-              <button onClick={abandonResume} className="flex-1 py-2 rounded-xl bg-bg border border-border text-aux">Abandonar</button>
-            </div>
+          <div className="mt-5 w-full bg-surface-container-lowest h-2.5 rounded-full overflow-hidden flex gap-1 p-0.5 border border-outline-variant/40 relative z-10">
+            {exs.map((_,i)=> <div key={i} className={`h-full rounded-full transition-all ${done[i]?'bg-primary': i===current?'bg-secondary animate-pulse':'bg-surface-container-high'}`} style={{flex:1}} />)}
           </div>
-        )}
-        {(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') && <ResultPanel today={today} sessionStatus={sessionStatus} />}
-        {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED') && exs.length>0 && (
-          <div className="flex items-center gap-2">
-            <span className={`text-aux px-3 py-1 rounded-full border ${sessionStatus==='PAUSED' ? 'bg-amber-900/20 border-amber-800 text-amber-300' : 'bg-surface border-border'}`}>Estado: {sessionStatus}</span>
-            <button onClick={togglePause} className="px-3 py-1 rounded-full bg-surface border border-border text-aux">{sessionStatus==='PAUSED' ? 'Continuar' : 'Pausar'}</button>
-          </div>
-        )}
-        {/* Lista ejercicios */}
-        <div className="space-y-2">
-          {exs.map((ex,i)=>(
-            <div key={i} className={`rounded-xl border p-3 flex items-center gap-3 ${i===current?'bg-surface border-info':'bg-bg border-border'} ${done[i]?'opacity-60':''}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-aux ${done[i]?'bg-action text-textMain': i===current?'bg-info text-bg':'bg-surface border border-border'}`}>{done[i] ? <Check size={14}/> : i+1}</div>
-              <div className="flex-1" onClick={()=> setCurrent(i)}>
-                <div className="text-body font-medium">{ex.name}</div>
-                <div className="text-aux">{ex.sets}×{ex.reps} · {ex.weight}kg {ex.muscle && `· ${ex.muscle}`}</div>
-              </div>
-              <button onClick={()=>{ setCurrent(i); nextCoach(i) }} className="text-aux text-info"><ChevronRight size={16}/></button>
-              {done[i] && <span className="text-aux text-action">✓</span>}
-            </div>
-          ))}
-        </div>
+        </section>
 
-        {/* Ejercicio actual */}
-        {cur && (
-          <div className="rounded-2xl bg-surface border border-border p-4 space-y-4 shadow-sm">
-            <div className="flex justify-between items-start gap-3">
-              <div className="flex-1">
-                <div className="text-aux tracking-widest text-[11px]">AHORA · {cur.sets} series</div>
-                <div className="text-title leading-tight mt-1">{cur.name}</div>
-                <div className="text-aux mt-1">{cur.reps} repes · {cur.weight} kilogramos objetivo</div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button onClick={openViewer} className="shrink-0 px-3 py-2 rounded-xl bg-bg border border-border text-aux flex items-center gap-1 hover:bg-surface transition"><Eye size={14}/> Ver</button>
-                <button onClick={loadSwapOptions} className="shrink-0 px-3 py-2 rounded-xl bg-bg border border-border text-aux flex items-center gap-1 hover:bg-surface transition"><RotateCcw size={14}/> Cambiar</button>
-              </div>
-            </div>
+        {restFlash && restSec===0 && <button onClick={()=>setRestFlash(false)} className="w-full flex items-center justify-center gap-2 font-body-md text-[15px] text-on-surface st-completed border rounded p-2 fade-in"><Check size={14}/> Descanso terminado — a entrenar</button>}
 
-            <div className="rounded-xl bg-accentDark border border-border p-3">
-              <div className="text-aux text-info flex items-center gap-1"><Zap size={12}/> COACH</div>
-              <p className="text-body mt-1">{coach ? (coach.suggested_weight ? `${coach.suggested_weight}kg — ${coach.reason}` : coach.reason) : `Vamos con ${cur.weight}kg × ${cur.reps}.`}</p>
-              <button onClick={()=>setShowWhy(s=>!s)} className="text-aux text-info mt-1">¿Por qué?</button>
-              {showWhy && <p className="text-aux mt-1 bg-bg border border-border rounded-lg p-2">{coach?.factors?.join(' · ') || 'Volumen y técnica estables.'}</p>}
-              <div className="mt-2 flex gap-1">
-                <button onClick={()=>{ setMod({weight:cur.weight,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">Modificar</button>
-                <button onClick={handleSkipWithReason} className="flex-1 py-2 rounded-xl bg-bg border border-border text-aux"><XCircle size={14} className="inline mr-1"/> Saltar</button>
-              </div>
-            </div>
+        {/* Main Grid: 8-col exercise + 4-col sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* 8-col: Active Exercise + Upcoming */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* Active Exercise Card */}
+            {cur && (
+              <div className="bg-surface-container-low border border-secondary/40 rounded-xl stone-slab plinth-active overflow-hidden">
+                {/* Exercise Header Strip */}
+                <div className="p-6 pb-4 border-b border-outline-variant/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-low/80">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-2 py-0.5 rounded bg-primary-container/20 border border-primary/40 font-label-caps text-[10px] text-primary uppercase font-semibold">
+                        EJERCICIO {current+1} DE {exs.length}
+                      </span>
+                      <span className="text-outline text-[13px]">• {cur.sets} series</span>
+                    </div>
+                    <h2 className="font-headline-md text-[24px] text-on-surface">
+                      {cur.name}
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={openViewer} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary/60 text-secondary font-label-md text-[14px] transition-colors whitespace-nowrap">
+                      <span className="material-symbols-outlined text-[18px]">visibility</span>
+                      <span>Ver</span>
+                    </button>
+                    <button onClick={loadSwapOptions} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary/60 text-secondary font-label-md text-[14px] transition-colors whitespace-nowrap">
+                      <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
+                      <span>Cambiar</span>
+                    </button>
+                  </div>
+                </div>
 
-            {painAlert && (
-              <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-3 space-y-2">
-                <div className="text-body text-sm font-medium">La última vez registraste molestias en {painAlert.zone}. ¿Cómo está hoy?</div>
-                <div className="flex gap-1">
-                  <input value={painAns} onChange={e=>setPainAns(e.target.value)} placeholder="Bien / sigue molestando…" maxLength={200} className="flex-1 bg-bg border border-border rounded-xl p-2 text-body"/>
-                  <button onClick={async()=>{ const v=painAns.trim(); if(!v) return; const { saveAnswer } = await import('@/services/ai/coachMemory'); await saveAnswer(`pain:${painAlert.zone.toLowerCase()}`, `¿Cómo está hoy la molestia en ${painAlert.zone}?`, v); setPainAlert(null); setPainAns(''); runSafetyCheck() }} className="px-3 rounded-xl bg-action text-textMain">Guardar</button>
+                {/* Architectural Cue — Coach */}
+                <div className="px-6 py-3 bg-surface-container/60 border-b border-outline-variant/30 flex items-center gap-3">
+                  <span className="material-symbols-outlined text-secondary" style={{fontVariationSettings: "'FILL' 1"}}>lightbulb</span>
+                  <p className="font-body-sm text-[13px] text-on-surface-variant">
+                    <strong className="text-secondary font-medium">Clave de Virtud:</strong>{' '}
+                    {coach ? (coach.suggested_weight ? `${coach.suggested_weight}kg — ${coach.reason}` : coach.reason) : `Vamos con ${cur.weight}kg × ${cur.reps}.`}
+                  </p>
+                  <button onClick={()=>setShowWhy(s=>!s)} className="ml-auto font-label-caps text-[10px] text-secondary underline">¿Por qué?</button>
+                </div>
+                {showWhy && (
+                  <div className="px-6 py-2 bg-surface-container-high/30 border-b border-outline-variant/30">
+                    <p className="font-body-sm text-[13px] text-on-surface-variant italic">{coach?.factors?.join(' · ') || 'Volumen y técnica estables.'}</p>
+                  </div>
+                )}
+
+                {/* Pain Alert */}
+                {painAlert && (
+                  <div className="mx-6 mt-4 rounded bg-secondary-container/20 border border-secondary/30 p-3 space-y-2">
+                    <div className="font-body-md text-[15px] text-on-surface font-medium">La última vez registraste molestias en {painAlert.zone}. ¿Cómo está hoy?</div>
+                    <div className="flex gap-1">
+                      <input value={painAns} onChange={e=>setPainAns(e.target.value)} placeholder="Bien / sigue molestando…" maxLength={200} className="flex-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+                      <button onClick={async()=>{ const v=painAns.trim(); if(!v) return; const { saveAnswer } = await import('@/services/ai/coachMemory'); await saveAnswer(`pain:${painAlert.zone.toLowerCase()}`, `¿Cómo está hoy la molestia en ${painAlert.zone}?`, v); setPainAlert(null); setPainAns(''); runSafetyCheck() }} className="px-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Guardar</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Safety Alert */}
+                {safetyAlert && (
+                  <div className={`mx-6 mt-4 rounded border p-3 flex items-start gap-2 ${
+                    safetyAlert.severity==='critical' ? 'bg-red-900/30 border-red-700' : 'bg-secondary-container/20 border-secondary/30'
+                  }`}>
+                    <AlertTriangle size={14} className={`mt-0.5 ${safetyAlert.severity==='critical'?'text-red-400':'text-secondary'}`}/>
+                    <div className="font-body-md text-[15px] text-on-surface">
+                      <span className="font-medium">{safetyAlert.message}</span>
+                      {safetyAlert.referral && <span className="font-label-caps text-[10px] uppercase text-on-surface-variant"> Consultá con {safetyAlert.referral}.</span>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Series Data Table */}
+                <div className="p-6">
+                  <ExerciseSeriesTable
+                    key={cur.exId}
+                    exerciseId={cur.exId}
+                    today={today}
+                    sets={cur.sets}
+                    plannedReps={cur.reps}
+                    plannedWeight={cur.weight}
+                    onComplete={(si,w,r,neg,obs)=> handleSetDone(si,w,r,neg,obs)}
+                    onSkipSet={(si)=> skipSetRow(si)}
+                    onAddSet={addSetRow}
+                    logs={logs[current]||[]}
+                    initialCompleted={tableInitial.completed}
+                    initialSkipped={tableInitial.skipped}
+                  />
+                </div>
+
+                {/* Modify + Skip buttons */}
+                <div className="px-6 pb-4 flex gap-2">
+                  <button onClick={()=>{ setMod({weight:cur.weight,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
+                  <button onClick={handleSkipWithReason} className="flex-1 py-2 rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
+                </div>
+
+                <div className="mx-6 mb-6 rounded bg-secondary-container/20 border border-secondary/30 p-2 flex gap-2 font-body-sm text-[13px] text-on-surface-variant">
+                  <AlertTriangle size={14} className="text-secondary mt-0.5 shrink-0"/> Si hay dolor importante, detené y consultá profesional. Podés saltar el ejercicio.
                 </div>
               </div>
             )}
 
-            {safetyAlert && (
-              <div className={`rounded-xl border p-3 flex items-start gap-2 ${
-                safetyAlert.severity==='critical' ? 'bg-red-900/30 border-red-700' : 'bg-amber-900/20 border-amber-700'
-              }`}>
-                <AlertTriangle size={14} className={`mt-0.5 ${safetyAlert.severity==='critical'?'text-red-400':'text-amber-300'}`}/>
-                <div className="text-body text-sm">
-                  <span className="font-medium">{safetyAlert.message}</span>
-                  {safetyAlert.referral && <span className="text-aux"> Consultá con {safetyAlert.referral}.</span>}
+            {/* Upcoming Exercises */}
+            {exs.filter((_,i)=> i > current && !done[i]).length > 0 && (
+              <div>
+                <h3 className="font-label-caps text-[10px] uppercase text-outline tracking-wider mb-3">SIGUIENTES EJERCICIOS</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {exs.filter((_,i)=> i > current && !done[i]).map((ex, fi)=>{
+                    const origIdx = exs.indexOf(ex)
+                    return (
+                      <div key={origIdx} className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-5 stone-slab hover:border-secondary/40 transition-colors group cursor-pointer" onClick={()=>{ setCurrent(origIdx); nextCoach(origIdx) }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="px-2 py-0.5 rounded bg-surface-container-high border border-outline-variant font-label-caps text-[10px] text-secondary uppercase">SIGUIENTE · EJERCICIO {fi+2}</span>
+                          <span className="font-label-caps text-[10px] text-outline">{ex.sets} Series × {ex.reps} reps</span>
+                        </div>
+                        <h3 className="font-headline-sm text-[20px] text-on-surface group-hover:text-primary transition-colors">{ex.name}</h3>
+                        <p className="font-body-sm text-[13px] text-outline mt-1.5">{ex.weight}kg · {ex.muscle || ''}</p>
+                        <div className="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/30">
+                          <span className="font-label-caps text-[10px] text-on-surface-variant">Descanso asignado: 90s</span>
+                          <span className="material-symbols-outlined text-secondary text-[20px]">arrow_forward</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 4-col: Sidebar */}
+          <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-6 lg:self-start">
+            {/* Rest Timer Widget */}
+            {restSec > 0 && (
+              <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-6 stone-slab flex flex-col items-center text-center relative overflow-hidden">
+                <div className="w-full flex items-center justify-between pb-3 border-b border-outline-variant/30 mb-5">
+                  <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px]">hourglass_top</span>
+                    RELOJ DE RECUPERACIÓN
+                  </span>
+                </div>
+                {/* Circular Timer SVG */}
+                <div className="relative w-44 h-44 flex items-center justify-center my-2">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
+                    <circle className="text-surface-container-highest" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeWidth="6" />
+                    <circle className="text-secondary transition-all duration-1000" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeDasharray={440} strokeDashoffset={440 - (440 * restSec / (methodIdRef.current ? (getMethod(methodIdRef.current as any)?.defaults.restSeconds ?? 90) : 90))} strokeLinecap="round" strokeWidth="6" />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <button onClick={()=>{ const v=!restPaused; setRestPaused(v); restPausedRef.current=v }} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="text-[44px] leading-none font-semibold text-on-surface font-mono tracking-tight bg-transparent border-none cursor-pointer hover:text-secondary transition-colors">
+                      {Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}
+                    </button>
+                    <span className="font-label-caps text-[10px] text-primary tracking-widest mt-1">{restPaused ? 'PAUSADO' : 'RESPIRA HONDO'}</span>
+                  </div>
+                </div>
+                {/* Timer adjust buttons */}
+                <div className="grid grid-cols-3 gap-2 w-full mt-4">
+                  <button onClick={()=>setRestSec((s)=>Math.max(0,s-15))} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">-15s</button>
+                  <button onClick={()=>setRestSec((s)=>s+30)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">+30s</button>
+                  <button onClick={()=>{ setRestSec(0); setRestFlash(false) }} className="px-2 py-1.5 rounded bg-secondary-container/50 border border-secondary/40 text-secondary hover:bg-secondary hover:text-on-secondary-fixed font-label-caps text-[10px] uppercase font-bold transition-all active:scale-95">SALTAR</button>
                 </div>
               </div>
             )}
 
-            <ExerciseSeriesTable
-              key={cur.exId}
-              exerciseId={cur.exId}
-              today={today}
-              sets={cur.sets}
-              plannedReps={cur.reps}
-              plannedWeight={cur.weight}
-              onComplete={(si,w,r,neg,obs)=> handleSetDone(si,w,r,neg,obs)}
-              onSkipSet={(si)=> skipSetRow(si)}
-              onAddSet={addSetRow}
-              logs={logs[current]||[]}
-              initialCompleted={tableInitial.completed}
-              initialSkipped={tableInitial.skipped}
-            />
+            {/* Oracular Coach */}
+            {coach && (
+              <div className="bg-surface-container-high/40 border border-secondary/30 rounded-xl p-5 relative overflow-hidden">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-secondary-container/60 border border-secondary/40 flex items-center justify-center text-secondary shrink-0 mt-0.5">
+                    <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                  </div>
+                  <div>
+                    <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider block">
+                      Voz del Mentor
+                    </span>
+                    <p className="font-headline-sm text-[16px] leading-snug text-on-surface mt-1 italic" style={{fontFamily: 'Noto Serif, serif'}}>
+                      "{coach.reason}"
+                    </p>
+                    <div className="mt-3 flex items-center gap-3">
+                      <span className="font-body-sm text-[12px] text-outline">
+                        {coach.suggested_weight ? `Peso sugerido: ${coach.suggested_weight}kg` : 'Basado en tu técnica actual'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
-            <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-2 flex gap-2 text-aux">
-              <AlertTriangle size={14} className="text-amber-300 mt-0.5"/> Si hay dolor importante, detené y consultá profesional. Podés saltar el ejercicio.
+            {/* Mini Summary */}
+            <div className="bg-surface-container-low border border-primary/30 rounded-xl p-5 stone-slab mt-auto">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-label-caps text-[10px] uppercase text-primary tracking-wider font-semibold flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px]" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>
+                  RESUMEN DE VIRTUD
+                </span>
+                <span className="px-2 py-0.5 rounded bg-primary-container/30 text-primary font-label-caps text-[10px]">HOY</span>
+              </div>
+              <div className="space-y-2 my-3 text-[15px]">
+                <div className="flex justify-between text-on-surface-variant font-body-md">
+                  <span>Ejercicios Concluidos</span>
+                  <strong className="text-on-surface">{Object.keys(done).filter(k=>done[Number(k)]).length} de {exs.length}</strong>
+                </div>
+                <div className="flex justify-between text-on-surface-variant font-body-md">
+                  <span>Progreso</span>
+                  <strong className="text-on-surface">{progress}%</strong>
+                </div>
+              </div>
+              <button onClick={openFinishModal} className="w-full py-2 px-3 rounded bg-primary hover:bg-primary-fixed text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
+                CONFIRMAR Y GUARDAR EN EL TEMPLO
+              </button>
             </div>
+          </div>
+        </div>{/* fin grid desktop */}
+
+        {/* Fixed-bottom FINALIZAR bar — mobile only, during active session */}
+        {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED' || sessionStatus==='COMPLETING') && (
+          <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-surface-container/95 backdrop-blur-sm border-t border-outline-variant/50 px-4 py-3 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Progreso</div>
+              <div className="font-body-md text-[15px] text-on-surface font-medium">{progress}% — {Object.keys(done).filter(k=>done[Number(k)]).length}/{exs.length} ejercicios</div>
+            </div>
+            <button onClick={openFinishModal} className="flex items-center gap-1.5 px-5 py-2.5 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98] shrink-0">
+              <Check size={14}/> FINALIZAR
+            </button>
           </div>
         )}
 
         {showModify && cur && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowModify(false)}>
-            <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-md p-4 space-y-3">
-              <h3 className="text-subtitle">Modificar {cur.name}</h3>
+            <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
+              <h3 className="font-headline-lg text-base font-semibold text-on-surface">Modificar {cur.name}</h3>
               <div className="grid grid-cols-3 gap-2">
-                <label className="text-aux">Peso<input type="number" value={mod.weight} onChange={e=>setMod({...mod, weight:Number(e.target.value)})} className="w-full mt-1 bg-surface border border-border rounded-xl p-2 text-body"/></label>
-                <label className="text-aux">Reps<input type="number" value={mod.reps} onChange={e=>setMod({...mod, reps:Number(e.target.value)})} className="w-full mt-1 bg-surface border border-border rounded-xl p-2 text-body"/></label>
-                <label className="text-aux">Series<input type="number" value={mod.sets} onChange={e=>setMod({...mod, sets:Number(e.target.value)})} className="w-full mt-1 bg-surface border border-border rounded-xl p-2 text-body"/></label>
+                <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Peso<input type="number" value={mod.weight} onChange={e=>setMod({...mod, weight:Number(e.target.value)})} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/></label>
+                <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Reps<input type="number" value={mod.reps} onChange={e=>setMod({...mod, reps:Number(e.target.value)})} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/></label>
+                <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series<input type="number" value={mod.sets} onChange={e=>setMod({...mod, sets:Number(e.target.value)})} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/></label>
               </div>
-              <label className="text-aux">Tipo de serie
-                <select onChange={e=> setMod({...mod, seriesType: e.target.value} as any)} className="w-full mt-1 bg-surface border border-border rounded-xl p-2 text-body">
+              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Tipo de serie
+                <select onChange={e=> setMod({...mod, seriesType: e.target.value} as any)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
                   <option>Normal</option><option>Ascendente</option><option>Descendente</option><option>Piramidal</option><option>DropSet</option><option>Otra</option>
                 </select>
               </label>
-              <button onClick={()=>{
-                exs[current].weight = mod.weight; exs[current].reps = mod.reps; exs[current].sets = mod.sets; setExs([...exs])
-                saveDecision({ date: today, type:'modify', exercise: cur.name, reason:`Modificado a ${mod.weight}kg × ${mod.reps}`, contextSnapshot:{mod}} as any)
+              <button onClick={async ()=>{
+                setExs(prev => prev.map((ex, i) => i === current ? { ...ex, weight: mod.weight, reps: mod.reps, sets: mod.sets } : ex))
+                const seId = seIdByIndex[current]
+                if(seId){
+                  const { db: dexieDb } = await import('@/services/storage/db')
+                  const se = await dexieDb.table('sessionExercises').get(seId).catch(()=>null) as any
+                  if(se){
+                    const newPlannedSets = Array.from({length: mod.sets}, (_:any, i:number) => ({
+                      order: i,
+                      reps: mod.reps,
+                      weight: mod.weight,
+                      setType: (mod.seriesType || 'NORMAL').toUpperCase().replace(' ','_'),
+                    }))
+                    await dexieDb.table('sessionExercises').put({ ...se, plannedSetCount: mod.sets, plannedSets: newPlannedSets, updatedAt: new Date().toISOString() })
+                  }
+                }
+                saveDecision({ date: today, type:'modify', exercise: cur.name, reason:`Modificado a ${mod.weight}kg × ${mod.reps} × ${mod.sets}`, contextSnapshot:{mod}} as any)
                 setShowModify(false)
-              }} className="w-full py-3 rounded-xl bg-action text-textMain">Aplicar</button>
+              }} className="w-full py-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Aplicar</button>
             </div>
           </div>
         )}
 
         {viewer && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2" onClick={()=>setViewer(null)}>
-            <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-auto">
-              <div className="p-4 flex justify-between"><span className="text-subtitle">{viewer.name}</span><button onClick={()=>setViewer(null)} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center"><BrandIcon name="close" size={16}/></button></div>
+            <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
+              <div className="p-4 flex justify-between"><span className="font-headline-lg text-base font-semibold text-on-surface">{viewer.name}</span><button onClick={()=>setViewer(null)} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center"><BrandIcon name="close" size={16}/></button></div>
               <div className="p-4">
-                <div className="rounded-xl bg-surface border border-border flex items-center justify-center min-h-[300px] p-2">
-                  {viewer.gifUrl ? <img src={viewer.gifUrl} alt={viewer.name} className="max-w-full max-h-[60vh] object-contain"/> : <span className="text-aux">Sin GIF</span>}
+                <div className="rounded bg-surface-container-low border border-outline-variant flex items-center justify-center min-h-[300px] p-2">
+                  {viewer.gifUrl ? <img src={viewer.gifUrl} alt={viewer.name} className="max-w-full max-h-[60vh] object-contain"/> : <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">Sin GIF</span>}
                 </div>
-                <div className="text-aux mt-2">{viewer.muscle} · {viewer.equipment}</div>
-                <ol className="list-decimal list-inside text-body mt-1">{viewer.instructions?.slice(0,4).map((s,i)=><li key={i}>{s}</li>)}</ol>
+                <div className="font-label-caps text-[10px] uppercase text-on-surface-variant mt-2">{viewer.muscle} · {viewer.equipment}</div>
+                <ol className="list-decimal list-inside font-body-md text-[15px] text-on-surface mt-1">{viewer.instructions?.slice(0,4).map((s,i)=><li key={i}>{s}</li>)}</ol>
               </div>
             </div>
           </div>
@@ -1199,59 +1398,59 @@ export default function Entrenar(){
 
         {showSwap && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>{setShowSwap(false); setSwapOptions([])}}>
-            <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-3 max-h-[80vh] overflow-auto">
+            <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[80vh] overflow-auto">
               <div className="flex justify-between items-center">
-                <h3 className="text-subtitle">Cambiar ejercicio — {cur?.muscle || 'mismo grupo'}</h3>
-                <button onClick={()=>{setShowSwap(false); setSwapOptions([])}} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
+                <h3 className="font-headline-lg text-base font-semibold text-on-surface">Cambiar ejercicio — {cur?.muscle || 'mismo grupo'}</h3>
+                <button onClick={()=>{setShowSwap(false); setSwapOptions([])}} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
               </div>
-              <p className="text-aux">Elegí una alternativa del mismo grupo muscular</p>
+              <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Elegí una alternativa del mismo grupo muscular</p>
               <div className="space-y-2 max-h-60 overflow-auto">
-                {swapLoading && <p className="text-aux">Calculando similitud…</p>}
-                {!swapLoading && swapOptions.length===0 && <p className="text-aux">Sin alternativas en este grupo muscular.</p>}
-                {!swapLoading && swapOptions.length>0 && <div className="text-aux font-medium">Mejor reemplazo · {swapOptions[0].score}%</div>}
+                {swapLoading && <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Calculando similitud…</p>}
+                {!swapLoading && swapOptions.length===0 && <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Sin alternativas en este grupo muscular.</p>}
+                {!swapLoading && swapOptions.length>0 && <div className="font-label-caps text-[10px] uppercase text-secondary tracking-wider font-semibold">Mejor reemplazo · {swapOptions[0].score}%</div>}
                 {!swapLoading && swapOptions.slice(0,1).map((r)=>(
-                  <div key={r.exercise.id} className="rounded-xl bg-elevated border border-info/40 p-3">
+                  <div key={r.exercise.id} className="rounded bg-surface-container-high border border-primary/40 p-3">
                     <button onClick={()=> handleSwap(r.exercise)} className="w-full text-left flex items-center gap-3">
                       {r.exercise.gifUrl ? <img src={r.exercise.gifUrl} alt={r.exercise.name} className="w-12 h-12 rounded-lg object-cover"/> : null}
-                      <div className="flex-1 min-w-0"><div className="text-body font-medium truncate">{r.exercise.name}</div><div className="text-aux text-xs">{r.exercise.muscle} · {r.exercise.equipment}</div></div>
-                      <span className="text-subtitle shrink-0">{r.score}%</span>
+                      <div className="flex-1 min-w-0"><div className="font-body-md text-[15px] text-on-surface font-medium truncate">{r.exercise.name}</div><div className="font-label-caps text-[10px] uppercase text-on-surface-variant">{r.exercise.muscle} · {r.exercise.equipment}</div></div>
+                      <span className="font-headline-sm text-[20px] font-semibold text-on-surface shrink-0">{r.score}%</span>
                     </button>
-                    <button onClick={()=> setSwapExplain(swapExplain===r.exercise.id?null:r.exercise.id)} className="text-aux text-info text-xs mt-1">Por qué este %</button>
-                    {swapExplain===r.exercise.id && (<ul className="mt-1 space-y-0.5">{r.factors.map((f)=>(<li key={f.key} className="text-aux text-xs">{f.state==='match'?'✓':f.state==='miss'?'✕':f.state==='partial'?'◐':'—'} {f.label} — {f.detail}</li>))}</ul>)}
+                    <button onClick={()=> setSwapExplain(swapExplain===r.exercise.id?null:r.exercise.id)} className="font-label-caps text-[10px] text-secondary underline mt-1">Por qué este %</button>
+                    {swapExplain===r.exercise.id && (<ul className="mt-1 space-y-0.5">{r.factors.map((f)=>(<li key={f.key} className="font-label-caps text-[10px] uppercase text-on-surface-variant">{f.state==='match'?'✓':f.state==='miss'?'✕':f.state==='partial'?'◐':'—'} {f.label} — {f.detail}</li>))}</ul>)}
                   </div>
                 ))}
-                {!swapLoading && swapOptions.length>1 && <div className="text-aux font-medium pt-1">Otras alternativas</div>}
+                {!swapLoading && swapOptions.length>1 && <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider font-medium pt-1">Otras alternativas</div>}
                 {!swapLoading && swapOptions.slice(1).map((r)=>(
-                  <div key={r.exercise.id} className="rounded-xl bg-surface border border-border p-3">
+                  <div key={r.exercise.id} className="rounded bg-surface-container border border-outline-variant p-3">
                     <button onClick={()=> handleSwap(r.exercise)} className="w-full text-left flex items-center gap-3">
                       {r.exercise.gifUrl ? <img src={r.exercise.gifUrl} alt={r.exercise.name} className="w-12 h-12 rounded-lg object-cover"/> : null}
-                      <div className="flex-1 min-w-0"><div className="text-body font-medium truncate">{r.exercise.name}</div><div className="text-aux text-xs">{r.exercise.muscle} · {r.exercise.equipment}</div></div>
-                      <span className="text-subtitle shrink-0">{r.score}%</span>
+                      <div className="flex-1 min-w-0"><div className="font-body-md text-[15px] text-on-surface font-medium truncate">{r.exercise.name}</div><div className="font-label-caps text-[10px] uppercase text-on-surface-variant">{r.exercise.muscle} · {r.exercise.equipment}</div></div>
+                      <span className="font-headline-sm text-[20px] font-semibold text-on-surface shrink-0">{r.score}%</span>
                     </button>
-                    <button onClick={()=> setSwapExplain(swapExplain===r.exercise.id?null:r.exercise.id)} className="text-aux text-info text-xs mt-1">Por qué este %</button>
-                    {swapExplain===r.exercise.id && (<ul className="mt-1 space-y-0.5">{r.factors.map((f)=>(<li key={f.key} className="text-aux text-xs">{f.state==='match'?'✓':f.state==='miss'?'✕':f.state==='partial'?'◐':'—'} {f.label} — {f.detail}</li>))}</ul>)}
+                    <button onClick={()=> setSwapExplain(swapExplain===r.exercise.id?null:r.exercise.id)} className="font-label-caps text-[10px] text-secondary underline mt-1">Por qué este %</button>
+                    {swapExplain===r.exercise.id && (<ul className="mt-1 space-y-0.5">{r.factors.map((f)=>(<li key={f.key} className="font-label-caps text-[10px] uppercase text-on-surface-variant">{f.state==='match'?'✓':f.state==='miss'?'✕':f.state==='partial'?'◐':'—'} {f.label} — {f.detail}</li>))}</ul>)}
                   </div>
                 ))}
               </div>
-              <select value={swapReason} onChange={(e)=>setSwapReason(e.target.value)} className="w-full bg-surface border border-border rounded-xl p-2 text-body">
+              <select value={swapReason} onChange={(e)=>setSwapReason(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
                 <option value="">Motivo del cambio…</option>
                 {['Molestia / dolor','Falta de equipamiento','Prefiero otra variante','Recomendación del coach','Otro'].map((r)=>(<option key={r} value={r}>{r}</option>))}
               </select>
-              <textarea value={swapComment} onChange={(e)=>setSwapComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface border border-border rounded-xl p-2 text-body"/>
-              <button onClick={()=>{setShowSwap(false); setSwapOptions([])}} className="w-full py-2 rounded-xl bg-surface border border-border text-aux">Cancelar</button>
+              <textarea value={swapComment} onChange={(e)=>setSwapComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+              <button onClick={()=>{setShowSwap(false); setSwapOptions([])}} className="w-full py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
             </div>
           </div>
         )}
 
         {showSkipReason && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowSkipReason(false)}>
-            <div onClick={e=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-md p-4 space-y-3">
-              <h3 className="text-subtitle">Saltar {cur?.name}</h3>
-              <p className="text-aux">Motivo (opcional)</p>
-              <textarea value={skipReason} onChange={e=>setSkipReason(e.target.value)} placeholder="Ej: molestia en hombro, sin equipamiento, fatiga..." rows={3} className="w-full bg-surface border border-border rounded-xl p-2 text-body"/>
+            <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
+              <h3 className="font-headline-lg text-base font-semibold text-on-surface">Saltar {cur?.name}</h3>
+              <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Motivo (opcional)</p>
+              <textarea value={skipReason} onChange={e=>setSkipReason(e.target.value)} placeholder="Ej: molestia en hombro, sin equipamiento, fatiga..." rows={3} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
               <div className="flex gap-2">
-                <button onClick={confirmSkip} className="flex-1 py-3 rounded-xl bg-action text-textMain">Confirmar salto</button>
-                <button onClick={()=>{setShowSkipReason(false); setSkipReason('')}} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">Cancelar</button>
+                <button onClick={confirmSkip} className="flex-1 py-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Confirmar salto</button>
+                <button onClick={()=>{setShowSkipReason(false); setSkipReason('')}} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
               </div>
             </div>
           </div>
@@ -1259,17 +1458,17 @@ export default function Entrenar(){
 
         {showCancel && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowCancel(false)}>
-            <div onClick={(e)=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-md p-4 space-y-3">
-              <h3 className="text-subtitle">Cancelar entrenamiento</h3>
-              <p className="text-aux">La cancelación requiere justificación y queda registrada.</p>
-              <select value={cancelReason} onChange={(e)=>setCancelReason(e.target.value)} className="w-full bg-surface border border-border rounded-xl p-2 text-body">
+            <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
+              <h3 className="font-headline-lg text-base font-semibold text-on-surface">Cancelar entrenamiento</h3>
+              <p className="font-body-sm text-[13px] text-on-surface-variant">La cancelación requiere justificación y queda registrada.</p>
+              <select value={cancelReason} onChange={(e)=>setCancelReason(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
                 <option value="">Seleccioná motivo…</option>
                 {['Falta de tiempo','Cansancio','Indisposición','Cambio de planes','Falta de equipamiento','Falta de disponibilidad','Otro'].map((r)=>(<option key={r} value={r}>{r}</option>))}
               </select>
-              <textarea value={cancelComment} onChange={(e)=>setCancelComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface border border-border rounded-xl p-2 text-body"/>
+              <textarea value={cancelComment} onChange={(e)=>setCancelComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
               <div className="flex gap-2">
-                <button onClick={confirmCancel} className="flex-1 py-3 rounded-xl bg-action text-textMain">Confirmar cancelación</button>
-                <button onClick={()=>setShowCancel(false)} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">Volver</button>
+                <button onClick={confirmCancel} className="flex-1 py-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Confirmar cancelación</button>
+                <button onClick={()=>setShowCancel(false)} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Volver</button>
               </div>
             </div>
           </div>
@@ -1277,17 +1476,17 @@ export default function Entrenar(){
 
         {showAbandon && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowAbandon(false)}>
-            <div onClick={(e)=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-md p-4 space-y-3">
-              <h3 className="text-subtitle">Abandonar entrenamiento</h3>
-              <p className="text-aux">Se conservan las series y ejercicios ya registrados. El abandono queda como dato histórico.</p>
-              <select value={abandonReason} onChange={(e)=>setAbandonReason(e.target.value)} className="w-full bg-surface border border-border rounded-xl p-2 text-body">
+            <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
+              <h3 className="font-headline-lg text-base font-semibold text-on-surface">Abandonar entrenamiento</h3>
+              <p className="font-body-sm text-[13px] text-on-surface-variant">Se conservan las series y ejercicios ya registrados. El abandono queda como dato histórico.</p>
+              <select value={abandonReason} onChange={(e)=>setAbandonReason(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
                 <option value="">Seleccioná motivo…</option>
                 {['Falta de tiempo','Cansancio','Dolor/molestia','Indisposición','Cambio de planes','Falta de equipamiento','Otro'].map((r)=>(<option key={r} value={r}>{r}</option>))}
               </select>
-              <textarea value={abandonComment} onChange={(e)=>setAbandonComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface border border-border rounded-xl p-2 text-body"/>
+              <textarea value={abandonComment} onChange={(e)=>setAbandonComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
               <div className="flex gap-2">
-                <button onClick={confirmAbandon} className="flex-1 py-3 rounded-xl bg-action text-textMain">Confirmar abandono</button>
-                <button onClick={()=>setShowAbandon(false)} className="flex-1 py-2 rounded-xl bg-surface border border-border text-aux">Volver</button>
+                <button onClick={confirmAbandon} className="flex-1 py-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Confirmar abandono</button>
+                <button onClick={()=>setShowAbandon(false)} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Volver</button>
               </div>
             </div>
           </div>
@@ -1295,24 +1494,24 @@ export default function Entrenar(){
 
         {showAddEx && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowAddEx(false)}>
-            <div onClick={(e)=>e.stopPropagation()} className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-3 max-h-[80vh] overflow-auto">
+            <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[80vh] overflow-auto">
               <div className="flex justify-between items-center">
-                <h3 className="text-subtitle">Agregar ejercicio EXTRA</h3>
-                <button onClick={()=>setShowAddEx(false)} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
+                <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio EXTRA</h3>
+                <button onClick={()=>setShowAddEx(false)} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
               </div>
-              <p className="text-aux">No planificado · quedará marcado EXTRA con su motivo.</p>
-              <select value={addExReason} onChange={(e)=>setAddExReason(e.target.value)} className="w-full bg-surface border border-border rounded-xl p-2 text-body">
+              <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">No planificado · quedará marcado EXTRA con su motivo.</p>
+              <select value={addExReason} onChange={(e)=>setAddExReason(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
                 <option value="">Motivo del agregado…</option>
                 {['Quiero trabajar más este grupo','Me siento con energía','Recomendación del coach','Recuperar ejercicio pendiente','Otro'].map((r)=>(<option key={r} value={r}>{r}</option>))}
               </select>
-              <textarea value={addExComment} onChange={(e)=>setAddExComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface border border-border rounded-xl p-2 text-body"/>
+              <textarea value={addExComment} onChange={(e)=>setAddExComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
               <div className="space-y-2 max-h-60 overflow-auto">
                 {addExOptions.map((opt: Gym.Exercise)=>(
-                  <button key={opt.id} onClick={()=>confirmAddExtra(opt)} className="w-full text-left p-3 rounded-xl bg-surface border border-border flex items-center gap-3 hover:bg-bg transition">
+                  <button key={opt.id} onClick={()=>confirmAddExtra(opt)} className="w-full text-left p-3 rounded bg-surface-container border border-outline-variant flex items-center gap-3 hover:bg-surface-container-high/40 transition">
                     {opt.gifUrl ? <img src={opt.gifUrl} alt={opt.name} className="w-12 h-12 rounded-lg object-cover"/> : null}
                     <div>
-                      <div className="text-body font-medium">{opt.name}</div>
-                      <div className="text-aux text-xs">{opt.muscle} · {opt.equipment}</div>
+                      <div className="font-body-md text-[15px] text-on-surface font-medium">{opt.name}</div>
+                      <div className="font-label-caps text-[10px] uppercase text-on-surface-variant">{opt.muscle} · {opt.equipment}</div>
                     </div>
                   </button>
                 ))}
@@ -1323,117 +1522,142 @@ export default function Entrenar(){
         {showFinishModal && (()=>{
           const s = computeSummary()
           const setSurvey = (k:string,v:any)=> setFinishSurvey((p)=> ({...p,[k]:v}))
-          const scaleBtn = (k:string,n:number)=> (
-            <button key={n} onClick={()=> setSurvey(k,n)} className={`flex-1 aspect-square rounded-xl border transition text-sm ${Number(finishSurvey[k])===n ? 'bg-action border-action text-textMain' : 'bg-surface border-border text-aux'}`}>{n}</button>
-          )
           return (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-bg border border-border rounded-2xl w-full max-w-lg lg:max-w-3xl p-4 space-y-4 max-h-[90vh] overflow-auto">
+            <div className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-4 max-h-[90vh] overflow-auto">
               <div className="flex items-center justify-between">
-                <h3 className="text-subtitle">Finalizar entrenamiento</h3>
-                <span className="text-aux px-3 py-1 rounded-full bg-surface border border-border">COMPLETING</span>
+                <h3 className="font-headline-lg text-base font-semibold text-on-surface">Finalizar entrenamiento</h3>
+                <span className="px-3 py-1 rounded-full bg-secondary-container/20 border border-secondary/30 text-secondary font-label-caps text-[10px] uppercase">COMPLETING</span>
               </div>
 
-              <div className="rounded-xl bg-surface border border-border p-3">
-                <div className="text-aux font-medium mb-2">RESUMEN</div>
+              <div className="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant/50 rounded-lg p-3">
+                <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider mb-2">RESUMEN</div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                  <span className="text-aux">Rutina</span><span className="text-body text-right">{rutinaName}</span>
-                  <span className="text-aux">Semana</span><span className="text-body text-right">{weekNumber}</span>
-                  <span className="text-aux">Día planificado</span><span className="text-body text-right">{plannedDayN!=null ? `N°${plannedDayN} ${plannedName}` : '—'}</span>
-                  <span className="text-aux">Día realizado</span><span className="text-body text-right">{actualDayN!=null ? `N°${actualDayN} ${dayName}` : dayName}</span>
-                  <span className="text-aux">Ejercicios planificados</span><span className="text-body text-right">{s.plannedEx}</span>
-                  <span className="text-aux">Ejercicios completados</span><span className="text-body text-right">{s.completedEx}</span>
-                  <span className="text-aux">Ejercicios no realizados</span><span className="text-body text-right">{s.pendingIdx.length}</span>
-                  <span className="text-aux">Ejercicios omitidos</span><span className="text-body text-right">{s.skippedIdx.length}</span>
-                  <span className="text-aux">Ejercicios modificados</span><span className="text-body text-right">{s.modified}</span>
-                  <span className="text-aux">Ejercicios reemplazados</span><span className="text-body text-right">{s.replaced}</span>
-                  <span className="text-aux">Series planificadas</span><span className="text-body text-right">{s.plannedSets}</span>
-                  <span className="text-aux">Series realizadas</span><span className="text-body text-right">{s.completedSets}</span>
-                  <span className="text-aux">Repeticiones</span><span className="text-body text-right">{s.totalReps}</span>
-                  <span className="text-aux">Volumen</span><span className="text-body text-right">{s.totalVol} kg</span>
-                  <span className="text-aux">Duración</span><span className="text-body text-right">{s.durMin} min</span>
-                  <span className="text-aux">Ejercicios</span><span className="text-body text-right">{s.exPct}%</span>
-                  <span className="text-aux">Series</span><span className="text-body text-right">{s.setPct}%</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Rutina</span><span className="font-body-md text-[15px] text-on-surface text-right">{rutinaName}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Semana</span><span className="font-body-md text-[15px] text-on-surface text-right">{weekNumber}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Día planificado</span><span className="font-body-md text-[15px] text-on-surface text-right">{plannedDayN!=null ? `N°${plannedDayN} ${plannedName}` : '—'}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Día realizado</span><span className="font-body-md text-[15px] text-on-surface text-right">{actualDayN!=null ? `N°${actualDayN} ${dayName}` : dayName}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios planificados</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.plannedEx}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios completados</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.completedEx}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios no realizados</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.pendingIdx.length}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios omitidos</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.skippedIdx.length}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios modificados</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.modified}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios reemplazados</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.replaced}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series planificadas</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.plannedSets}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series realizadas</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.completedSets}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Repeticiones</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.totalReps}</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Volumen</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.totalVol} kg</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Duración</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.durMin} min</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.exPct}%</span>
+                  <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.setPct}%</span>
                 </div>
                 {(s.pendingIdx.length===0 && s.skippedIdx.length===0)
-                  ? <p className="text-aux text-action mt-2">Todos los ejercicios planificados fueron registrados.</p>
-                  : <p className="text-aux text-amber-300 mt-2">Entrenamiento parcial — {s.exPct}% · El entrenamiento tiene ejercicios pendientes.</p>}
+                  ? <p className="font-label-caps text-[10px] text-primary mt-2">Todos los ejercicios planificados fueron registrados.</p>
+                  : <p className="font-label-caps text-[10px] text-secondary mt-2">Entrenamiento parcial — {s.exPct}% · El entrenamiento tiene ejercicios pendientes.</p>}
               </div>
 
               {s.pendingIdx.length>0 && (
-                <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
-                  <div className="text-aux font-medium">Ejercicios pendientes — ¿Qué ocurrió?</div>
+                <div className="rounded bg-surface-container border border-outline-variant p-3 space-y-3">
+                  <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider">Ejercicios pendientes — ¿Qué ocurrió?</div>
                   {s.pendingIdx.map((i)=>(
-                    <div key={i} className="rounded-xl bg-bg border border-border p-3 space-y-2">
-                      <div className="text-body font-medium">{exs[i]?.name} no fue realizado.</div>
-                      <div className="text-aux text-xs">Planificado: {exs[i]?.sets} series · Realizado: {((logs[i]||[]).filter(Boolean) as any[]).length} series</div>
-                      <select value={pendingReasons[i]?.reason || ''} onChange={(e)=> setPendingReasons((p)=> ({...p, [i]: { reason: e.target.value, comment: p[i]?.comment || '' }}))} className="w-full bg-surface border border-border rounded-xl p-2 text-body">
+                    <div key={i} className="rounded bg-surface-container-high/30 border border-outline-variant/30 p-3 space-y-2">
+                      <div className="font-body-md text-[15px] text-on-surface font-medium">{exs[i]?.name} no fue realizado.</div>
+                      <div className="font-label-caps text-[10px] uppercase text-on-surface-variant">Planificado: {exs[i]?.sets} series · Realizado: {((logs[i]||[]).filter(Boolean) as any[]).length} series</div>
+                      <select value={pendingReasons[i]?.reason || ''} onChange={(e)=> setPendingReasons((p)=> ({...p, [i]: { reason: e.target.value, comment: p[i]?.comment || '' }}))} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
                         <option value="">Seleccioná motivo…</option>
                         {INCOMPLETE_REASONS.map((r)=> <option key={r} value={r}>{r}</option>)}
                       </select>
-                      <textarea value={pendingReasons[i]?.comment || ''} onChange={(e)=> setPendingReasons((p)=> ({...p, [i]: { reason: p[i]?.reason || '', comment: e.target.value }}))} placeholder="Observación / explicación" rows={2} maxLength={500} className="w-full bg-surface border border-border rounded-xl p-2 text-body"/>
+                      <textarea value={pendingReasons[i]?.comment || ''} onChange={(e)=> setPendingReasons((p)=> ({...p, [i]: { reason: p[i]?.reason || '', comment: e.target.value }}))} placeholder="Observación / explicación" rows={2} maxLength={500} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
                     </div>
                   ))}
                 </div>
               )}
 
               {s.skippedIdx.length>0 && (
-                <div className="rounded-xl bg-surface border border-border p-3 space-y-1">
-                  <div className="text-aux font-medium">Omitidos durante la sesión (con motivo)</div>
-                  {s.skippedIdx.map((i)=> <p key={i} className="text-aux text-sm">{exs[i]?.name} — {skipReasons[i] || pendingReasons[i]?.comment || 'sin motivo'}</p>)}
+                <div className="rounded bg-surface-container border border-outline-variant p-3 space-y-1">
+                  <div className="font-label-caps text-[10px] uppercase text-on-surface-variant font-semibold tracking-wider">Omitidos durante la sesión (con motivo)</div>
+                  {s.skippedIdx.map((i)=> <p key={i} className="font-body-sm text-[13px] text-on-surface-variant">{exs[i]?.name} — {skipReasons[i] || pendingReasons[i]?.comment || 'sin motivo'}</p>)}
                 </div>
               )}
 
               {musclePct.length>0 && (
-                <div className="rounded-xl bg-surface border border-border p-3 space-y-1">
-                  <div className="text-aux font-medium mb-1">Trabajo muscular real</div>
+                <div className="rounded bg-surface-container border border-outline-variant p-3 space-y-1">
+                  <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider mb-1">Trabajo muscular real</div>
                   {musclePct.map((x)=>(
                     <div key={x.m} className="flex items-center gap-2 text-sm">
-                      <span className="text-aux w-24 capitalize">{x.m}</span>
-                      <div className="flex-1 h-2 bg-bg border border-border rounded-full overflow-hidden"><div className="h-full bg-action" style={{width: `${x.pct}%`}}/></div>
-                      <span className="text-body w-10 text-right">{x.pct}%</span>
+                      <span className="font-label-caps text-[10px] uppercase text-on-surface-variant w-24 capitalize">{x.m}</span>
+                      <div className="flex-1 h-2 bg-surface-container-highest rounded-full overflow-hidden"><div className="h-2 bg-primary rounded-full" style={{width: `${x.pct}%`}}/></div>
+                      <span className="font-body-md text-[15px] text-on-surface w-10 text-right">{x.pct}%</span>
                     </div>
                   ))}
                 </div>
               )}
 
               {volumeAlerts.length>0 && (
-                <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-3 space-y-1">
-                  <div className="text-aux text-amber-300 font-medium">Alertas de volumen / frecuencia</div>
-                  {volumeAlerts.map((a,i)=> <p key={i} className="text-aux text-sm">{a}</p>)}
+                <div className="rounded bg-secondary-container/20 border border-secondary/30 p-3 space-y-1">
+                  <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider">Alertas de volumen / frecuencia</div>
+                  {volumeAlerts.map((a,i)=> <p key={i} className="font-body-sm text-[13px] text-on-surface-variant">{a}</p>)}
                 </div>
               )}
 
               {Object.keys(progressLines).length>0 && (
-                <div className="rounded-xl bg-surface border border-border p-3 space-y-1">
-                  <div className="text-aux font-medium mb-1">Progreso vs anterior</div>
-                  {Object.entries(progressLines).map(([k,v])=> <p key={k} className="text-aux text-sm">{v}</p>)}
+                <div className="rounded bg-surface-container border border-outline-variant p-3 space-y-1">
+                  <div className="font-label-caps text-[10px] uppercase text-on-surface-variant font-semibold tracking-wider mb-1">Progreso vs anterior</div>
+                  {Object.entries(progressLines).map(([k,v])=> <p key={k} className="font-body-sm text-[13px] text-on-surface-variant">{v}</p>)}
                 </div>
               )}
 
-              <div className="rounded-xl bg-surface border border-border p-3 space-y-3">
-                <div className="text-aux font-medium">Encuesta post-entrenamiento</div>
-                {[['energy','Energía'],['fatigue','Cansancio'],['pain','Dolor'],['mood','Ánimo'],['motivation','Motivación'],['effort','Esfuerzo percibido'],['stress','Estrés']].map(([k,label])=>(
-                  <div key={k}>
-                    <label className="text-aux text-sm block mb-1">{label} ({k==='pain' ? '0–10' : '1–10'})</label>
-                    <div className="flex gap-1">{Array.from({length:10},(_,j)=> (k==='pain'? j : j+1)).map((n)=> scaleBtn(k,n))}</div>
+              <div className="rounded bg-surface-container border border-outline-variant p-3 space-y-3">
+                <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider">Encuesta post-entrenamiento</div>
+                {/* Pregunta 1: ¿Cómo fue la sesión? */}
+                <div>
+                  <label className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">¿Cómo fue la sesión?</label>
+                  <div className="flex gap-2">
+                    {[
+                      { v:1, emoji:'😫', label:'Mala' },
+                      { v:2, emoji:'😔', label:'Regular' },
+                      { v:3, emoji:'😐', label:'Normal' },
+                      { v:4, emoji:'😊', label:'Buena' },
+                      { v:5, emoji:'🤩', label:'Excelente' },
+                    ].map(({ v, emoji, label })=>(
+                      <button key={v} onClick={()=> setSurvey('sessionRating', v)}
+                        className={`flex-1 flex flex-col items-center gap-1 py-2 rounded border transition text-sm ${Number(finishSurvey.sessionRating)===v ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
+                        <span className="text-lg">{emoji}</span>
+                        <span className="font-label-caps text-[10px]">{label}</span>
+                      </button>
+                    ))}
                   </div>
-                ))}
-                {Number(finishSurvey.pain)>3 && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <input value={finishSurvey.painZone || ''} onChange={(e)=> setSurvey('painZone', e.target.value)} placeholder="Zona del dolor" maxLength={80} className="bg-bg border border-border rounded-xl p-2 text-body"/>
-                    <input value={finishSurvey.painDetail || ''} onChange={(e)=> setSurvey('painDetail', e.target.value)} placeholder="Tipo de dolor" maxLength={140} className="bg-bg border border-border rounded-xl p-2 text-body"/>
+                </div>
+                {/* Pregunta 2: ¿Dolor? */}
+                <div>
+                  <label className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">¿Dolor durante o después?</label>
+                  <div className="flex gap-2">
+                    <button onClick={()=> setSurvey('pain', 0)}
+                      className={`flex-1 py-2 rounded border transition text-sm ${Number(finishSurvey.pain)===0 ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
+                      No
+                    </button>
+                    <button onClick={()=> setSurvey('pain', 1)}
+                      className={`flex-1 py-2 rounded border transition text-sm ${Number(finishSurvey.pain)===1 ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
+                      Sí
+                    </button>
                   </div>
-                )}
-                <textarea value={finishSurvey.generalObservation || ''} onChange={(e)=> setSurvey('generalObservation', e.target.value)} placeholder="Observación general de la sesión" rows={2} maxLength={500} className="w-full bg-bg border border-border rounded-xl p-2 text-body"/>
+                  {Number(finishSurvey.pain)===1 && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <input value={finishSurvey.painZone || ''} onChange={(e)=> setSurvey('painZone', e.target.value)} placeholder="Zona del dolor" maxLength={80} className="bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+                      <input value={finishSurvey.painDetail || ''} onChange={(e)=> setSurvey('painDetail', e.target.value)} placeholder="Tipo de dolor" maxLength={140} className="bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+                    </div>
+                  )}
+                </div>
+                {/* Pregunta 3: Comentario libre */}
+                <textarea value={finishSurvey.comment || ''} onChange={(e)=> setSurvey('comment', e.target.value)} placeholder="¿Algo que quieras decirle al Coach?" rows={2} maxLength={500} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
               </div>
 
               {finishError && <p className="text-sm text-red-400">{finishError}</p>}
 
-              <button onClick={confirmFinish} disabled={isSaving} className="w-full py-3 rounded-xl bg-action text-textMain font-medium disabled:opacity-50">
+              <button onClick={confirmFinish} disabled={isSaving} className="w-full py-3 px-5 rounded bg-primary hover:bg-primary-fixed text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm disabled:opacity-50">
                 {isSaving ? 'Guardando…' : ((s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'Confirmar — COMPLETED' : `Confirmar — PARTIAL (${s.exPct}%)`)}
               </button>
-              <button onClick={async()=>{ try{ const store = await import('@/services/training/sessionStore'); const targetId = session?.sessionId || sessionId; if(targetId){ const cur = await store.getSession(targetId).catch(()=>null); if(cur && cur.sessionStatus==='COMPLETING'){ const nx = await store.transitionSession(targetId,'IN_PROGRESS'); setSession(nx); setSessionStatus('IN_PROGRESS') } } }catch{ /* noop */ } setShowFinishModal(false) }} className="w-full py-2 rounded-xl bg-surface border border-border text-aux">Volver al entrenamiento</button>
+              <button onClick={async()=>{ try{ const store = await import('@/services/training/sessionStore'); const targetId = session?.sessionId || sessionId; if(targetId){ const cur = await store.getSession(targetId).catch(()=>null); if(cur && cur.sessionStatus==='COMPLETING'){ const nx = await store.transitionSession(targetId,'IN_PROGRESS'); setSession(nx); setSessionStatus('IN_PROGRESS') } } }catch{ /* noop */ } setShowFinishModal(false) }} className="w-full py-2.5 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant">Volver al entrenamiento</button>
             </div>
           </div>
           )
@@ -1444,12 +1668,12 @@ export default function Entrenar(){
 }
 
 function ResultPanel({ today, sessionStatus }:{ today:string; sessionStatus:string }){
-  let r: null | { exPct:number; setPct:number; completedEx:number; plannedEx:number; completedSets:number; plannedSets:number; totalVol:number; totalReps:number; durMin:number; survey:{energy:number;fatigue:number;pain:number;mood:number}; highlights:string[] } = null
+  let r: null | { exPct:number; setPct:number; completedEx:number; plannedEx:number; completedSets:number; plannedSets:number; totalVol:number; totalReps:number; durMin:number; survey:{sessionRating:number;pain:number}; highlights:string[] } = null
   try{ const raw = localStorage.getItem(`althea:result:${today}`); if(raw) r = JSON.parse(raw) }catch{ /* noop */ }
   if(!r) return (
-    <div className="rounded-2xl bg-surface border border-border p-4">
-      <div className="text-body font-medium">{sessionStatus==='COMPLETED' ? 'Entrenamiento completado — 100%' : 'Entrenamiento parcial'}</div>
-      <div className="text-aux">Sesión guardada en historial.</div>
+    <div className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 stone-slab">
+      <div className="font-body-md text-[15px] text-on-surface font-medium">{sessionStatus==='COMPLETED' ? 'Entrenamiento completado — 100%' : 'Entrenamiento parcial'}</div>
+      <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Sesión guardada en historial.</div>
     </div>
   )
   const stats = [
@@ -1461,23 +1685,23 @@ function ResultPanel({ today, sessionStatus }:{ today:string; sessionStatus:stri
     { k:'Reps', v:`${r.totalReps}` },
   ]
   return (
-    <div className="rounded-2xl bg-surface border border-border p-4 space-y-3 fade-in">
+    <div className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 stone-slab space-y-3 fade-in">
       <div>
-        <div className="text-section">Esto es lo que hiciste</div>
-        <div className="text-aux">{sessionStatus==='COMPLETED' ? 'Sesión completada — 100%' : `Sesión parcial — ${r.exPct}%`} · Energía {r.survey.energy}/10 · Cansancio {r.survey.fatigue}/10</div>
+        <div className="font-headline-lg text-lg font-semibold text-on-surface">Esto es lo que hiciste</div>
+        <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{sessionStatus==='COMPLETED' ? 'Sesión completada — 100%' : `Sesión parcial — ${r.exPct}%`} · Valoración {r.survey.sessionRating}/5{r.survey.pain ? ' · Dolor reportado' : ''}</div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {stats.map((s)=>(
-          <div key={s.k} className="rounded-xl bg-bg border border-border p-2 text-center">
-            <div className="text-aux">{s.k}</div>
-            <div className="text-subtitle">{s.v}</div>
+          <div key={s.k} className="bg-surface-container-high/30 border border-outline-variant/40 rounded-lg p-3 text-center">
+            <div className="font-label-caps text-[10px] uppercase text-outline tracking-wider">{s.k}</div>
+            <div className="font-headline-sm text-[20px] font-semibold text-on-surface">{s.v}</div>
           </div>
         ))}
       </div>
       {r.highlights.length>0 && (
-        <div className="rounded-xl bg-bg border border-border p-3 space-y-1">
-          <div className="text-aux font-medium">Logros y progreso</div>
-          {r.highlights.slice(0,5).map((h,i)=>(<p key={i} className="text-aux st-success-text text-sm">{h}</p>))}
+        <div className="rounded bg-surface-container/60 border border-outline-variant/30 p-3 space-y-1">
+          <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider">Logros y progreso</div>
+          {r.highlights.slice(0,5).map((h,i)=>(<p key={i} className="font-body-sm text-[13px] text-primary">{h}</p>))}
         </div>
       )}
     </div>
@@ -1488,11 +1712,11 @@ function ExerciseHeader({ name, muscle, secondary }: { name:string; muscle?:stri
   const secs = secondary || []
   const pcts = secs.length===0 ? [{n:muscle||'General', p:100}] : secs.length===1 ? [{n:muscle, p:60},{n:secs[0], p:40}] : [{n:muscle,p:60},{n:secs[0],p:30},{n:secs[1],p:10}]
   return (
-    <div className="rounded-xl bg-bg border border-border p-2">
-      <div className="text-body font-medium">{name}</div>
+    <div className="rounded bg-surface-container/60 border border-outline-variant/30 p-2">
+      <div className="font-body-md text-[15px] text-on-surface font-medium">{name}</div>
       <div className="flex flex-wrap gap-1 mt-1">
         {pcts.filter(x=>x.n).map(x=> (
-          <span key={x.n} className={`px-2 py-0.5 rounded-full border text-aux ${x.p>=60?'bg-accentDark border-info text-info':'bg-surface border-border text-textMuted'}`}>{x.n}: {x.p}%</span>
+          <span key={x.n} className={`px-2 py-0.5 rounded-full border font-label-caps text-[10px] uppercase ${x.p>=60?'bg-primary-container/20 border-primary/40 text-primary':'bg-surface-container-high/30 border-outline-variant/40 text-on-surface-variant'}`}>{x.n}: {x.p}%</span>
         ))}
       </div>
     </div>
@@ -1527,7 +1751,7 @@ function ExerciseHeaderInline({ exId, fallbackMuscle }:{ exId:string; fallbackMu
   return (
     <span className="inline-flex flex-wrap gap-1">
       {pcts.filter(x=>x.n).map(x=> (
-        <span key={x.n} className="px-1.5 py-0.5 rounded-full bg-surface border border-border text-aux text-[11px]">{x.n}: {x.p}%</span>
+        <span key={x.n} className="px-1.5 py-0.5 rounded-full bg-surface-container-high/30 border border-outline-variant/40 font-label-caps text-[10px] uppercase text-on-surface-variant">{x.n}: {x.p}%</span>
       ))}
     </span>
   )
@@ -1619,83 +1843,137 @@ function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeig
   // auto-save on any change
   useEffect(()=>{ if(loaded) persistAll() }, [weights, reps, checks, negEnabled, negReps, negWeight, obs, loaded, persistAll])
 
-  if(!loaded) return <div className="space-y-3"><div className="h-8 bg-surface border border-border rounded-xl animate-pulse"/></div>
+  if(!loaded) return <div className="space-y-3"><div className="h-8 bg-surface-container-low/90 border border-outline-variant rounded-lg animate-pulse"/></div>
+
+  const romanNumerals = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX']
+
+  // Determine which set is the next uncompleted one for the active row highlight
+  const nextUncompletedIdx = Array.from({length:sets}).find((_, i)=> !checks[i] && !(initialSkipped||[]).includes(i))
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl bg-bg border border-border p-2">
+      {/* Muscle breakdown tags */}
+      <div className="rounded bg-surface-container/60 border border-outline-variant/30 p-2">
         <div className="flex flex-wrap gap-1">
           {(() => {
             const bd = (exInfo as any)?.muscleBreakdown
             const pcts = (Array.isArray(bd) && bd.length > 0)
               ? bd.map((b:any)=> ({ n: b.name, p: b.pct }))
               : (()=>{ const m = exInfo?.muscle || 'General'; const secs = exInfo?.secondaryMuscles || []; return secs.length===0 ? [{n:m,p:100}] : secs.length===1 ? [{n:m,p:60},{n:secs[0],p:40}] : [{n:m,p:60},{n:secs[0],p:30},{n:secs[1],p:10}] })()
-            return pcts.filter(x=>x.n).map(x=> <span key={x.n} className={`px-2 py-0.5 rounded-full border text-aux text-xs ${x.p>=60?'bg-accentDark border-info text-info':'bg-surface border-border text-textMuted'}`}>{x.n}: {x.p}%</span>)
+            return pcts.filter(x=>x.n).map(x=> <span key={x.n} className={`px-2 py-0.5 rounded-full border font-label-caps text-[10px] uppercase ${x.p>=60?'bg-primary-container/20 border-primary/40 text-primary':'bg-surface-container-high/30 border-outline-variant/40 text-on-surface-variant'}`}>{x.n}: {x.p}%</span>)
           })()}
         </div>
       </div>
-      {/* Tabla en columnas — Entrenamiento */}
-      <div className="rounded-2xl border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-surface">
-              <tr className="text-aux text-[11px] tracking-widest">
-                <th className="p-2 font-medium">SERIE</th>
-                <th className="p-2 font-medium">HISTORIAL</th>
-                <th className="p-2 font-medium">REPES</th>
-                <th className="p-2 font-medium">KILOGRAMOS</th>
-                <th className="p-2 font-medium">✓</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {Array.from({length:sets}).map((_,si)=>{
-                const ref:any = refs[si]
-                const w = weights[si] ?? plannedWeight
-                const r = reps[si] ?? plannedReps
-                const isDone = !!checks[si]
-                return (
-                  <tr key={si} className={isDone?'bg-accentDark/50':''}>
-                    <td className="p-2 text-center font-medium">{si+1}</td>
-                    <td className="p-2 text-aux text-center whitespace-nowrap">{ref ? `${ref.reps} repes · ${ref.weight} kg` : `${plannedReps} · ${plannedWeight} kg`}{ref?.isSeed ? ' · base' : ''}</td>
-                    <td className="p-1"><input type="number" value={r} onChange={e=>setReps({...reps, [si]: Number(e.target.value)})} className="w-full bg-bg border border-border rounded-lg p-2 text-body text-center" placeholder="repes" inputMode="numeric" aria-label="repes"/></td>
-                    <td className="p-1"><input type="number" step="0.1" value={w} onChange={e=>setWeights({...weights, [si]: parseKg(e.target.value)})} className="w-full bg-bg border border-border rounded-lg p-2 text-body text-center" placeholder="kilogramos" inputMode="decimal" aria-label="kilogramos"/></td>
-                    <td className="p-2 text-center">
-                      <input type="checkbox" checked={!!checks[si]} onChange={e=>{
-                        const checked=e.target.checked
-                        setChecks({...checks, [si]: checked})
-                        if(checked) onComplete(si, parseKg(String(w)), r, negEnabled ? {reps: Number(negReps)||0, weight: parseKg(negWeight)} : undefined , obs || undefined)
-                        else setChecks({...checks, [si]: false})
-                      }} className="w-5 h-5 accent-action" aria-label="completada"/>
-                      {!checks[si] && onSkipSet ? <button onClick={()=> onSkipSet(si)} className="block mx-auto mt-1 text-aux text-info text-xs underline">omitir</button> : null}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+      {/* Series Data Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-outline-variant/40 text-outline font-label-caps text-[10px] uppercase">
+              <th className="pb-3 px-2 font-semibold">SERIE</th>
+              <th className="pb-3 px-3 font-semibold">ANTERIOR</th>
+              <th className="pb-3 px-3 font-semibold">REPETICIONES</th>
+              <th className="pb-3 px-3 font-semibold">CARGA (KG)</th>
+              <th className="pb-3 px-2 text-center font-semibold">RPE</th>
+              <th className="pb-3 px-3 text-right font-semibold">ESTADO</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-outline-variant/20 font-body-md text-[15px]">
+            {Array.from({length:sets}).map((_,si)=>{
+              const ref:any = refs[si]
+              const w = weights[si] ?? plannedWeight
+              const r = reps[si] ?? plannedReps
+              const isDone = !!checks[si]
+              const isActive = !isDone && si === nextUncompletedIdx
+              const isSkipped = (initialSkipped||[]).includes(si)
+              const roman = romanNumerals[si] || `${si+1}`
+              return (
+                <tr key={si} className={`group transition-colors ${
+                  isDone
+                    ? 'hover:bg-surface-container-high/30'
+                    : isActive
+                      ? 'bg-primary-container/10 border-l-2 border-l-secondary font-medium'
+                      : 'opacity-60 hover:opacity-100 transition-opacity'
+                }`}>
+                  <td className={`py-3 px-2 font-headline-sm text-[20px] ${isDone ? 'text-primary' : isActive ? 'text-secondary' : 'text-outline'}`}>
+                    <div className="flex items-center gap-1.5">
+                      <span>{roman}</span>
+                      {isActive && <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-ping" />}
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 text-outline text-[13px] whitespace-nowrap">
+                    {ref ? `${ref.weight} kg × ${ref.reps}` : `${plannedWeight} kg × ${plannedReps}`}
+                    {ref?.isSeed ? ' · base' : ''}
+                  </td>
+                  <td className="py-3 px-3">
+                    {isActive ? (
+                      <input type="number" value={r} onChange={e=>setReps({...reps, [si]: Number(e.target.value)})} className="w-20 px-3 py-1 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[16px] text-on-surface text-center" placeholder="reps" inputMode="numeric" aria-label="repes"/>
+                    ) : isDone ? (
+                      <span className="inline-block px-3 py-1 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[16px] text-on-surface">{r}</span>
+                    ) : (
+                      <span className="inline-block px-3 py-1 text-outline font-title-md text-[16px]">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3">
+                    {isActive ? (
+                      <input type="number" step="0.1" value={w} onChange={e=>setWeights({...weights, [si]: parseKg(e.target.value)})} className="w-24 px-3 py-1 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[16px] text-on-surface text-center" placeholder="kg" inputMode="decimal" aria-label="kilogramos"/>
+                    ) : isDone ? (
+                      <span className="inline-block px-3 py-1 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[16px] text-on-surface">{w} kg</span>
+                    ) : (
+                      <span className="inline-block px-3 py-1 text-outline font-title-md text-[16px]">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    {isDone ? (
+                      <span className="px-2 py-0.5 rounded bg-surface-container-high text-secondary border border-secondary/30 font-label-caps text-[10px] font-semibold">✓</span>
+                    ) : (
+                      <span className="text-outline">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    {isDone ? (
+                      <button className="w-8 h-8 rounded bg-primary-container text-on-primary-container border border-primary inline-flex items-center justify-center shadow-sm">
+                        <span className="material-symbols-outlined text-[18px]">done</span>
+                      </button>
+                    ) : isActive ? (
+                      <button onClick={(e)=>{
+                        setChecks({...checks, [si]: true})
+                        try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ }
+                        onComplete(si, parseKg(String(w)), r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obs||undefined)
+                      }} className="px-3 py-1.5 rounded bg-secondary text-on-secondary-fixed font-label-caps text-[10px] uppercase font-bold shadow-sm transition-all active:scale-95">
+                        REGISTRAR
+                      </button>
+                    ) : isSkipped ? (
+                      <span className="font-label-caps text-[10px] text-on-surface-variant">Saltado</span>
+                    ) : (
+                      <button onClick={()=> onSkipSet ? onSkipSet(si) : null} className="font-label-caps text-[10px] text-outline hover:text-secondary underline transition-colors">omitir</button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
-      {(()=>{ const order = Array.from({length:sets}).map((_,i)=>i); const next = order.find((i)=> !checks[i] && !(initialSkipped||[]).includes(i)); if(next===undefined) return null; return (<button onClick={(e)=>{ const w=weights[next]??plannedWeight; const r=reps[next]??plannedReps; setChecks({...checks,[next]:true}); try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ } onComplete(next, parseKg(String(w)), r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obs||undefined) }} className="btn-primary w-full">CONFIRMAR SERIE {next+1}</button>) })()}
-      {onAddSet ? <button onClick={onAddSet} className="w-full py-2 rounded-xl bg-surface border border-border text-aux text-sm">+ Agregar serie (queda en la sesión, no en la rutina)</button> : null}
+      {onAddSet ? <button onClick={onAddSet} className="w-full py-2 rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">+ Agregar serie (queda en la sesión, no en la rutina)</button> : null}
       {/* Negativas por ejercicio */}
-      <div className="rounded-2xl bg-bg border border-border p-3">
-        <label className="flex items-center gap-3 text-body font-medium">
-          <input type="checkbox" checked={negEnabled} onChange={e=>setNegEnabled(e.target.checked)} className="w-5 h-5 accent-action" />
+      <div className="rounded-xl bg-surface-container/60 border border-outline-variant/30 p-3">
+        <label className="flex items-center gap-3 font-body-md text-[15px] text-on-surface font-medium">
+          <input type="checkbox" checked={negEnabled} onChange={e=>setNegEnabled(e.target.checked)} className="w-5 h-5 accent-primary" />
           Negativas
         </label>
         <div className={`grid grid-cols-2 gap-3 mt-3 ${!negEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
-          <label className="text-aux">repes
-            <input type="number" placeholder="repes" value={negReps} onChange={e=>setNegReps(e.target.value)} disabled={!negEnabled} className="w-full mt-2 bg-surface border border-border rounded-xl p-3 text-body text-center text-lg disabled:opacity-50" inputMode="numeric"/>
+          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">repes
+            <input type="number" placeholder="repes" value={negReps} onChange={e=>setNegReps(e.target.value)} disabled={!negEnabled} className="w-full mt-2 bg-surface-container border border-outline-variant rounded p-3 font-body-md text-[15px] text-on-surface text-center text-lg disabled:opacity-50" inputMode="numeric"/>
           </label>
-          <label className="text-aux">kilogramos
-            <input type="number" step="0.1" placeholder="kilogramos" value={negWeight} onChange={e=>setNegWeight(e.target.value)} disabled={!negEnabled} className="w-full mt-2 bg-surface border border-border rounded-xl p-3 text-body text-center text-lg disabled:opacity-50" inputMode="decimal"/>
+          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">kilogramos
+            <input type="number" step="0.1" placeholder="kilogramos" value={negWeight} onChange={e=>setNegWeight(e.target.value)} disabled={!negEnabled} className="w-full mt-2 bg-surface-container border border-outline-variant rounded p-3 font-body-md text-[15px] text-on-surface text-center text-lg disabled:opacity-50" inputMode="decimal"/>
           </label>
         </div>
       </div>
-      <label className="text-aux font-medium">Observaciones
-        <textarea placeholder="RPE, molestias, técnica..." value={obs} onChange={e=>setObs(e.target.value)} rows={3} className="w-full mt-2 bg-surface border border-border rounded-xl p-3 text-body leading-relaxed"/>
+      <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider font-medium">Observaciones
+        <textarea placeholder="RPE, molestias, técnica..." value={obs} onChange={e=>setObs(e.target.value)} rows={3} className="w-full mt-2 bg-surface-container border border-outline-variant rounded p-3 font-body-md text-[15px] text-on-surface leading-relaxed"/>
       </label>
-      <p className="text-aux text-textMuted">Historial agnóstico a rutina — ID_ejercicio {exerciseId} · serie por serie · semilla múltiplo 5</p>
+      <p className="font-label-caps text-[10px] text-on-surface-variant">Historial agnóstico a rutina — ID_ejercicio {exerciseId} · serie por serie · semilla múltiplo 5</p>
     </div>
   )
 }

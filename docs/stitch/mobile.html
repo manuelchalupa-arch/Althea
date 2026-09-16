@@ -1,0 +1,536 @@
+<!DOCTYPE html><html class="h-full dark" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ALTHEA · Palaestra Mobile Experience</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-bright": "#fbf9f5",
+            "on-tertiary-fixed-variant": "#7b2e1c",
+            "surface-tint": "#775a19",
+            "on-secondary-container": "#576472",
+            "on-secondary-fixed-variant": "#3b4855",
+            "tertiary": "#9a4430",
+            "tertiary-fixed-dim": "#ffb4a3",
+            "surface-dim": "#dbdad6",
+            "on-error": "#ffffff",
+            "surface-container-low": "#f5f3f0",
+            "secondary-fixed-dim": "#bac8d8",
+            "on-primary-fixed": "#261900",
+            "secondary-container": "#d3e1f1",
+            "on-tertiary": "#ffffff",
+            "surface-container-high": "#e9e8e4",
+            "surface-variant": "#e4e2df",
+            "on-error-container": "#93000a",
+            "on-surface-variant": "#4e4639",
+            "error": "#ba1a1a",
+            "inverse-surface": "#30312e",
+            "on-primary-fixed-variant": "#5d4201",
+            "inverse-on-surface": "#f2f1ed",
+            "surface": "#fbf9f5",
+            "primary-fixed": "#ffdea5",
+            "on-secondary-fixed": "#0f1d28",
+            "background": "#fbf9f5",
+            "error-container": "#ffdad6",
+            "tertiary-container": "#f28970",
+            "on-secondary": "#ffffff",
+            "surface-container-lowest": "#ffffff",
+            "primary": "#775a19",
+            "inverse-primary": "#e9c176",
+            "tertiary-fixed": "#ffdad2",
+            "on-tertiary-fixed": "#3d0600",
+            "secondary": "#53606d",
+            "on-primary": "#ffffff",
+            "primary-container": "#c5a059",
+            "secondary-fixed": "#d6e4f4",
+            "on-background": "#1b1c1a",
+            "primary-fixed-dim": "#e9c176",
+            "on-surface": "#1b1c1a",
+            "surface-container-highest": "#e4e2df",
+            "on-tertiary-container": "#6c2312",
+            "outline-variant": "#d1c5b4",
+            "outline": "#7f7667",
+            "surface-container": "#efeeea",
+            "on-primary-container": "#4e3700"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "space-lg": "1.5rem",
+            "gutter": "1.5rem",
+            "space-xl": "2.5rem",
+            "space-md": "1rem",
+            "space-xs": "0.25rem",
+            "margin": "2rem",
+            "space-sm": "0.5rem",
+            "margin-sm": "1rem",
+            "gutter-sm": "1rem"
+          },
+          "fontFamily": {
+            "display-hero": ["Playfair Display"],
+            "headline-xl-mobile": ["Playfair Display"],
+            "label-md": ["Plus Jakarta Sans"],
+            "headline-xl": ["Playfair Display"],
+            "title-md": ["Plus Jakarta Sans"],
+            "headline-sm": ["Playfair Display"],
+            "body-md": ["Plus Jakarta Sans"],
+            "metric-display": ["Playfair Display"],
+            "label-lg": ["Plus Jakarta Sans"],
+            "body-lg": ["Plus Jakarta Sans"],
+            "display-hero-mobile": ["Playfair Display"],
+            "body-sm": ["Plus Jakarta Sans"],
+            "label-sm": ["Plus Jakarta Sans"],
+            "headline-md": ["Playfair Display"],
+            "headline-lg": ["Playfair Display"]
+          },
+          "fontSize": {
+            "display-hero": ["56px", { "lineHeight": "64px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+            "headline-xl-mobile": ["30px", { "lineHeight": "36px", "fontWeight": "600" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.08em", "fontWeight": "600" }],
+            "headline-xl": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.015em", "fontWeight": "600" }],
+            "title-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+            "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }],
+            "metric-display": ["48px", { "lineHeight": "52px", "fontWeight": "700" }],
+            "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.06em", "fontWeight": "600" }],
+            "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }],
+            "display-hero-mobile": ["38px", { "lineHeight": "44px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+            "label-sm": ["10px", { "lineHeight": "14px", "letterSpacing": "0.12em", "fontWeight": "700" }],
+            "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    
+    /* Background Cycling Animation */
+    @keyframes cycleBg1 {
+      0%, 28% { opacity: 1; transform: scale(1.02); }
+      33%, 95% { opacity: 0; transform: scale(1); }
+      100% { opacity: 1; transform: scale(1.02); }
+    }
+    @keyframes cycleBg2 {
+      0%, 28% { opacity: 0; transform: scale(1); }
+      33%, 61% { opacity: 1; transform: scale(1.02); }
+      66%, 100% { opacity: 0; transform: scale(1); }
+    }
+    @keyframes cycleBg3 {
+      0%, 61% { opacity: 0; transform: scale(1); }
+      66%, 95% { opacity: 1; transform: scale(1.02); }
+      100% { opacity: 0; transform: scale(1); }
+    }
+    .hero-slide-1 { animation: cycleBg1 21s infinite ease-in-out; }
+    .hero-slide-2 { animation: cycleBg2 21s infinite ease-in-out; }
+    .hero-slide-3 { animation: cycleBg3 21s infinite ease-in-out; }
+
+    /* Dark Mode Hellenic Palette Overrides */
+    html.dark body {
+      color: #EDE8DE;
+    }
+    html.dark .dark-glass-header {
+      background-color: rgba(12, 12, 20, 0.88) !important;
+      border-color: rgba(212, 175, 55, 0.2) !important;
+    }
+    html.dark .dark-glass-nav {
+      background-color: rgba(12, 12, 20, 0.92) !important;
+      border-color: rgba(212, 175, 55, 0.2) !important;
+    }
+    html.dark .card-theme {
+      background-color: rgba(19, 19, 28, 0.82) !important;
+      border-color: rgba(212, 175, 55, 0.22) !important;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5) !important;
+    }
+    html.dark .card-subtle {
+      background-color: rgba(26, 26, 38, 0.75) !important;
+      border-color: rgba(255, 255, 255, 0.08) !important;
+    }
+    html.dark .card-accent-today {
+      background-color: rgba(36, 33, 24, 0.9) !important;
+      border-color: #D4AF37 !important;
+    }
+    html.dark .text-title-theme {
+      color: #F8F6F0 !important;
+    }
+    html.dark .text-subtle-theme {
+      color: #9E988E !important;
+    }
+    html.dark .text-gold-theme {
+      color: #E6CA65 !important;
+    }
+    html.dark .btn-cta-theme {
+      background-color: #C5A059 !important;
+      color: #121008 !important;
+      border-color: #E6CA65 !important;
+    }
+  </style>
+<style id="frosted-glass-overrides" class="">
+html.dark .card-theme {
+  background-color: rgba(18, 18, 26, 0.62) !important;
+  backdrop-filter: blur(8px) !important;
+  border-color: rgba(212, 175, 55, 0.25) !important;
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.45) !important;
+}
+html.dark .card-subtle {
+  background-color: rgba(26, 26, 38, 0.5) !important;
+  backdrop-filter: blur(6px) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+html.dark .card-accent-today {
+  background-color: rgba(45, 38, 20, 0.75) !important;
+  backdrop-filter: blur(6px) !important;
+  border-color: #D4AF37 !important;
+}
+html.dark .dark-glass-header {
+  background-color: rgba(12, 12, 20, 0.72) !important;
+  backdrop-filter: blur(10px) !important;
+}
+html.dark .dark-glass-nav {
+  background-color: rgba(12, 12, 20, 0.8) !important;
+  backdrop-filter: blur(12px) !important;
+}
+</style></head>
+<body class="bg-surface text-on-surface antialiased min-h-full flex flex-col justify-between selection:bg-primary-container selection:text-on-primary-container relative transition-colors duration-500">
+<!-- DYNAMIC ROTATING BACKGROUND CANVAS (Mobile Full-bleed 9:16) -->
+<div aria-hidden="true" class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+<!-- Slide 1: movil (1).jpg -->
+<img alt="" class="hero-slide-1 absolute inset-0 w-full h-full object-cover object-center transition-transform duration-1000 ease-out" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOQCAKUCbdEY1WXs_RisVq7Su2kumxKJV-pvEDSiURu4krCRxYCf27ENIwQNPatLLd1pqbF5itwez3vEEqq29JRTl8OBtcnuAgmJtCDGw1qFYh28wUMOxmoGbSgDRVA5DAiKkaQo0nHSAxadYZHlMEP2x8f7Cn4bEuT_SVYFTzBA-GPwoh77RpAfpr5y0wSm3JrpwMdvw_cP3NVNJYRyiii-AEqhCz_54-HroQ5fcKkFUr6E9IIzH8O5M0ICIsatDDWNA" style="filter: contrast(110%) brightness(105%);">
+<!-- Slide 2: movil (3).jpg -->
+<img alt="" class="hero-slide-2 absolute inset-0 w-full h-full object-cover object-center transition-transform duration-1000 ease-out" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgOZpP5VzB3a_uTXJXtajMhP3A_fRv6icBdEB0c97Rl--ZRIPXUCipZh0OuFGhzausfloqetNZoazJCnhaVd3GsKlP-mQeMZGAdM4OzlHoyDARZp6BEDd0fsMtumZMFofL7vKTOy8Hb4fUH9jRK8i3cTrAlKYgKy6pzQBfh_ljZYwnsQXu2JH_baSh3ng65hz60lElM2VlYTtK5pPd7YppEUFyZYoc6km65CBOl9CXlWgaC6tCxAeBG9wT9ENCklXs-NM" style="filter: contrast(110%) brightness(105%);">
+<!-- Slide 3: movil (2).jpg -->
+<img alt="" class="hero-slide-3 absolute inset-0 w-full h-full object-cover object-center transition-transform duration-1000 ease-out" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6Q0TD2BHhYPThlwiB6u_OO34UTockltuRc0jHQagADu4jutGzg0fFOuOzOElDBYdaG3PGoWLmlk-5XWVXsWXjiiwkPi3tctDS7dRSkWbtQLMh_Ex4G61dCWFei-aUVJiMiMRKjzDFopNm81XmI3wQk4BDQtfxNL2l57bIuPNuZuTKP3-DCMB9zhSWeBDKXHA0zHBy4vrI41tb2Uoz90pIa-fIU3oLTMYqa1Ud-LCUbnMpEdG86nH33oLdbmj-isiaxbc" style="filter: contrast(110%) brightness(105%);">
+<!-- Translucent Marble Veil / Dark Tint Overlay -->
+<div class="absolute inset-0 bg-surface/85 dark:bg-[#0C0C14]/85 transition-colors duration-500" id="veil-overlay" style="background: linear-gradient(rgba(12, 12, 20, 0.22) 0%, rgba(12, 12, 20, 0.35) 55%, rgba(12, 12, 20, 0.5) 100%); backdrop-filter: blur(0px);"></div>
+</div>
+<!-- TOP APP BAR (Shared Anchor Component Mobile Adapting) -->
+<header class="dark-glass-header sticky top-0 z-30 flex items-center justify-between px-4 h-[52px] w-full backdrop-blur-md bg-surface/90 border-b border-outline-variant/30 transition-colors duration-500">
+<div class="flex items-center gap-2">
+<!-- Pediment Sigil Crest -->
+<div class="flex items-center justify-center"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuC19Wr57SngCKOU4Y4lcBfnt_GdqxB74jLs7Ae3McXngjsCkmccFCqdDMyP6oVKv-EtiUo669ClokFiMwaN1UEsX1xrh4w8R2aX8ELK8c_YVMK-iax2WK1WQbUk-lTDKMFma-mnWD_PfuAPIiv23gcoTMyOz9Ksa1rcqhNWYG7xkej9aPljMYKgOotmPMgmMLTqal1a0U3Bl7k04Ts7O9o8SVOfXQ4UNybARQOT0ImvJWPazoYMKMlE-g" alt="Althea" class="w-7 h-7 object-contain inline-block drop-shadow-sm transition-transform duration-200 hover:scale-105"></div>
+<div>
+<span class="font-headline-md text-headline-md tracking-[0.2em] font-semibold text-primary text-gold-theme uppercase leading-none block">ALTHEA</span>
+</div>
+</div>
+<!-- Trailing Actions: Dark/Light Mode Toggle, Notifications and Profile -->
+<div class="flex items-center gap-1.5">
+<!-- Dedicated Hellenic Theme Toggle (Apollo Sun ☀️ / Artemis Moon 🌙) -->
+<button aria-label="Cambiar modo claro u oscuro" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container card-subtle border border-outline-variant/40 transition-colors relative" id="theme-toggle-btn" title="Modo Apolo / Artemisa">
+<!-- Sun icon (visible in dark mode) -->
+<span class="material-symbols-outlined text-[#E6CA65] text-[20px]" data-icon="light_mode" id="theme-icon-sun">light_mode</span>
+<!-- Moon icon (visible in light mode) -->
+<span class="material-symbols-outlined text-secondary text-[20px] hidden" data-icon="dark_mode" id="theme-icon-moon">dark_mode</span>
+</button>
+<button aria-label="Notificaciones" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container card-subtle transition-colors relative">
+<span class="material-symbols-outlined text-secondary text-subtle-theme text-[22px]" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+</button>
+<button aria-label="Perfil de Atleta" class="w-8 h-8 overflow-hidden focus:outline-none flex items-center justify-center"><img src="https://lh3.googleusercontent.com/aida/AEtjO1VXX7cK0oXYsVcngztcxhIdCblGt09rFN4x41TAiOBSnHIqLsfhZUZwn5bRFOPPu02Vj23IKojYT2zfR-vUR7fnQOyAmb7ufX5o4xT68Wi-4chiO7_daeMAF7hFFm0eaWSGZrCh6HfHozm462pHBlxvjk6KfiXpqVxiA5YvjzfGiOPovfgyWKzN9WyPp76kQki5UQIWt3_RoZiXjqzz_pBa9X3tUxkKgtinBdEvEJrnqueIb2qs-194KsE" alt="Perfil" class="w-full h-full object-cover rounded-full"></button>
+</div>
+</header>
+<!-- Greek Architectural Meander Border Ribbon -->
+<div class="relative z-10 w-full h-1 bg-surface-container card-subtle border-y border-primary/10 overflow-hidden flex items-center justify-center opacity-70">
+<div class="w-full text-[8px] text-primary/40 text-gold-theme/50 font-mono tracking-tighter whitespace-nowrap select-none">
+      ── 𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──𐆑──
+    </div>
+</div>
+<!-- MAIN SCROLLABLE CONTENT CANVAS (Mobile Viewport Optimized) -->
+<main class="relative z-10 flex-1 px-4 pt-3 pb-28 max-w-[440px] mx-auto w-full space-y-4">
+<!-- DATE & STATUS BAR -->
+<section class="flex items-end justify-between border-b border-outline-variant/30 pb-3">
+<div>
+<div class="flex items-center gap-1.5 mb-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+
+</div>
+<h1 class="font-headline-sm text-headline-sm font-semibold text-on-surface text-title-theme leading-tight">Jueves, 24 Octubre</h1>
+</div>
+<div class="px-2.5 py-1 rounded bg-surface-container-low card-subtle border border-primary/30 flex items-center gap-1.5 shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-primary text-gold-theme animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-primary text-gold-theme tracking-wider uppercase font-semibold">DÍA 4 · EN CURSO</span>
+</div>
+</section>
+<!-- WEEKLY HORIZONTAL STRIP (Tira Semanal L-D) -->
+<section class="card-theme bg-surface-container-lowest/90 backdrop-blur-sm border border-outline-variant/40 rounded-xl p-2.5 shadow-sm">
+<div class="grid grid-cols-7 gap-1 text-center">
+<!-- Lunes (Completado) -->
+<div class="flex flex-col items-center py-1.5 rounded hover:bg-surface-container-low transition-colors">
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme uppercase font-medium">L</span>
+<span class="font-title-md text-body-md font-semibold text-on-surface text-title-theme mt-0.5">21</span>
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1U0qVVaBYgWBc3PRMwkETLvZCLJwnsHwqO3P1CnJi4b_VR6BU3x2IhpqcFYUIhpvE5qoT2I-fGqgdlOpaP2E_Q0wjC3aGxB-Wj4iIBXWErat-Yq9_WtpziAFAvaXVd8apGfyvAI10nnnIW9vDhaJT5FeKvzKt0I5EMA-qNXpKlNybMjh4aMUAAnp-gTgkn7H6tE0amqzR-C14fHXKvL0dybC-f3cWSzhsaGiZzVVG5rrJqW9q3Cgz_Kcen7" alt="Completado" class="w-4 h-4 object-contain mt-0.5 drop-shadow-sm">
+</div>
+<!-- Martes (Completado) -->
+<div class="flex flex-col items-center py-1.5 rounded hover:bg-surface-container-low transition-colors">
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme uppercase font-medium">M</span>
+<span class="font-title-md text-body-md font-semibold text-on-surface text-title-theme mt-0.5">22</span>
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1U0qVVaBYgWBc3PRMwkETLvZCLJwnsHwqO3P1CnJi4b_VR6BU3x2IhpqcFYUIhpvE5qoT2I-fGqgdlOpaP2E_Q0wjC3aGxB-Wj4iIBXWErat-Yq9_WtpziAFAvaXVd8apGfyvAI10nnnIW9vDhaJT5FeKvzKt0I5EMA-qNXpKlNybMjh4aMUAAnp-gTgkn7H6tE0amqzR-C14fHXKvL0dybC-f3cWSzhsaGiZzVVG5rrJqW9q3Cgz_Kcen7" alt="Completado" class="w-4 h-4 object-contain mt-0.5 drop-shadow-sm">
+</div>
+<!-- Miércoles (Descanso activo) -->
+<div class="flex flex-col items-center py-1.5 rounded hover:bg-surface-container-low transition-colors">
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme uppercase font-medium">X</span>
+<span class="font-title-md text-body-md font-semibold text-on-surface text-title-theme mt-0.5">23</span>
+<span class="text-outline text-subtle-theme text-[12px] mt-1 font-bold">―</span>
+</div>
+<!-- Jueves (HOY - ACTIVO CON BORDE ÁUREO) -->
+<div class="card-accent-today flex flex-col items-center py-1.5 rounded bg-surface-container-low border border-primary-container shadow-sm">
+<span class="font-label-sm text-label-sm text-primary text-gold-theme uppercase font-bold">J</span>
+<span class="font-title-md text-body-md font-bold text-primary text-gold-theme mt-0.5">24</span>
+<span class="w-1.5 h-1.5 rounded-full bg-primary text-gold-theme mt-2"></span>
+</div>
+<!-- Viernes (Próximo) -->
+<div class="flex flex-col items-center py-1.5 rounded hover:bg-surface-container-low transition-colors opacity-75">
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme uppercase font-medium">V</span>
+<span class="font-title-md text-body-md font-medium text-on-surface text-title-theme mt-0.5">25</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant mt-2"></span>
+</div>
+<!-- Sábado (Próximo) -->
+<div class="flex flex-col items-center py-1.5 rounded hover:bg-surface-container-low transition-colors opacity-75">
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme uppercase font-medium">S</span>
+<span class="font-title-md text-body-md font-medium text-on-surface text-title-theme mt-0.5">26</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant mt-2"></span>
+</div>
+<!-- Domingo (Descanso) -->
+<div class="flex flex-col items-center py-1.5 rounded hover:bg-surface-container-low transition-colors opacity-50">
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme uppercase font-medium">D</span>
+<span class="font-title-md text-body-md font-medium text-on-surface text-title-theme mt-0.5">27</span>
+<span class="text-outline text-subtle-theme text-[12px] mt-1 font-bold">―</span>
+</div>
+</div>
+</section>
+<!-- ROUTINE HERO CARD (Hombro & Brazo) -->
+<article class="card-theme bg-surface-container-lowest/90 backdrop-blur-sm border border-outline-variant/60 rounded-xl p-4 shadow-sm relative overflow-hidden">
+<!-- Subtle Classical Inlay Ornament -->
+<div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-primary/10 via-transparent to-transparent pointer-events-none"></div>
+<!-- Header of Routine -->
+<div class="flex items-start justify-between mb-3 border-b border-outline-variant/30 pb-3">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-widest text-primary text-gold-theme font-semibold block mb-0.5">DISCIPLINA DE FUERZA</span>
+<h2 class="font-headline-sm text-headline-sm font-semibold text-on-surface text-title-theme">Hombro &amp; Brazo</h2>
+</div>
+<div class="text-right">
+<span class="inline-block bg-surface-container card-subtle px-2 py-0.5 rounded text-secondary text-subtle-theme font-label-sm text-label-sm font-semibold">RPE 8.5</span>
+</div>
+</div>
+<!-- Telemetry Quick Tags -->
+<div class="grid grid-cols-3 gap-2 py-2 mb-3 bg-surface-container-low/70 card-subtle rounded-lg px-3 text-center border border-outline-variant/30">
+<div>
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme block uppercase">Volumen</span>
+<span class="font-title-md text-title-md font-semibold text-on-surface text-title-theme">14 series</span>
+</div>
+<div class="border-x border-outline-variant/40">
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme block uppercase">Duración</span>
+<span class="font-title-md text-title-md font-semibold text-on-surface text-title-theme">62 min</span>
+</div>
+<div>
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme block uppercase">Carga Est.</span>
+<span class="font-title-md text-title-md font-semibold text-on-surface text-title-theme">4.8 T</span>
+</div>
+</div>
+<!-- Compact Vertical Exercises List (Optimized Mobile Scanning) -->
+<div class="space-y-2.5">
+<!-- Exercise 1 -->
+<div class="card-subtle p-2.5 rounded-lg border border-outline-variant/40 bg-surface-container-lowest/80 hover:border-primary-container/80 transition-colors flex items-center justify-between">
+<div class="flex items-start gap-2.5">
+<span class="w-6 h-6 rounded bg-surface-container card-subtle flex items-center justify-center font-label-md text-label-md font-bold text-primary text-gold-theme mt-0.5">I</span>
+<div>
+<h3 class="font-title-md text-body-md font-semibold text-on-surface text-title-theme leading-snug">Press Militar Mancuernas</h3>
+<p class="font-body-sm text-body-sm text-outline text-subtle-theme">Deltoides Anterior · 4 × 8-10</p>
+</div>
+</div>
+<div class="text-right">
+<span class="font-title-md text-body-md font-bold text-primary text-gold-theme block">32.5 kg</span>
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme">90s rec.</span>
+</div>
+</div>
+<!-- Exercise 2 -->
+<div class="card-subtle p-2.5 rounded-lg border border-outline-variant/40 bg-surface-container-lowest/80 hover:border-primary-container/80 transition-colors flex items-center justify-between">
+<div class="flex items-start gap-2.5">
+<span class="w-6 h-6 rounded bg-surface-container card-subtle flex items-center justify-center font-label-md text-label-md font-bold text-primary text-gold-theme mt-0.5">II</span>
+<div>
+<h3 class="font-title-md text-body-md font-semibold text-on-surface text-title-theme leading-snug">Elevaciones Laterales Polea</h3>
+<p class="font-body-sm text-body-sm text-outline text-subtle-theme">Deltoides Lateral · 4 × 12-15</p>
+</div>
+</div>
+<div class="text-right">
+<span class="font-title-md text-body-md font-bold text-primary text-gold-theme block">12.5 kg</span>
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme">60s rec.</span>
+</div>
+</div>
+<!-- Exercise 3 -->
+<div class="card-subtle p-2.5 rounded-lg border border-outline-variant/40 bg-surface-container-lowest/80 hover:border-primary-container/80 transition-colors flex items-center justify-between">
+<div class="flex items-start gap-2.5">
+<span class="w-6 h-6 rounded bg-surface-container card-subtle flex items-center justify-center font-label-md text-label-md font-bold text-primary text-gold-theme mt-0.5">III</span>
+<div>
+<h3 class="font-title-md text-body-md font-semibold text-on-surface text-title-theme leading-snug">Ext. Tríceps Cuerda</h3>
+<p class="font-body-sm text-body-sm text-outline text-subtle-theme">Vasto Lateral &amp; Medial · 3 × 10-12</p>
+</div>
+</div>
+<div class="text-right">
+<span class="font-title-md text-body-md font-bold text-primary text-gold-theme block">27.5 kg</span>
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme">60s rec.</span>
+</div>
+</div>
+<!-- Exercise 4 -->
+<div class="card-subtle p-2.5 rounded-lg border border-outline-variant/40 bg-surface-container-lowest/80 hover:border-primary-container/80 transition-colors flex items-center justify-between">
+<div class="flex items-start gap-2.5">
+<span class="w-6 h-6 rounded bg-surface-container card-subtle flex items-center justify-center font-label-md text-label-md font-bold text-primary text-gold-theme mt-0.5">IV</span>
+<div>
+<h3 class="font-title-md text-body-md font-semibold text-on-surface text-title-theme leading-snug">Press Francés Barra EZ</h3>
+<p class="font-body-sm text-body-sm text-outline text-subtle-theme">Cabeza Larga Tríceps · 3 × 10</p>
+</div>
+</div>
+<div class="text-right">
+<span class="font-title-md text-body-md font-bold text-primary text-gold-theme block">35.0 kg</span>
+<span class="font-label-sm text-label-sm text-outline text-subtle-theme">75s rec.</span>
+</div>
+</div>
+</div>
+<!-- Quick Expand / Details Link -->
+<div class="mt-3 pt-2 text-center border-t border-outline-variant/20">
+<button class="font-label-sm text-label-sm uppercase tracking-widest text-primary text-gold-theme font-semibold inline-flex items-center gap-1 hover:text-primary-container transition-colors">
+<span class="">Ver desglose biomecánico</span>
+<span class="material-symbols-outlined text-[14px]" data-icon="expand_more">expand_more</span>
+</button>
+</div>
+</article>
+<!-- PROMINENT PRIMARY ATHLETIC CTA (Thumb ergonomic) -->
+<div class="pt-1">
+<button class="btn-cta-theme w-full h-12 bg-primary-container text-on-surface rounded-lg font-label-lg text-label-lg uppercase tracking-[0.08em] font-bold flex items-center justify-center gap-2 border border-primary/40 shadow-sm active:scale-[0.98] transition-all duration-150">
+<span class="material-symbols-outlined text-[20px]" data-icon="play_arrow" data-weight="fill" style="font-variation-settings: &quot;FILL&quot; 1;">play_arrow</span>
+<span class="">Iniciar Sesión de Palaestra</span>
+</button>
+</div>
+<!-- SIMPLIFIED MOBILE BENTO WIDGETS (Recovery & Hydration) -->
+<section class="grid grid-cols-2 gap-3 pt-1">
+<!-- Recovery Widget -->
+<div class="card-theme bg-surface-container-lowest/90 backdrop-blur-sm border border-outline-variant/50 rounded-xl p-3 shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase text-outline text-subtle-theme font-semibold tracking-wider">Recuperación</span>
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1XvJ0nLTLdEvptqjf_0G6aRtsP2cHZQBbEFrxbLvWdUpPI9xJpPLPprE8IsgAE48j2URcjPkYmmtJVTg4bviD3Zcmh90zmUuGNXB4vjU3fSRsjB7KsY4ZEWUXEw55IWqhI8dFVYDoVwoT8PJirHprejm0iYbLytgsL1KzWOYvj_tGoXg3vSsCM7EjHTkI1dXw8rSxP5-Kh_WUzUCoEawEQ02h_7llVDby9I-RyjYsJKEtCXLro72RFRSO8" alt="Recuperación" class="w-6 h-6 object-contain inline-block">
+</div>
+<div class="my-2">
+<div class="flex items-baseline gap-1">
+<span class="font-metric-display text-[32px] leading-none font-bold text-on-surface text-title-theme">88</span>
+<span class="font-body-sm text-body-sm text-outline text-subtle-theme font-semibold">/100</span>
+</div>
+<span class="font-label-sm text-label-sm text-primary text-gold-theme font-bold tracking-wider uppercase block mt-1">NIVEL ÁUREO</span>
+</div>
+<div class="w-full bg-surface-container card-subtle rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary-container h-full rounded-full" style="width: 88%"></div>
+</div>
+</div>
+<!-- Hydration Chalice Counter -->
+<div class="card-theme bg-surface-container-lowest/90 backdrop-blur-sm border border-outline-variant/50 rounded-xl p-3 shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase text-outline text-subtle-theme font-semibold tracking-wider">Hidratación</span>
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1W-6dgAAigre2ywOHXNuI8c21X-GphYYaZ8QBIq3K3JoR6mHpPgxEVpqqLudbiEoH9iNFeHkbFr8sDMe-rHdg38ljKhBZDK5gFiM55WQQvzG9Q-dmgmF-bpeYY9QYHswdRdBqIR2s85Q8db7jF2jblzUhtYhvzcAfINtczumUlZUV0DmkfXhwJa5jdeFJ2EWUxLvHcuu3_EV7YqgcwxG0L_fH_Hwwzxya9bRwaoixwNq4zuKJ98DAhznMdR" alt="Hidratación" class="w-6 h-6 object-contain inline-block">
+</div>
+<div class="my-2">
+<div class="flex items-baseline gap-1">
+<span class="font-metric-display text-[32px] leading-none font-bold text-on-surface text-title-theme">2.4</span>
+<span class="font-body-sm text-body-sm text-outline text-subtle-theme font-semibold">/3.2 L</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary text-subtle-theme font-semibold tracking-wider uppercase block mt-1">75% DIARIO</span>
+</div>
+<div class="w-full bg-surface-container card-subtle rounded-full h-1.5 overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 75%"></div>
+</div>
+</div>
+</section>
+<!-- ORÁCULO VIRTUOSO / COACH IA QUOTE (Streamlined card) -->
+<section class="card-theme bg-surface-container-low/90 backdrop-blur-sm border border-primary/20 rounded-xl p-3.5 flex items-start gap-3">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1UEJWC-f80ezvJ19TjyErY_RIaH_cLNjfvPZc7rbVJsYQPJYJ0FFSmTtp8w-t1Phip9NiOvDtnIQHRz7vmHnJpA_Qdz2zY3ubRXlYOmQwwBWfGXg-ShcFxj-9oc7-3s7Z5gak3IBRSeDlUN5e9yVmpG7T7MjKss7pfil8bfLucsc7LDgqXRKlY_bgwAJASJo4Q1eL8u1OtjEzptMKTxx3I20Y5JgrRTYW8a57bYpQceTB1aIONan-LiMIYC" alt="Oráculo" class="w-8 h-8 object-cover rounded-full inline-block">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-widest text-primary text-gold-theme font-bold block mb-0.5">Oráculo de la Palaestra</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-subtle-theme italic leading-relaxed">
+          “La constancia en la forma esculpe el cuerpo tanto como el cincel da vida al mármol de Paros.”
+        </p>
+</div>
+</section>
+</main>
+<!-- BOTTOM NAVIGATION BAR (Fixed Mobile Destination Shell - Active: Entrenamiento) -->
+<nav class="dark-glass-nav fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-lg border-t border-outline-variant/30 py-1.5 px-3 shadow-lg transition-colors duration-500">
+<div class="max-w-[440px] mx-auto flex items-center justify-around">
+<!-- Tab 1: Inicio -->
+<button aria-label="Inicio" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-on-surface-variant text-subtle-theme transition-colors hover:text-primary active:scale-[0.97]">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1WcfxfG8SVmJgXT8F2zyeAlVEHS4W-0Oz_KT9DcSXvaFfTRVHJv3q8bA5ryi3TCJa3_o19k5pW70s8NEq1MpyFJSQxyTJtL6hwcS2jBjIDfznOV7cuxahT11qyhkpOmRmSRw98Hqky-b9wYfxAfKlgpw0ctH2MYaduYmu9kelfpqYlnmDzyZSx7ru-NIvFol0Xp5PnwOmk8WCJ-yswY9i3ZUb8uroN8o2ORfMRgPNFZUZOAHRDm3e43vUBS" alt="Inicio" class="w-6 h-6 object-contain inline-block drop-shadow-sm transition-transform duration-200 active:scale-90">
+<span class="font-label-sm text-[10px] tracking-wider font-medium mt-0.5">Inicio</span>
+</button>
+<!-- Tab 2: Entrenamiento (ACTIVE TAB FOR THIS WORKOUT WORKSPACE) -->
+<button aria-label="Entrenamiento" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-primary text-gold-theme font-bold border-b-2 border-primary transition-colors active:scale-[0.97]">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1X7gV-Awo8F4kNdwb_gr_O-iPxysO91i01UhcryhA5aQr9GkPOwXs1cX12I1vqqhoK-bN8NWpGl-G7wDIUAJmtnr1zZFuMAFF-lO9sor-k00X-mwNpehzmXGKZUqTmN5YzGauDD6YvNCUdXasMR0TTFlMElhhQePjOtOlIz04J6EL2Zm3ydGrHOCJTlniAR45Hgz_s9mCZTurgldIX23NaJXLOBaKtQ63bEGTD5KOLUPdugSg9iPopBzG9a" alt="Entrenamiento" class="w-6 h-6 object-contain inline-block drop-shadow-sm transition-transform duration-200 active:scale-90">
+<span class="font-label-sm text-[10px] tracking-wider uppercase font-bold mt-0.5">Entrenamiento</span>
+</button>
+<!-- Tab 3: Nutrición -->
+<button aria-label="Nutrición" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-on-surface-variant text-subtle-theme transition-colors hover:text-primary active:scale-[0.97]">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1WKltUngSbmq4IdhAJW9FX42gh4f6xqDneKPhhsbLRBji0GsQ_IhrS_nbnunrgrDo6u9O1GQ_AYilzg24cNdIJtpkYxZP5mRE-PT6F8XoJz9PkmsSxHXauIckjhhzzbQxYUWxnW-7HXZ2WcNxzKwWtaUlAi2dPkaMGDhU5hDQTKLN_2O3myPvp3ug8WBUnjEfnJ2XOaqigVknxlxjcpz8sZa7orla6WZyowxtUQRdxbbHRxz-iaMF4ygqM" alt="Nutrición" class="w-6 h-6 object-contain inline-block drop-shadow-sm transition-transform duration-200 active:scale-90">
+<span class="font-label-sm text-[10px] tracking-wider font-medium mt-0.5">Nutrición</span>
+</button>
+<!-- Tab 4: Progreso -->
+<button aria-label="Progreso" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-on-surface-variant text-subtle-theme transition-colors hover:text-primary active:scale-[0.97]">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1WVPyrh35M28LiosLgd2Tyhol_obJ_PrTjdv2b5Xu663FG1Gi3xfq_9Vka2JWwLHJB1oha3yGQdA__loxWSIJiqBqslYj0qneOiGsVHjqMnGjQNxve_FBhFP8_Sqt1xMsAmsfyUo1tNShla0hLxQqwl2_gP3QBr3xYMmWnwsxAer1bphggI2ja_lipUAyRDC0_mGh9a2Y9AfJBHyORHX83zRPgrLtbRX0oFdDCpSQYSu0llSKLF4U_saqw7" alt="Progreso" class="w-6 h-6 object-contain inline-block drop-shadow-sm transition-transform duration-200 active:scale-90">
+<span class="font-label-sm text-[10px] tracking-wider font-medium mt-0.5">Progreso</span>
+</button>
+<!-- Tab 5: Menú -->
+<button aria-label="Menú" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-on-surface-variant text-subtle-theme transition-colors hover:text-primary active:scale-[0.97]">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1XEyOkhxV_Sfl6-MpCQ4D_ikph8bgGIrFbVFcjOYs_SnPdZo3bZO7oa0YKphKq6X3QLc2RmCkgVh95mmey2fcHr8SWGakN0TpMZmg7lF2WEfos1PKcQ03Ade7PO9P_wv27qe2I51IW6pJsv0W5icEayJGWLFXqFMDyqnz0R2cZ5X_3E9qfmuQPLwXsQ-AAnC5dwAGbCFWAnguIQuVZy_kOGCFJcmrf56rdSWirK8YyFqBnWdT0iqBSSu64U" alt="Menú" class="w-6 h-6 object-contain inline-block drop-shadow-sm transition-transform duration-200 active:scale-90">
+<span class="font-label-sm text-[10px] tracking-wider font-medium mt-0.5">Menú</span>
+</button>
+</div>
+</nav>
+<!-- Interactive Scripts: Dark/Light Mode Switcher & Haptic Feedback -->
+<script>
+  const toggleBtn = document.getElementById('theme-toggle-btn');
+  const sunIcon = document.getElementById('theme-icon-sun');
+  const moonIcon = document.getElementById('theme-icon-moon');
+
+  function updateThemeIcons(isDark) {
+    if (isDark) {
+      sunIcon.classList.remove('hidden');
+      moonIcon.classList.add('hidden');
+    } else {
+      sunIcon.classList.add('hidden');
+      moonIcon.classList.remove('hidden');
+    }
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    updateThemeIcons(isDark);
+    if (navigator.vibrate) navigator.vibrate(12);
+  });
+
+  // Haptic feedback micro-interaction
+  document.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', function() {
+      if (navigator.vibrate) {
+        navigator.vibrate(8);
+      }
+    });
+  });
+</script>
+
+
+</body></html>

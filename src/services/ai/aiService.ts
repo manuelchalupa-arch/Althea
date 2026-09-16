@@ -18,7 +18,6 @@ class AIService implements AIProvider {
     if(cap.status!=='unavailable' && ready){
       // intenta cargar qwen en background sin bloquear
       this.qwen.downloadModel().then(()=> this.active=this.qwen).catch(()=> this.active=this.fallback)
-      this.active = this.qwen
     } else {
       this.active = this.fallback
     }

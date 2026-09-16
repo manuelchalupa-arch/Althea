@@ -276,7 +276,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       const surveys: any[] = await db.table('postWorkoutSurveys').toArray().catch(() => [])
       const pains: PainRow[] = surveys
         .filter((s) => Number(s.pain) > 0 && String(s.calendarDate || '') >= since(30))
-        .map((s) => ({ date: String(s.calendarDate), zone: String(s.painZone || s.painDetail || ''), detail: String(s.painDetail || ''), pain: Number(s.pain) }))
+        .map((s) => ({ date: String(s.calendarDate), zone: String(s.painZone || s.painArea || ''), detail: String(s.painDetail || s.painObservation || ''), pain: Number(s.pain) }))
       push(detectPainZones(pains))
     } catch { /* noop */ }
     // over/under training: volúmenes semanales + recovery
@@ -326,7 +326,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       if (w > 0) {
         const { proteinRange } = await import('@/utils/nutrition')
         const range = proteinRange(w, p?.goalPrimary)
-        const diario = JSON.parse(localStorage.getItem(`nutri:diario:${today}`) || '[]')
+        const diario = JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`) || '[]')
         const est = (diario as any[]).reduce((a, it) => a + Number(it?.macros?.proteins ?? 0), 0)
         push(detectProteinGap(est, range?.low ?? null, diario.length))
       }

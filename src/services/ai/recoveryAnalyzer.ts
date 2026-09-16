@@ -6,7 +6,7 @@ export interface RecoveryContext {
   lastCheck: { energy: number; fatigue: number; pain: number; mood: number; stress: number } | null
   trend: 'improving' | 'stable' | 'declining'
   consecutiveLow: number // días consecutivos con score < 60
-  sleepAvg: number // promedio últimos 3 días
+  energyAvg: number // promedio energía últimos 3 días
   fatigueAvg: number
 }
 
@@ -46,7 +46,7 @@ export async function analyzeRecovery(): Promise<RecoveryContext> {
   // Promedios
   const last3Energy = sorted.slice(-3).map(s => Number(s.energy ?? 5))
   const last3Fatigue = sorted.slice(-3).map(s => Number(s.fatigue ?? 5))
-  const sleepAvg = last3Energy.length ? last3Energy.reduce((a, b) => a + b, 0) / last3Energy.length : 5
+  const energyAvg = last3Energy.length ? last3Energy.reduce((a, b) => a + b, 0) / last3Energy.length : 5
   const fatigueAvg = last3Fatigue.length ? last3Fatigue.reduce((a, b) => a + b, 0) / last3Fatigue.length : 5
 
   return {
@@ -54,7 +54,7 @@ export async function analyzeRecovery(): Promise<RecoveryContext> {
     lastCheck,
     trend,
     consecutiveLow,
-    sleepAvg,
+    energyAvg,
     fatigueAvg,
   }
 }

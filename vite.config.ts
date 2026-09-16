@@ -37,9 +37,14 @@ export default defineConfig({
             options: { cacheName: 'wasm-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60*60*24*30 }, cacheableResponse: { statuses:[0,200] } }
           },
           {
-            urlPattern: /^https:\/\/nutricion-api-arg\.fly\.dev\/.*/i,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'codulia-api', networkTimeoutSeconds: 5, cacheableResponse: { statuses:[0,200] } }
+            urlPattern: /.*\.wasm$/i,
+            handler: 'CacheFirst',
+            options: { cacheName: 'wasm-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60*60*24*30 }, cacheableResponse: { statuses:[0,200] } }
+          },
+          {
+            urlPattern: /^https:\/\/api\.groq\.com\/.*/i,
+            handler: 'NetworkOnly',
+            options: { cacheName: 'groq-api' }
           }
         ]
       }

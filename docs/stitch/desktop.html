@@ -1,0 +1,650 @@
+<!DOCTYPE html><html class="transition-colors duration-500 dark" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>ALTHEA · Modo Clásico Helénico</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Google Fonts: Playfair Display, Outfit & Space Grotesk -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&amp;family=Playfair+Display:ital,wght@0,400..900;1,400..900&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface": "var(--c-surface)",
+            "surface-dim": "var(--c-surface-dim)",
+            "surface-bright": "var(--c-surface-bright)",
+            "surface-container-lowest": "var(--c-surface-container-lowest)",
+            "surface-container-low": "var(--c-surface-container-low)",
+            "surface-container": "var(--c-surface-container)",
+            "surface-container-high": "var(--c-surface-container-high)",
+            "surface-container-highest": "var(--c-surface-container-highest)",
+            "background": "var(--c-background)",
+            "primary": "var(--c-primary)",
+            "primary-light": "var(--c-primary-light)",
+            "primary-container": "var(--c-primary-container)",
+            "on-primary": "var(--c-on-primary)",
+            "secondary": "var(--c-secondary)",
+            "outline": "var(--c-outline)",
+            "outline-variant": "var(--c-outline-variant)",
+            "on-surface": "var(--c-on-surface)",
+            "on-surface-variant": "var(--c-on-surface-variant)"
+          },
+          fontFamily: {
+            "headline": ["Playfair Display", "serif"],
+            "body": ["Outfit", "sans-serif"],
+            "label": ["Space Grotesk", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    :root {
+      /* Light Mode: Carrara Marble & Archaic Gold */
+      --c-background: #fbf9f5;
+      --c-surface: #f7f5f0;
+      --c-surface-dim: #edebe6;
+      --c-surface-bright: #ffffff;
+      --c-surface-container-lowest: #ffffff;
+      --c-surface-container-low: #f4f2ec;
+      --c-surface-container: #edeae2;
+      --c-surface-container-high: #e5e1d7;
+      --c-surface-container-highest: #ded8cb;
+      --c-primary: #8a6c22;
+      --c-primary-light: #c5a059;
+      --c-primary-container: #e6c887;
+      --c-on-primary: #ffffff;
+      --c-secondary: #576472;
+      --c-outline: #8c8577;
+      --c-outline-variant: #d4cfc3;
+      --c-on-surface: #1c1a17;
+      --c-on-surface-variant: #5e594f;
+      --veil-color: rgba(251, 249, 245, 0.88);
+      --card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(247, 245, 240, 0.85) 100%);
+      --card-border: rgba(197, 160, 89, 0.35);
+      --card-shadow: 0 10px 30px rgba(80, 60, 20, 0.08);
+    }
+
+    .dark {
+      /* Dark Mode: Obsidian Slate & Hellenic Olympic Gold */
+      --c-background: #0c0c14;
+      --c-surface: #13131c;
+      --c-surface-dim: #0e0e16;
+      --c-surface-bright: #222230;
+      --c-surface-container-lowest: #0a0a10;
+      --c-surface-container-low: #161622;
+      --c-surface-container: #1b1b28;
+      --c-surface-container-high: #232332;
+      --c-surface-container-highest: #2c2c3e;
+      --c-primary: #d4af37;
+      --c-primary-light: #f3cf58;
+      --c-primary-container: #8c6f17;
+      --c-on-primary: #1f1500;
+      --c-secondary: #c4b5a0;
+      --c-outline: #4a4756;
+      --c-outline-variant: #2b2a3a;
+      --c-on-surface: #f5f3ef;
+      --c-on-surface-variant: #aba395;
+      --veil-color: rgba(12, 12, 20, 0.86);
+      --card-bg: linear-gradient(180deg, rgba(24, 24, 38, 0.88) 0%, rgba(19, 19, 30, 0.92) 100%);
+      --card-border: rgba(212, 175, 55, 0.22);
+      --card-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+    }
+
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .material-symbols-outlined.fill-1 {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    }
+
+    .marble-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      box-shadow: var(--card-shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    /* Architectural Meander Greek Pattern */
+    .meander-strip {
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20" fill="none"><path d="M 0 10 L 15 10 L 15 5 L 5 5 L 5 15 L 25 15 L 25 0 L 0 0 M 20 10 L 35 10 L 35 5 L 25 5 L 25 15 L 40 15" fill="none" stroke="%23D4AF37" stroke-width="1.8" stroke-linecap="square" opacity="0.85"/></svg>');
+      background-repeat: repeat-x;
+      background-size: 28px 14px;
+      background-position: center;
+    }
+
+    /* Keyframes for seamless 3-slide cyclic cross-fade (21s total, 7s each) */
+    @keyframes cycleSlide1 {
+      0%, 28% { opacity: 1; transform: scale(1.02); }
+      33%, 95% { opacity: 0; transform: scale(1.0); }
+      100% { opacity: 1; transform: scale(1.02); }
+    }
+    @keyframes cycleSlide2 {
+      0%, 28% { opacity: 0; transform: scale(1.0); }
+      33%, 61% { opacity: 1; transform: scale(1.02); }
+      66%, 100% { opacity: 0; transform: scale(1.0); }
+    }
+    @keyframes cycleSlide3 {
+      0%, 61% { opacity: 0; transform: scale(1.0); }
+      66%, 95% { opacity: 1; transform: scale(1.02); }
+      100% { opacity: 0; transform: scale(1.0); }
+    }
+
+    .bg-slide-1 {
+      animation: cycleSlide1 21s infinite ease-in-out;
+    }
+    .bg-slide-2 {
+      animation: cycleSlide2 21s infinite ease-in-out;
+    }
+    .bg-slide-3 {
+      animation: cycleSlide3 21s infinite ease-in-out;
+    }
+
+    /* Smooth scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--c-background); }
+    ::-webkit-scrollbar-thumb { background: var(--c-outline-variant); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--c-primary); }
+  </style>
+</head>
+<body class="bg-background text-on-surface font-body antialiased min-h-screen flex flex-col selection:bg-primary selection:text-on-primary transition-colors duration-500 relative">
+<!-- ================= DYNAMIC BACKGROUND CYCLER WITH TEMPLE VEIL ================= -->
+<div aria-hidden="true" class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+<!-- Slide 1: Image 8 -->
+<div class="bg-slide-1 absolute inset-0 bg-cover bg-center transition-transform duration-[7000ms]" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuBuPUyW-yEiuHb9-uKpcbxXDg2RHCoo5k_eXAxU5f28ME6UHFXHR-anT3kE8152uHMFF1Fh28YoNesu5gfRCYlqfDQvdxOoj8LHnbhPYdM1yq6g8SF6xGdoaFDePPq9NPLzSE1-M4rXMs00uiEvojtJGFM7R4wVJBIUs7SApeZtGJybLuZxApdHoI2x3Ud3KKiu4vEwEEg0PXvZL3eDvZ-exaWtueGIVH_bv7pAeGRTlsP8NSBBnSV2Oc2CNPgCDvwSlz0&quot;); filter: contrast(105%) brightness(90%);"></div>
+<!-- Slide 2: Image 7 -->
+<div class="bg-slide-2 absolute inset-0 bg-cover bg-center transition-transform duration-[7000ms]" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuDDmgp-yAYGMGncMJ-3qU-49FQ3IuWl7vtf6pLsrG3ssQDgxv3_Km3SxquMmcaySojqZUzWldM6klZwGkMu-2X0_8nRyPmqcK6hj-4lEkSkHe1WfR8hG15TqBXSMWLWT9Hpo3woDNvXhbs8jL566zsX3IZITN9ij6y7KEnV6wEoYaxkb8GMfYT0jneeaUPMFcHAYETDiuf3uEE0vG10d3N000O374Z2TKneLPCbrmtMtkeAyIaGM23IA0Y6i-_e7Zk-4T8&quot;); filter: contrast(105%) brightness(90%);"></div>
+<!-- Slide 3: Image 6 -->
+<div class="bg-slide-3 absolute inset-0 bg-cover bg-center transition-transform duration-[7000ms]" style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuAr2ml4-SATbvQDs_jDRpPfnNtXKr7WYke--s8oiYraCy17pMxcDJbIJHxZ7JRXfAVvyvkEJQD_qXNCgNPwfgWzMRCwT32Ywhmr7PkSbsjJhMqJ2HkX4OOFaxCED3cDbgUK-f8mgWAx3jFQpGoi160avz7ObsQWDaXBMRoOwv2p1rXGcbSjIExEH25xHt14YxG0UsP4o_IGS5vrDH4KRvpuPT1OCeyoZzcFwou_vgsDK8aImmws8nRpgM73vUrBQG6pUkc&quot;); filter: contrast(105%) brightness(90%);"></div>
+<!-- Temple Veil Overlay: Adapts smoothly to Light / Dark Mode -->
+<div class="absolute inset-0 backdrop-blur-[2.5px] transition-colors duration-500" style="background-color: var(--veil-color);" data-stitch-orig-opacity="0.55"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background/95 via-transparent to-background/40 opacity-70"></div>
+</div>
+<!-- ================= TOP APP BAR ================= -->
+<header class="sticky top-0 z-30 flex items-center justify-between px-6 h-[56px] w-full backdrop-blur-md bg-surface/85 border-b border-outline-variant transition-colors duration-500 shadow-sm">
+<!-- Left: Brand Logo & Title -->
+<div class="flex items-center gap-3 w-64">
+<div class="w-8 h-8 flex items-center justify-center"><img alt="ALTHEA - Atenea" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC19Wr57SngCKOU4Y4lcBfnt_GdqxB74jLs7Ae3McXngjsCkmccFCqdDMyP6oVKv-EtiUo669ClokFiMwaN1UEsX1xrh4w8R2aX8ELK8c_YVMK-iax2WK1WQbUk-lTDKMFma-mnWD_PfuAPIiv23gcoTMyOz9Ksa1rcqhNWYG7xkej9aPljMYKgOotmPMgmMLTqal1a0U3Bl7k04Ts7O9o8SVOfXQ4UNybARQOT0ImvJWPazoYMKMlE-g"></div>
+<div class="flex flex-col">
+<span class="font-headline text-lg tracking-[0.2em] font-semibold text-primary uppercase leading-none">ALTHEA</span>
+
+</div>
+</div>
+<!-- Centered Architectural Meander Accent & Operational Status -->
+<div class="flex-1 max-w-xl mx-auto flex items-center justify-center gap-3">
+<div class="h-[14px] w-20 meander-strip opacity-70 hidden lg:block"></div>
+<div class="flex items-center gap-2 px-3 py-1 bg-surface-container-low/90 backdrop-blur-sm rounded-full border border-primary/30 shadow-xs">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="font-label text-xs text-secondary uppercase tracking-wider font-medium" id="theme-status-text">Templo Olímpico · Modo Nocturno</span>
+</div>
+<div class="h-[14px] w-20 meander-strip opacity-70 hidden lg:block"></div>
+</div>
+<!-- Right: Theme Switcher, Notifications, Live Session CTA, Profile -->
+<div class="flex items-center justify-end gap-3 w-72">
+<!-- Interactive Hellenic Theme Switcher: Sol de Apolo / Luna de Artemisa -->
+<button aria-label="Cambiar modo de iluminación helénica" class="group relative flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-primary/40 bg-surface-container hover:bg-surface-container-high transition-all shadow-sm" id="theme-toggle-btn" type="button">
+<span class="material-symbols-outlined text-[17px] text-amber-500 group-hover:rotate-12 transition-transform dark:hidden">light_mode</span>
+<span class="material-symbols-outlined text-[17px] text-primary group-hover:-rotate-12 transition-transform hidden dark:inline-block">dark_mode</span>
+<span class="font-label text-[11px] font-bold tracking-wider uppercase text-on-surface" id="theme-toggle-label">Luna</span>
+</button>
+<button class="flex items-center justify-center w-8 h-8 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors" title="Notificaciones">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-primary text-on-primary hover:bg-primary-light transition-all font-label text-xs uppercase tracking-wider font-bold shadow-md">
+<span class="material-symbols-outlined text-[16px]">fitness_center</span>
+<span class="hidden sm:inline">Sesión Activa</span>
+</button>
+<div class="flex items-center gap-2 pl-2 border-l border-outline-variant">
+<div class="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuC19Wr57SngCKOU4Y4lcBfnt_GdqxB74jLs7Ae3McXngjsCkmccFCqdDMyP6oVKv-EtiUo669ClokFiMwaN1UEsX1xrh4w8R2aX8ELK8c_YVMK-iax2WK1WQbUk-lTDKMFma-mnWD_PfuAPIiv23gcoTMyOz9Ksa1rcqhNWYG7xkej9aPljMYKgOotmPMgmMLTqal1a0U3Bl7k04Ts7O9o8SVOfXQ4UNybARQOT0ImvJWPazoYMKMlE-g" alt="Perfil de Atenea" class="w-full h-full object-cover"></div>
+<span class="font-label text-xs text-secondary font-medium hidden md:inline">Perfil</span>
+</div>
+</div>
+</header>
+<div class="flex-1 flex w-full relative z-10">
+<!-- ================= SIDE RAIL NAVIGATION ================= -->
+<aside class="fixed left-0 top-[56px] h-[calc(100vh-56px)] w-[210px] z-40 flex flex-col justify-between py-6 px-4 bg-surface-container-lowest/90 backdrop-blur-md border-r border-outline-variant transition-colors duration-500">
+<div class="flex flex-col gap-6">
+<!-- Brand Header Badge -->
+
+<!-- Main Navigation Links -->
+<nav class="flex flex-col gap-1.5">
+<!-- Inicio (Active) -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/15 text-primary border-l-2 border-primary font-bold transition-all shadow-xs" href="#">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1WcfxfG8SVmJgXT8F2zyeAlVEHS4W-0Oz_KT9DcSXvaFfTRVHJv3q8bA5ryi3TCJa3_o19k5pW70s8NEq1MpyFJSQxyTJtL6hwcS2jBjIDfznOV7cuxahT11qyhkpOmRmSRw98Hqky-b9wYfxAfKlgpw0ctH2MYaduYmu9kelfpqYlnmDzyZSx7ru-NIvFol0Xp5PnwOmk8WCJ-yswY9i3ZUb8uroN8o2ORfMRgPNFZUZOAHRDm3e43vUBS" alt="Inicio" class="w-6 h-6 object-contain inline-block drop-shadow-sm">
+<span class="font-label text-sm tracking-wider">Inicio</span>
+</a>
+<!-- Entrenamiento -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors font-medium" href="#">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1X7gV-Awo8F4kNdwb_gr_O-iPxysO91i01UhcryhA5aQr9GkPOwXs1cX12I1vqqhoK-bN8NWpGl-G7wDIUAJmtnr1zZFuMAFF-lO9sor-k00X-mwNpehzmXGKZUqTmN5YzGauDD6YvNCUdXasMR0TTFlMElhhQePjOtOlIz04J6EL2Zm3ydGrHOCJTlniAR45Hgz_s9mCZTurgldIX23NaJXLOBaKtQ63bEGTD5KOLUPdugSg9iPopBzG9a" alt="Entrenamiento" class="w-6 h-6 object-contain inline-block drop-shadow-sm">
+<span class="font-label text-sm tracking-wider">Entrenamiento</span>
+</a>
+<!-- Nutrición -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors font-medium" href="#">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1WKltUngSbmq4IdhAJW9FX42gh4f6xqDneKPhhsbLRBji0GsQ_IhrS_nbnunrgrDo6u9O1GQ_AYilzg24cNdIJtpkYxZP5mRE-PT6F8XoJz9PkmsSxHXauIckjhhzzbQxYUWxnW-7HXZ2WcNxzKwWtaUlAi2dPkaMGDhU5hDQTKLN_2O3myPvp3ug8WBUnjEfnJ2XOaqigVknxlxjcpz8sZa7orla6WZyowxtUQRdxbbHRxz-iaMF4ygqM" alt="Nutrición" class="w-6 h-6 object-contain inline-block drop-shadow-sm">
+<span class="font-label text-sm tracking-wider">Nutrición</span>
+</a>
+<!-- Progreso -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors font-medium" href="#">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1WVPyrh35M28LiosLgd2Tyhol_obJ_PrTjdv2b5Xu663FG1Gi3xfq_9Vka2JWwLHJB1oha3yGQdA__loxWSIJiqBqslYj0qneOiGsVHjqMnGjQNxve_FBhFP8_Sqt1xMsAmsfyUo1tNShla0hLxQqwl2_gP3QBr3xYMmWnwsxAer1bphggI2ja_lipUAyRDC0_mGh9a2Y9AfJBHyORHX83zRPgrLtbRX0oFdDCpSQYSu0llSKLF4U_saqw7" alt="Progreso" class="w-6 h-6 object-contain inline-block drop-shadow-sm">
+<span class="font-label text-sm tracking-wider">Progreso</span>
+</a>
+<!-- Menú -->
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors font-medium" href="#">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1XEyOkhxV_Sfl6-MpCQ4D_ikph8bgGIrFbVFcjOYs_SnPdZo3bZO7oa0YKphKq6X3QLc2RmCkgVh95mmey2fcHr8SWGakN0TpMZmg7lF2WEfos1PKcQ03Ade7PO9P_wv27qe2I51IW6pJsv0W5icEayJGWLFXqFMDyqnz0R2cZ5X_3E9qfmuQPLwXsQ-AAnC5dwAGbCFWAnguIQuVZy_kOGCFJcmrf56rdSWirK8YyFqBnWdT0iqBSSu64U" alt="Menú" class="w-6 h-6 object-contain inline-block drop-shadow-sm">
+<span class="font-label text-sm tracking-wider">Menú</span>
+</a>
+</nav>
+<!-- Secondary Modules -->
+<div class="pt-4 border-t border-outline-variant/60 flex flex-col gap-1.5">
+<p class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant px-3 mb-1 font-semibold">Módulos Sagrados</p>
+<a class="flex items-center gap-2.5 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-primary text-xs transition-colors" href="#">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1XSEWXg0DB98K9voUGcczNF13y4GC7087hDjc0zvdXQDYwxpVhfAIp78Yt_OY83KPeIihERJXqAIQbx10PhMujqrGjjHBdbJXlDG5LPGnpzIqwiO-7znquKtrzzWsqxrmGFrmIVL8Gyh2-YjWo_LMc_jkQHNhvp-ZQNX6YhRaniNxW3iV0Z_HdxvAnkmJ7SaGNbZ7XZzDtszLxccGVLVkxF-4PJfQpvElb88qWaNt8NL7PNQbrT-UzsfViZ" alt="Biblioteca Ejercicios" class="w-5 h-5 object-contain inline-block drop-shadow-sm">
+<span class="">Biblioteca Ejercicios</span>
+</a>
+<a class="flex items-center gap-2.5 px-3 py-2 rounded text-on-surface-variant hover:bg-surface-container hover:text-primary text-xs transition-colors" href="#">
+<img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDakNr8RPxnq3jS-EvCpvxouGjVGva271pzDYUd2Hm-_iQWzMPD9V0BOg7OAt_-eZlidcGCIrIGw2hRFzEW2R38lo0i6fGcHE4tGhX3A2Kwc5BjxktR2fA8JeEn1qprmagfJ6wZi4z1ntpKqqt8rtKTFPT46fIJqDSLsoPfcUDLq-IVZ871icVK273AiFJ7LZByIu0kj7cBCOOE9BQrFVaU48zUbGv3jxcc6m9G_wp3_ephv7KqA3pOsg" alt="Design Spec" class="althea-phys-icon phys-column w-5 h-5 object-contain inline-block drop-shadow-sm">
+<span class="">Design Spec &amp; Assets</span>
+</a>
+</div>
+</div>
+<!-- Footer Action -->
+<div class="pt-4 border-t border-outline-variant/60">
+<button class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors font-medium">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1VXX7cK0oXYsVcngztcxhIdCblGt09rFN4x41TAiOBSnHIqLsfhZUZwn5bRFOPPu02Vj23IKojYT2zfR-vUR7fnQOyAmb7ufX5o4xT68Wi-4chiO7_daeMAF7hFFm0eaWSGZrCh6HfHozm462pHBlxvjk6KfiXpqVxiA5YvjzfGiOPovfgyWKzN9WyPp76kQki5UQIWt3_RoZiXjqzz_pBa9X3tUxkKgtinBdEvEJrnqueIb2qs-194KsE" alt="Ajustes" class="w-5 h-5 object-contain inline-block drop-shadow-sm">
+<span class="font-label text-sm tracking-wider">Ajustes</span>
+</button>
+</div>
+</aside>
+<!-- ================= MAIN CONTENT ================= -->
+<main class="flex-1 ml-[210px] min-h-[calc(100vh-56px)] p-6 lg:p-8 max-w-[1440px] mx-auto w-full space-y-8">
+<!-- HERO HEADER: Title, Current Day status & Action Buttons -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-outline-variant">
+<div>
+<div class="flex items-center gap-3">
+<h1 class="font-headline text-3xl lg:text-4xl text-on-surface font-semibold tracking-tight">Palaestra Olímpica</h1>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-primary/15 border border-primary/40 text-primary font-label text-xs uppercase tracking-wider font-bold shadow-xs">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+              Día N° 4 · En Curso
+            </span>
+</div>
+<p class="font-body text-sm text-on-surface-variant mt-1">Jueves, 24 de Octubre · Microciclo de Arete &amp; Hipertrofia Clásica</p>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded p-1 shadow-xs">
+<button class="px-3 py-1.5 rounded bg-surface-container text-on-surface font-label text-xs font-semibold shadow-sm flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">calendar_today</span>
+<span class="">Día Actual</span>
+</button>
+<button class="px-3 py-1.5 rounded text-on-surface-variant hover:text-primary font-label text-xs flex items-center gap-1">
+<span class="">Cambiar Día</span>
+<span class="material-symbols-outlined text-[16px]">expand_more</span>
+</button>
+</div>
+<button class="px-5 py-2.5 rounded bg-primary text-on-primary font-label text-xs font-bold uppercase tracking-wider border border-primary-light hover:bg-primary-light transition-all flex items-center gap-2 shadow-lg">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+<span class="">Entrenar / Continuar</span>
+</button>
+</div>
+</div>
+<!-- TIRA SEMANAL: LUNES - DOMINGO CON ESTADOS SAGRADOS -->
+<div class="marble-card rounded-xl p-5">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">view_week</span>
+<h2 class="font-headline text-lg text-on-surface font-semibold">Microciclo Semanal (Semana 08)</h2>
+</div>
+<div class="flex items-center gap-3 font-label text-xs text-on-surface-variant">
+<span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span> Completado</span>
+<span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500"></span> En Curso</span>
+<span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-slate-400"></span> Descanso</span>
+</div>
+</div>
+<!-- 7 Days Grid -->
+<div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+<!-- Lunes: Completado -->
+<div class="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 relative overflow-hidden shadow-xs hover:border-primary/40 transition-colors">
+<div class="absolute top-0 left-0 right-0 h-1 bg-emerald-500"></div>
+<div class="flex justify-between items-center text-on-surface-variant font-label text-xs">
+<span class="">LUN 21</span>
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1U0qVVaBYgWBc3PRMwkETLvZCLJwnsHwqO3P1CnJi4b_VR6BU3x2IhpqcFYUIhpvE5qoT2I-fGqgdlOpaP2E_Q0wjC3aGxB-Wj4iIBXWErat-Yq9_WtpziAFAvaXVd8apGfyvAI10nnnIW9vDhaJT5FeKvzKt0I5EMA-qNXpKlNybMjh4aMUAAnp-gTgkn7H6tE0amqzR-C14fHXKvL0dybC-f3cWSzhsaGiZzVVG5rrJqW9q3Cgz_Kcen7" alt="Completado" class="w-5 h-5 object-contain drop-shadow-xs">
+</div>
+<p class="font-headline text-sm font-bold mt-2 text-on-surface">Torso Oro</p>
+<p class="font-body text-xs text-on-surface-variant">16 series · 100%</p>
+<span class="inline-block mt-2 px-1.5 py-0.5 rounded bg-surface-container font-label text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold">Completado</span>
+</div>
+<!-- Martes: Completado -->
+<div class="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 relative overflow-hidden shadow-xs hover:border-primary/40 transition-colors">
+<div class="absolute top-0 left-0 right-0 h-1 bg-emerald-500"></div>
+<div class="flex justify-between items-center text-on-surface-variant font-label text-xs">
+<span class="">MAR 22</span>
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1U0qVVaBYgWBc3PRMwkETLvZCLJwnsHwqO3P1CnJi4b_VR6BU3x2IhpqcFYUIhpvE5qoT2I-fGqgdlOpaP2E_Q0wjC3aGxB-Wj4iIBXWErat-Yq9_WtpziAFAvaXVd8apGfyvAI10nnnIW9vDhaJT5FeKvzKt0I5EMA-qNXpKlNybMjh4aMUAAnp-gTgkn7H6tE0amqzR-C14fHXKvL0dybC-f3cWSzhsaGiZzVVG5rrJqW9q3Cgz_Kcen7" alt="Completado" class="w-5 h-5 object-contain drop-shadow-xs">
+</div>
+<p class="font-headline text-sm font-bold mt-2 text-on-surface">Pierna &amp; Gemelo</p>
+<p class="font-body text-xs text-on-surface-variant">18 series · 100%</p>
+<span class="inline-block mt-2 px-1.5 py-0.5 rounded bg-surface-container font-label text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold">Completado</span>
+</div>
+<!-- Miércoles: Descanso Activo -->
+<div class="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 relative overflow-hidden shadow-xs">
+<div class="absolute top-0 left-0 right-0 h-1 bg-slate-400"></div>
+<div class="flex justify-between items-center text-on-surface-variant font-label text-xs">
+<span class="">MIÉ 23</span>
+<span class="material-symbols-outlined text-slate-400 text-[16px]">hotel</span>
+</div>
+<p class="font-headline text-sm font-bold mt-2 text-on-surface">Restauración</p>
+<p class="font-body text-xs text-on-surface-variant">Baño Saunas + Pasos</p>
+<span class="inline-block mt-2 px-1.5 py-0.5 rounded bg-surface-container font-label text-[9px] text-secondary font-semibold">Descanso</span>
+</div>
+<!-- Jueves: EN CURSO (HOY) -->
+<div class="bg-surface-container border-2 border-primary rounded-lg p-3 relative shadow-lg overflow-hidden bg-gradient-to-b from-primary/15 to-surface-container">
+<div class="absolute top-0 left-0 right-0 h-1 bg-primary"></div>
+<div class="flex justify-between items-center font-label text-xs text-primary font-bold">
+<span class="">JUE 24 (HOY)</span>
+<span class="material-symbols-outlined text-primary text-[16px] animate-spin">timelapse</span>
+</div>
+<p class="font-headline text-sm font-bold mt-2 text-on-surface">Hombro &amp; Brazo</p>
+<p class="font-body text-xs text-primary font-semibold">14 series · READY</p>
+<span class="inline-block mt-2 px-1.5 py-0.5 rounded bg-primary text-on-primary font-label text-[9px] font-bold">En Curso</span>
+</div>
+<!-- Viernes: Planificado -->
+<div class="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 relative opacity-85">
+<div class="absolute top-0 left-0 right-0 h-1 bg-outline-variant"></div>
+<div class="flex justify-between items-center text-on-surface-variant font-label text-xs">
+<span class="">VIE 25</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">schedule</span>
+</div>
+<p class="font-headline text-sm font-bold mt-2 text-on-surface">Espalda &amp; Deltoides</p>
+<p class="font-body text-xs text-on-surface-variant">16 series · 0%</p>
+<span class="inline-block mt-2 px-1.5 py-0.5 rounded bg-surface-container font-label text-[9px] text-on-surface-variant">Planificado</span>
+</div>
+<!-- Sábado: Planificado -->
+<div class="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 relative opacity-85">
+<div class="absolute top-0 left-0 right-0 h-1 bg-outline-variant"></div>
+<div class="flex justify-between items-center text-on-surface-variant font-label text-xs">
+<span class="">SÁB 26</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">schedule</span>
+</div>
+<p class="font-headline text-sm font-bold mt-2 text-on-surface">Femoral &amp; Core</p>
+<p class="font-body text-xs text-on-surface-variant">14 series · 0%</p>
+<span class="inline-block mt-2 px-1.5 py-0.5 rounded bg-surface-container font-label text-[9px] text-on-surface-variant">Planificado</span>
+</div>
+<!-- Domingo: Descanso -->
+<div class="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 relative opacity-85">
+<div class="absolute top-0 left-0 right-0 h-1 bg-slate-400"></div>
+<div class="flex justify-between items-center text-on-surface-variant font-label text-xs">
+<span class="">DOM 27</span>
+<span class="material-symbols-outlined text-slate-400 text-[16px]">hotel</span>
+</div>
+<p class="font-headline text-sm font-bold mt-2 text-on-surface">Descanso Total</p>
+<p class="font-body text-xs text-on-surface-variant">Recuperación</p>
+<span class="inline-block mt-2 px-1.5 py-0.5 rounded bg-surface-container font-label text-[9px] text-secondary">Descanso</span>
+</div>
+</div>
+</div>
+<!-- MAIN SECTION: 8 COLUMNS ARENA & 4 COLUMNS COLONNADE -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- 8 COLUMNS: RUTINA DEL DÍA -->
+<div class="lg:col-span-8 space-y-6">
+<div class="marble-card rounded-xl p-6">
+<div class="flex flex-col sm:flex-row justify-between sm:items-center pb-4 border-b border-outline-variant gap-3">
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">fitness_center</span>
+<h3 class="font-headline text-xl text-on-surface font-semibold">Sesión IV: Hombros Esculpidos &amp; Tríceps</h3>
+</div>
+<p class="font-body text-xs text-on-surface-variant mt-0.5">Enfoque: Tensión mecánica pura · Duración est. 62 min · RPE 8.5</p>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2.5 py-1 rounded bg-surface-container-high border border-outline-variant text-secondary font-label text-xs uppercase">14 Series Totales</span>
+<button class="px-4 py-2 rounded bg-primary text-on-primary hover:bg-primary-light transition-all font-label text-xs uppercase font-bold flex items-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[16px]">play_circle</span>
+<span class="">Lanzar Sesión</span>
+</button>
+</div>
+</div>
+<!-- List of Exercises -->
+<div class="mt-4 space-y-3">
+<!-- Exercise 1 -->
+<div class="p-3.5 bg-surface-container-low/90 rounded-lg border border-outline-variant flex items-center justify-between hover:border-primary/50 transition-all shadow-xs">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-high border border-primary/30 flex items-center justify-center font-headline text-xs font-bold text-primary">I</div>
+<div>
+<h4 class="font-headline text-sm text-on-surface font-semibold">Press Militar con Mancuernas en Banco a 75°</h4>
+<p class="font-body text-xs text-on-surface-variant">Deltoides Anterior (75%) · Tríceps (25%)</p>
+</div>
+</div>
+<div class="flex items-center gap-6 text-right">
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Series × Reps</p>
+<p class="font-headline text-sm font-bold text-on-surface">4 × 8-10</p>
+</div>
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Objetivo</p>
+<p class="font-headline text-sm font-bold text-primary">32.5 kg</p>
+</div>
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Descanso</p>
+<p class="font-headline text-sm font-bold text-secondary">120 s</p>
+</div>
+</div>
+</div>
+<!-- Exercise 2 -->
+<div class="p-3.5 bg-surface-container-low/90 rounded-lg border border-outline-variant flex items-center justify-between hover:border-primary/50 transition-all shadow-xs">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-high border border-primary/30 flex items-center justify-center font-headline text-xs font-bold text-primary">II</div>
+<div>
+<h4 class="font-headline text-sm text-on-surface font-semibold">Elevaciones Laterales en Polea Cruzada Unilateral</h4>
+<p class="font-body text-xs text-on-surface-variant">Deltoides Lateral (90%) · Trapecio (10%)</p>
+</div>
+</div>
+<div class="flex items-center gap-6 text-right">
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Series × Reps</p>
+<p class="font-headline text-sm font-bold text-on-surface">4 × 12-15</p>
+</div>
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Objetivo</p>
+<p class="font-headline text-sm font-bold text-primary">12.5 kg</p>
+</div>
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Descanso</p>
+<p class="font-headline text-sm font-bold text-secondary">90 s</p>
+</div>
+</div>
+</div>
+<!-- Exercise 3 -->
+<div class="p-3.5 bg-surface-container-low/90 rounded-lg border border-outline-variant flex items-center justify-between hover:border-primary/50 transition-all shadow-xs">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-high border border-primary/30 flex items-center justify-center font-headline text-xs font-bold text-primary">III</div>
+<div>
+<h4 class="font-headline text-sm text-on-surface font-semibold">Extensiones de Tríceps sobre la Cabeza con Cuerda</h4>
+<p class="font-body text-xs text-on-surface-variant">Tríceps Cabeza Larga (85%)</p>
+</div>
+</div>
+<div class="flex items-center gap-6 text-right">
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Series × Reps</p>
+<p class="font-headline text-sm font-bold text-on-surface">3 × 10-12</p>
+</div>
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Objetivo</p>
+<p class="font-headline text-sm font-bold text-primary">27.5 kg</p>
+</div>
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Descanso</p>
+<p class="font-headline text-sm font-bold text-secondary">90 s</p>
+</div>
+</div>
+</div>
+<!-- Exercise 4 -->
+<div class="p-3.5 bg-surface-container-low/90 rounded-lg border border-outline-variant flex items-center justify-between hover:border-primary/50 transition-all shadow-xs">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-surface-container-high border border-primary/30 flex items-center justify-center font-headline text-xs font-bold text-primary">IV</div>
+<div>
+<h4 class="font-headline text-sm text-on-surface font-semibold">Press Francés con Barra EZ en Banco Plano</h4>
+<p class="font-body text-xs text-on-surface-variant">Tríceps Cabeza Medial y Lateral (80%)</p>
+</div>
+</div>
+<div class="flex items-center gap-6 text-right">
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Series × Reps</p>
+<p class="font-headline text-sm font-bold text-on-surface">3 × 10</p>
+</div>
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Objetivo</p>
+<p class="font-headline text-sm font-bold text-primary">35.0 kg</p>
+</div>
+<div>
+<p class="font-label text-[10px] uppercase text-on-surface-variant">Descanso</p>
+<p class="font-headline text-sm font-bold text-secondary">90 s</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 4 COLUMNS: WIDGETS & TELEMETRY -->
+<div class="lg:col-span-4 space-y-6">
+<!-- Widget 1: Recuperación ES -->
+<div class="marble-card rounded-xl p-5 relative overflow-hidden">
+<div class="flex items-center justify-between pb-3 border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1XvJ0nLTLdEvptqjf_0G6aRtsP2cHZQBbEFrxbLvWdUpPI9xJpPLPprE8IsgAE48j2URcjPkYmmtJVTg4bviD3Zcmh90zmUuGNXB4vjU3fSRsjB7KsY4ZEWUXEw55IWqhI8dFVYDoVwoT8PJirHprejm0iYbLytgsL1KzWOYvj_tGoXg3vSsCM7EjHTkI1dXw8rSxP5-Kh_WUzUCoEawEQ02h_7llVDby9I-RyjYsJKEtCXLro72RFRSO8" alt="Recuperación" class="w-7 h-7 object-contain transition-transform duration-300 hover:rotate-6 active:scale-90 inline-block">
+<h4 class="font-headline text-sm font-bold text-on-surface">Recuperación ES</h4>
+</div>
+<span class="px-2 py-0.5 rounded bg-primary/15 text-primary border border-primary/30 font-label text-[10px] font-bold">Nivel Áureo</span>
+</div>
+<div class="mt-4 flex items-center justify-between">
+<div>
+<div class="font-headline text-4xl text-primary font-bold leading-none">88<span class="text-lg text-on-surface-variant">/100</span></div>
+<p class="font-body text-xs text-secondary mt-1">Capacidad neuromuscular óptima</p>
+</div>
+<!-- Shield Emblem -->
+<div class="w-14 h-14 flex items-center justify-center text-primary"><img src="https://lh3.googleusercontent.com/aida/AEtjO1XvJ0nLTLdEvptqjf_0G6aRtsP2cHZQBbEFrxbLvWdUpPI9xJpPLPprE8IsgAE48j2URcjPkYmmtJVTg4bviD3Zcmh90zmUuGNXB4vjU3fSRsjB7KsY4ZEWUXEw55IWqhI8dFVYDoVwoT8PJirHprejm0iYbLytgsL1KzWOYvj_tGoXg3vSsCM7EjHTkI1dXw8rSxP5-Kh_WUzUCoEawEQ02h_7llVDby9I-RyjYsJKEtCXLro72RFRSO8" alt="Corona de Laurel Áurea" class="w-14 h-14 object-contain transition-transform duration-300 hover:scale-110 active:scale-90"></div>
+</div>
+<div class="mt-4 space-y-2 font-label text-xs">
+<div class="flex justify-between text-on-surface-variant">
+<span class="">HRV Sueño Profundo</span>
+<span class="font-bold text-on-surface">64 ms (↑ 12%)</span>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-1.5 rounded-full" style="width: 88%"></div>
+</div>
+<div class="flex justify-between text-on-surface-variant mt-2">
+<span class="">Fatiga Central</span>
+<span class="font-bold text-on-surface">Baja (18%)</span>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden">
+<div class="bg-amber-500 h-1.5 rounded-full" style="width: 25%"></div>
+</div>
+</div>
+</div>
+<!-- Widget 2: Hidratación & Néctar -->
+<div class="marble-card rounded-xl p-5">
+<div class="flex items-center justify-between pb-3 border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1W-6dgAAigre2ywOHXNuI8c21X-GphYYaZ8QBIq3K3JoR6mHpPgxEVpqqLudbiEoH9iNFeHkbFr8sDMe-rHdg38ljKhBZDK5gFiM55WQQvzG9Q-dmgmF-bpeYY9QYHswdRdBqIR2s85Q8db7jF2jblzUhtYhvzcAfINtczumUlZUV0DmkfXhwJa5jdeFJ2EWUxLvHcuu3_EV7YqgcwxG0L_fH_Hwwzxya9bRwaoixwNq4zuKJ98DAhznMdR" alt="Cáliz de Hidratación" class="w-8 h-8 object-contain transition-transform duration-300 hover:-rotate-6 active:scale-90 inline-block drop-shadow-sm">
+<h4 class="font-headline text-sm font-bold text-on-surface">Hidratación &amp; Néctar</h4>
+</div>
+<span class="font-label text-xs text-primary font-bold">2.4 / 3.2 L</span>
+</div>
+<div class="mt-4">
+<p class="font-body text-xs text-on-surface-variant mb-3">6 de 8 cálices helénicos consumidos</p>
+<div class="grid grid-cols-4 gap-2">
+<!-- 6 Consumed -->
+<div class="p-2 rounded bg-primary/20 border border-primary/40 flex flex-col items-center justify-center text-primary cursor-pointer hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[18px] fill-1">local_cafe</span>
+<span class="font-label text-[9px] mt-1 font-bold">400ml</span>
+</div>
+<div class="p-2 rounded bg-primary/20 border border-primary/40 flex flex-col items-center justify-center text-primary cursor-pointer hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[18px] fill-1">local_cafe</span>
+<span class="font-label text-[9px] mt-1 font-bold">400ml</span>
+</div>
+<div class="p-2 rounded bg-primary/20 border border-primary/40 flex flex-col items-center justify-center text-primary cursor-pointer hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[18px] fill-1">local_cafe</span>
+<span class="font-label text-[9px] mt-1 font-bold">400ml</span>
+</div>
+<div class="p-2 rounded bg-primary/20 border border-primary/40 flex flex-col items-center justify-center text-primary cursor-pointer hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[18px] fill-1">local_cafe</span>
+<span class="font-label text-[9px] mt-1 font-bold">400ml</span>
+</div>
+<div class="p-2 rounded bg-primary/20 border border-primary/40 flex flex-col items-center justify-center text-primary cursor-pointer hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[18px] fill-1">local_cafe</span>
+<span class="font-label text-[9px] mt-1 font-bold">400ml</span>
+</div>
+<div class="p-2 rounded bg-primary/20 border border-primary/40 flex flex-col items-center justify-center text-primary cursor-pointer hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[18px] fill-1">local_cafe</span>
+<span class="font-label text-[9px] mt-1 font-bold">400ml</span>
+</div>
+<!-- 2 Pending -->
+<div class="p-2 rounded bg-surface-container border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant opacity-50 cursor-pointer hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">local_cafe</span>
+<span class="font-label text-[9px] mt-1">Pend.</span>
+</div>
+<div class="p-2 rounded bg-surface-container border border-outline-variant flex flex-col items-center justify-center text-on-surface-variant opacity-50 cursor-pointer hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">local_cafe</span>
+<span class="font-label text-[9px] mt-1">Pend.</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Widget 3: Oráculo Virtuoso / Coach IA -->
+<div class="marble-card rounded-xl p-5 border-l-4 border-l-primary relative">
+<div class="flex items-center gap-2 mb-2">
+<img src="https://lh3.googleusercontent.com/aida/AEtjO1UEJWC-f80ezvJ19TjyErY_RIaH_cLNjfvPZc7rbVJsYQPJYJ0FFSmTtp8w-t1Phip9NiOvDtnIQHRz7vmHnJpA_Qdz2zY3ubRXlYOmQwwBWfGXg-ShcFxj-9oc7-3s7Z5gak3IBRSeDlUN5e9yVmpG7T7MjKss7pfil8bfLucsc7LDgqXRKlY_bgwAJASJo4Q1eL8u1OtjEzptMKTxx3I20Y5JgrRTYW8a57bYpQceTB1aIONan-LiMIYC" alt="Oráculo Sabio" class="w-9 h-9 object-contain transition-transform duration-300 hover:scale-110 active:scale-95 inline-block">
+<h4 class="font-headline text-sm font-bold text-on-surface">Oráculo Virtuoso · Coach IA</h4>
+</div>
+<blockquote class="font-headline text-xs italic text-on-surface/90 leading-relaxed mt-2">
+              “Hoy en el Press Militar, mantén la cadera bloqueada y el pecho alto como columna dórica. Si alcanzas 10 reps limpias en la serie 2, añade 1.25 kg por lado sin vacilación.”
+            </blockquote>
+<div class="mt-3 flex items-center justify-between font-label text-[10px] text-on-surface-variant pt-2 border-t border-outline-variant">
+<span class="">Algoritmo Althea v4.2</span>
+<button class="text-primary font-bold hover:underline flex items-center gap-0.5">
+<span class="">Consultar al Oráculo</span>
+<span class="material-symbols-outlined text-[12px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Interactive Dark / Light Mode Toggle Script -->
+<script>
+    (function () {
+      const toggleBtn = document.getElementById('theme-toggle-btn');
+      const toggleLabel = document.getElementById('theme-toggle-label');
+      const statusText = document.getElementById('theme-status-text');
+      const htmlEl = document.documentElement;
+
+      function updateThemeUI(isDark) {
+        if (isDark) {
+          htmlEl.classList.add('dark');
+          if (toggleLabel) toggleLabel.textContent = 'Luna';
+          if (statusText) statusText.textContent = 'Templo Olímpico · Modo Nocturno';
+        } else {
+          htmlEl.classList.remove('dark');
+          if (toggleLabel) toggleLabel.textContent = 'Sol';
+          if (statusText) statusText.textContent = 'Templo Olímpico · Modo Diurno';
+        }
+      }
+
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', function () {
+          const isCurrentlyDark = htmlEl.classList.contains('dark');
+          updateThemeUI(!isCurrentlyDark);
+        });
+      }
+    })();
+  </script>
+
+
+</body></html>
