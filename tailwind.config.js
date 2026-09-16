@@ -20,7 +20,7 @@ export default {
         'primary-container': '#556b2f',
         'primary-fixed': '#d2eca2',
         'primary-fixed-dim': '#b6d088',
-        'on-primary': '#233600',
+        'on-primary': '#000000',
         'on-primary-container': '#d0eba1',
         'on-primary-fixed': '#131f00',
         'on-primary-fixed-variant': '#394d14',
