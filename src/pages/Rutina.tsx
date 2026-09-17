@@ -179,7 +179,7 @@ export default function RutinaPage(){
               <h3 className="font-headline-lg text-base font-semibold text-on-surface">Crear nueva rutina</h3>
               <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nombre: Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface"/>
               <div className="flex gap-2">
-                <button onClick={()=>setShowNew(false)} className="flex-1 py-3 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
+                <button onClick={()=>setShowNew(false)} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
                 <button onClick={createNew} className="flex-1 py-3 rounded bg-primary text-on-surface">Crear rutina</button>
               </div>
             </div>
@@ -195,7 +195,7 @@ export default function RutinaPage(){
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
       {/* Selector superior */}
-      <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rutina:</div>
         <button onClick={()=>setSelectorOpen(!selectorOpen)} className="mt-1 w-full flex items-center justify-between bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface">
           <span className="font-medium">{active.name}</span>
@@ -205,7 +205,7 @@ export default function RutinaPage(){
           <div className="mt-2 rounded bg-surface/60 border border-outline-variant p-2 space-y-1">
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Seleccionar rutina</div>
             {routines.map(r=>(
-              <label key={r.id} className="flex items-center gap-2 p-2 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant cursor-pointer">
+              <label key={r.id} className="flex items-center gap-2 p-2 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant cursor-pointer">
                 <input type="radio" name="rutina" checked={r.id===activeId} onChange={()=>{ setActive(r.id); setSelectorOpen(false)}} />
                 <span className="font-body-md text-sm text-on-surface flex-1">{r.name} {r.id===activeId && '●'}</span>
                 <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{r.id===activeId ? 'activa' : ''}</span>
@@ -227,7 +227,7 @@ export default function RutinaPage(){
       </div>
 
       {/* Rutina actual */}
-      <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
         <div className="flex gap-2 items-center">
           <input value={active.name} onChange={e=> updateActive(r=> ({...r, name: e.target.value}))} className="flex-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface font-medium" />
           <button onClick={()=>deleteRoutine(active.id)} className="px-3 py-2 rounded bg-surface/60 border border-outline-variant font-body-md text-sm text-on-surface flex items-center gap-1"><Trash2 size={14}/> Eliminar</button>
@@ -260,7 +260,7 @@ export default function RutinaPage(){
         {active.cycle.trainingDays.map(d=>{
           const exs = active.dayExercises[d.n] || []
           return (
-            <div key={d.n} className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+            <div key={d.n} className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-surface font-bold font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface">N°{d.n}</div>
@@ -304,11 +304,11 @@ export default function RutinaPage(){
         <button onClick={()=>{
           const n = Math.max(0,...active.cycle.trainingDays.map(d=>d.n))+1
           updateActive(r=> ({...r, cycle: {...r.cycle, trainingDays:[...r.cycle.trainingDays,{n, name:`Día N°${n}`} ]}}))
-        }} className="w-full py-3 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface flex items-center justify-center gap-2"><Plus size={16}/> Agregar Día N°</button>
+        }} className="w-full py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface flex items-center justify-center gap-2"><Plus size={16}/> Agregar Día N°</button>
       </div>
 
       {/* Asignación calendario */}
-      <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Asignación calendario</div>
         {WEEK_LABELS.map((w,i)=>(
           <div key={i} className="flex justify-between items-center bg-surface/60 backdrop-blur-sm border border-outline-variant rounded-lg p-2 mt-1">
@@ -324,7 +324,7 @@ export default function RutinaPage(){
         ))}
       </div>
 
-      <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><History size={14}/> Historial de rutinas</div>
         <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rutina activa {active.name} · {daysElapsed} días. Otras {routines.length-1} guardadas intactas. Historial sesiones/setLogs conservado por rutina.</p>
         <div className="mt-2 flex gap-1 flex-wrap">
@@ -335,7 +335,7 @@ export default function RutinaPage(){
       </div>
 
       <div className="lg:col-span-4 space-y-3 hidden lg:block">
-        <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+        <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Dumbbell size={14}/> Stats de la rutina</div>
           <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Días de entrenamiento</span><span className="font-body-md text-sm text-on-surface font-medium">{active.cycle.trainingDays.length}/semana</span></div>
           <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total ejercicios</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(active.dayExercises).flat().length}</span></div>
@@ -344,14 +344,14 @@ export default function RutinaPage(){
         {active.cycle.methodId && (() => {
           const m = getMethod(active.cycle.methodId)
           return m ? (
-            <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+            <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-primary flex items-center gap-1"><Sparkles size={14}/> Método activo</div>
               <div className="font-body-md text-sm text-on-surface font-medium">{m.nameEs}</div>
               <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant leading-relaxed">{m.description.slice(0, 120)}…</div>
             </div>
           ) : null
         })()}
-        <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+        <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><AlertTriangle size={14}/> Tips rápidos</div>
           <ul className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant space-y-1.5 list-disc list-inside">
             <li>Mantené hidratación durante la sesión</li>
@@ -370,7 +370,7 @@ export default function RutinaPage(){
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nombre:</p>
             <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface"/>
             <div className="flex gap-2">
-              <button onClick={()=>setShowNew(false)} className="flex-1 py-3 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
+              <button onClick={()=>setShowNew(false)} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
               <button onClick={()=>{
                 if(routines.length>=4){ alert('Tenés 4 rutinas guardadas.\nPara crear otra rutina, modificá o eliminá una de las existentes.'); return}
                 if(!newName.trim()){ alert('Ingresá un nombre'); return}
@@ -430,7 +430,7 @@ export default function RutinaPage(){
             <h3 className="font-headline-lg text-base font-semibold text-on-surface text-red-400">Error al generar</h3>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{aiError}</p>
             <div className="flex gap-2">
-              <button onClick={()=>setAiError(null)} className="flex-1 py-3 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cerrar</button>
+              <button onClick={()=>setAiError(null)} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cerrar</button>
               <button onClick={()=>{ setAiError(null); setShowQuestionnaire(true) }} className="flex-1 py-3 rounded bg-primary text-on-surface">Reintentar</button>
             </div>
           </div>
@@ -549,7 +549,7 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
           <h3 className="font-body-md text-sm text-on-surface font-medium">Agregar a N°{dayN}</h3>
           <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Día: <b>{dayName || 'Sin nombre'}</b> — no detectamos grupo muscular.</p>
           <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Escribí el grupo en el nombre del día, ej: <b>Pecho + Tríceps</b>, <b>Espalda</b>, <b>Piernas</b>.</p>
-          <button onClick={onClose} className="w-full py-3 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant">Cerrar</button>
+          <button onClick={onClose} className="w-full py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant">Cerrar</button>
         </div>
       </div>
     )
@@ -584,7 +584,7 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
         {!loading && sorted.length===0 && !err && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center py-4">Sin ejercicios para este filtro. Probá otro equipamiento o búsqueda.</p>}
         <div className="grid grid-cols-1 gap-3 max-h-[45vh] overflow-auto pr-1">
           {sorted.slice(0,60).map(ex=>(
-            <div key={ex.id} className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden">
+            <div key={ex.id} className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden">
               <div className="h-36 bg-surface/60 border-b border-outline-variant flex items-center justify-center overflow-hidden">
                 {(ex.gifUrl || (ex as any).imageDataUrl) ? <img src={ex.gifUrl || (ex as any).imageDataUrl} alt={ex.name} loading="lazy" className="w-full h-full object-cover" onError={e=>{ (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }} /> : null}
                 <div className="hidden p-4 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">Vista alternativa — {ex.name}</div>
@@ -600,7 +600,7 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
             </div>
           ))}
         </div>
-        <button onClick={onClose} className="w-full py-3 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant">Cerrar</button>
+        <button onClick={onClose} className="w-full py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant">Cerrar</button>
       </div>
     </div>
   )
@@ -620,7 +620,7 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
           <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-outline-variant flex items-center justify-center font-body-md text-sm text-on-surface"><BrandIcon name="close" size={16}/></button>
         </div>
         <div className="p-4">
-          <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden flex items-center justify-center min-h-[280px] md:min-h-[400px] p-2">
+          <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden flex items-center justify-center min-h-[280px] md:min-h-[400px] p-2">
             {loading && !err && <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cargando ejercicio...</span>}
             {(!err && (exercise.gifUrl || (exercise as any).imageDataUrl)) ? (
               <img
@@ -638,7 +638,7 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
             )}
           </div>
           {exercise.instructions?.length>0 && (
-            <div className="mt-3 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+            <div className="mt-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
               <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Instrucciones</div>
               <ol className="list-decimal list-inside font-body-md text-sm text-on-surface space-y-1 mt-1">
                 {exercise.instructions.map((s,i)=><li key={i}>{s}</li>)}
@@ -675,15 +675,15 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
 
         {/* Summary stats */}
         <div className="grid grid-cols-3 gap-2 p-4">
-          <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 text-center">
+          <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 text-center">
             <div className="text-lg font-bold text-primary">{routine.cycle.trainingDays.length}</div>
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Días/semana</div>
           </div>
-          <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 text-center">
+          <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 text-center">
             <div className="text-lg font-bold text-primary">{totalExercises}</div>
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Ejercicios</div>
           </div>
-          <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 text-center">
+          <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 text-center">
             <div className="text-lg font-bold text-primary">{totalSets}</div>
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Series totales</div>
           </div>
@@ -719,7 +719,7 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
           {routine.cycle.trainingDays.map(d=>{
             const exs = routine.dayExercises[d.n] || []
             return (
-              <div key={d.n} className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+              <div key={d.n} className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center text-on-surface font-bold font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface">N°{d.n}</div>
                   <div className="font-body-md text-sm text-on-surface font-medium">{d.name}</div>
@@ -743,7 +743,7 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
 
         {/* Explanation */}
         {routine.explanation && (
-          <div className="mx-4 mb-4 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+          <div className="mx-4 mb-4 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-primary flex items-center gap-1"><Sparkles size={12}/> Explicación del Coach IA</div>
             <div className="space-y-1">
               {routine.explanation.goal && <p className="font-body-md text-sm text-on-surface"><span className="font-medium">Objetivo:</span> {routine.explanation.goal}</p>}
@@ -766,8 +766,8 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
         <div className="sticky bottom-0 bg-surface/80 backdrop-blur-md border-t border-outline-variant p-4 space-y-3">
           <input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre de la rutina" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface"/>
           <div className="flex gap-2">
-            <button onClick={onClose} className="flex-1 py-3 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface flex items-center justify-center gap-1"><X size={14}/> Descartar</button>
-            <button onClick={onRegenerate} className="py-3 px-4 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface flex items-center justify-center gap-1"><RefreshCw size={14}/></button>
+            <button onClick={onClose} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface flex items-center justify-center gap-1"><X size={14}/> Descartar</button>
+            <button onClick={onRegenerate} className="py-3 px-4 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface flex items-center justify-center gap-1"><RefreshCw size={14}/></button>
             <button onClick={()=>onConfirm(name)} className="flex-[2] py-3 rounded bg-primary text-on-surface font-medium flex items-center justify-center gap-1"><Check size={14}/> Guardar rutina</button>
           </div>
         </div>
@@ -895,7 +895,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
         {/* Summary + actions */}
         <div className="sticky bottom-0 bg-surface/80 backdrop-blur-md border-t border-outline-variant p-4 space-y-3">
           {step===3 && (
-            <div className="rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant space-y-1">
+            <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant space-y-1">
               <div><span className="font-medium font-body-md text-sm text-on-surface">Objetivo:</span> {GOAL_MAP[goal]}</div>
               <div><span className="font-medium font-body-md text-sm text-on-surface">Días:</span> {days}/semana</div>
               <div><span className="font-medium font-body-md text-sm text-on-surface">Enfoque:</span> {focuses.find(f=>f.id===focus)?.label}</div>
@@ -903,8 +903,8 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
             </div>
           )}
           <div className="flex gap-2">
-            {step > 0 && <button onClick={()=>setStep(step-1)} className="py-3 px-4 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Atrás</button>}
-            <button onClick={onClose} className="flex-1 py-3 rounded marble-slab bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
+            {step > 0 && <button onClick={()=>setStep(step-1)} className="py-3 px-4 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Atrás</button>}
+            <button onClick={onClose} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
             {canNext && <button onClick={()=>setStep(step+1)} className="flex-1 py-3 rounded bg-primary text-on-surface font-medium">Siguiente</button>}
             {canGenerate && <button onClick={()=>onGenerate({ goal, daysPerWeek: days, focus, injuryNote: injury })} className="flex-1 py-3 rounded bg-gradient-to-r from-amber-600 to-orange-500 text-white font-medium flex items-center justify-center gap-1"><Sparkles size={14}/> Generar rutina</button>}
           </div>

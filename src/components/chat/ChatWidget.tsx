@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
-import { MessageCircle, X, Send, Trash2, Bot, User } from 'lucide-react'
+import { X, Send, Trash2, Bot, User } from 'lucide-react'
+import { IconChatBubble } from '@/components/brand/FitnessIcons'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
 import { buildChatContext } from '@/services/ai/chatContext'
 import { getActiveConversation, saveMessage, getMessages, clearAllChats, type ChatMessage } from '@/services/ai/chatHistory'
@@ -140,7 +141,7 @@ export default function ChatWidget() {
         aria-label={open ? 'Cerrar chat' : 'Abrir chat'}
         style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
       >
-        {open ? <X size={20} /> : <MessageCircle size={24} />}
+        {open ? <X size={20} /> : <IconChatBubble className="w-6 h-6" />}
       </button>
 
       {/* Chat overlay */}

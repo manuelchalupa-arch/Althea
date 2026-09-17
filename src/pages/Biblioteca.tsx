@@ -146,7 +146,7 @@ export default function Biblioteca(){
 
       <div className="grid gap-3">
         {filtered.map(ex=>(
-          <div key={ex.id} onClick={()=>setDetail(ex)} className="marble-slab rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden cursor-pointer active:bg-surface-container-low/90">
+          <div key={ex.id} onClick={()=>setDetail(ex)} className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden cursor-pointer active:bg-surface-container-low/90">
             <div className="flex gap-3 p-3">
               <div className="w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant flex items-center justify-center overflow-hidden">
                 {(ex.gifUrl || (ex as any).imageDataUrl) ? <img src={ex.gifUrl || (ex as any).imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="w-full h-full object-cover" /> : <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-[10px] text-center">GIF</span>}

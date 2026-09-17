@@ -157,42 +157,24 @@ export function TempleBackdrop() {
 export function AppHeader() {
   const [logoOk, setLogoOk] = useState(true)
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between px-6 h-[52px] w-full backdrop-blur-md bg-surface/90 border-b border-outline-variant/30 shadow-sm transition-colors duration-500">
-      {/* Left: Brand Logo & Title */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 flex items-center justify-center">
-            {logoOk ? (
-              <img
-                src="/assets/icons/navigation/logo.png"
-                alt="Althea"
-                className="w-full h-full object-contain"
-                onError={() => setLogoOk(false)}
-              />
-            ) : (
-              <span className="material-symbols-outlined text-secondary" style={{ fontSize: 22 }}>temple_hindu</span>
-            )}
-          </div>
-          <div className="flex flex-col">
-            <span className="font-headline-md text-headline-sm font-semibold tracking-[0.2em] text-primary">ALTHEA</span>
-            <span className="font-label-caps text-[9px] tracking-widest text-secondary uppercase font-semibold">TEMPLO DE LA VIRTUD FÍSICA</span>
-          </div>
-        </div>
+    <header className="sticky top-0 z-30 flex items-center justify-between px-8 h-[56px] w-full backdrop-blur-md bg-surface/90 border-b border-outline-variant/30 shadow-sm transition-colors duration-500">
+      {/* Left: Brand */}
+      <div className="flex items-center gap-3">
+        {logoOk ? (
+          <img
+            src="/assets/icons/navigation/logo.png"
+            alt="Althea"
+            className="w-7 h-7 object-contain"
+            onError={() => setLogoOk(false)}
+          />
+        ) : (
+          <span className="material-symbols-outlined text-primary" style={{ fontSize: 24 }}>temple_hindu</span>
+        )}
+        <span className="font-headline-md text-headline-sm font-semibold tracking-[0.2em] text-primary">ALTHEA</span>
       </div>
-      {/* Center: Meander accent */}
-      <div className="hidden lg:flex items-center h-4 w-72 greek-meander-bar" />
-      {/* Right: Theme Toggle + Status */}
-      <div className="flex items-center justify-end gap-3">
+      {/* Right: Theme Toggle */}
+      <div className="flex items-center gap-3">
         <ThemeToggle />
-        <div className="flex items-center gap-2 pl-2 border-l border-outline-variant/30">
-          <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-container-high border border-secondary/40 flex items-center justify-center">
-            <img
-              src="/assets/icons/navigation/logo.png"
-              alt="Perfil"
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </div>
       </div>
     </header>
   )

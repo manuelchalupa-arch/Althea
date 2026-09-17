@@ -209,7 +209,7 @@ export default function Progresos(){
       {/* ─── KPI Ribbon (5 cards) ─── */}
       <section className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
         {/* KPI 1 — Peso Actual */}
-        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5 marble-slab flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5  flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
           <div className="flex items-center justify-between">
             <span className="font-label-caps text-[11px] uppercase text-outline tracking-wider">Peso Actual</span>
             <span className="material-symbols-outlined text-[18px] text-secondary">monitor_weight</span>
@@ -233,7 +233,7 @@ export default function Progresos(){
         </div>
 
         {/* KPI 2 — Sesiones */}
-        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5 marble-slab flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5  flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
           <div className="flex items-center justify-between">
             <span className="font-label-caps text-[11px] uppercase text-outline tracking-wider">Sesiones</span>
             <span className="material-symbols-outlined text-[18px] text-secondary">fitness_center</span>
@@ -255,7 +255,7 @@ export default function Progresos(){
         </div>
 
         {/* KPI 3 — Volumen Total */}
-        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5 marble-slab flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5  flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
           <div className="flex items-center justify-between">
             <span className="font-label-caps text-[11px] uppercase text-outline tracking-wider">Volumen</span>
             <span className="material-symbols-outlined text-[18px] text-secondary">bar_chart</span>
@@ -277,7 +277,7 @@ export default function Progresos(){
         </div>
 
         {/* KPI 4 — Mejor Índice */}
-        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5 marble-slab flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5  flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
           <div className="flex items-center justify-between">
             <span className="font-label-caps text-[11px] uppercase text-outline tracking-wider">Mejor Índice</span>
             <span className="material-symbols-outlined text-[18px] text-secondary">emoji_events</span>
@@ -299,7 +299,7 @@ export default function Progresos(){
         </div>
 
         {/* KPI 5 — Recuperación */}
-        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5 marble-slab flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-3.5  flex flex-col justify-between relative overflow-hidden group hover:border-secondary/50 transition-all duration-200">
           <div className="flex items-center justify-between">
             <span className="font-label-caps text-[11px] uppercase text-outline tracking-wider">Recuperación</span>
             <span className="material-symbols-outlined text-[18px] text-secondary">monitor_heart</span>
@@ -329,7 +329,7 @@ export default function Progresos(){
         <div className="lg:col-span-8 flex flex-col gap-5">
 
           {/* Weight Evolution Chart (Custom SVG) */}
-          <AltheaCard marble-slab className="p-4">
+          <AltheaCard  className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="material-symbols-outlined text-[16px] text-secondary">show_chart</span>
               <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">EVOLUCIÓN DE PESO CORPORAL</span>
@@ -385,7 +385,7 @@ export default function Progresos(){
           </AltheaCard>
 
           {/* Progressive Overload — Segmented Bar Chart */}
-          <AltheaCard marble-slab className="p-4">
+          <AltheaCard  className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="material-symbols-outlined text-[16px] text-secondary">stacked_bar_chart</span>
               <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">SOBRECARGA PROGRESIVA — 12 SEMANAS</span>
@@ -405,7 +405,7 @@ export default function Progresos(){
           </AltheaCard>
 
           {/* Exercise Selector & Metric Controls */}
-          <AltheaCard marble-slab className="p-4 space-y-3">
+          <AltheaCard  className="p-4 space-y-3">
             <div>
               <div className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant mb-2">PARTE MUSCULAR · VISTA GLOBAL</div>
               <select value={partSel} onChange={e=>setPartSel(e.target.value)} aria-label="Parte muscular" className="w-full bg-surface-container border border-outline-variant rounded-lg p-2.5 font-body-md text-sm text-on-surface">
@@ -437,7 +437,7 @@ export default function Progresos(){
           </AltheaCard>
 
           {/* Exercise Sparklines (3×2 grid) */}
-          <AltheaCard marble-slab className="p-4">
+          <AltheaCard  className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="material-symbols-outlined text-[16px] text-secondary">query_stats</span>
               <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">EJERCICIOS REALIZADOS · mini gráficos ({metric})</span>
@@ -456,7 +456,7 @@ export default function Progresos(){
                   return `${i===0?'M':'L'}${x},${y}`;
                 }).join(' ');
                 return (
-                  <AltheaCard key={ex.id} marble-slab className="p-2.5 hover:border-primary/30 transition-all">
+                  <AltheaCard key={ex.id}  className="p-2.5 hover:border-primary/30 transition-all">
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="font-body-md text-[12px] text-on-surface truncate flex-1">{ex.name}</span>
                       <span className={`font-label-caps text-[9px] font-bold uppercase tracking-wider shrink-0 ${ex.trend.startsWith('↑') ? 'text-primary' : ex.trend.startsWith('↓') ? 'text-error' : 'text-outline'}`}>{ex.trend}</span>
@@ -477,7 +477,7 @@ export default function Progresos(){
         <div className="lg:col-span-4 flex flex-col gap-5">
 
           {/* Anatomical Heatmap */}
-          <AltheaCard marble-slab className="p-4">
+          <AltheaCard  className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="material-symbols-outlined text-[16px] text-secondary">accessibility_new</span>
               <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">MAPA ANATÓMICO</span>
@@ -543,7 +543,7 @@ export default function Progresos(){
           </AltheaCard>
 
           {/* Recovery Gauge */}
-          <AltheaCard marble-slab className="p-4">
+          <AltheaCard  className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="material-symbols-outlined text-[16px] text-secondary">speed</span>
               <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">GAUGE DE RECUPERACIÓN</span>
@@ -604,7 +604,7 @@ export default function Progresos(){
           </div>
 
           {/* Summary Card */}
-          <AltheaCard marble-slab className="p-4">
+          <AltheaCard  className="p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="material-symbols-outlined text-[16px] text-secondary">summarize</span>
               <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">RESUMEN DEL PERÍODO</span>

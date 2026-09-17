@@ -19,7 +19,7 @@ const colorMap = {
 
 export function AltheaKPICard({ icon, label, value, subtitle, trend, color = 'primary', className = '' }: AltheaKPICardProps) {
   return (
-    <div className={`marble-slab rounded p-5 ${className}`}>
+    <div className={`rounded p-5 ${className}`}>
       <div className="flex items-center gap-2.5 mb-3">
         <div className="w-8 h-8 rounded bg-primary/15 border border-primary/30 flex items-center justify-center">
           <span className="material-symbols-outlined text-[16px] text-primary">{icon}</span>

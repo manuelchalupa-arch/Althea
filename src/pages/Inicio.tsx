@@ -53,6 +53,7 @@ export default function Inicio(){
   const [editingIdx, setEditingIdx] = useState<number|null>(null)
   const [editDraft, setEditDraft] = useState<{reps:number; weight:number; restSec:number}>({reps:0, weight:0, restSec:90})
   const [savedIdx, setSavedIdx] = useState<number|null>(null)
+  const [showCalendarPopover, setShowCalendarPopover] = useState(false)
 
   const loadDay = async (cycleToUse:any, dayN:number | null)=>{
     const { getDayExercises } = await import('@/utils/routine')
@@ -164,8 +165,13 @@ export default function Inicio(){
         if(m) setActiveMethodName(m.nameEs)
       }
     })
-    const h = Number(localStorage.getItem('hydration:'+todayStr) || '1900')
-    setHydration(h)
+    // Leer hidratación desde Dexie (fuente de verdad)
+    import('@/services/storage/db').then(({ db })=>{
+      db.hydrationLogs.where('localDate').equals(todayStr).toArray().then((rows)=>{
+        const total = rows.reduce((sum:number, r:any)=> sum + (r.amountMl || 0), 0)
+        setHydration(total || 0)
+      }).catch(()=> setHydration(0))
+    }).catch(()=>{})
     import('@/services/training/sessionStore').then(({ getActiveSession })=> getActiveSession().then((s)=> setHasActiveSession(!!s && s.calendarDate===todayStr)).catch(()=>{})).catch(()=>{})
   },[])
 
@@ -182,10 +188,10 @@ export default function Inicio(){
   return (
     <div className="min-h-screen bg-transparent pb-24">
       {/* Greek Meander Bar Accent */}
-      <div className="w-full h-2 greek-meander-bar rounded-sm" />
+      <div className="w-full h-2  rounded-sm" />
 
       {/* 1. HEADER BANNER: PALAESTRA OLÍMPICA */}
-      <section className="marble-slab border border-outline-variant/40 rounded-lg p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative overflow-hidden mt-4">
+      <section className="border border-outline-variant/40 rounded-lg p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative overflow-hidden mt-4">
         <div className="relative z-10 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="font-headline-lg text-headline-md sm:text-headline-lg font-semibold text-on-surface tracking-tight">
@@ -205,10 +211,11 @@ export default function Inicio(){
           )}
         </div>
         <div className="relative z-10 flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface">
+          <button onClick={()=> setShowCalendarPopover(!showCalendarPopover)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
             <span className="material-symbols-outlined text-outline" style={{ fontSize: 16 }}>date_range</span>
             <span className="font-medium text-body-sm">Semana {Math.max(1, Math.floor((Date.now() - new Date((cycle as any).startDate || todayStr).getTime()) / (7*86400000)) + 1)}</span>
-          </div>
+          </button>
           <button onClick={async()=>{
             const rawList = JSON.parse(localStorage.getItem('rutinas:list')||'null')
             const activeId = localStorage.getItem('rutina:activeId')
@@ -239,7 +246,7 @@ export default function Inicio(){
             })
             window.dispatchEvent(new Event('routineChange'))
             nav('/entrenar')
-          }} className="flex items-center gap-2 px-4 py-2 rounded bg-primary-container hover:bg-tertiary-container text-white border border-outline-variant/60 shadow-md hover:border-secondary transition-all font-label-md text-label-md active:scale-[0.98]">
+          }} className="flex items-center gap-2 px-4 py-2 rounded bg-primary-container hover:bg-tertiary-container text-on-primary-container border border-outline-variant/60 shadow-md hover:border-secondary transition-all font-label-md text-label-md active:scale-[0.98]">
             <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>electric_bolt</span>
             <span className="tracking-wide uppercase font-semibold">{hasActiveSession ? 'CONTINUAR' : 'ENTRENAR'}</span>
           </button>
@@ -247,7 +254,7 @@ export default function Inicio(){
       </section>
 
       {/* 2. MICROCICLO SEMANAL (7-DAY STRIP) */}
-      <section className="marble-slab border border-outline-variant/30 rounded-lg p-3 sm:p-3.5 space-y-2.5 mt-4">
+      <section className="border border-outline-variant/30 rounded-lg p-3 sm:p-3.5 space-y-2.5 mt-4">
         <div className="flex items-center justify-between text-[11px]">
           <div className="flex items-center gap-2">
             <span className="font-label-caps text-[11px] uppercase text-secondary font-semibold">DISTRIBUCIÓN DEL MICROCICLO</span>
@@ -315,7 +322,7 @@ export default function Inicio(){
       {/* 3. BENTO CORE: WORKOUT (LEFT 8) + WIDGETS (RIGHT 4) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-4">
         {/* LEFT 8: WORKOUT CARD */}
-        <div className="lg:col-span-8 marble-slab border border-outline-variant/40 rounded-lg p-4 sm:p-5 space-y-4">
+        <div className="lg:col-span-8  border border-outline-variant/40 rounded-lg p-4 sm:p-5 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-bright">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
@@ -355,7 +362,7 @@ export default function Inicio(){
                 })
                 window.dispatchEvent(new Event('routineChange'))
                 nav('/entrenar')
-              }} className="self-start sm:self-center flex items-center gap-1.5 px-3.5 py-1.5 rounded bg-primary-container hover:bg-tertiary-container text-white border border-outline-variant/50 transition-all font-label-md text-label-md active:scale-[0.98]">
+              }} className="self-start sm:self-center flex items-center gap-1.5 px-3.5 py-1.5 rounded bg-primary-container hover:bg-tertiary-container text-on-primary-container border border-outline-variant/50 transition-all font-label-md text-label-md active:scale-[0.98]">
                 <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>play_arrow</span>
                 <span className="uppercase tracking-wider text-[12px] font-semibold">{hasActiveSession ? 'CONTINUAR' : 'LANZAR SESIÓN'}</span>
               </button>
@@ -484,7 +491,7 @@ export default function Inicio(){
         {/* RIGHT 4: WIDGETS */}
         <div className="lg:col-span-4 space-y-4">
           {/* WIDGET 1: RECUPERACIÓN ARETE */}
-          <div className="marble-slab border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-3 relative overflow-hidden">
+           <div className="border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-3 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary" style={{ fontSize: 20 }}>favorite</span>
@@ -528,7 +535,7 @@ export default function Inicio(){
           </div>
 
           {/* WIDGET 2: HIDRATACIÓN & NÉCTAR */}
-          <div className="marble-slab border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-3">
+           <div className="border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary" style={{ fontSize: 20 }}>water_drop</span>
@@ -555,13 +562,27 @@ export default function Inicio(){
                 )
               })}
             </div>
-            <Link to="/nutricion" className="block text-center text-[10px] text-primary font-label-caps uppercase font-bold hover:text-secondary transition-colors pt-1 border-t border-outline-variant/20">
-              Registrar Agua · Ver Nutrición →
+            <button
+              onClick={()=>{
+                const addMl = 250
+                const newTotal = hydration + addMl
+                setHydration(newTotal)
+                // Guardar en Dexie
+                import('@/services/storage/db').then(({ db })=>{
+                  db.hydrationLogs.add({ id: `h:${todayStr}:${Date.now()}`, localDate: todayStr, amountMl: addMl, time: new Date().toISOString().slice(11,16) } as any).catch(()=>{})
+                }).catch(()=>{})
+              }}
+              className="w-full py-2 rounded-lg bg-primary-container/30 border border-primary/40 text-primary font-label-caps text-[10px] uppercase font-bold hover:bg-primary-container/50 transition-colors active:scale-[0.98]"
+            >
+              + 250 ml
+            </button>
+            <Link to="/nutricion" className="block text-center text-[9px] text-on-surface-variant font-label-caps uppercase hover:text-primary transition-colors">
+              Ver Nutrición →
             </Link>
           </div>
 
           {/* WIDGET 3: ORÁCULO VIRTUOSO */}
-          <div className="marble-slab border border-secondary/30 rounded-lg p-3.5 sm:p-4 space-y-2.5 relative overflow-hidden bg-gradient-to-b from-surface-container-low to-surface-container">
+           <div className="border border-secondary/30 rounded-lg p-3.5 sm:p-4 space-y-2.5 relative overflow-hidden bg-gradient-to-b from-surface-container-low to-surface-container">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-surface-container-high border border-secondary/50 flex-shrink-0 flex items-center justify-center">
                 <span className="material-symbols-outlined text-secondary" style={{ fontSize: 20 }}>psychology</span>
@@ -586,7 +607,7 @@ export default function Inicio(){
 
           {/* WIDGET 4: COACH STATUS */}
           {briefScore !== null && (
-            <Link to="/coach" className="block marble-slab border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-2 hover:border-primary/40 transition-colors">
+            <Link to="/coach" className="block  border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-2 hover:border-primary/40 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>chat</span>
@@ -619,7 +640,7 @@ export default function Inicio(){
       </div>
 
       {/* 4. BOTTOM SECTION: REGISTROS DE VIRTUD & VOLUMEN SEMANAL */}
-      <section className="marble-slab border border-outline-variant/40 rounded-lg p-4 sm:p-5 space-y-3 mt-4">
+      <section className="border border-outline-variant/40 rounded-lg p-4 sm:p-5 space-y-3 mt-4">
         <div className="flex items-center justify-between border-b border-surface-bright pb-2.5">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>insights</span>
@@ -723,11 +744,43 @@ export default function Inicio(){
         </div>
       )}
 
+      {/* Calendar Popover */}
+      {showCalendarPopover && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowCalendarPopover(false)}>
+          <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3 max-h-[85vh] overflow-auto">
+            <h3 className="font-headline-md text-headline-sm font-semibold text-on-surface">Vista semanal</h3>
+            <div className="space-y-1.5">
+              {cycle.trainingDays.map((d:any)=>{
+                const dayDate = new Date((cycle as any).startDate || todayStr)
+                dayDate.setDate(dayDate.getDate() + (d.n - 1) + (weekOffset * 7))
+                const dateStr = dayDate.toISOString().slice(0,10)
+                const isToday = dateStr === todayStr
+                const isPast = new Date(dateStr) < new Date(todayStr)
+                return (
+                  <div key={d.n} className={`flex items-center justify-between p-2.5 rounded border text-sm ${isToday ? 'bg-primary/20 border-primary/40' : isPast ? 'bg-surface-container border-outline-variant/20 opacity-60' : 'bg-surface-container border-outline-variant/40'}`}>
+                    <div>
+                      <div className="font-medium text-on-surface">Día {d.n} — {d.name}</div>
+                      <div className="text-[11px] text-on-surface-variant">{dateStr}</div>
+                    </div>
+                    {isToday && <span className="text-[10px] font-label-caps text-primary">HOY</span>}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={()=>setWeekOffset(w=>w-1)} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant text-on-surface-variant text-sm">← Anterior</button>
+              <button onClick={()=>setWeekOffset(0)} className="flex-1 py-2 rounded bg-primary text-on-primary text-sm font-medium">Esta semana</button>
+              <button onClick={()=>setWeekOffset(w=>w+1)} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant text-on-surface-variant text-sm">Siguiente →</button>
+            </div>
+            <button onClick={()=>setShowCalendarPopover(false)} className="w-full py-2 rounded bg-surface-container border border-outline-variant text-on-surface-variant text-[11px] font-label-caps uppercase">Cerrar</button>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className="pt-4 pb-6 text-center space-y-3 mt-4">
-        <div className="w-48 mx-auto h-2 greek-meander-bar rounded-sm"></div>
         <p className="font-label-caps text-[10px] tracking-widest text-on-surface-variant uppercase">
-          ALTHEA PLATFORM · PALAESTRA DE ARETE · EDICIÓN MÁRMOL NOCTURNO Y OLIVA
+          ALTHEA PLATFORM · PALAESTRA DE ARETE
         </p>
       </footer>
     </div>

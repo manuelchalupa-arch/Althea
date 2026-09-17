@@ -67,7 +67,7 @@ export default function Calendario(){
       <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario</h1>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-8 space-y-3">
-      <div className="marble-slab rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+      <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
         <div className="font-body-md text-sm text-on-surface font-medium mb-3">{now.toLocaleDateString('es',{month:'long', year:'numeric'})}</div>
         <div className="grid grid-cols-7 gap-1 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">
           {['D','L','M','M','J','V','S'].map(d=> <div key={d} className="text-on-surface-variant py-1">{d}</div>)}
@@ -89,12 +89,12 @@ export default function Calendario(){
 
       </div>
       <div className="lg:col-span-4 space-y-3 hidden lg:block">
-        <div className="marble-slab rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+        <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Dumbbell size={14}/> Resumen del mes</div>
           <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Días con sesión</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.keys(map).filter(k=> k.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).length}</span></div>
           <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total sesiones</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(map).reduce((a,b)=>a+b, 0)}</span></div>
         </div>
-        <div className="marble-slab rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+        <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Clock size={14}/> Próximas sesiones</div>
           {cycle?.trainingDays?.length > 0 ? (
             <div className="space-y-1.5">
@@ -109,7 +109,7 @@ export default function Calendario(){
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs text-on-surface-variant">Sin rutina activa</div>
           )}
         </div>
-        <div className="marble-slab rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+        <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><AlertTriangle size={14}/> Tips rápidos</div>
           <ul className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs space-y-1.5 list-disc list-inside">
             <li>Registra cada sesión para progresión</li>
@@ -128,7 +128,7 @@ export default function Calendario(){
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Programado: {detail.scheduled} {detail.changed && `→ Realizado: ${detail.actual} (cambiado)`}</p>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sesiones: {detail.sessions.length} · Hidratación: {detail.hydration} ml · Recuperación: {detail.recovery ? `${detail.recovery.score||'?'} /100` : '—'}</p>
             {detail.sessions.length>0 && (
-              <div className="marble-slab rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+              <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Ejercicios registrados</div>
                 {detail.sessions.map((s:any)=>{ const st = String(s.status || ''); const cls = st==='COMPLETED' ? 'st-completed' : st==='PARTIAL' ? 'st-partial' : st==='CANCELLED' ? 'st-cancelled' : st==='ABANDONED' ? 'st-abandoned' : 'st-pending'; return <div key={s.id} className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-2"><span className={`px-2 py-0.5 rounded-lg border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${cls}`}>{st || '—'}</span><span>{s.localDate}{s.routineName ? ` · ${s.routineName}` : ''}</span></div> })}
               </div>

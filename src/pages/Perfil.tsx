@@ -300,7 +300,7 @@ export default function Perfil() {
     <div className="min-h-screen bg-transparent pb-24 max-w-[640px] w-full mx-auto px-4 py-6 space-y-4">
 
       {/* ═══ HEADER ═══ */}
-      <div className="bg-surface-container-low/80 backdrop-blur-sm border border-outline-variant/50 rounded-2xl p-5 stone-slab relative overflow-hidden">
+      <div className="bg-surface-container-low/80 backdrop-blur-sm border border-outline-variant/50 rounded-2xl p-5  relative overflow-hidden">
         <div className="absolute -right-16 -top-16 w-48 h-48 bg-primary-container/8 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-primary-container/30 border-2 border-primary/30 flex items-center justify-center shrink-0">

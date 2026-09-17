@@ -74,7 +74,8 @@
   --c-surface-container-highest: #ded8cb;
   --c-primary: #556b2f;
   --c-primary-container: #b6d088;
-  --c-on-primary: #ffffff;
+  --c-on-primary: #000000;
+  --c-on-primary-container: #1c1a17;
   --c-secondary: #604403;
   --c-secondary-container: #e9c176;
   --c-outline: #8c8577;
@@ -128,11 +129,14 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px -2px rgba(0,0,0,0.06);
 }
 .light .btn-primary {
-  background: var(--c-primary); color: var(--c-on-primary); border-color: var(--c-outline-variant);
+  background: var(--c-primary-container); color: #000000; border-color: var(--c-outline-variant);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 4px 20px -2px rgba(30,43,55,0.06);
 }
 .btn-primary:active { transform: scale(0.98); filter: brightness(1.06); }
 .btn-primary:disabled { opacity: .5; }
+
+/* Global: ALL green (bg-primary) elements get black text */
+.bg-primary { color: #000000 !important; }
 
 .btn-secondary {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -150,20 +154,6 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
 }
 .light .input { background: var(--c-surface-container-lowest); border-color: var(--c-outline-variant); box-shadow: none; }
 .input:focus { outline: none; border-color: var(--c-primary); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 3px rgba(182,208,136,0.15); }
-
-/* ============ MARBLE SLAB — Hellenic Dark Card ============================== */
-.marble-slab {
-  background: radial-gradient(circle at 10% 20%, rgba(255,255,255,0.03) 0%, transparent 40%),
-              radial-gradient(circle at 80% 80%, rgba(197,160,89,0.02) 0%, transparent 45%),
-              var(--c-surface-container-low);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
-}
-.light .marble-slab {
-  background: radial-gradient(circle at 10% 20%, rgba(255,255,255,0.5) 0%, transparent 40%),
-              radial-gradient(circle at 80% 80%, rgba(85,107,47,0.04) 0%, transparent 45%),
-              var(--c-surface-container-lowest);
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
-}
 
 /* ============ MARBLE CARD — Glassmorphism ==================================== */
 .marble-card {
@@ -184,16 +174,6 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
 .stone-etch-border {
   border: 1px solid var(--c-outline-variant);
   border-radius: 0.125rem;
-}
-
-/* ============ STONE SLAB — Dark Elevated Surface ============================ */
-.stone-slab {
-  background: var(--c-surface-container-high);
-  border: 1px solid var(--c-outline-variant);
-  border-radius: 0.125rem;
-}
-.light .stone-slab {
-  background: var(--c-surface-container);
 }
 
 /* ============ STONE CARD — Subtle Background ================================= */
@@ -218,13 +198,6 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   border-color: var(--c-primary);
 }
 
-/* ============ PLINTH ACTIVE — Active State =================================== */
-.plinth-active {
-  background: var(--c-primary-container);
-  border: 1px solid var(--c-primary);
-  border-radius: 0.125rem;
-}
-
 /* ============ CHISELED CARD — Sharp Corners ================================== */
 .chiseled-card {
   background: var(--c-surface-container);
@@ -245,14 +218,6 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
 /* ============ GOLD GLOW — Primary Accent Glow =============================== */
 .gold-glow {
   box-shadow: 0 0 20px rgba(182, 208, 136, 0.15), 0 0 40px rgba(182, 208, 136, 0.05);
-}
-
-/* ============ GREEK MEANDER BAR — Image-based Frieze ======================== */
-.greek-meander-bar {
-  background-image: url('https://lh3.googleusercontent.com/aida/AEtjO1W2tBJqDDan5xwFscFtN-ix7WOrQjkDgXOvg58XpSxyD1zJtZ_GwSjLhnv7JIzWKSes7lawI-uesCKO7I0ordR4QtFDCkO7BdGrb8iYnD0ArY-tn8M0nzYWUwiDHGHSwrqi0TXMtallMsT01VLkn3iUpO2jHxfQsmeF9Fd4Bld9gLcwkl0grVlxlzaMfVFmOOR6P4CfXxzwS2SIt6pKaq5jThtEVnROJnnbPhw9OHdw-ZzKPdtCNmq4KuA');
-  background-repeat: repeat-x;
-  background-size: auto 100%;
-  opacity: 0.35;
 }
 
 /* ============ GREEK MEANDER — CSS Pattern ==================================== */

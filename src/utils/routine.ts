@@ -1,4 +1,5 @@
 import { db } from '@/services/storage/db'
+import { getLastExecutionByExercise } from '@/services/history'
 
 export type DayEx = { id:string; name:string; sets:number; reps:number; weight:number; muscle?:string; gifUrl?:string; imageDataUrl?:string; exId:string; restSec?:number; seriesType?:string }
 
@@ -13,10 +14,21 @@ export async function getDayExercises(dayN:number | null, cycle:any): Promise<Da
       const arr = active.dayExercises[dayN]
       // intenta resolver nombres desde db.exercises si falta
       const exs = await db.exercises.bulkGet(arr.map((x:any)=>x.exId)).catch(()=>[])
-      return arr.map((it:any,i:number)=>{
+      // Para ejercicios con weight=0, buscar último peso usado en historial
+      const results: DayEx[] = []
+      for(let i=0;i<arr.length;i++){
+        const it = arr[i]
         const ex:any = (exs as any)?.[i]
-        return { id: it.exId, exId: it.exId, name: ex?.name || it.name || it.exId, sets: it.sets, reps: it.reps, weight: it.weight, muscle: ex?.groupMain || (it as any).muscle, gifUrl: (it as any).gifUrl, imageDataUrl: (it as any).imageDataUrl, restSec: (it as any).restSec, seriesType: (it as any).seriesType }
-      })
+        let weight = it.weight
+        if((!weight || weight===0) && it.exId){
+          const last = await getLastExecutionByExercise(it.exId).catch(()=>null)
+          if(last && last.sets.length>0){
+            weight = Math.max(...last.sets.map(s=> s.weight || 0))
+          }
+        }
+        results.push({ id: it.exId, exId: it.exId, name: ex?.name || it.name || it.exId, sets: it.sets, reps: it.reps, weight, muscle: ex?.groupMain || (it as any).muscle, gifUrl: (it as any).gifUrl, imageDataUrl: (it as any).imageDataUrl, restSec: (it as any).restSec, seriesType: (it as any).seriesType })
+      }
+      return results
     }
   }catch{}
   // fallback a routineDays (legacy)

@@ -677,7 +677,7 @@ export default function Nutricion() {
                 <div className="space-y-2">
                   {searchResults.map(r => (
                     <div key={r.id} onClick={() => openFoodDetail(r.id)}
-                      className="marble-slab rounded-lg p-3 flex gap-3 cursor-pointer active:bg-surface-container-high transition-colors">
+                      className="  rounded-lg p-3 flex gap-3 cursor-pointer active:bg-surface-container-high transition-colors">
                       {r.photoUrl ? (
                         <img src={r.photoUrl} alt={r.name} className="w-12 h-12 rounded-lg object-cover border border-outline-variant bg-surface-container-high" loading="lazy" />
                       ) : (
@@ -718,11 +718,11 @@ function FoodPortionSelector({ food, onAdd, onCancel }: {
   const preview = getNutrients(selectedIdx, customAmt)
   return (
     <div className="space-y-3">
-      <div className="marble-slab rounded-lg p-3">
+      <div className="  rounded-lg p-3">
         <div className="font-body-md text-sm text-on-surface font-medium">{food.name}</div>
         {food.brand && <div className="font-body-md text-xs text-on-surface-variant">{food.brand}</div>}
       </div>
-      <div className="marble-slab rounded-lg p-3">
+      <div className="  rounded-lg p-3">
         <div className="font-label-caps text-[10px] text-on-surface-variant">Por 100{food.baseUnit}</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1 font-body-md text-xs text-on-surface">
           <span>{per100.calories} kcal</span><span>{per100.proteins}g P</span><span>{per100.carbs}g C</span><span>{per100.fats}g G</span>

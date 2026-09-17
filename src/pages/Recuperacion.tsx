@@ -75,7 +75,7 @@ export default function Recuperacion(){
         <div className="font-body-md text-sm text-on-surface opacity-80 mt-1">{color==='green'?'Normal':color==='yellow'?'Moderada':'Baja'} — {color==='green'?'Listo para entrenar':color==='yellow'?'Considerá bajar volumen':'Priorizá descanso'}</div>
       </div>
 
-      <div className="marble-slab rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-3">
+      <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-3">
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Cuestionario diario (1–10) — completalo cuando quieras</div>
         {FIELDS.map(([k,label])=>(
           <label key={k} className="block">
@@ -99,12 +99,12 @@ export default function Recuperacion(){
           <div className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">{score}<span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-sm">/100</span></div>
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">{color==='green'?'Normal':color==='yellow'?'Moderada':'Baja'}</div>
         </div>
-        <div className="marble-slab rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+        <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><AlertTriangle size={14}/> Último check-in</div>
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-sm">Hoy — {new Date().toLocaleDateString('es')}</div>
           <div className="font-body-md text-sm text-on-surface font-medium">Energía: {vals.energy}/10 · Fatiga: {vals.fatigue}/10</div>
         </div>
-        <div className="marble-slab rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+        <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Sparkles size={14}/> Tips de recuperación</div>
           <ul className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs space-y-1.5 list-disc list-inside">
             <li>Dormí 7–8h para óptima recuperación</li>

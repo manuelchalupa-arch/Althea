@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Olive & Old Gold palette — Althea Modo Oscuro Clásico Helénico
+        // Olive & Old Gold palette — Althea Dark mode (base). Light mode handled by CSS overrides.
         'background': '#131313',
         'surface': '#131313',
         'surface-dim': '#131313',
@@ -79,7 +79,6 @@ export default {
         'label-md': ['"Inter"', 'system-ui', 'sans-serif'],
         'label-caps': ['"Inter"', 'system-ui', 'sans-serif'],
         'display-hero-mobile': ['"Noto Serif"', 'serif'],
-        // Legacy aliases
         headline: ['"Noto Serif"', 'serif'],
         body: ['"Inter"', 'system-ui', 'sans-serif'],
         label: ['"Inter"', 'system-ui', 'sans-serif'],

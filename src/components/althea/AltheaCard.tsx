@@ -14,7 +14,7 @@ export function AltheaCard({ children, className = '', padding = 'md', hover = f
   return (
     <div
       onClick={onClick}
-      className={`marble-slab rounded ${padMap[padding]} ${hover ? 'hover:border-primary/50 transition-all cursor-pointer' : 'transition-colors'} ${className}`}
+      className={`rounded ${padMap[padding]} ${hover ? 'hover:border-primary/50 transition-all cursor-pointer' : 'transition-colors'} ${className}`}
     >
       {children}
     </div>

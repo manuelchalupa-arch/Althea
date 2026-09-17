@@ -404,7 +404,7 @@ export default function Entrenar(){
       const methodRest = methodIdRef.current ? (getMethod(methodIdRef.current as any)?.defaults.restSeconds ?? 90) : 90
       setRestSec(methodRest); setRestFlash(false); setRestPaused(false); restPausedRef.current=false; try{ if(navigator.vibrate) navigator.vibrate(12) }catch{ /* noop */ }
       if(current < exs.length-1){
-        setTimeout(()=>{ setCurrent(current+1); nextCoach(current+1) }, 800)
+        // No auto-advance: user clicks "Continuar" button
       }
       // guardar ejercicio NO finaliza la sesion: se usa FINALIZAR ENTRENAMIENTO
     }
@@ -1001,7 +1001,7 @@ export default function Entrenar(){
       <div className="min-h-screen bg-transparent pb-24">
         <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
           <div className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">ENTRENAR · {rp.routineName}</div>
-          <section className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 stone-slab relative overflow-hidden">
+          <section className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6  relative overflow-hidden">
             <div className="absolute -right-20 -top-20 w-80 h-80 bg-primary-container/10 rounded-full blur-3xl pointer-events-none" />
             <h2 className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface relative z-10">{rp.sessionId ? 'Sesión preparada' : 'Plan de hoy'}</h2>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mt-4 relative z-10">
@@ -1051,6 +1051,13 @@ export default function Entrenar(){
   }
 
   if(exs.length===0) return <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto"><p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios. Cambiá el día en Inicio.</p></div>
+  if(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') return (
+    <div className="min-h-screen bg-transparent pb-24">
+      <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
+        <ResultPanel today={today} sessionStatus={sessionStatus} />
+      </div>
+    </div>
+  )
   return (
     <div className="min-h-screen bg-transparent pb-24">
       <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
@@ -1066,10 +1073,8 @@ export default function Entrenar(){
             </div>
           </div>
         )}
-        {(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') && <ResultPanel today={today} sessionStatus={sessionStatus} />}
-
         {/* Session Hero Header */}
-        <section className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 stone-slab relative overflow-hidden">
+        <section className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6  relative overflow-hidden">
           <div className="absolute -right-20 -top-20 w-80 h-80 bg-primary-container/10 rounded-full blur-3xl pointer-events-none" />
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
             <div>
@@ -1150,7 +1155,7 @@ export default function Entrenar(){
           <div className="lg:col-span-8 space-y-6">
             {/* Active Exercise Card */}
             {cur && (
-              <div className="bg-surface-container-low border border-secondary/40 rounded-xl stone-slab plinth-active overflow-hidden">
+              <div className="bg-surface-container-low border border-secondary/40 rounded-xl   overflow-hidden">
                 {/* Exercise Header Strip */}
                 <div className="p-6 pb-4 border-b border-outline-variant/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-low/80">
                   <div>
@@ -1234,10 +1239,28 @@ export default function Entrenar(){
                 </div>
 
                 {/* Modify + Skip buttons */}
-                <div className="px-6 pb-4 flex gap-2">
-                  <button onClick={()=>{ setMod({weight:cur.weight,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
-                  <button onClick={handleSkipWithReason} className="flex-1 py-2 rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
-                </div>
+                {!done[current] ? (
+                  <div className="px-6 pb-4 flex gap-2">
+                    <button onClick={()=>{ setMod({weight:cur.weight,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
+                    <button onClick={handleSkipWithReason} className="flex-1 py-2 rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
+                  </div>
+                ) : (
+                  <div className="px-6 pb-4 flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <button onClick={()=>{
+                        if(current < exs.length-1){ setCurrent(current+1); nextCoach(current+1) }
+                      }} className={`flex-1 py-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm ${current < exs.length-1 ? '' : 'hidden'}`}>
+                        <span className="flex items-center justify-center gap-2"><Check size={14}/> Continuar al siguiente</span>
+                      </button>
+                      <button onClick={openFinishModal} className="flex-1 py-3 rounded bg-surface-container border border-primary/40 text-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98]">
+                        <span className="flex items-center justify-center gap-2"><Check size={14}/> Finalizar entrenamiento</span>
+                      </button>
+                    </div>
+                    <button onClick={()=> setDone((p)=>{ const n={...p}; delete n[current]; return n })} className="w-full py-1.5 rounded border border-outline-variant/40 font-label-caps text-[10px] uppercase text-outline hover:text-on-surface-variant hover:border-outline-variant transition-colors">
+                      <span className="flex items-center justify-center gap-1.5"><RotateCcw size={11}/> Desmarcar ejercicio</span>
+                    </button>
+                  </div>
+                )}
 
                 <div className="mx-6 mb-6 rounded bg-secondary-container/20 border border-secondary/30 p-2 flex gap-2 font-body-sm text-[13px] text-on-surface-variant">
                   <AlertTriangle size={14} className="text-secondary mt-0.5 shrink-0"/> Si hay dolor importante, detené y consultá profesional. Podés saltar el ejercicio.
@@ -1253,7 +1276,7 @@ export default function Entrenar(){
                   {exs.filter((_,i)=> i > current && !done[i]).map((ex, fi)=>{
                     const origIdx = exs.indexOf(ex)
                     return (
-                      <div key={origIdx} className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-5 stone-slab hover:border-secondary/40 transition-colors group cursor-pointer" onClick={()=>{ setCurrent(origIdx); nextCoach(origIdx) }}>
+                      <div key={origIdx} className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-5  hover:border-secondary/40 transition-colors group cursor-pointer" onClick={()=>{ setCurrent(origIdx); nextCoach(origIdx) }}>
                         <div className="flex items-center justify-between mb-2">
                           <span className="px-2 py-0.5 rounded bg-surface-container-high border border-outline-variant font-label-caps text-[10px] text-secondary uppercase">SIGUIENTE · EJERCICIO {fi+2}</span>
                           <span className="font-label-caps text-[10px] text-outline">{ex.sets} Series × {ex.reps} reps</span>
@@ -1276,7 +1299,7 @@ export default function Entrenar(){
           <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-6 lg:self-start">
             {/* Rest Timer Widget */}
             {restSec > 0 && (
-              <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-6 stone-slab flex flex-col items-center text-center relative overflow-hidden">
+              <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-6  flex flex-col items-center text-center relative overflow-hidden">
                 <div className="w-full flex items-center justify-between pb-3 border-b border-outline-variant/30 mb-5">
                   <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[16px]">hourglass_top</span>
@@ -1330,7 +1353,7 @@ export default function Entrenar(){
             )}
 
             {/* Mini Summary */}
-            <div className="bg-surface-container-low border border-primary/30 rounded-xl p-5 stone-slab mt-auto">
+            <div className="bg-surface-container-low border border-primary/30 rounded-xl p-5  mt-auto">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-label-caps text-[10px] uppercase text-primary tracking-wider font-semibold flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[16px]" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>
@@ -1632,48 +1655,37 @@ export default function Entrenar(){
               )}
 
               <div className="rounded bg-surface-container border border-outline-variant p-3 space-y-3">
-                <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider">Encuesta post-entrenamiento</div>
-                {/* Pregunta 1: ¿Cómo fue la sesión? */}
+                <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider">Encuesta rápida</div>
+                {/* ¿Cómo fue? */}
                 <div>
-                  <label className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">¿Cómo fue la sesión?</label>
+                  <label className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">¿Cómo estuvo la sesión?</label>
                   <div className="flex gap-2">
                     {[
-                      { v:1, emoji:'😫', label:'Mala' },
-                      { v:2, emoji:'😔', label:'Regular' },
-                      { v:3, emoji:'😐', label:'Normal' },
-                      { v:4, emoji:'😊', label:'Buena' },
-                      { v:5, emoji:'🤩', label:'Excelente' },
-                    ].map(({ v, emoji, label })=>(
+                      { v:2, label:'Fácil' },
+                      { v:3, label:'Normal' },
+                      { v:4, label:'Difícil' },
+                    ].map(({ v, label })=>(
                       <button key={v} onClick={()=> setSurvey('sessionRating', v)}
-                        className={`flex-1 flex flex-col items-center gap-1 py-2 rounded border transition text-sm ${Number(finishSurvey.sessionRating)===v ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
-                        <span className="text-lg">{emoji}</span>
-                        <span className="font-label-caps text-[10px]">{label}</span>
+                        className={`flex-1 py-2 rounded border transition text-sm font-medium ${Number(finishSurvey.sessionRating)===v ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
+                        {label}
                       </button>
                     ))}
                   </div>
                 </div>
-                {/* Pregunta 2: ¿Dolor? */}
+                {/* Energía */}
                 <div>
-                  <label className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">¿Dolor durante o después?</label>
-                  <div className="flex gap-2">
-                    <button onClick={()=> setSurvey('pain', 0)}
-                      className={`flex-1 py-2 rounded border transition text-sm ${Number(finishSurvey.pain)===0 ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
-                      No
-                    </button>
-                    <button onClick={()=> setSurvey('pain', 1)}
-                      className={`flex-1 py-2 rounded border transition text-sm ${Number(finishSurvey.pain)===1 ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
-                      Sí
-                    </button>
+                  <label className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">Energía (1-5)</label>
+                  <div className="flex gap-1.5">
+                    {[1,2,3,4,5].map(v=>(
+                      <button key={v} onClick={()=> setSurvey('pain', v)}
+                        className={`flex-1 py-1.5 rounded border transition text-sm font-medium ${Number(finishSurvey.pain)===v ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
+                        {v}
+                      </button>
+                    ))}
                   </div>
-                  {Number(finishSurvey.pain)===1 && (
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <input value={finishSurvey.painZone || ''} onChange={(e)=> setSurvey('painZone', e.target.value)} placeholder="Zona del dolor" maxLength={80} className="bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
-                      <input value={finishSurvey.painDetail || ''} onChange={(e)=> setSurvey('painDetail', e.target.value)} placeholder="Tipo de dolor" maxLength={140} className="bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
-                    </div>
-                  )}
                 </div>
-                {/* Pregunta 3: Comentario libre */}
-                <textarea value={finishSurvey.comment || ''} onChange={(e)=> setSurvey('comment', e.target.value)} placeholder="¿Algo que quieras decirle al Coach?" rows={2} maxLength={500} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+                {/* Comentario opcional */}
+                <input value={finishSurvey.comment || ''} onChange={(e)=> setSurvey('comment', e.target.value)} placeholder="Observación (opcional)" maxLength={200} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
               </div>
 
               {finishError && <p className="text-sm text-red-400">{finishError}</p>}
@@ -1695,7 +1707,7 @@ function ResultPanel({ today, sessionStatus }:{ today:string; sessionStatus:stri
   let r: null | { exPct:number; setPct:number; completedEx:number; plannedEx:number; completedSets:number; plannedSets:number; totalVol:number; totalReps:number; durMin:number; survey:{sessionRating:number;pain:number}; highlights:string[] } = null
   try{ const raw = localStorage.getItem(`althea:result:${today}`); if(raw) r = JSON.parse(raw) }catch{ /* noop */ }
   if(!r) return (
-    <div className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 stone-slab">
+    <div className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 ">
       <div className="font-body-md text-[15px] text-on-surface font-medium">{sessionStatus==='COMPLETED' ? 'Entrenamiento completado — 100%' : 'Entrenamiento parcial'}</div>
       <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Sesión guardada en historial.</div>
     </div>
@@ -1709,7 +1721,7 @@ function ResultPanel({ today, sessionStatus }:{ today:string; sessionStatus:stri
     { k:'Reps', v:`${r.totalReps}` },
   ]
   return (
-    <div className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6 stone-slab space-y-3 fade-in">
+    <div className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6  space-y-3 fade-in">
       <div>
         <div className="font-headline-lg text-lg font-semibold text-on-surface">Esto es lo que hiciste</div>
         <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{sessionStatus==='COMPLETED' ? 'Sesión completada — 100%' : `Sesión parcial — ${r.exPct}%`} · Valoración {r.survey.sessionRating}/5{r.survey.pain ? ' · Dolor reportado' : ''}</div>
