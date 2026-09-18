@@ -1,0 +1,8 @@
+name = "althea-groq-proxy"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://althea-fitness.web.app"
+
+# Set GROQ_API_KEY via: wrangler secret put GROQ_API_KEY

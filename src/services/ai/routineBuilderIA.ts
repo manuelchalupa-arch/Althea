@@ -4,8 +4,8 @@ import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import { fetchByMuscle, type Exercise } from '@/services/exerciseGym'
 import { GROUP_MAP } from '@/utils/muscleMap'
+import { getGroqUrl, getGroqHeaders } from './groqConfig'
 
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const MODEL = 'openai/gpt-oss-20b'
 const RATE_LIMIT_KEY = 'groq:lastRequestAt'
 const MIN_GAP_MS = 12_000
@@ -36,8 +36,8 @@ export interface GeneratedRoutine {
   }
 }
 
-function getApiKey(): string {
-  try { return (import.meta as any).env?.VITE_GROQ_API_KEY || '' } catch { return '' }
+function isAvailable(): boolean {
+  return !!getGroqUrl()
 }
 
 function uid(): string {
@@ -212,10 +212,10 @@ function extractJSON(text: string): string {
   throw new Error('No se pudo extraer JSON válido de la respuesta.')
 }
 
-async function callGroq(apiKey: string, prompt: string, attempt = 0): Promise<string> {
-  const res = await fetch(GROQ_URL, {
+async function callGroq(_apiKey: string, prompt: string, attempt = 0): Promise<string> {
+  const res = await fetch(getGroqUrl(), {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    headers: getGroqHeaders(),
     body: JSON.stringify({
       model: MODEL,
       messages: [
@@ -230,7 +230,7 @@ async function callGroq(apiKey: string, prompt: string, attempt = 0): Promise<st
   if (res.status === 429 && attempt < 2) {
     const waitMs = (attempt + 1) * 15_000
     await new Promise(r => setTimeout(r, waitMs))
-    return callGroq(apiKey, prompt, attempt + 1)
+    return callGroq(_apiKey, prompt, attempt + 1)
   }
 
   if (!res.ok) {
@@ -243,8 +243,7 @@ async function callGroq(apiKey: string, prompt: string, attempt = 0): Promise<st
 }
 
 export async function generateRoutineWithAI(wants: UserWants): Promise<GeneratedRoutine> {
-  const apiKey = getApiKey()
-  if (!apiKey) throw new Error('API key no configurada')
+  if (!isAvailable()) throw new Error('API proxy no configurado. Configurá VITE_GROQ_PROXY_URL en .env')
 
   const cooldown = canRequestNow()
   if (!cooldown.ok) {
@@ -255,7 +254,7 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
   const prompt = buildPrompt(ctx, wants)
 
   markRequested()
-  const content = await callGroq(apiKey, prompt)
+  const content = await callGroq('', prompt)
 
   if (!content) throw new Error('Respuesta vacía de Groq.')
 
@@ -314,7 +313,7 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
 }
 
 export function isRoutineAIAvailable(): boolean {
-  return !!getApiKey()
+  return isAvailable()
 }
 
 export function getRateLimitInfo(): { waitSec: number } {

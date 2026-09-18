@@ -1,6 +1,6 @@
 import { canMakeRequest, recordRequest } from './groqUsage'
+import { getGroqUrl, getGroqHeaders } from './groqConfig'
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const MODEL = 'openai/gpt-oss-20b'
 
 const CHAT_SYSTEM_PROMPT = `Sos Althea, una asistente de fitness y nutrición para usuarios de Argentina y Latinoamérica.
@@ -36,22 +36,16 @@ export interface StreamCallbacks {
   onError: (error: string) => void
 }
 
-function getApiKey(): string {
-  try {
-    // @ts-ignore
-    return import.meta.env.VITE_GROQ_API_KEY || ''
-  } catch {
-    return ''
-  }
+function isAvailable(): boolean {
+  return !!getGroqUrl()
 }
 
 export async function streamChat(
   messages: ChatCompletionMessage[],
   callbacks: StreamCallbacks
 ): Promise<void> {
-  const apiKey = getApiKey()
-  if (!apiKey) {
-    callbacks.onError('API key no configurada. Agregá VITE_GROQ_API_KEY en .env.local')
+  if (!isAvailable()) {
+    callbacks.onError('API proxy no configurado. Configurá VITE_GROQ_PROXY_URL en .env')
     return
   }
 
@@ -65,12 +59,9 @@ export async function streamChat(
   const fullMessages = [systemMsg, ...messages]
 
   try {
-    const res = await fetch(GROQ_API_URL, {
+    const res = await fetch(getGroqUrl(), {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getGroqHeaders(),
       body: JSON.stringify({
         model: MODEL,
         messages: fullMessages,
@@ -130,5 +121,5 @@ export async function streamChat(
 }
 
 export function isChatAvailable(): boolean {
-  return !!getApiKey()
+  return isAvailable()
 }
