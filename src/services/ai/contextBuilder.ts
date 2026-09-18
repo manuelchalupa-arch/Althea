@@ -1,5 +1,6 @@
 import type { AIContext } from './aiProvider'
 import { db } from '@/services/storage/db'
+import { getDiaryEntries } from '@/services/storage/diaryStore'
 import { getCycleFromProfile, getTrainingDayForDate } from '@/utils/cycle'
 import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone, TRAINING_GOAL_PROFILES, EXPERIENCE_INSTRUCTIONS, buildMethodContext, buildNutritionMethodContext, buildMethodCoachingPrompt } from './systemPrompt'
 import { unifiedCompletedSets } from '@/services/history'
@@ -37,7 +38,8 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   const energia = rec ? `${rec.energy}/10` : 'no registrada'
 
   // hidratación hoy
-  const hyd = Number(localStorage.getItem('hydration:'+today) || localStorage.getItem('hydrationToday') || '1500')
+  const hydLogs0 = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(()=>[])
+  const hyd = hydLogs0.length ? hydLogs0.reduce((a,b)=>a+b.amountMl,0) : 1500
   const hidratacion = `Hoy ${hyd} ml / 2500 ml`
 
   // dolor real: surveys post-entreno (zona/detalle) + QA de dolor, no keys legacy
@@ -55,9 +57,8 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   // nutrición diaria (diario + calendario)
   let nutriDaily:any = null
   try{
-    const diario = JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`)||'[]')
-    const cal = JSON.parse(localStorage.getItem('nutri:calendario')||'null')
-    nutriDaily = { diarioCount: diario.length, calendario: cal ? 'generado' : 'no', objetivo, ultimoAlimento: diario[diario.length-1]?.name || '—' }
+    const diario = await getDiaryEntries(today)
+    nutriDaily = { diarioCount: diario.length, calendario: 'no', objetivo, ultimoAlimento: diario[diario.length-1]?.name || '—' }
   }catch{}
   // hidratación tendencia
   const hydLogs = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(()=>[])
@@ -100,7 +101,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
         calorieGoal: cg2, proteinGoal: pr2?.text, proteinRange: pr2,
         weightHistory: sortedB.map(b=> ({date:b.localDate, weight:b.weightKg})),
         nutritionPreferences: (profile as any)?.restrictions || [],
-        foodLogCount: (()=>{ try{ return JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`)||'[]').length }catch{return 0}})()
+        foodLogCount: await getDiaryEntries(today).then(e => e.length).catch(() => 0)
       }
     }
   }catch{}

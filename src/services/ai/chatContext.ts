@@ -1,4 +1,5 @@
 import { db } from '@/services/storage/db'
+import { getDiaryEntries } from '@/services/storage/diaryStore'
 
 interface PageContextData {
   page: string
@@ -24,8 +25,9 @@ export async function buildChatContext(page: string): Promise<string> {
 
   try { ctx.profile = await db.userProfile.get('me') } catch {}
   try {
-    const raw = JSON.parse(localStorage.getItem('rutinas:list') || 'null')
-    const activeId = localStorage.getItem('rutina:activeId')
+    const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
+    const raw = await getAllRoutines()
+    const activeId = await getActiveRoutineId()
     ctx.activeRoutine = raw?.find((r: any) => r.id === activeId) || raw?.[0] || null
   } catch {}
   try {
@@ -35,8 +37,9 @@ export async function buildChatContext(page: string): Promise<string> {
       .slice(-5)
   } catch {}
   try {
-    const diario = JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`) || '[]')
-    const hyd = Number(localStorage.getItem('hydration:' + today) || '0')
+    const diario = await getDiaryEntries(today)
+    const hydLogs = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(()=>[])
+    const hyd = hydLogs.reduce((a: number, b: any) => a + Number(b.amountMl || 0), 0)
     ctx.nutrition = { meals: diario.length, hydrationMl: hyd }
   } catch {}
   try {

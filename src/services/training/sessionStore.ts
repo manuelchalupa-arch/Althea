@@ -372,3 +372,108 @@ export async function saveSurvey(input: Omit<PostWorkoutSurvey, 'surveyId' | 'cr
   await db.table('postWorkoutSurveys').put(s as never);
   return s;
 }
+
+// ─── ActiveSession helpers (replaces sessionMachine.ts legacy mirror) ───
+
+export interface ActiveSession {
+  sessionId: string;
+  calendarDate: string;
+  routineId: string;
+  routineName: string;
+  cycleId?: string;
+  weekNumber?: number;
+  plannedDay: number | null;
+  plannedDayName: string | null;
+  actualDay: number | null;
+  actualDayName: string | null;
+  plannedMuscleGroups: string[];
+  actualMuscleGroups: string[];
+  exercises: Array<{ exId: string; name: string; sets: number; reps: number; weight: number; muscle?: string; gifUrl?: string; imageDataUrl?: string }>;
+  sessionStatus: SessionStatus;
+  statusHistory: Array<{ status: SessionStatus; at: string }>;
+  startedAt?: string;
+  dayChangeReason?: string;
+  dayChangeComment?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function toActive(s: TrainingSession, exercises: ActiveSession['exercises'] = []): ActiveSession {
+  return {
+    sessionId: s.sessionId, calendarDate: s.calendarDate, routineId: s.routineId,
+    routineName: s.routineName ?? 'Rutina', cycleId: s.cycleId, weekNumber: s.weekNumber,
+    plannedDay: s.plannedDay, plannedDayName: s.plannedDayName ?? null,
+    actualDay: s.actualDay, actualDayName: s.actualDayName ?? null,
+    plannedMuscleGroups: s.plannedMuscleGroups ?? [], actualMuscleGroups: s.actualMuscleGroups ?? [],
+    exercises, sessionStatus: s.sessionStatus, statusHistory: [],
+    startedAt: s.startedAt,
+    dayChangeReason: s.dayChange?.reason, dayChangeComment: s.dayChange?.comment,
+    createdAt: s.createdAt, updatedAt: s.updatedAt,
+  };
+}
+
+async function exercisesOf(sessionId: string): Promise<ActiveSession['exercises']> {
+  const rows = await db.table('sessionExercises').where('sessionId').equals(sessionId).toArray().catch(() => []) as Array<Record<string, unknown>>;
+  return (rows as Array<{ exerciseId: string; plannedSets: Array<{ order: number; reps: number; weight: number }>; status?: string }>)
+    .sort((a, b) => (a as unknown as { order: number }).order - (b as unknown as { order: number }).order)
+    .map((r) => ({
+      exId: r.exerciseId, name: r.exerciseId,
+      sets: r.plannedSets?.length ?? 0,
+      reps: r.plannedSets?.[0]?.reps ?? 0, weight: r.plannedSets?.[0]?.weight ?? 0,
+    }));
+}
+
+export async function loadActiveSession(): Promise<ActiveSession | null> {
+  const id = getActiveSessionId();
+  if (!id) return null;
+  const s = await getSession(id);
+  if (!s) { setActiveSessionId(null); return null; }
+  if (FINAL_STATES.includes(s.sessionStatus)) { setActiveSessionId(null); return null; }
+  const ex = await exercisesOf(id);
+  return toActive(s, ex);
+}
+
+export async function saveActiveSession(s: ActiveSession): Promise<void> {
+  setActiveSessionId(s.sessionId);
+  try {
+    const cur = await getSession(s.sessionId);
+    if (cur) await updateSession(s.sessionId, { routineName: s.routineName, actualDayName: s.actualDayName });
+  } catch { /* noop */ }
+}
+
+export async function clearActiveSession(): Promise<void> {
+  setActiveSessionId(null);
+}
+
+export async function createReadySession(input: {
+  calendarDate: string; routineId: string; routineName: string;
+  plannedDay: number | null; plannedDayName: string | null;
+  actualDay: number | null; actualDayName: string | null;
+  exercises: ActiveSession['exercises'];
+  dayChangeReason?: string; dayChangeComment?: string;
+  cycleId?: string; weekNumber?: number;
+}): Promise<ActiveSession> {
+  const created = await createSession({
+    routineId: input.routineId, routineName: input.routineName,
+    plannedDay: input.plannedDay, plannedDayName: input.plannedDayName,
+    actualDay: input.actualDay, actualDayName: input.actualDayName,
+    calendarDate: input.calendarDate, cycleId: input.cycleId, weekNumber: input.weekNumber,
+    dayChange: input.dayChangeReason ? { reason: input.dayChangeReason, comment: input.dayChangeComment } : undefined,
+    plannedExercises: input.exercises,
+  });
+  const now = new Date().toISOString();
+  const s: ActiveSession = {
+    sessionId: created.sessionId,
+    calendarDate: created.calendarDate, routineId: created.routineId, routineName: created.routineName ?? input.routineName,
+    cycleId: created.cycleId, weekNumber: created.weekNumber,
+    plannedDay: created.plannedDay, plannedDayName: created.plannedDayName ?? null,
+    actualDay: created.actualDay, actualDayName: created.actualDayName ?? null,
+    plannedMuscleGroups: [], actualMuscleGroups: [],
+    exercises: input.exercises, sessionStatus: created.sessionStatus,
+    statusHistory: [{ status: 'PLANNED', at: created.createdAt }, { status: 'READY', at: now }],
+    dayChangeReason: input.dayChangeReason, dayChangeComment: input.dayChangeComment,
+    createdAt: created.createdAt, updatedAt: now,
+  };
+  await saveActiveSession(s);
+  return s;
+}

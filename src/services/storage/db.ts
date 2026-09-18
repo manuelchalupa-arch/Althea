@@ -13,6 +13,12 @@ export class TrainDB extends Dexie {
   userProfile!: Table<UserProfile>
   syncQueue!: Table<any>
   bodyMeasurements!: Table<any>
+  routineStore!: Table<any>
+  chatMessages!: Table<any>
+  chatConversations!: Table<any>
+  nutritionDiary!: Table<any>
+  nutritionAdherence!: Table<any>
+  sessionOverrides!: Table<any>
   constructor() {
     super('trainPWA')
     this.version(1).stores({
@@ -66,6 +72,21 @@ export class TrainDB extends Dexie {
     this.version(8).stores({
       chatMessages: 'id, conversationId, role, createdAt',
       chatConversations: 'id, pageContext, createdAt, updatedAt',
+    })
+    // v9: Rutinas — migración de localStorage 'rutinas:list' a Dexie como fuente única.
+    // routineStore guarda las rutinas completas (con dayExercises embebidos).
+    // 'meta:activeId' guarda el ID de la rutina activa.
+    this.version(9).stores({
+      routineStore: 'id, createdAt, updatedAt',
+    })
+    // v10: Nutrición — migración de localStorage 'nutri:diario_v2:*' y 'nutrition:adherence' a Dexie.
+    this.version(10).stores({
+      nutritionDiary: 'id, date, mealType, addedAt',
+      nutritionAdherence: 'id, methodId, date, createdAt',
+    })
+    // v11: Session overrides — migración de localStorage 'session:override:*', 'session:changed:*', 'session:observation:*'.
+    this.version(11).stores({
+      sessionOverrides: 'date',
     })
   }
 }

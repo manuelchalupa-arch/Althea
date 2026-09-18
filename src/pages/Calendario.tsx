@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { db } from '@/services/storage/db'
 import { Dumbbell, Clock, AlertTriangle } from 'lucide-react'
 import { AltheaCard, AltheaCardHeader, AltheaBadge, StatusTag } from '@/components/althea'
+import { getOverrideDay, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 
 function daysInMonth(y:number,m:number){ return new Date(y,m+1,0).getDate() }
 
@@ -11,8 +12,10 @@ export default function Calendario(){
   const [map,setMap]=useState<Record<string,number>>({})
   const [detail,setDetail]=useState<{date:string; scheduled:string; actual:string; changed:boolean; sessions:any[]; hydration:number; recovery:any} | null>(null)
   const [cycle,setCycle]=useState<any>(null)
+  const [monthOverrides,setMonthOverrides]=useState<Record<string,boolean>>({})
 
   useEffect(()=>{
+    migrateSessionOverridesFromLocalStorage()
     Promise.all([db.sessions.toArray().catch(()=>[]), db.table('trainingSessions').toArray().catch(()=>[])]).then(([legacy, official])=>{
       const c: Record<string,number> = {}
       const seen = new Set<string>()
@@ -26,25 +29,40 @@ export default function Calendario(){
       setMap(c)
     })
     try{
-      const raw=JSON.parse(localStorage.getItem('rutinas:list')||'null')
-      const activeId=localStorage.getItem('rutina:activeId')
-      const active=raw?.find((r:any)=>r.id===activeId) || raw?.[0]
-      if(active) setCycle(active.cycle)
-      else {
-        db.userProfile.get('me').then(p=> setCycle((p as any)?.cycle || null))
-      }
+      import('@/services/storage/routineStore').then(({ getAllRoutines, getActiveRoutineId }) =>
+        Promise.all([getAllRoutines(), getActiveRoutineId()]).then(([raw, activeId]) => {
+          const active=raw?.find((r:any)=>r.id===activeId) || raw?.[0]
+          if(active) setCycle(active.cycle)
+          else {
+            db.userProfile.get('me').then(p=> setCycle((p as any)?.cycle || null))
+          }
+        })
+      ).catch(()=>{})
     }catch{}
   },[])
+
+  useEffect(()=>{
+    const daysInM = new Date(y, m + 1, 0).getDate()
+    const keys = Array.from({length: daysInM}, (_, i) => {
+      const d = i + 1
+      return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    })
+    Promise.all(keys.map(k => getOverrideDay(k))).then(results => {
+      const ov: Record<string, boolean> = {}
+      results.forEach((r, i) => { if (r != null) ov[keys[i]] = true })
+      setMonthOverrides(ov)
+    })
+  }, [y, m])
 
   const openDay = async (key:string)=>{
     const d=new Date(key+'T12:00:00')
     const dow=d.getDay()
     const scheduledN = cycle?.weekMap?.[dow]
     const scheduled = scheduledN ? cycle.trainingDays.find((x:any)=>x.n===scheduledN)?.name || `Día N°${scheduledN}` : 'Descanso'
-    const override = localStorage.getItem(`session:override:${key}`)
-    const actualN = override ? Number(override) : scheduledN
+    const overrideVal = await getOverrideDay(key)
+    const actualN = overrideVal != null ? overrideVal : scheduledN
     const actual = actualN ? cycle?.trainingDays.find((x:any)=>x.n===actualN)?.name || `Día N°${actualN}` : 'Descanso'
-    const changed = !!override && override!==String(scheduledN)
+    const changed = overrideVal != null && overrideVal !== scheduledN
     const [legacySessions, officialSessions] = await Promise.all([
       db.sessions.where('localDate').equals(key).toArray().catch(()=>[]),
       db.table('trainingSessions').where('calendarDate').equals(key).toArray().catch(()=>[]),
@@ -75,7 +93,7 @@ export default function Calendario(){
           {Array.from({length:dim}).map((_,i)=>{
             const d=i+1; const key=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
             const has=map[key]
-            const override=localStorage.getItem(`session:override:${key}`)
+            const override=monthOverrides[key]
             const isToday=key===todayStr
             return (
               <button key={d} onClick={()=>openDay(key)} className={`py-2 rounded font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant border ${has?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant font-body-md text-sm text-on-surface'} ${isToday?'ring-2 ring-info':''} ${override?' ring-1 ring-amber-500':''}`}>

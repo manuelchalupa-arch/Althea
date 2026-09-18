@@ -8,9 +8,10 @@ import { AltheaCard, AltheaCardHeader, AltheaBadge, StatusTag, AltheaProgress, A
 import { aiService } from '@/services/ai/aiService'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
+import { getOverrideDay, getChangedData, setOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
+import { loadActiveSession, saveActiveSession, clearActiveSession, type ActiveSession } from '@/services/training/sessionStore'
 import * as Gym from '@/services/exerciseGym'
 import { saveDecision } from '@/services/ai/coachMemory'
-import { loadActiveSession, saveActiveSession, type ActiveSession } from '@/services/training/sessionMachine'
 import { getActiveSession, transitionSession } from '@/services/training/sessionStore'
 import type { SessionStatus, TrainingSession, SessionExercise } from '@/services/training/domain'
 
@@ -122,14 +123,16 @@ export default function Entrenar(){
     const { getSessionExercises, getSetRecords } = await import('@/services/training/sessionStore')
     const seList = await getSessionExercises(storeS.sessionId)
     setSessionExercises(seList)
-    // nombres/musculo del espejo (metadatos UI, no fuente)
+    // nombres/musculo desde Dexie (ejercicios seed + custom)
     let meta: Record<string, { name: string; muscle?: string; gifUrl?: string; imageDataUrl?: string }> = {}
     try {
-      const raw = localStorage.getItem(`althea:session:active:ex:${storeS.sessionId}`) || localStorage.getItem(`session:active:${today}`)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        const arr = parsed.exercises || parsed
-        if (Array.isArray(arr)) for (const x of arr) meta[x.exId || x.id] = { name: x.name, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl }
+      const exIds = seList.map((e: any) => e.exId || e.exerciseId).filter(Boolean)
+      if (exIds.length) {
+        const [seedExs, customExs] = await Promise.all([
+          db.exercises.where('id').anyOf(exIds).toArray().catch(() => []),
+          db.table('customExercises').where('id').anyOf(exIds).toArray().catch(() => []),
+        ])
+        for (const e of [...seedExs, ...customExs] as any[]) meta[e.id] = { name: e.name, muscle: e.muscle || e.muscleGroup, gifUrl: e.gifUrl, imageDataUrl: e.imageDataUrl }
       }
     } catch { /* noop */ }
     const list: SessionEx[] = seList.map((se, idx) => {
@@ -188,16 +191,17 @@ export default function Entrenar(){
         const seCount = await getSE(active.sessionId).then(l => l.length).catch(() => 0)
         if (seCount > 0) {
           // Verificar si la rutina de la sesion activa coincide con la rutina de hoy
-          const rawList = JSON.parse(localStorage.getItem('rutinas:list') || 'null')
-          const activeId = localStorage.getItem('rutina:activeId')
+          const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
+          const rawList = await getAllRoutines()
+          const activeId = await getActiveRoutineId()
           const todayRoutine = rawList?.find((r: { id: string }) => r.id === activeId) || rawList?.[0]
           const dow = new Date().getDay()
-          const override = localStorage.getItem(`session:override:${today}`)
+          const override = await getOverrideDay(today)
           const cyc = todayRoutine?.cycle
           const todayDayN = override ? Number(override) : cyc?.weekMap?.[dow] ?? null
           // Si la sesion activa es de otro dia de rutina, limpiar y crear nueva
           if (active.actualDay != null && todayDayN != null && active.actualDay !== todayDayN) {
-            const { clearActiveSession } = await import('@/services/training/sessionMachine')
+            const { clearActiveSession } = await import('@/services/training/sessionStore')
             clearActiveSession()
           } else {
             if (active.sessionStatus === 'READY') {
@@ -208,7 +212,7 @@ export default function Entrenar(){
           }
         } else {
           // Sesion sin ejercicios en DB → limpiar y caer al plan de rutina.
-          const { clearActiveSession } = await import('@/services/training/sessionMachine')
+          const { clearActiveSession } = await import('@/services/training/sessionStore')
           clearActiveSession()
         }
       }
@@ -235,8 +239,9 @@ export default function Entrenar(){
         return
       }
       // PRIORIDAD 3-5: rutina / calendario / descanso -> plan pendiente (COMENZAR crea la sesion).
-      const rawList = JSON.parse(localStorage.getItem('rutinas:list') || 'null')
-      const activeId = localStorage.getItem('rutina:activeId')
+      const { getAllRoutines: getRoutinesForPlan, getActiveRoutineId: getActiveIdForPlan } = await import('@/services/storage/routineStore')
+      const rawList = await getRoutinesForPlan()
+      const activeId = await getActiveIdForPlan()
       const activeR: unknown = (rawList as Array<{ id: string }> | null)?.find((r) => r.id === activeId) || (rawList as Array<unknown>)?.[0]
       const prof = await db.userProfile.get('me') as unknown
       const routine = (activeR as { cycle?: unknown; name?: string; id?: string } | null) || { cycle: (prof as { cycle?: unknown })?.cycle, name: 'Rutina' }
@@ -244,13 +249,12 @@ export default function Entrenar(){
       methodIdRef.current = (cycle as any)?.methodId || null
       const cyc = cycle as { weekMap: (number | null)[]; trainingDays: Array<{ n: number; name: string }>; startDate?: string }
       const dow = new Date().getDay()
-      const override = localStorage.getItem(`session:override:${today}`)
-      const n = override ? Number(override) : cyc.weekMap[dow]
+      const override = await getOverrideDay(today)
+      const n = override != null ? override : cyc.weekMap[dow]
       const schedN = cyc.weekMap[dow] ?? null
       const schedName = schedN ? cyc.trainingDays.find((dd) => dd.n === schedN)?.name || `Día N°${schedN}` : null
       const dname = n ? cyc.trainingDays.find((dd) => dd.n === n)?.name || `Día N°${n}` : 'Descanso'
-      const changedRaw = localStorage.getItem(`session:changed:${today}`)
-      const changed = changedRaw ? JSON.parse(changedRaw) as { changeReason?: string; changeComment?: string } : null
+      const changed = await getChangedData(today) as { changeReason?: string; changeComment?: string } | null
       const { getDayExercises } = await import('@/utils/routine')
       const found = await getDayExercises(n, cycle)
       setRutinaName((routine as { name?: string }).name || 'Rutina')
@@ -281,11 +285,18 @@ export default function Entrenar(){
     setDayName(p.actualName || 'Descanso')
     setPlannedDayN(p.plannedDay); setActualDayN(p.actualDay); setPlannedName(p.plannedName || '')
     const weekNumber = (() => { try {
-      const rawList = JSON.parse(localStorage.getItem('rutinas:list') || 'null')
-      const a = rawList?.find((r: { id: string }) => r.id === localStorage.getItem('rutina:activeId'))
-      const start = new Date((a?.cycle?.startDate as string) || today)
-      return Math.max(1, Math.floor((new Date(today).getTime() - start.getTime()) / (7 * 86400000)) + 1)
+      const rawListSync = import('@/services/storage/routineStore')
+      // Use a cached value if available, otherwise default to 1
+      return 1 // Will be recalculated async below
     } catch { return 1 } })()
+    // Recalculate week number asynchronously
+    import('@/services/storage/routineStore').then(({ getAllRoutines, getActiveRoutineId }) =>
+      Promise.all([getAllRoutines(), getActiveRoutineId()]).then(([list, aid]) => {
+        const a = list?.find((r: { id: string }) => r.id === aid)
+        const start = new Date((a?.cycle?.startDate as string) || today)
+        setWeekNumber(Math.max(1, Math.floor((new Date(today).getTime() - start.getTime()) / (7 * 86400000)) + 1))
+      })
+    )
     setWeekNumber(weekNumber)
     setExs(p.exercises.map((x) => ({ ...x, plannedSets: x.sets })))
     setCurrent(0); setDone({}); setSkipped({}); setLogs({}); setSeIdByIndex({})
@@ -300,8 +311,8 @@ export default function Entrenar(){
 
   // carga inicial + escucha cambios de día desde Inicio
   useEffect(()=>{
+    migrateSessionOverridesFromLocalStorage()
     ensureSeeded().then(()=> load())
-    const onStorage = (e:StorageEvent)=>{ if(e.key?.startsWith('session:override:')){ loadedRef.current=''; load() } }
     const onFocus = ()=> load()
     const onCustom = ()=>{ loadedRef.current=''; load() }
     const onBeforeUnload = (e: BeforeUnloadEvent)=>{
@@ -309,12 +320,11 @@ export default function Entrenar(){
         e.preventDefault(); e.returnValue = ''
       }
     }
-    window.addEventListener('storage', onStorage)
     window.addEventListener('focus', onFocus)
     window.addEventListener('routineChange', onCustom as any)
     window.addEventListener('beforeunload', onBeforeUnload)
     const id = setInterval(()=>{ if(restPausedRef.current) return; if(restSecRef.current>0){ restSecRef.current -= 1; setRestSec(restSecRef.current); if(restSecRef.current===0) setRestFlash(true) } }, 1000)
-    return ()=>{ clearInterval(id); window.removeEventListener('storage', onStorage); window.removeEventListener('focus', onFocus); window.removeEventListener('routineChange', onCustom as any); window.removeEventListener('beforeunload', onBeforeUnload) }
+    return ()=>{ clearInterval(id); window.removeEventListener('focus', onFocus); window.removeEventListener('routineChange', onCustom as any); window.removeEventListener('beforeunload', onBeforeUnload) }
   },[])
 
   const cur = exs[current]
@@ -769,8 +779,7 @@ export default function Entrenar(){
       for(const se of freshSE){ freshSets.push(...await store.getSetRecords(se.sessionExerciseId).catch(()=>[])) }
       const comp = completionOf(freshSE, freshSets)
       const vol = volumeOf(freshSets)
-      const changedRaw = localStorage.getItem(`session:changed:${today}`)
-      const changed = changedRaw ? JSON.parse(changedRaw) as { changeReason?: string; changeComment?: string } : null
+      const changed = await getChangedData(today) as { changeReason?: string; changeComment?: string } | null
       await store.updateSession(sess.sessionId, {
         completedExerciseCount: comp.completedEx,
         skippedExerciseCount: freshSE.filter(e=> e.status==='SKIPPED').length,
@@ -806,7 +815,7 @@ export default function Entrenar(){
       try{ if(navigator.vibrate) navigator.vibrate([20,40,20]) }catch{ /* noop */ }
       localStorage.removeItem(`session:active:${today}`)
       try{
-        const { clearActiveSession } = await import('@/services/training/sessionMachine')
+        const { clearActiveSession } = await import('@/services/training/sessionStore')
         clearActiveSession()
       }catch{ /* noop */ }
       setSessionStatus(status)
@@ -823,12 +832,12 @@ export default function Entrenar(){
     setFinishError('')
     try{
       const store = await import('@/services/training/sessionStore')
-      const { saveActiveSession } = await import('@/services/training/sessionMachine')
+      const { saveActiveSession } = await import('@/services/training/sessionStore')
       const existing = await store.getActiveSession().catch(()=>null)
       if(existing && existing.sessionStatus==='READY'){
         const nx = await store.transitionSession(existing.sessionId, 'IN_PROGRESS')
-        const prevMirror = loadActiveSession()
-        saveActiveSession({ ...(prevMirror || {}), sessionId: nx.sessionId, calendarDate: nx.calendarDate, routineId: nx.routineId, routineName: nx.routineName || '', plannedDay: nx.plannedDay, plannedDayName: nx.plannedDayName, actualDay: nx.actualDay, actualDayName: nx.actualDayName, plannedMuscleGroups: [], actualMuscleGroups: [], exercises: prevMirror?.exercises || [], sessionStatus: 'IN_PROGRESS', statusHistory: [], startedAt: nx.startedAt, createdAt: nx.createdAt, updatedAt: nx.updatedAt } as never)
+        const prevMirror = await loadActiveSession()
+        await saveActiveSession({ ...(prevMirror || {}), sessionId: nx.sessionId, calendarDate: nx.calendarDate, routineId: nx.routineId, routineName: nx.routineName || '', plannedDay: nx.plannedDay, plannedDayName: nx.plannedDayName, actualDay: nx.actualDay, actualDayName: nx.actualDayName, plannedMuscleGroups: [], actualMuscleGroups: [], exercises: prevMirror?.exercises || [], sessionStatus: 'IN_PROGRESS', statusHistory: [], startedAt: nx.startedAt, createdAt: nx.createdAt, updatedAt: nx.updatedAt } as never)
         setReadyPlan(null)
         await applyStoreSession(nx)
         return
@@ -844,16 +853,12 @@ export default function Entrenar(){
         dayChange: rp.reason ? { reason: rp.reason, comment: rp.comment } : undefined,
         plannedExercises: rp.pending.exercises,
       })
-      saveActiveSession({
+      await saveActiveSession({
         sessionId: created.sessionId, calendarDate: today, routineId: created.routineId, routineName: created.routineName || rp.routineName,
         plannedDay: created.plannedDay, plannedDayName: created.plannedDayName, actualDay: created.actualDay, actualDayName: created.actualDayName,
         plannedMuscleGroups: [], actualMuscleGroups: [], exercises: rp.pending.exercises,
         sessionStatus: 'READY', statusHistory: [], createdAt: created.createdAt, updatedAt: created.createdAt,
       } as never)
-      // Guardar metadata de ejercicios para que applyStoreSession la encuentre
-      try {
-        localStorage.setItem(`althea:session:active:ex:${created.sessionId}`, JSON.stringify({ exercises: rp.pending.exercises }))
-      } catch { /* noop */ }
       const nx = await store.transitionSession(created.sessionId, 'IN_PROGRESS')
       setReadyPlan(null)
       await applyStoreSession(nx)
@@ -871,9 +876,9 @@ export default function Entrenar(){
       const fresh = await store.getSession(sess.sessionId)
       if(fresh) await applyStoreSession(fresh)
       try{
-        const { saveActiveSession } = await import('@/services/training/sessionMachine')
+        const { saveActiveSession } = await import('@/services/training/sessionStore')
         const cur = await store.getSession(sess.sessionId)
-        if(cur) saveActiveSession({ sessionId: cur.sessionId, calendarDate: cur.calendarDate, routineId: cur.routineId, routineName: cur.routineName || '', plannedDay: cur.plannedDay, plannedDayName: cur.plannedDayName, actualDay: cur.actualDay, actualDayName: cur.actualDayName, plannedMuscleGroups: [], actualMuscleGroups: [], exercises: [], sessionStatus: cur.sessionStatus, statusHistory: [], createdAt: cur.createdAt, updatedAt: cur.updatedAt } as never)
+        if(cur) await saveActiveSession({ sessionId: cur.sessionId, calendarDate: cur.calendarDate, routineId: cur.routineId, routineName: cur.routineName || '', plannedDay: cur.plannedDay, plannedDayName: cur.plannedDayName, actualDay: cur.actualDay, actualDayName: cur.actualDayName, plannedMuscleGroups: [], actualMuscleGroups: [], exercises: [], sessionStatus: cur.sessionStatus, statusHistory: [], createdAt: cur.createdAt, updatedAt: cur.updatedAt } as never)
       }catch{ /* noop */ }
       if(andFinish) setTimeout(()=> openFinishModal(), 400)
     }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'No se pudo retomar la sesión.') }
@@ -891,7 +896,7 @@ export default function Entrenar(){
       if(!targetId) return
       await store.transitionSession(targetId, 'ABANDONED', { reason: abandonReason.trim(), comment: abandonComment.trim() || undefined })
       try{
-        const { clearActiveSession } = await import('@/services/training/sessionMachine')
+        const { clearActiveSession } = await import('@/services/training/sessionStore')
         clearActiveSession()
       }catch{ /* noop */ }
       setResumeBanner(null)
@@ -916,7 +921,7 @@ export default function Entrenar(){
         }
       }
       try{
-        const { clearActiveSession } = await import('@/services/training/sessionMachine')
+        const { clearActiveSession } = await import('@/services/training/sessionStore')
         clearActiveSession()
       }catch{ /* noop */ }
       setShowCancel(false)
@@ -1087,9 +1092,10 @@ export default function Entrenar(){
               <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
                 {dayName}
               </h1>
-              <button onClick={()=>{
-                const raw=JSON.parse(localStorage.getItem('rutinas:list')||'null')
-                const activeId=localStorage.getItem('rutina:activeId')
+              <button onClick={async()=>{
+                const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
+                const raw = await getAllRoutines()
+                const activeId = await getActiveRoutineId()
                 const active:any=raw?.find((r:any)=>r.id===activeId)
                 if(!active) return
                 const todayStr=new Date().toISOString().slice(0,10)
@@ -1097,7 +1103,7 @@ export default function Entrenar(){
                 if(choice){
                   const n=Number(choice)
                   if(active.cycle.trainingDays.find((d:any)=>d.n===n)){
-                    localStorage.setItem(`session:override:${today}`, String(n))
+                    await setOverride(today, n, null, null)
                     window.dispatchEvent(new Event('routineChange'))
                     location.reload()
                   }

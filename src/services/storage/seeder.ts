@@ -120,7 +120,7 @@ export async function wipeDatabase(){
   const toRemove:string[] = []
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i)
-    if(k && !keep.includes(k) && (k.startsWith('session:') || k.startsWith('althea:session') || k.startsWith('althea:migration') || k.startsWith('althea:result:') || k.startsWith('exstate:') || k.startsWith('neg:') || k.startsWith('obs:') || k.startsWith('observation:') || k.startsWith('nutri:diario:') || k.startsWith('coachMemory') || k.startsWith('seed:') || k.startsWith('hydration:') || k.startsWith('post:') || k.startsWith('rec:') || k.startsWith('rutinas:') || k.startsWith('rutina:')))
+    if(k && !keep.includes(k) && (k.startsWith('session:') || k.startsWith('althea:session') || k.startsWith('althea:migration') || k.startsWith('althea:result:') || k.startsWith('exstate:') || k.startsWith('neg:') || k.startsWith('obs:') || k.startsWith('observation:') || k.startsWith('nutri:diario:') || k.startsWith('nutri:diario_v2:') || k.startsWith('nutrition:adherence') || k.startsWith('coachMemory') || k.startsWith('seed:') || k.startsWith('hydration:') || k.startsWith('post:') || k.startsWith('rec:') || k.startsWith('rutinas:') || k.startsWith('rutina:')))
       toRemove.push(k)
   }
   toRemove.forEach(k=> localStorage.removeItem(k))

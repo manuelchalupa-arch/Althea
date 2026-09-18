@@ -116,14 +116,15 @@ export async function syncAll(
     }
   }
 
-  // Rutinas (viven en localStorage) -> meta/routines
+  // Rutinas (viven en routineStore) -> meta/routines
   try {
     onProgress?.('Sincronizando rutinas…')
-    const raw = localStorage.getItem('rutinas:list')
-    const activeId = localStorage.getItem('rutina:activeId')
-    if (raw) {
+    const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
+    const list = await getAllRoutines()
+    const activeId = await getActiveRoutineId()
+    if (list.length > 0) {
       const ref = doc(fsdb, 'users', uid, 'meta', 'routines')
-      await setDoc(ref, { list: JSON.parse(raw), activeId, updatedAt: new Date().toISOString() }, { merge: true })
+      await setDoc(ref, { list, activeId, updatedAt: new Date().toISOString() }, { merge: true })
       uploaded += 1
       tables.push('meta/routines')
     }

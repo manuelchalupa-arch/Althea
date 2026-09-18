@@ -38,26 +38,23 @@ export interface AdaptationRecommendation {
   confidence: number
 }
 
-// ─── Almacenamiento (localStorage como espejo, Dexie como fuente) ───
-const STORAGE_KEY = 'nutrition:adherence'
-const MAX_RECORDS = 90 // 3 meses
+// ─── Almacenamiento (Dexie como fuente) ───
+import { getAdherenceRecords, saveAdherenceRecords } from '@/services/storage/diaryStore'
 
-function getRecords(): AdherenceRecord[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-  } catch {
-    return []
-  }
+const MAX_RECORDS = 90 // 3 meses
+let _adherenceIdCounter = 0
+
+async function getRecords(): Promise<AdherenceRecord[]> {
+  return getAdherenceRecords() as Promise<AdherenceRecord[]>
 }
 
-function saveRecords(records: AdherenceRecord[]): void {
-  // Mantener solo los últimos MAX_RECORDS
+async function saveRecords(records: AdherenceRecord[]): Promise<void> {
   const trimmed = records.slice(-MAX_RECORDS)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed))
+  await saveAdherenceRecords(trimmed as any)
 }
 
 // ─── Registrar adherencia diaria ───
-export function recordAdherence(input: {
+export async function recordAdherence(input: {
   methodId: NutritionMethodId
   score: number
   mealsLogged: number
@@ -65,16 +62,16 @@ export function recordAdherence(input: {
   calorieAdherence: number
   proteinAdherence: number
   notes?: string
-}): AdherenceRecord {
+}): Promise<AdherenceRecord> {
   const today = new Date().toISOString().slice(0, 10)
-  const records = getRecords()
+  const records = await getRecords()
 
   // Calcular días consecutivos con este método
   const sameMethodRecords = records.filter(r => r.methodId === input.methodId)
   const daysOnMethod = calculateConsecutiveDays(sameMethodRecords, today)
 
   const record: AdherenceRecord = {
-    id: `adh-${input.methodId}-${today}-${Date.now()}`,
+    id: `adh-${input.methodId}-${today}-${Date.now()}-${++_adherenceIdCounter}`,
     methodId: input.methodId,
     date: today,
     score: Math.max(0, Math.min(10, input.score)),
@@ -88,7 +85,7 @@ export function recordAdherence(input: {
   }
 
   records.push(record)
-  saveRecords(records)
+  await saveRecords(records)
   return record
 }
 
@@ -116,8 +113,8 @@ function calculateConsecutiveDays(records: AdherenceRecord[], upToDate: string):
 }
 
 // ─── Obtener tendencia de adherencia ───
-export function getAdherenceTrend(methodId: NutritionMethodId): AdherenceTrend {
-  const records = getRecords().filter(r => r.methodId === methodId)
+export async function getAdherenceTrend(methodId: NutritionMethodId): Promise<AdherenceTrend> {
+  const records = (await getRecords()).filter(r => r.methodId === methodId)
 
   if (records.length === 0) {
     return {
@@ -194,11 +191,11 @@ function calculateLongestStreak(records: AdherenceRecord[]): number {
 }
 
 // ─── Detectar problemas y recomendar adaptación ───
-export function detectAdherenceProblems(
+export async function detectAdherenceProblems(
   methodId: NutritionMethodId,
   profile: NutritionUserProfile,
-): AdaptationRecommendation | null {
-  const trend = getAdherenceTrend(methodId)
+): Promise<AdaptationRecommendation | null> {
+  const trend = await getAdherenceTrend(methodId)
 
   // No hay datos suficientes
   if (trend.records.length < 3) return null
@@ -372,23 +369,23 @@ export function calculateAutomaticAdherence(
 }
 
 // ─── Obtener resumen de adherencia para el Coach ───
-export function getAdherenceSummary(profile: NutritionUserProfile): {
+export async function getAdherenceSummary(profile: NutritionUserProfile): Promise<{
   overallScore: number
   bestMethod: NutritionMethodId | null
   worstMethod: NutritionMethodId | null
   activeIssues: AdaptationRecommendation[]
   recommendations: string[]
-} {
+}> {
   const methodIds: NutritionMethodId[] = [
     'mediterranean', 'dash', 'vegan', 'paleo', 'flexitarian',
     'intermittent_fasting', 'carb_cycling', 'around_training',
     'high_protein', 'intuitive_eating', 'keto', 'whole30',
   ]
 
-  const trends = methodIds.map(id => ({
+  const trends = await Promise.all(methodIds.map(async id => ({
     id,
-    trend: getAdherenceTrend(id),
-  })).filter(t => t.trend.records.length > 0)
+    trend: await getAdherenceTrend(id),
+  }))).then(ts => ts.filter(t => t.trend.records.length > 0))
 
   if (trends.length === 0) {
     return {
@@ -411,7 +408,7 @@ export function getAdherenceSummary(profile: NutritionUserProfile): {
   // Active issues
   const activeIssues: AdaptationRecommendation[] = []
   for (const t of trends) {
-    const issue = detectAdherenceProblems(t.id, profile)
+    const issue = await detectAdherenceProblems(t.id, profile)
     if (issue) activeIssues.push(issue)
   }
 

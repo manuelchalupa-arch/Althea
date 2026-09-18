@@ -2,6 +2,7 @@
 // Fórmula documentada: base 50 + factores con topes. Cada factor indica su estado.
 // Nunca un número arbitrario: cada delta tiene su evidencia.
 import { db } from '@/services/storage/db'
+import { getDiaryEntries } from '@/services/storage/diaryStore'
 
 export interface ScoreFactor { label: string; delta: number; estado: string }
 export interface GlobalScore { score: number; factors: ScoreFactor[]; date: string }
@@ -129,7 +130,7 @@ export async function buildGlobalScore(): Promise<GlobalScore> {
     if (w > 0) {
       const { proteinRange } = await import('@/utils/nutrition')
       const range = proteinRange(w, p?.goalPrimary)
-      const diario = JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`) || '[]')
+      const diario = await getDiaryEntries(today)
       if (range && diario.length > 0) {
         const est = (diario as any[]).reduce((a, it) => a + Number(it?.macros?.proteins ?? 0), 0)
         proteinPctGoal = (est / range.low) * 100

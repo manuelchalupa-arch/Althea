@@ -1,9 +1,15 @@
 import { Link } from 'react-router-dom'
 import { MAS_GROUPS } from '@/components/brand/icons'
 import BrandIcon from '@/components/brand/BrandIcon'
+import { useState, useEffect } from 'react'
 
 export default function Mas(){
-  const routineCount = JSON.parse(localStorage.getItem('rutinas:list')||'[]').length
+  const [routineCount, setRoutineCount] = useState(0)
+  useEffect(() => {
+    import('@/services/storage/routineStore').then(({ getAllRoutines }) =>
+      getAllRoutines().then(list => setRoutineCount(list.length))
+    )
+  }, [])
 
   return (
     <div className="min-h-screen bg-transparent pb-24">

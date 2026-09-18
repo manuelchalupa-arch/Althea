@@ -22,8 +22,9 @@ import { db } from '@/services/storage/db'
 
 async function isTrainingDayLocal(dateStr:string): Promise<boolean> {
   try{
-    const raw = JSON.parse(localStorage.getItem('rutinas:list')||'null')
-    const activeId = localStorage.getItem('rutina:activeId')
+    const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
+    const raw = await getAllRoutines()
+    const activeId = await getActiveRoutineId()
     const active = raw?.find((r:any)=>r.id===activeId) || raw?.[0]
     const cyc = active?.cycle
     if(!cyc?.weekMap) return true
@@ -54,6 +55,12 @@ function Layout(){
       })
     })
     return ()=>{ alive=false }
+  },[])
+  // Migrar rutinas de localStorage a Dexie al iniciar
+  useEffect(()=>{
+    import('@/services/storage/routineStore').then(({ migrateRoutinesFromLocalStorage })=>{
+      migrateRoutinesFromLocalStorage()
+    }).catch(()=>{})
   },[])
   // Scheduler de notificaciones locales: revisa cada minuto + al volver a la app.
   useEffect(()=>{

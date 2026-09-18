@@ -1,20 +1,19 @@
 import { db } from '@/services/storage/db'
 import { getLastExecutionByExercise } from '@/services/history'
+import { getAllRoutines, getActiveRoutineId } from '@/services/storage/routineStore'
 
 export type DayEx = { id:string; name:string; sets:number; reps:number; weight:number; muscle?:string; gifUrl?:string; imageDataUrl?:string; exId:string; restSec?:number; seriesType?:string }
 
 export async function getDayExercises(dayN:number | null, cycle:any): Promise<DayEx[]> {
   if(!dayN) return []
-  // intenta desde rutinas:list activa
+  // intenta desde routineStore (Dexie)
   try{
-    const rawList = JSON.parse(localStorage.getItem('rutinas:list')||'null')
-    const activeId = localStorage.getItem('rutina:activeId')
-    const active:any = rawList?.find((r:any)=>r.id===activeId) || rawList?.[0]
+    const rawList = await getAllRoutines()
+    const activeId = await getActiveRoutineId()
+    const active = rawList.find((r:any)=>r.id===activeId) || rawList[0]
     if(active?.dayExercises?.[dayN] && active.dayExercises[dayN].length>0){
       const arr = active.dayExercises[dayN]
-      // intenta resolver nombres desde db.exercises si falta
       const exs = await db.exercises.bulkGet(arr.map((x:any)=>x.exId)).catch(()=>[])
-      // Para ejercicios con weight=0, buscar último peso usado en historial
       const results: DayEx[] = []
       for(let i=0;i<arr.length;i++){
         const it = arr[i]
@@ -43,7 +42,6 @@ export async function getDayExercises(dayN:number | null, cycle:any): Promise<Da
       }
     }
   }catch{}
-  // SIN fallback genérico pecho — devuelve vacío para que el usuario agregue en Rutina
   return []
 }
 

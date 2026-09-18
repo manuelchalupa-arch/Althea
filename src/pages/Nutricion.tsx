@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import * as Codulia from '@/services/codulia'
 import { db } from '@/services/storage/db'
+import { getDiaryEntries, addDiaryEntry, removeDiaryEntry, migrateDiaryFromLocalStorage, migrateAdherenceFromLocalStorage } from '@/services/storage/diaryStore'
 import { calcIMC, calcTMB, calcTDEE, calorieGoal, proteinRange } from '@/utils/nutrition'
 import { getNutritionMethod } from '@/services/ai/nutritionMethodsDB'
 import { checkNutritionSafety, type NutritionSafetyAlert } from '@/services/ai/nutritionSafety'
@@ -68,13 +69,15 @@ export default function Nutricion() {
 
   const loadData = async () => {
     try {
+      await migrateDiaryFromLocalStorage()
+      await migrateAdherenceFromLocalStorage()
       const p = await db.userProfile.get('me') as any
       setPerfil(p)
       const bodies: any[] = await db.table('bodyMeasurements').toArray().catch(() => [])
       const sorted = bodies.sort((a: any, b: any) => a.localDate.localeCompare(b.localDate)).slice(-30)
       setPesoEvo(sorted)
       const today = new Date().toISOString().slice(0, 10)
-      const diaryData: DiaryEntry[] = JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`) || '[]')
+      const diaryData: DiaryEntry[] = await getDiaryEntries(today) as any
       setDiaryEntries(diaryData)
       const hydLogs: any[] = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(() => [])
       const totalHyd = hydLogs.reduce((a: number, b: any) => a + Number(b.amountMl || 0), 0)
@@ -104,7 +107,7 @@ export default function Nutricion() {
           }, activeMethod)
           setSafetyAlerts(safetyResult.alerts.filter(a => a.severity !== 'info'))
         }
-        const trend = getAdherenceTrend(activeMethod || 'mediterranean')
+        const trend = await getAdherenceTrend(activeMethod || 'mediterranean')
         const todayRecord = trend.records.find(r => r.date === today)
         setAdherenceRecord(todayRecord || null)
       }
@@ -151,14 +154,14 @@ export default function Nutricion() {
     }
     const updated = [...diaryEntries, entry]
     setDiaryEntries(updated)
-    localStorage.setItem(`nutri:diario_v2:${today}`, JSON.stringify(updated))
+    addDiaryEntry({ ...entry, date: today } as any)
     setShowAddPortion(false); setSelectedFood(null); setShowFoodSearch(false)
   }
 
   const removeEntry = (id: string) => {
     const updated = diaryEntries.filter(e => e.id !== id)
     setDiaryEntries(updated)
-    localStorage.setItem(`nutri:diario_v2:${today}`, JSON.stringify(updated))
+    removeDiaryEntry(id)
   }
 
   const addHydration = async (ml: number) => {
@@ -168,9 +171,9 @@ export default function Nutricion() {
     setShowAddHydration(false)
   }
 
-  const recordDailyAdherence = (score: number) => {
+  const recordDailyAdherence = async (score: number) => {
     if (!perfil?.activeNutritionMethod) return
-    const record = recordAdherence({
+    const record = await recordAdherence({
       methodId: perfil.activeNutritionMethod, score,
       mealsLogged: diaryEntries.length, mealsExpected: 4,
       calorieAdherence: Math.min(100, (dayTotals.calories / goals.calories) * 100),

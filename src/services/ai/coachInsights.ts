@@ -3,6 +3,7 @@
 // exige mínimos de datos y devuelve null + motivo si no hay evidencia suficiente.
 // buildInsights() recolecta de los módulos reales (sin duplicar stores).
 import { db } from '@/services/storage/db'
+import { getDiaryEntries } from '@/services/storage/diaryStore'
 
 export type InsightLevel = 'info' | 'warn'
 export interface CoachInsight {
@@ -258,13 +259,16 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       const ses = await db.table('sessionExercises').toArray().catch(() => []) as any[]
       const skips: SkipRow[] = []
       // nombres/músculos desde rutinas activas
-      const rawList = JSON.parse(localStorage.getItem('rutinas:list') || 'null')
       const nameOf: Record<string, { name: string; muscle: string }> = {}
-      for (const r of rawList || []) {
-        for (const arr of Object.values((r as any).dayExercises || {})) {
-          for (const it of arr as any[]) nameOf[it.exId] = { name: it.name || it.exId, muscle: it.muscle || '' }
+      try {
+        const { getAllRoutines } = await import('@/services/storage/routineStore')
+        const rawList = await getAllRoutines()
+        for (const r of rawList || []) {
+          for (const arr of Object.values((r as any).dayExercises || {})) {
+            for (const it of arr as any[]) nameOf[it.exId] = { name: it.name || it.exId, muscle: it.muscle || '' }
+          }
         }
-      }
+      } catch {}
       for (const se of ses.filter((s) => s.status === 'SKIPPED')) {
         const meta = nameOf[se.exerciseId] || { name: se.exerciseId, muscle: '' }
         skips.push({ date: String(se.updatedAt || '').slice(0, 10), exerciseId: se.exerciseId, exerciseName: meta.name, muscle: meta.muscle, reason: se.skipReason || 'sin motivo' })
@@ -307,8 +311,9 @@ export async function buildInsights(): Promise<CoachInsight[]> {
     } catch { /* noop */ }
     // rutina: edad + estancamiento simple (sin mejora de peso máx 14d)
     try {
-      const rawList = JSON.parse(localStorage.getItem('rutinas:list') || 'null')
-      const activeId = localStorage.getItem('rutina:activeId')
+      const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
+      const rawList = await getAllRoutines()
+      const activeId = await getActiveRoutineId()
       const active = rawList?.find((r: any) => r.id === activeId) || rawList?.[0]
       if (active?.createdAt) {
         const age = Math.round((Date.now() - new Date(active.createdAt).getTime()) / 86400000)
@@ -326,7 +331,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       if (w > 0) {
         const { proteinRange } = await import('@/utils/nutrition')
         const range = proteinRange(w, p?.goalPrimary)
-        const diario = JSON.parse(localStorage.getItem(`nutri:diario_v2:${today}`) || '[]')
+        const diario = await getDiaryEntries(today)
         const est = (diario as any[]).reduce((a, it) => a + Number(it?.macros?.proteins ?? 0), 0)
         push(detectProteinGap(est, range?.low ?? null, diario.length))
       }

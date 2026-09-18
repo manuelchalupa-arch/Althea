@@ -7,6 +7,7 @@ import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { detectCapabilities } from '@/services/ai/capabilities'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import BrandIcon from '@/components/brand/BrandIcon'
+import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X']
 
@@ -41,10 +42,7 @@ export default function Inicio(){
   const [showChangeDay, setShowChangeDay] = useState(false)
   const [changeReason, setChangeReason] = useState('Cambio de horarios')
   const [changeComment, setChangeComment] = useState('')
-  const [overrideDay, setOverrideDay] = useState<number|null>(()=>{
-    const v = localStorage.getItem(`session:override:${todayStr}`)
-    return v ? Number(v) : null
-  })
+  const [overrideDay, setOverrideDay] = useState<number|null>(null)
   const [weekOffset, setWeekOffset] = useState(0)
   const [dayStatus, setDayStatus] = useState<Record<string,{planned:boolean; dayN:number|null; dayName:string|null; sessionStatus:string|null; overridden:boolean; volume?:number; rpe?:number}>>({})
   const [selectedDate, setSelectedDate] = useState<string>(todayStr)
@@ -61,14 +59,15 @@ export default function Inicio(){
     setExNames(list.map(x=> ({id:x.exId, name:x.name, sets:x.sets, reps:x.reps, weight:x.weight, restSec:x.restSec, muscle:x.muscle})))
   }
 
-  const saveExerciseEdit = (idx:number)=>{
+  const saveExerciseEdit = async (idx:number)=>{
     const updated = [...exNames]
     updated[idx] = { ...updated[idx], reps: editDraft.reps, weight: editDraft.weight, restSec: editDraft.restSec }
     setExNames(updated)
-    // Persist to rutinas:list
+    // Persist to routineStore (Dexie)
     try{
-      const rawList = JSON.parse(localStorage.getItem('rutinas:list')||'null')
-      const activeId = localStorage.getItem('rutina:activeId')
+      const { getAllRoutines, getActiveRoutineId, saveAllRoutines } = await import('@/services/storage/routineStore')
+      const rawList = await getAllRoutines()
+      const activeId = await getActiveRoutineId()
       const activeIdx = rawList?.findIndex((r:any)=>r.id===activeId) ?? 0
       if(rawList && rawList[activeIdx]){
         const dayN = effectiveN
@@ -79,9 +78,7 @@ export default function Inicio(){
           if(exInDay >= 0){
             exArr[exInDay] = { ...exArr[exInDay], reps: editDraft.reps, weight: editDraft.weight, restSec: editDraft.restSec }
             rawList[activeIdx].dayExercises[dayN] = exArr
-            localStorage.setItem('rutinas:list', JSON.stringify(rawList))
-            // Also update backward-compatible key
-            localStorage.setItem('rutina:ex', JSON.stringify(rawList[activeIdx].dayExercises))
+            await saveAllRoutines(rawList, activeId)
           }
         }
       }
@@ -108,8 +105,10 @@ export default function Inicio(){
         const prev = byDate[k]
         if(!prev || String(s.updatedAt||'') > String(prev.updatedAt||'')) byDate[k] = s
       }
+      const overrides = await Promise.all(weekKeys.map(k => getOverrideDay(k)))
       const map: typeof dayStatus = {}
-      for(const iso of weekKeys){
+      for(let i = 0; i < weekKeys.length; i++){
+        const iso = weekKeys[i]
         const dow = new Date(iso+'T12:00:00').getDay()
         const n = cycle.weekMap[dow] ?? null
         const nm = n ? cycle.trainingDays.find((d:any)=>d.n===n)?.name || `Día N°${n}` : null
@@ -118,7 +117,7 @@ export default function Inicio(){
           planned: n != null,
           dayN: n, dayName: nm,
           sessionStatus: sess?.sessionStatus || null,
-          overridden: !!localStorage.getItem(`session:override:${iso}`),
+          overridden: overrides[i] != null,
           volume: sess?.totalVolume || undefined,
           rpe: sess?.avgRPE || undefined,
         }
@@ -154,11 +153,13 @@ export default function Inicio(){
 
   useEffect(()=>{
     ensureSeeded()
-    db.userProfile.get('me').then(p=>{
+    migrateSessionOverridesFromLocalStorage()
+    db.userProfile.get('me').then(async p=>{
       const c = getCycleFromProfile(p as any)
       setCycle(c)
-      const override = localStorage.getItem(`session:override:${todayStr}`)
-      const n = override ? Number(override) : getTrainingDayForDate(todayStr, c).n
+      const override = await getOverrideDay(todayStr)
+      const n = override != null ? override : getTrainingDayForDate(todayStr, c).n
+      setOverrideDay(override)
       loadDay(c, n)
       if(c.methodId){
         const m = getMethod(c.methodId as any)
@@ -217,15 +218,15 @@ export default function Inicio(){
             <span className="font-medium text-body-sm">Semana {Math.max(1, Math.floor((Date.now() - new Date((cycle as any).startDate || todayStr).getTime()) / (7*86400000)) + 1)}</span>
           </button>
           <button onClick={async()=>{
-            const rawList = JSON.parse(localStorage.getItem('rutinas:list')||'null')
-            const activeId = localStorage.getItem('rutina:activeId')
+            const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
+            const rawList = await getAllRoutines()
+            const activeId = await getActiveRoutineId()
             const active:any = rawList?.find((r:any)=>r.id===activeId) || rawList?.[0]
             const n = effectiveN
             const { getDayExercises } = await import('@/utils/routine')
             const list = await getDayExercises(n, cycle)
-            const { createReadySession } = await import('@/services/training/sessionMachine')
-            const changedRaw = localStorage.getItem(`session:changed:${todayStr}`)
-            const changed = changedRaw ? JSON.parse(changedRaw) : null
+            const { createReadySession } = await import('@/services/training/sessionStore')
+            const changed = await getChangedData(todayStr)
             const weekNumber = (()=>{ try{
               const start = new Date((cycle as any).startDate || todayStr)
               const now = new Date(todayStr)
@@ -338,15 +339,15 @@ export default function Inicio(){
             </div>
             {!isRest && (
               <button onClick={async()=>{
-                const rawList = JSON.parse(localStorage.getItem('rutinas:list')||'null')
-                const activeId = localStorage.getItem('rutina:activeId')
+                const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
+                const rawList = await getAllRoutines()
+                const activeId = await getActiveRoutineId()
                 const active:any = rawList?.find((r:any)=>r.id===activeId) || rawList?.[0]
                 const n = effectiveN
                 const { getDayExercises } = await import('@/utils/routine')
                 const list = await getDayExercises(n, cycle)
-                const { createReadySession } = await import('@/services/training/sessionMachine')
-                const changedRaw = localStorage.getItem(`session:changed:${todayStr}`)
-                const changed = changedRaw ? JSON.parse(changedRaw) : null
+                const { createReadySession } = await import('@/services/training/sessionStore')
+                const changed = await getChangedData(todayStr)
                 const weekNumber = (()=>{ try{
                   const start = new Date((cycle as any).startDate || todayStr)
                   const now = new Date(todayStr)
@@ -710,11 +711,9 @@ export default function Inicio(){
             )}
             <p className="text-[11px] text-on-surface-variant">Seleccioná qué día querés realizar:</p>
             {cycle.trainingDays.map(d=>(
-              <button key={d.n} onClick={()=>{
+              <button key={d.n} onClick={async()=>{
                 const obs={ date: todayStr, plannedDay: rawAgenda.n, plannedName: rawAgenda.name, actualDay: d.n, actualName: d.name, changeReason, changeComment, changedByUser:true, at: new Date().toISOString()}
-                localStorage.setItem(`session:override:${todayStr}`, String(d.n))
-                localStorage.setItem(`session:changed:${todayStr}`, JSON.stringify(obs))
-                localStorage.setItem(`session:observation:${todayStr}`, JSON.stringify(obs))
+                await setOverride(todayStr, d.n, obs, obs)
                 setOverrideDay(d.n)
                 loadDay(cycle, d.n)
                 window.dispatchEvent(new Event('routineChange'))
@@ -731,9 +730,8 @@ export default function Inicio(){
               </select>
               <textarea value={changeComment} onChange={e=>setChangeComment(e.target.value)} placeholder="Observación / explicación" rows={2} className="w-full bg-surface-container-low border border-outline-variant rounded p-2 text-sm text-on-surface"/>
             </div>
-            <button onClick={()=>{
-              localStorage.removeItem(`session:override:${todayStr}`)
-              localStorage.removeItem(`session:changed:${todayStr}`)
+            <button onClick={async()=>{
+              await removeOverride(todayStr)
               setOverrideDay(null)
               loadDay(cycle, rawAgenda.n)
               window.dispatchEvent(new Event('routineChange'))

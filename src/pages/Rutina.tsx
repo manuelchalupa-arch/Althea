@@ -35,36 +35,14 @@ type RutinaData = {
 }
 
 // Migración no destructiva: si existe viejo formato, convertir a lista
-function loadRoutines(): { list: RutinaData[]; activeId: string | null } {
-  try{
-    const rawList = localStorage.getItem('rutinas:list')
-    if(rawList){
-      const parsed = JSON.parse(rawList)
-      if(Array.isArray(parsed) && parsed.length>0){
-        const activeId = localStorage.getItem('rutina:activeId') || parsed[0].id
-        return { list: parsed, activeId }
-      }
-    }
-    // migrar viejo
-    const oldMeta = JSON.parse(localStorage.getItem('rutina:meta')||'null')
-    const oldEx = JSON.parse(localStorage.getItem('rutina:ex')||'null')
-    const oldCycleRaw = localStorage.getItem('rutina:ex') ? null : null
-    // cycle viene de userProfile, lo cargará luego
-    if(oldMeta){
-      const data: RutinaData = {
-        id: oldMeta.id || 'r1',
-        name: oldMeta.name || 'Rutina 1',
-        createdAt: oldMeta.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        rotationDays: oldMeta.rotationDays || 30,
-        cycle: DEFAULT_CYCLE,
-        dayExercises: oldEx || {}
-      }
-      localStorage.setItem('rutinas:list', JSON.stringify([data]))
-      localStorage.setItem('rutina:activeId', data.id)
-      return { list: [data], activeId: data.id }
-    }
-  }catch{}
+async function loadRoutines(): Promise<{ list: RutinaData[]; activeId: string | null }> {
+  try {
+    const { getAllRoutines, getActiveRoutineId, migrateRoutinesFromLocalStorage } = await import('@/services/storage/routineStore')
+    await migrateRoutinesFromLocalStorage()
+    const list = await getAllRoutines()
+    const activeId = await getActiveRoutineId()
+    if (list.length > 0) return { list, activeId }
+  } catch {}
   const def: RutinaData = {
     id: 'r1', name: 'Rutina 1', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     rotationDays: 30, cycle: DEFAULT_CYCLE, dayExercises: {}
@@ -72,21 +50,18 @@ function loadRoutines(): { list: RutinaData[]; activeId: string | null } {
   return { list: [def], activeId: def.id }
 }
 
-function saveRoutines(list: RutinaData[], activeId: string | null){
-  localStorage.setItem('rutinas:list', JSON.stringify(list))
-  if(activeId) localStorage.setItem('rutina:activeId', activeId)
-  // compat: también guarda en viejo keys para no perder si algo lee viejo
-  const active = list.find(r=>r.id===activeId) || list[0]
-  if(active){
-    localStorage.setItem('rutina:meta', JSON.stringify({ id:active.id, name:active.name, createdAt:active.createdAt, rotationDays:active.rotationDays }))
-    localStorage.setItem('rutina:ex', JSON.stringify(active.dayExercises))
-  }
+async function saveRoutines(list: RutinaData[], activeId: string | null){
+  try {
+    const { saveAllRoutines } = await import('@/services/storage/routineStore')
+    await saveAllRoutines(list, activeId)
+  } catch {}
 }
 
 export default function RutinaPage(){
   const [exercises,setExercises]=useState<Exercise[]>([])
-  const [routines,setRoutines]=useState<RutinaData[]>(()=> loadRoutines().list)
-  const [activeId,setActiveId]=useState<string | null>(()=> loadRoutines().activeId)
+  const [routines,setRoutines]=useState<RutinaData[]>([])
+  const [activeId,setActiveId]=useState<string | null>(null)
+  const [routinesLoaded, setRoutinesLoaded] = useState(false)
   const active = routines.find(r=>r.id===activeId) || routines[0]
   const [pickerFor,setPickerFor]=useState<number|null>(null)
   const [showNew,setShowNew]=useState(false)
@@ -102,11 +77,14 @@ export default function RutinaPage(){
   useEffect(()=>{
     ensureSeeded().then(async()=>{
       const ex = await db.exercises.toArray(); setExercises(ex)
+      // Load routines from Dexie (with migration from localStorage)
+      const { list, activeId: aid } = await loadRoutines()
+      setRoutines(list); setActiveId(aid); setRoutinesLoaded(true)
       // si active no tiene cycle, intenta cargar de userProfile
       const p = await db.userProfile.get('me') as any
-      if(p?.cycle && routines.length===1 && JSON.stringify(routines[0].cycle)===JSON.stringify(DEFAULT_CYCLE)){
-        const upd = routines.map(r=> r.id===activeId ? {...r, cycle: p.cycle} : r)
-        setRoutines(upd); saveRoutines(upd, activeId)
+      if(p?.cycle && list.length===1 && JSON.stringify(list[0].cycle)===JSON.stringify(DEFAULT_CYCLE)){
+        const upd = list.map(r=> r.id===aid ? {...r, cycle: p.cycle} : r)
+        setRoutines(upd); saveRoutines(upd, aid)
       }
     })
   },[])
@@ -132,7 +110,8 @@ export default function RutinaPage(){
     setRoutines(next); saveRoutines(next, activeId)
   }
   const setActive = (id:string)=>{
-    setActiveId(id); localStorage.setItem('rutina:activeId', id)
+    setActiveId(id)
+    import('@/services/storage/routineStore').then(({ setActiveRoutineId }) => setActiveRoutineId(id))
     // sync cycle
     const r = routines.find(x=>x.id===id)
     if(r) db.userProfile.get('me').then(async p=>{
