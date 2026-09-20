@@ -104,64 +104,64 @@ function scoreMethod(
   let complexity = 0.5
 
   // Goal fit
-  if (method.suitability.goals.includes(goal as any)) goalFit += 0.3
-  else goalFit -= 0.2
+  if (method.suitability.goals.includes(goal as any)) {goalFit += 0.3}
+  else {goalFit -= 0.2}
 
   // Training fit
-  if (method.suitability.trainingTypes.includes(trainingType as any)) trainingFit += 0.3
-  else trainingFit -= 0.2
+  if (method.suitability.trainingTypes.includes(trainingType as any)) {trainingFit += 0.3}
+  else {trainingFit -= 0.2}
 
   // Training adaptation exists
-  if (method.trainingAdaptation[trainingType as keyof typeof method.trainingAdaptation]) trainingFit += 0.1
+  if (method.trainingAdaptation[trainingType as keyof typeof method.trainingAdaptation]) {trainingFit += 0.1}
 
   // Experience level
   const levelOrder = { beginner: 0, intermediate: 1, advanced: 2 }
   const reqLevel = levelOrder[method.requirements.minExperienceLevel] || 0
   const userLevel = levelOrder[level as keyof typeof levelOrder] || 0
-  if (userLevel >= reqLevel) sustainability += 0.15
-  else sustainability -= 0.3
+  if (userLevel >= reqLevel) {sustainability += 0.15}
+  else {sustainability -= 0.3}
 
   // Adherence history with this method
   const hist = adherenceHistory.find(h => h.method === method.id)
-  if (hist && hist.score > 7) sustainability += 0.2
-  else if (hist && hist.score < 4) sustainability -= 0.3
+  if (hist && hist.score > 7) {sustainability += 0.2}
+  else if (hist && hist.score < 4) {sustainability -= 0.3}
 
   // Restrictions
   const hasRestriction = restrictions.some(r =>
     method.characteristics.restrictions.some(mr => mr.toLowerCase().includes(r.toLowerCase()))
   )
-  if (hasRestriction) preferenceFit -= 0.4
+  if (hasRestriction) {preferenceFit -= 0.4}
 
   // Allergies
   const hasAllergy = allergies.some(a =>
     method.characteristics.key_foods.some(f => f.toLowerCase().includes(a.toLowerCase()))
   )
-  if (hasAllergy) preferenceFit -= 0.3
+  if (hasAllergy) {preferenceFit -= 0.3}
 
   // Disliked foods
   const hasDisliked = disliked.some(d =>
     method.characteristics.key_foods.some(f => f.toLowerCase().includes(d.toLowerCase()))
   )
-  if (hasDisliked) preferenceFit -= 0.15
+  if (hasDisliked) {preferenceFit -= 0.15}
 
   // Health conditions
   const hasContraindication = healthConditions.some(h =>
     method.requirements.contraindications.some(c => c.toLowerCase().includes(h.toLowerCase()))
   )
-  if (hasContraindication) safety -= 0.5
+  if (hasContraindication) {safety -= 0.5}
 
   // Safety: contraindications
-  if (method.safety.requiresSupervision) safety -= 0.2
+  if (method.safety.requiresSupervision) {safety -= 0.2}
 
   // Evidence
-  if (method.evidence.level === 'strong') evidence += 0.3
-  else if (method.evidence.level === 'moderate') evidence += 0.15
-  else if (method.evidence.level === 'limited') evidence -= 0.1
-  else if (method.evidence.level === 'insufficient') evidence -= 0.25
+  if (method.evidence.level === 'strong') {evidence += 0.3}
+  else if (method.evidence.level === 'moderate') {evidence += 0.15}
+  else if (method.evidence.level === 'limited') {evidence -= 0.1}
+  else if (method.evidence.level === 'insufficient') {evidence -= 0.25}
 
   // Complexity (restrictive = high complexity)
-  if (method.category === 'restrictive') complexity -= 0.2
-  if (method.characteristics.restrictions.length > 3) complexity -= 0.15
+  if (method.category === 'restrictive') {complexity -= 0.2}
+  if (method.characteristics.restrictions.length > 3) {complexity -= 0.15}
 
   // Calculate total score
   const totalScore = (
@@ -186,7 +186,7 @@ function scoreMethod(
 
 /** Resolver tipo de entrenamiento desde perfil o método de entrenamiento */
 function resolveTrainingType(profile: NutritionUserProfile, trainingMethodId?: string | null): string {
-  if (profile.trainingType) return profile.trainingType
+  if (profile.trainingType) {return profile.trainingType}
   if (trainingMethodId) {
     const typeMap: Record<string, string> = {
       strength: 'strength', hypertrophy: 'hypertrophy', strength_endurance: 'endurance',
@@ -213,10 +213,10 @@ function shouldCreateMixedNutritionMethod(
   trainingType: string,
   profile: NutritionUserProfile,
 ): boolean {
-  if (secondary.length > 0) return true
-  if (trainingType === 'hypertrophy' || trainingType === 'strength') return true
-  if (goal === 'fat_loss' || goal === 'recomposition') return true
-  if (profile.nutritionPrefs?.mealFrequency && profile.nutritionPrefs.mealFrequency >= 5) return true
+  if (secondary.length > 0) {return true}
+  if (trainingType === 'hypertrophy' || trainingType === 'strength') {return true}
+  if (goal === 'fat_loss' || goal === 'recomposition') {return true}
+  if (profile.nutritionPrefs?.mealFrequency && profile.nutritionPrefs.mealFrequency >= 5) {return true}
   return false
 }
 
@@ -287,11 +287,11 @@ function buildJustification(
 /** Calcular confianza */
 function calculateConfidence(profile: NutritionUserProfile): number {
   let confidence = 0.4
-  if (profile.trainingGoal) confidence += 0.1
-  if (profile.weightKg) confidence += 0.1
-  if (profile.nutritionPrefs?.restrictions) confidence += 0.05
-  if (profile.adherenceHistory && profile.adherenceHistory.length > 0) confidence += 0.1
-  if (profile.recoveryScore) confidence += 0.05
+  if (profile.trainingGoal) {confidence += 0.1}
+  if (profile.weightKg) {confidence += 0.1}
+  if (profile.nutritionPrefs?.restrictions) {confidence += 0.05}
+  if (profile.adherenceHistory && profile.adherenceHistory.length > 0) {confidence += 0.1}
+  if (profile.recoveryScore) {confidence += 0.05}
   return Math.min(1, confidence)
 }
 
@@ -308,7 +308,7 @@ function buildFactorsList(
     `Frecuencia: ${days} días/semana`,
     `Peso: ${weight}kg`,
   ]
-  if (restrictions.length > 0) factors.push(`Restricciones: ${restrictions.join(', ')}`)
-  if (allergies.length > 0) factors.push(`Alergias: ${allergies.join(', ')}`)
+  if (restrictions.length > 0) {factors.push(`Restricciones: ${restrictions.join(', ')}`)}
+  if (allergies.length > 0) {factors.push(`Alergias: ${allergies.join(', ')}`)}
   return factors
 }

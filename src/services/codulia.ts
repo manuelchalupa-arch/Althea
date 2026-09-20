@@ -74,7 +74,7 @@ export function getCoduliaKey(){ return getKey() }
 
 function headers(){
   const k = getKey()
-  if(!k) throw new Error('Servicio nutricional no configurado. Contactá al administrador.')
+  if(!k) {throw new Error('Servicio nutricional no configurado. Contactá al administrador.')}
   return { 'x-api-key': k, 'Accept':'application/json' }
 }
 
@@ -113,7 +113,7 @@ function normalizeDetail(raw:any): CoduliaFoodDetail {
 }
 
 export async function searchFoods(q:string, opts?:{limit?:number; offset?:number}):Promise<CoduliaFoodSummary[]>{
-  if(!q.trim()) return []
+  if(!q.trim()) {return []}
   const params = new URLSearchParams({ q: q.trim(), limit: String(opts?.limit ?? 20), offset: String(opts?.offset ?? 0) })
   const res = await fetch(`${CODULIA_BASE}/foods/search?${params.toString()}`, { headers: headers() })
   if(!res.ok){
@@ -126,7 +126,7 @@ export async function searchFoods(q:string, opts?:{limit?:number; offset?:number
 
 export async function getByBarcode(code:string):Promise<CoduliaFoodDetail>{
   const clean = code.replace(/\D/g,'').trim()
-  if(!clean) throw new Error('Código de barras vacío')
+  if(!clean) {throw new Error('Código de barras vacío')}
   const res = await fetch(`${CODULIA_BASE}/foods/barcode/${encodeURIComponent(clean)}`, { headers: headers() })
   if(!res.ok){
     const body = await res.json().catch(()=>({error:{message:res.statusText}}))

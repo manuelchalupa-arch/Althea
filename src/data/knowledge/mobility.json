@@ -1,37 +1,52 @@
 {
   "id": "mobility",
   "title": "Movilidad y Flexibilidad",
+  "source": "Page (2012); Opplert & Babault (2018); Polsgrove et al. (2016)",
+  "type": "evidence_review",
+  "topic": "mobility",
+  "evidenceLevel": "moderate",
+  "updatedAt": "2026-09-14",
   "tags": ["movilidad", "flexibilidad", "estiramiento", "yoga"],
   "chunks": [
     {
-      "id": "mobility-01",
+      "chunkId": "mobility-01",
+      "documentId": "mobility",
       "tags": ["movilidad", "entrenamiento"],
       "content": "Movilidad ≠ flexibilidad. Movilidad es rango de movimiento CON control activo. Flexibilidad es rango pasivo. Entrenar ambas: movilidad con peso o bandas, flexibilidad con estiramientos estáticos post-entreno.",
-      "citation": "Page P. (2012) J Functional Movement. Current concepts in stretching."
+      "citation": "Page P. (2012) J Functional Movement. Current concepts in stretching.",
+      "relevance": "training"
     },
     {
-      "id": "mobility-02",
+      "chunkId": "mobility-02",
+      "documentId": "mobility",
       "tags": ["movilidad", "dolor"],
       "content": "Restricciones de movilidad frecuentes: cadera (sentadilla profunda), hombro (press overhead), tobillo (sentadilla). Causas principales: sedentarismo y compensaciones, no necesariamente dolor. Trabajar 10-15 min/día.",
-      "citation": "Shultz SJ et al. (2011) J Athletic Training. Assessing mobility restrictions."
+      "citation": "Shultz SJ et al. (2011) J Athletic Training. Assessing mobility restrictions.",
+      "relevance": "recovery"
     },
     {
-      "id": "mobility-03",
+      "chunkId": "mobility-03",
+      "documentId": "mobility",
       "tags": ["estiramiento", "recuperación"],
       "content": "Estiramientos dinámicos PRE-entreno (leg swings, arm circles, 10 reps). Estiramientos estáticos POST-entreno (mantener 30-60s por estiramiento). No estirar en frío antes de carga pesada: evidencia limitada de prevención de lesiones.",
-      "citation": "Opplert J, Babault N. (2018) Sports Medicine. Acute effects of dynamic stretching."
+      "citation": "Opplert J, Babault N. (2018) Sports Medicine. Acute effects of dynamic stretching.",
+      "relevance": "recovery"
     },
     {
-      "id": "mobility-04",
+      "chunkId": "mobility-04",
+      "documentId": "mobility",
       "tags": ["yoga", "movilidad"],
       "content": "Yoga funcional para atletas: 2-3 sesiones/semana de 20-30 min. Mejora movilidad de cadera, hombro y columna. Posiciones clave: pigeon, world's greatest stretch, cat-cow, thread the needle.",
-      "citation": "Polsgrove MJ et al. (2016) Int J Sports Phys Ther. Impact of 10-week yoga program."
+      "citation": "Polsgrove MJ et al. (2016) Int J Sports Phys Ther. Impact of 10-week yoga program.",
+      "relevance": "recovery"
     },
     {
-      "id": "mobility-05",
+      "chunkId": "mobility-05",
+      "documentId": "mobility",
       "tags": ["movilidad", "progresión"],
       "content": "Progresión de movilidad: 1) Foam rolling (2 min/zona) 2) Estiramientos dinámicos (10 reps) 3) Movilidad con carga (10-15 reps) 4) Integración al movimiento compuesto. Siempre en ese orden para preparar el tejido.",
-      "citation": "Wiewelhove T et al. (2019) Front Physiol. Effects of foam rolling on performance."
+      "citation": "Wiewelhove T et al. (2019) Front Physiol. Effects of foam rolling on performance.",
+      "relevance": "training"
     }
   ]
 }

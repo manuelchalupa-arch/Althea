@@ -208,11 +208,11 @@ function buildTrainingNutritionAdvice(
   const proteinAdequate = proteinG / weightKg >= 1.6
 
   let message = ''
-  if (deficitAggressive) message = 'El déficit calórico es agresivo (>30%). Podría afectar rendimiento y recuperación. Considerá un déficit del 15-20%.'
-  else if (caloricState === 'deficit' && goal === 'hypertrophy') message = 'Estás en déficit: la hipertrofia será más lenta. Priorizá proteína y volumen de entrenamiento.'
-  else if (caloricState === 'surplus' && goal === 'fat_loss') message = 'Tenés superávit pero tu objetivo es perder grasa. Revisá tu plan nutricional.'
-  else if (!proteinAdequate) message = `Proteína por debajo de 1.6g/kg (${(proteinG/weightKg).toFixed(1)}g/kg). Aumentá ingestiones proteicas.`
-  else message = 'Nutrición coherente con tu objetivo. Mantené la constancia.'
+  if (deficitAggressive) {message = 'El déficit calórico es agresivo (>30%). Podría afectar rendimiento y recuperación. Considerá un déficit del 15-20%.'}
+  else if (caloricState === 'deficit' && goal === 'hypertrophy') {message = 'Estás en déficit: la hipertrofia será más lenta. Priorizá proteína y volumen de entrenamiento.'}
+  else if (caloricState === 'surplus' && goal === 'fat_loss') {message = 'Tenés superávit pero tu objetivo es perder grasa. Revisá tu plan nutricional.'}
+  else if (!proteinAdequate) {message = `Proteína por debajo de 1.6g/kg (${(proteinG/weightKg).toFixed(1)}g/kg). Aumentá ingestiones proteicas.`}
+  else {message = 'Nutrición coherente con tu objetivo. Mantené la constancia.'}
 
   return { caloricState, deficitAggressive, proteinAdequate, message }
 }

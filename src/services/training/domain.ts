@@ -31,7 +31,7 @@ export const SESSION_TRANSITIONS: Record<SessionStatus, SessionStatus[]> = {
   READY: ['IN_PROGRESS', 'CANCELLED'],
   IN_PROGRESS: ['PAUSED', 'COMPLETING', 'CANCELLED', 'ABANDONED'],
   PAUSED: ['IN_PROGRESS', 'COMPLETING', 'CANCELLED', 'ABANDONED'],
-  COMPLETING: ['IN_PROGRESS', 'COMPLETED', 'PARTIAL'],
+  COMPLETING: ['COMPLETED', 'PARTIAL'],
   COMPLETED: [],
   PARTIAL: [],
   CANCELLED: [],
@@ -43,13 +43,14 @@ export function canTransitionSession(from: SessionStatus, to: SessionStatus): bo
 }
 
 export function assertTransitionSession(from: SessionStatus, to: SessionStatus): void {
-  if (!canTransitionSession(from, to)) throw new Error(`Transición inválida: ${from} → ${to}`);
+  if (!canTransitionSession(from, to)) {throw new Error(`Transición inválida: ${from} → ${to}`);}
 }
 
 // ---- Entidades oficiales (§29-31, §44)
 export interface DayChange { reason: string; comment?: string; at: string }
 
 export interface TrainingSession {
+  id: string;
   sessionId: string;
   userId: string;
   routineId: string;
@@ -97,6 +98,7 @@ export interface TrainingSession {
   surveyId?: string;
   createdAt: string;
   updatedAt: string;
+  isDemo?: boolean;
 }
 
 export interface PlannedSetSnapshot { order: number; reps: number; weight: number; setType?: SetType }
@@ -121,6 +123,7 @@ export interface SessionExercise {
   skipComment?: string;
   createdAt: string;
   updatedAt: string;
+  isDemo?: boolean;
 }
 
 export interface SetRecord {
@@ -136,9 +139,15 @@ export interface SetRecord {
   actualWeight: number;
   status: SetRecordStatus;
   observation?: string;
+  obs?: string;
   completedAt?: string;
   createdAt: string;
   updatedAt: string;
+  // Compat: código legacy usa weight/reps/skipped como alias
+  weight?: number;
+  reps?: number;
+  skipped?: boolean;
+  isDemo?: boolean;
 }
 
 export interface NegativeSet {
@@ -150,6 +159,7 @@ export interface NegativeSet {
   weight: number;
   observation?: string;
   createdAt: string;
+  isDemo?: boolean;
 }
 
 export interface ExerciseObservation {
@@ -158,7 +168,11 @@ export interface ExerciseObservation {
   sessionExerciseId?: string;
   exerciseId?: string;
   text: string;
+  note?: string;
+  type?: string;
   createdAt: string;
+  updatedAt: string;
+  isDemo?: boolean;
 }
 
 export interface ExerciseReplacement {
@@ -170,6 +184,7 @@ export interface ExerciseReplacement {
   reason: string;
   comment?: string;
   createdAt: string;
+  isDemo?: boolean;
 }
 
 export interface SessionEvent {
@@ -180,6 +195,7 @@ export interface SessionEvent {
   toStatus?: SessionStatus;
   timestamp: string;
   metadata?: Record<string, unknown>;
+  isDemo?: boolean;
 }
 
 export interface PostWorkoutSurvey {
@@ -202,14 +218,15 @@ export interface PostWorkoutSurvey {
   stress?: number;
   painArea?: string;
   painObservation?: string;
+  isDemo?: boolean;
 }
 
 export function validateSurvey(s: Partial<PostWorkoutSurvey>): string[] {
   const errs: string[] = [];
   const range = (v: unknown, lo: number, hi: number) => typeof v === 'number' && v >= lo && v <= hi;
-  if (!range(s.sessionRating, 1, 5)) errs.push('sessionRating 1–5');
-  if (s.pain !== 0 && s.pain !== 1) errs.push('pain 0 o 1');
-  if (s.pain === 1 && !(s.painZone || '').trim()) errs.push('painZone requerido si hay dolor');
+  if (!range(s.sessionRating, 1, 5)) {errs.push('sessionRating 1–5');}
+  if (s.pain !== 0 && s.pain !== 1) {errs.push('pain 0 o 1');}
+  if (s.pain === 1 && !(s.painZone || '').trim()) {errs.push('painZone requerido si hay dolor');}
   return errs;
 }
 
@@ -243,9 +260,9 @@ export function setRecordIdFor(sessionExerciseId: string, order: number): string
 // Validación de integridad antes de cerrar (§12).
 export function validateBeforeFinish(s: TrainingSession, exercises: SessionExercise[]): string[] {
   const errs: string[] = [];
-  if (!s.sessionId) errs.push('READY sin sessionId');
-  if (!s.routineId) errs.push('IN_PROGRESS sin rutina');
-  if (!s.startedAt && (s.sessionStatus === 'COMPLETED' || s.sessionStatus === 'PARTIAL')) errs.push('COMPLETED sin startedAt');
+  if (!s.sessionId) {errs.push('READY sin sessionId');}
+  if (!s.routineId) {errs.push('IN_PROGRESS sin rutina');}
+  if (!s.startedAt && (s.sessionStatus === 'COMPLETED' || s.sessionStatus === 'PARTIAL')) {errs.push('COMPLETED sin startedAt');}
   if (s.sessionStatus === 'PARTIAL' && !exercises.some((e) => e.status === 'SKIPPED' || e.status === 'PARTIAL' || e.status === 'PENDING')) {
     errs.push('PARTIAL sin pendientes identificados');
   }

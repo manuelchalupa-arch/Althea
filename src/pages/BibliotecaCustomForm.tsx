@@ -60,13 +60,13 @@ export default function BibliotecaCustomForm({
     const { validateCustomInput } = await import('@/services/training/customExercises')
     const errs = validateCustomInput(collect())
     setErrors(errs)
-    if (errs.length === 0) setStep('preview')
+    if (errs.length === 0) {setStep('preview')}
   }
   const onSave = async () => {
     setSaving(true)
     try {
-      if (initial) await updateCustomExercise(initial.id, collect())
-      else await createCustomExercise(collect())
+      if (initial) {await updateCustomExercise(initial.id, collect())}
+      else {await createCustomExercise(collect())}
       onSaved()
     } catch (e: unknown) {
       setErrors([e instanceof Error ? e.message : 'No se pudo guardar'])
@@ -76,7 +76,7 @@ export default function BibliotecaCustomForm({
     }
   }
   const onFile = async (f: File | undefined) => {
-    if (!f) return
+    if (!f) {return}
     setImgErr('')
     try {
       setImage(await fileToExerciseImage(f))

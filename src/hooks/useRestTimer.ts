@@ -13,11 +13,11 @@ export function useRestTimer(){
 
   useEffect(()=>{
     const iv = setInterval(()=>{
-      if(restPausedRef.current) return
+      if(restPausedRef.current) {return}
       if(restSecRef.current > 0){
         restSecRef.current -= 1
         setRestSec(restSecRef.current)
-        if(restSecRef.current === 0) setRestFlash(true)
+        if(restSecRef.current === 0) {setRestFlash(true)}
       }
     }, 1000)
     return ()=> clearInterval(iv)

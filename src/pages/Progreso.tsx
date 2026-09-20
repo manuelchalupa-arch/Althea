@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { db } from '@/services/storage/db'
 import { BODY_PARTS, fetchPartMap } from '@/services/exerciseGym'
 import { combinedIndexOf } from '@/services/training/metrics'
+import { resetTrainingHistory } from '@/services/history'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { AltheaCard, AltheaBadge } from '@/components/althea'
+import type { SetRecord } from '@/services/training/domain'
+import type { RecoveryCheck } from '@/types'
 
 type Period = '14'|'30'|'90'|'all'|'custom'
 type Metric = 'peso'|'reps'|'series'|'volumen'|'mejor'|'indice'
@@ -21,8 +24,8 @@ export default function Progresos(){
   const [allLogs,setAllLogs]=useState<{exerciseId:string; part:string|null; weight:number; reps:number; createdAt:string}[]>([])
   const [unmapped,setUnmapped]=useState(0)
   const [sessionCount,setSessionCount]=useState(0)
-  const [bodies,setBodies]=useState<any[]>([])
-  const [recovery,setRecovery]=useState<any[]>([])
+  const [bodies,setBodies]=useState<Array<{localDate:string; weightKg?:number}>>([])
+  const [recovery,setRecovery]=useState<RecoveryCheck[]>([])
   const [period,setPeriod]=useState<Period>('30')
   const [customStart,setCustomStart]=useState('')
   const [customEnd,setCustomEnd]=useState('')
@@ -30,6 +33,20 @@ export default function Progresos(){
   const [partSel,setPartSel]=useState('back')
   const [metric,setMetric]=useState<Metric>('volumen')
   const [selRecDate,setSelRecDate]=useState<string|null>(null)
+  const [showReset,setShowReset]=useState(false)
+  const [resetConfirm,setResetConfirm]=useState('')
+  const [resetting,setResetting]=useState(false)
+
+  const doResetHistory = async ()=>{
+    if(resetConfirm!=='REINICIAR' || resetting) {return}
+    setResetting(true)
+    try{
+      await resetTrainingHistory()
+      window.location.reload()
+    }finally{
+      setResetting(false)
+    }
+  }
 
   useEffect(()=>{
     Promise.all([
@@ -45,32 +62,32 @@ export default function Progresos(){
       const partMap = await overlayCustomParts({ ...(baseMap as Record<string,string>) })
       const customs = await listCustomExercises().catch(()=>[])
       const names: Record<string,string> = {}
-      for(const c of customs){ if(c?.id) names[c.id] = c.name }
+      for(const c of customs){ if(c?.id) {names[c.id] = c.name} }
       setCustomNames(names)
       const seen = new Set<string>()
       const logs = [
-        ...(legacyLogs as any[]).map((l)=> ({ exerciseId: l.exerciseId, weight: l.weight, reps: l.reps, createdAt: l.createdAt })),
-        ...(officialRecs as any[]).filter((r)=> r.status==='COMPLETED').map((r)=> ({ exerciseId: r.exerciseId, weight: r.actualWeight, reps: r.actualReps, createdAt: r.completedAt || r.createdAt })),
-      ].filter((l)=>{ const k = `${l.exerciseId}|${l.createdAt}|${l.weight}|${l.reps}`; if(seen.has(k) || !l.createdAt || !l.exerciseId) return false; seen.add(k); return true })
+        ...legacyLogs.map((l)=> ({ exerciseId: l.exerciseId, weight: l.weight, reps: l.reps, createdAt: l.createdAt })),
+        ...officialRecs.filter((r: SetRecord)=> r.status==='COMPLETED').map((r: SetRecord)=> ({ exerciseId: r.exerciseId, weight: r.actualWeight, reps: r.actualReps, createdAt: r.completedAt || r.createdAt })),
+      ].filter((l)=>{ const k = `${l.exerciseId}|${l.createdAt}|${l.weight}|${l.reps}`; if(seen.has(k) || !l.createdAt || !l.exerciseId) {return false;} seen.add(k); return true })
       let unm = 0
-      setAllLogs(logs.map((l)=>{ const p = (partMap as Record<string,string>)[l.exerciseId] || null; if(!p) unm++; return { ...l, part: p } }))
+      setAllLogs(logs.map((l)=>{ const p = (partMap as Record<string,string>)[l.exerciseId] || null; if(!p) {unm++;} return { ...l, part: p } }))
       setUnmapped(unm)
-      const ids = new Set<string>([...(legacySessions as any[]).map((s)=> s.id), ...(officialSessions as any[]).map((s)=> s.sessionId || s.id)])
+      const ids = new Set<string>([...legacySessions.map((s)=> s.id), ...officialSessions.map((s)=> s.sessionId || s.id)])
       setSessionCount(ids.size)
-      setBodies((bodyRows as any[]).slice().sort((a,b)=> String(a.localDate||'').localeCompare(String(b.localDate||''))))
-      setRecovery((recRows as any[]).slice().sort((a,b)=> String(a.localDate||'').localeCompare(String(b.localDate||''))))
+      setBodies(bodyRows.slice().sort((a,b)=> String(a.localDate||'').localeCompare(String(b.localDate||''))))
+      setRecovery(recRows.slice().sort((a,b)=> String(a.localDate||'').localeCompare(String(b.localDate||''))))
       // parte por defecto: primera con datos reales
-      const withData = BODY_PARTS.find((p)=> logs.some((l)=> (partMap as Record<string,string>)[l.exerciseId]===p))
-      if(withData) setPartSel(withData)
+      const withData = BODY_PARTS.find((p)=> logs.some((l)=> (partMap)[l.exerciseId]===p))
+      if(withData) {setPartSel(withData)}
     })
   },[])
 
   const inPeriod = (dateStr:string)=>{
-    if(period==='all') return true
+    if(period==='all') {return true}
     const today = new Date().toISOString().slice(0,10)
     if(period==='custom'){
-      if(customStart && dateStr < customStart) return false
-      if(customEnd && dateStr > customEnd) return false
+      if(customStart && dateStr < customStart) {return false}
+      if(customEnd && dateStr > customEnd) {return false}
       return true
     }
     const cut = new Date(); cut.setDate(cut.getDate()-Number(period)+1)
@@ -84,7 +101,7 @@ export default function Progresos(){
 
   const weightStats = useMemo(()=>{
     const ws = periodBodies.map(b=> Number(b.weightKg)).filter(n=> !isNaN(n))
-    if(ws.length===0) return null
+    if(ws.length===0) {return null}
     return { actual: ws[ws.length-1], inicial: ws[0], dif: Math.round((ws[ws.length-1]-ws[0])*10)/10, max: Math.max(...ws), min: Math.min(...ws) }
   },[periodBodies])
   const weightData = useMemo(()=> periodBodies.filter(b=> b.weightKg!=null).map(b=> ({ date: String(b.localDate).slice(5), peso: b.weightKg })),[periodBodies])
@@ -99,7 +116,7 @@ export default function Progresos(){
     const agg: Record<string,Agg> = {}
     for(const l of partLogs){
       const d = String(l.createdAt).slice(0,10)
-      if(!agg[d]) agg[d] = { w: 0, r: 0, s: 0, v: 0, best: 0 }
+      if(!agg[d]) {agg[d] = { w: 0, r: 0, s: 0, v: 0, best: 0 }}
       agg[d].w = Math.max(agg[d].w, l.weight)
       agg[d].r += l.reps
       agg[d].s += 1
@@ -114,7 +131,7 @@ export default function Progresos(){
     if(metric==='indice'){
       const pts = dates.map((d)=> ({ date: d, w: partAgg[d].w, r: partAgg[d].r, s: partAgg[d].s, v: partAgg[d].v }))
       const idx = combinedIndexOf(pts)
-      if(!idx) return []
+      if(!idx) {return []}
       return idx.map((p)=> ({ date: p.date.slice(5), valor: p.indice }))
     }
     return dates.map((d)=> ({ date: d.slice(5), valor: metric==='peso'||metric==='mejor' ? (metric==='peso' ? partAgg[d].w : partAgg[d].best) : metric==='reps' ? partAgg[d].r : metric==='series' ? partAgg[d].s : Math.round(partAgg[d].v) }))
@@ -124,7 +141,7 @@ export default function Progresos(){
     const byEx: Record<string,{name:string; pts:Record<string,Agg>}> = {}
     const nameOf = (id:string)=> customNames[id] || id.split('/').pop()?.replace(/-/g,' ') || id;
     for(const l of partLogs){
-      if(!byEx[l.exerciseId]) byEx[l.exerciseId] = { name: nameOf(l.exerciseId), pts: {} }
+      if(!byEx[l.exerciseId]) {byEx[l.exerciseId] = { name: nameOf(l.exerciseId), pts: {} }}
       const d = String(l.createdAt).slice(0,10)
       const a = byEx[l.exerciseId].pts[d] || (byEx[l.exerciseId].pts[d] = { w: 0, r: 0, s: 0, v: 0, best: 0 })
       a.w = Math.max(a.w, l.weight); a.r += l.reps; a.s += 1; a.v += l.weight*l.reps; a.best = Math.max(a.best, l.weight*l.reps)
@@ -336,7 +353,8 @@ export default function Progresos(){
             </div>
             {weightData.length > 1 ? (() => {
               const W = 720, H = 220, px = 50, py = 20;
-              const pesos = weightData.map(d => d.peso);
+              const pesos = weightData.map(d => d.peso).filter((v): v is number => v != null);
+              if (pesos.length === 0) {return null;}
               const minW = Math.min(...pesos), maxW = Math.max(...pesos);
               const range = maxW - minW || 1;
               const pad = range * 0.12;
@@ -344,12 +362,13 @@ export default function Progresos(){
               const yRange = yMax - yMin;
               const toX = (i: number) => px + (i / Math.max(1, weightData.length - 1)) * (W - px * 2);
               const toY = (v: number) => py + (1 - (v - yMin) / yRange) * (H - py * 2);
-              const wPts = weightData.map((d, i) => ({ x: toX(i), y: toY(d.peso) }));
+              const wPts = weightData.map((d, i) => ({ x: toX(i), y: toY(d.peso ?? 0) }));
               const wPath = wPts.map((p, i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(' ');
               const maW = 3;
               const maPts: {x:number;y:number}[] = [];
               for(let i=0; i<weightData.length; i++){
-                const sl = weightData.slice(Math.max(0,i-maW+1),i+1).map(d=>d.peso);
+                const sl = weightData.slice(Math.max(0,i-maW+1),i+1).map(d=>d.peso).filter((v): v is number => v != null);
+                if (sl.length === 0) { maPts.push({x:toX(i), y:toY(0)}); continue; }
                 const avg = sl.reduce((a,b)=>a+b,0)/sl.length;
                 maPts.push({x:toX(i), y:toY(avg)});
               }
@@ -446,7 +465,7 @@ export default function Progresos(){
             <div className="grid md:grid-cols-2 gap-2.5">
               {perExercise.slice(0,6).map((ex)=>{
                 const pts = ex.pts;
-                if(pts.length===0) return null;
+                if(pts.length===0) {return null;}
                 const vals = pts.map(p=>p.valor);
                 const mn = Math.min(...vals), mx = Math.max(...vals), rng = mx-mn||1;
                 const svgW = 120, svgH = 32;
@@ -486,7 +505,7 @@ export default function Progresos(){
               const partScores: Record<string, number> = {};
               const partCounts: Record<string, number> = {};
               for(const p of BODY_PARTS) { partCounts[p] = 0; }
-              for(const l of periodLogs) { if(l.part && partCounts[l.part] !== undefined) partCounts[l.part]++; }
+              for(const l of periodLogs) { if(l.part && partCounts[l.part] !== undefined) {partCounts[l.part]++;} }
               const maxCount = Math.max(1, ...Object.values(partCounts));
               for(const p of BODY_PARTS) { partScores[p] = Math.round((partCounts[p] / maxCount) * 100); }
               const colorFor = (s: number) => s >= 80 ? '#e9c176' : s >= 60 ? '#b6d088' : '#45483c';
@@ -565,12 +584,8 @@ export default function Progresos(){
                   <p className="font-body-sm text-on-surface-variant text-center mt-2 text-[11px]">Tocá la gráfica de recuperación izquierda para ver el detalle por día.</p>
                   <div className="grid grid-cols-2 gap-2 w-full mt-3">
                     <div className="bg-surface-container-highest rounded-lg p-2 text-center">
-                      <span className="font-label-caps text-[9px] text-outline block">VFC</span>
-                      <span className="font-headline-md text-sm font-semibold text-on-surface">{recData.length>0?(recData[recData.length-1] as any).heartRate??'—':'—'}</span>
-                    </div>
-                    <div className="bg-surface-container-highest rounded-lg p-2 text-center">
                       <span className="font-label-caps text-[9px] text-outline block">SUEÑO</span>
-                      <span className="font-headline-md text-sm font-semibold text-on-surface">{recData.length>0?(recData[recData.length-1] as any).sleepHours??'—':'—'}</span>
+                      <span className="font-headline-md text-sm font-semibold text-on-surface">{periodRec.length>0?periodRec[periodRec.length-1].sleepHours??'—':'—'}</span>
                     </div>
                   </div>
                 </div>
@@ -631,6 +646,29 @@ export default function Progresos(){
                 <span className="font-label-md text-on-surface font-semibold">{periodLogs.length} · {periodBodies.length} mediciones</span>
               </div>
             </div>
+          </AltheaCard>
+
+          {/* Zona de peligro: reinicio selectivo del historial de entrenamiento */}
+          <AltheaCard className="p-4 border-danger/40">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-[16px] text-error">warning</span>
+              <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-error">REINICIAR HISTORIAL</span>
+            </div>
+            {!showReset ? (
+              <div className="space-y-2">
+                <p className="font-body-sm text-on-surface-variant text-[12px]">Borra solo sesiones y series registradas. No toca perfil, rutinas, nutrición, recuperación, hidratación ni configuración.</p>
+                <button onClick={()=>{setShowReset(true); setResetConfirm('')}} className="w-full py-2.5 rounded-lg border border-danger/50 text-error font-medium text-sm min-h-[44px]">Reiniciar historial de entrenamiento</button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="font-body-sm text-on-surface-variant text-[12px]">Esta acción no se puede deshacer. Escribí <span className="font-mono font-bold text-on-surface">REINICIAR</span> para confirmar.</p>
+                <input value={resetConfirm} onChange={e=>setResetConfirm(e.target.value)} placeholder="REINICIAR" maxLength={20} className="w-full bg-surface-container border border-outline-variant rounded-lg p-2.5 font-body-md text-sm text-on-surface min-h-[44px]" />
+                <div className="flex gap-2">
+                  <button onClick={()=>{setShowReset(false); setResetConfirm('')}} className="flex-1 py-2.5 rounded-lg border border-outline-variant font-medium text-sm min-h-[44px]">Cancelar</button>
+                  <button onClick={doResetHistory} disabled={resetConfirm!=='REINICIAR' || resetting} className="flex-1 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm disabled:opacity-30 min-h-[44px]">{resetting?'Borrando…':'Confirmar'}</button>
+                </div>
+              </div>
+            )}
           </AltheaCard>
         </div>
       </div>

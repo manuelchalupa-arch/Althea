@@ -56,14 +56,14 @@ export function normalizeToken(tok:string): string | null {
   // busca directo
   for(const [k,v] of Object.entries(GROUP_MAP)){
     const nk = k.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'')
-    if(nk===plain) return v
+    if(nk===plain) {return v}
   }
   // alias sin acento
   return GROUP_MAP[key] || null
 }
 
 export function parseDayMuscles(text:string): string[] {
-  if(!text) return []
+  if(!text) {return []}
   // extrae tokens por separadores y palabras clave
   const lower = text.toLowerCase()
   // reemplaza "día de" etc
@@ -75,7 +75,7 @@ export function parseDayMuscles(text:string): string[] {
   rawTokens.forEach(chunk=>{
     chunk.split(/\s+y\s+|\s+e\s+|\s*\+\s*|\s+/).forEach(tok=>{
       const n = normalizeToken(tok)
-      if(n) found.add(n)
+      if(n) {found.add(n)}
     })
   })
   // fallback: busca subcadenas

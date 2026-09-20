@@ -157,26 +157,26 @@ function extractKeyPrinciples(primary: NutritionMethodId, secondary: NutritionMe
     }
   }
 
-  if (secondary.includes('high_protein')) principles.push('Proteína como prioridad')
-  if (secondary.includes('around_training')) principles.push('Timing peri-entrenamiento')
-  if (secondary.includes('carb_cycling')) principles.push('Periodización de carbohidratos')
-  if (secondary.includes('intermittent_fasting')) principles.push('Restricción temporal')
+  if (secondary.includes('high_protein')) {principles.push('Proteína como prioridad')}
+  if (secondary.includes('around_training')) {principles.push('Timing peri-entrenamiento')}
+  if (secondary.includes('carb_cycling')) {principles.push('Periodización de carbohidratos')}
+  if (secondary.includes('intermittent_fasting')) {principles.push('Restricción temporal')}
 
-  if (goal === 'fat_loss') principles.push('Déficit moderado sostenible')
-  if (goal === 'muscle_gain') principles.push('Superávit calórico controlado')
-  if (goal === 'recomposition') principles.push('Recomposición: déficit/superávit según día')
+  if (goal === 'fat_loss') {principles.push('Déficit moderado sostenible')}
+  if (goal === 'muscle_gain') {principles.push('Superávit calórico controlado')}
+  if (goal === 'recomposition') {principles.push('Recomposición: déficit/superávit según día')}
 
-  if (trainingType === 'hypertrophy' || trainingType === 'strength') principles.push('Proteína post-entreno')
-  if (trainingType === 'endurance') principles.push('Carbohidratos suficientes')
+  if (trainingType === 'hypertrophy' || trainingType === 'strength') {principles.push('Proteína post-entreno')}
+  if (trainingType === 'endurance') {principles.push('Carbohidratos suficientes')}
 
   return principles
 }
 
 /** Determinar fase nutricional */
 function determineNutritionPhase(profile: NutritionUserProfile): MixedNutritionMethod['phase'] {
-  if (!profile.adherenceHistory || profile.adherenceHistory.length === 0) return 'initial'
+  if (!profile.adherenceHistory || profile.adherenceHistory.length === 0) {return 'initial'}
   const avgAdherence = profile.adherenceHistory.reduce((a, h) => a + h.score, 0) / profile.adherenceHistory.length
-  if (avgAdherence < 5) return 'adjustment'
-  if (avgAdherence >= 8) return 'maintenance'
+  if (avgAdherence < 5) {return 'adjustment'}
+  if (avgAdherence >= 8) {return 'maintenance'}
   return 'adaptation'
 }

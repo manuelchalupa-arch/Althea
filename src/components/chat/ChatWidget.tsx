@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import { X, Send, Trash2, Bot, User } from 'lucide-react'
 import { IconChatBubble } from '@/components/brand/FitnessIcons'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
@@ -52,7 +52,7 @@ export default function ChatWidget() {
 
   // Refresh usage every 10s while open
   useEffect(() => {
-    if (!open) return
+    if (!open) {return}
     const id = setInterval(() => setUsage(getUsage()), 10_000)
     return () => clearInterval(id)
   }, [open])
@@ -71,7 +71,7 @@ export default function ChatWidget() {
 
   const sendMessage = async () => {
     const text = input.trim()
-    if (!text || streaming || !conversationId) return
+    if (!text || streaming || !conversationId) {return}
 
     setInput('')
     const userMsg = await saveMessage({
@@ -119,7 +119,7 @@ export default function ChatWidget() {
   }
 
   const handleClear = async () => {
-    if (!confirm('¿Borrar todo el historial de chat?')) return
+    if (!confirm('¿Borrar todo el historial de chat?')) {return}
     await clearAllChats()
     setMessages([])
     const newId = await getActiveConversation(pageContext)
@@ -136,13 +136,23 @@ export default function ChatWidget() {
         className={`fixed z-50 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 ${
           open
             ? 'bottom-6 right-6 w-12 h-12 bg-surface border border-border text-textMuted hover:bg-elevated'
-            : 'bottom-6 right-6 w-14 h-14 bg-action text-textMain hover:scale-105 md:bottom-8 md:right-8'
+            : 'bottom-20 right-4 w-14 h-14 bg-action text-textMain hover:scale-105 md:bottom-8 md:right-8'
         }`}
         aria-label={open ? 'Cerrar chat' : 'Abrir chat'}
         style={{ bottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
       >
         {open ? <X size={20} /> : <IconChatBubble className="w-6 h-6" />}
       </button>
+      {!open && (
+        <Link
+          to="/coach"
+          aria-label="Abrir Coach"
+          title="Coach"
+          className="fixed z-50 flex items-center justify-center rounded-full shadow-lg transition-all duration-200 bottom-36 right-4 w-12 h-12 bg-surface border border-border text-textMuted hover:bg-elevated md:bottom-8 md:right-24"
+        >
+          <Bot size={18} />
+        </Link>
+      )}
 
       {/* Chat overlay */}
       {open && (

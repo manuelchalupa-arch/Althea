@@ -1,37 +1,52 @@
 {
   "id": "fat_loss",
   "title": "Pérdida de Grasa",
+  "source": "Hector & Phillips (2018); Ramírez-Campillo et al. (2023); Schoenfeld (2019)",
+  "type": "evidence_review",
+  "topic": "fat_loss",
+  "evidenceLevel": "strong",
+  "updatedAt": "2026-09-14",
   "tags": ["grasa", "déficit", "cardio", "perder peso"],
   "chunks": [
     {
-      "id": "fatloss-01",
+      "chunkId": "fatloss-01",
+      "documentId": "fat_loss",
       "tags": ["déficit", "grasa"],
       "content": "Déficit calórico de 300-500 kcal bajo TDEE produce pérdida de grasa sostenible. Dietas muy bajas (<1000 kcal) aumentan pérdida de masa muscular. La restricción calórica moderada preserva mejor la función muscular y metabólica.",
-      "citation": "Hector AJ, Phillips SM. (2018) Sports Medicine. Protein recommendations for weight loss."
+      "citation": "Hector AJ, Phillips SM. (2018) Sports Medicine. Protein recommendations for weight loss.",
+      "relevance": "nutrition"
     },
     {
-      "id": "fatloss-02",
+      "chunkId": "fatloss-02",
+      "documentId": "fat_loss",
       "tags": ["proteína", "grasa"],
       "content": "En déficit calórico, proteína alta (2.0-2.4g/kg) preserva masa muscular. Estudio en atletas femeninas: 2.0-2.2g/kg previno completamente la pérdida de masa muscular durante 4 semanas de 30% déficit (Hiroux et al. 2023). Proteína de 35g/porción es suficiente para MPS máximo.",
-      "citation": "Hiroux C et al. Sports Med. 2023. doi:10.1007/s40279-022-01761-0 | Larsen MS et al. J Nutr. 2023."
+      "citation": "Hiroux C et al. Sports Med. 2023. | Larsen MS et al. J Nutr. 2023.",
+      "relevance": "nutrition"
     },
     {
-      "id": "fatloss-03",
+      "chunkId": "fatloss-03",
+      "documentId": "fat_loss",
       "tags": ["cardio", "grasa"],
       "content": "HIIT 3 veces/semana previene la pérdida de masa muscular durante restricción calórica, mientras que dieta sola causa pérdida de 2.8% de masa magra (Ramírez-Campillo et al. 2023). El entrenamiento de fuerza es más efectivo que el cardio para preservar músculo.",
-      "citation": "Ramírez-Campillo R et al. Front Nutr. 2023. doi:10.3389/fnut.2023.1181436"
+      "citation": "Ramírez-Campillo R et al. Front Nutr. 2023. doi:10.3389/fnut.2023.1181436",
+      "relevance": "training"
     },
     {
-      "id": "fatloss-04",
+      "chunkId": "fatloss-04",
+      "documentId": "fat_loss",
       "tags": ["peso corporal", "grasa"],
       "content": "El peso corporal fluctúa 1-3 kg diarios por agua, sodio y comida. Usar promedio semanal, no diario. Si la tendencia de 2+ semanas baja, el déficit funciona. Si se estanca >2 semanas, ajustar 100-200 kcal o actividad.",
-      "citation": "Hall KD et al. (2011) Obesity. Body weight fluctuations during energy restriction."
+      "citation": "Hall KD et al. (2011) Obesity. Body weight fluctuations during energy restriction.",
+      "relevance": "nutrition"
     },
     {
-      "id": "fatloss-05",
+      "chunkId": "fatloss-05",
+      "documentId": "fat_loss",
       "tags": ["fuerza", "grasa"],
       "content": "Entrenamiento de fuerza es OBLIGATORIO en pérdida de grasa. Preserva masa muscular, mejora composición corporal, mantiene metabolismo. Combinar déficit + fuerza es la estrategia más efectiva para recomposición corporal.",
-      "citation": "Schoenfeld BJ. (2019) J Funct Morphol Kinesiol. Resistance training for fat loss."
+      "citation": "Schoenfeld BJ. (2019) J Funct Morphol Kinesiol. Resistance training for fat loss.",
+      "relevance": "training"
     }
   ]
 }

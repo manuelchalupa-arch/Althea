@@ -7,14 +7,14 @@ export type Recommendation = {
 
 // Reglas determinísticas — sin IA externa
 export function recommendLoad(history: SetLog[]): Recommendation {
-  if(history.length===0) return { id:'rec-load', type:'load', text:'Carga inicial conservadora 20 kg × 8', reason:'Sin historial', factors:['sin historial'], decision:'pending' }
+  if(history.length===0) {return { id:'rec-load', type:'load', text:'Carga inicial conservadora 20 kg × 8', reason:'Sin historial', factors:['sin historial'], decision:'pending' }}
   const last = history[history.length-1]
   const avg = history.slice(-3).reduce((a,x)=>a+x.weight,0)/Math.min(3,history.length)
   const avgRpe = history.slice(-3).map(x=>x.rpe??7).reduce((a,b)=>a+b,0)/Math.min(3,history.length)
   if(history.length>=3 && history.slice(-3).every(h=> h.reps>=8 && (h.rpe??7) <=8)){
     return { id:'rec-load', type:'load', text:`Probar ${last.weight+2.5} kg × 8`, reason:'3 sesiones con reps completas y RPE ≤8', factors:['reps completas','RPE bajo','volumen estable'], decision:'pending' }
   }
-  if(avgRpe >= 9) return { id:'rec-load', type:'load', text:`Mantener ${last.weight} kg o bajar a ${Math.max(0,last.weight-2.5)} kg`, reason:'RPE medio ≥9, fatiga alta', factors:['RPE alto','riesgo'], decision:'pending' }
+  if(avgRpe >= 9) {return { id:'rec-load', type:'load', text:`Mantener ${last.weight} kg o bajar a ${Math.max(0,last.weight-2.5)} kg`, reason:'RPE medio ≥9, fatiga alta', factors:['RPE alto','riesgo'], decision:'pending' }}
   return { id:'rec-load', type:'load', text:`Mantener ${avg.toFixed(1)} kg`, reason:`Promedio últimas 3: ${avg.toFixed(1)} kg`, factors:['promedio'], decision:'pending' }
 }
 
@@ -28,7 +28,7 @@ export function shouldDeload(volumeLast3Weeks:number[], recoveryScores:number[])
 }
 
 export function variantForPain(exerciseId:string, pain:'mild'|'moderate'|'severe'): string[] {
-  if(pain==='severe') return ['Detener ejercicio, consultar profesional']
+  if(pain==='severe') {return ['Detener ejercicio, consultar profesional']}
   const map:Record<string,string[]> = {
     'ex-001': ['ex-002','ex-003'], // press banca → mancuernas → máquina
     'ex-006': ['ex-007'], // sentadilla → prensa

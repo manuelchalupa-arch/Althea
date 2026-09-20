@@ -3,13 +3,14 @@ import { db } from '@/services/storage/db'
 import { METHOD_COACHING_STYLES } from '@/services/ai/coachPersonality'
 import { TRAINING_METHODS, getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
+import type { UserProfile } from '@/types'
 import { Brain, Dumbbell, ChevronDown, ChevronUp, Lightbulb, ClipboardList, TrendingUp } from 'lucide-react'
 import { AltheaCard, AltheaCardHeader, AltheaBadge, StatusTag, AltheaKPICard, AltheaProgress, AltheaButton, AltheaSection } from '@/components/althea'
 
 interface RoutineTip { title: string; detail: string }
 interface PostWorkoutTip { title: string; detail: string; priority: 'high' | 'medium' }
 
-function generateRoutineTips(methodId: string, profile: any): RoutineTip[] {
+function generateRoutineTips(methodId: string, profile: UserProfile | null): RoutineTip[] {
   const method = getMethod(methodId as TrainingMethodId)
   const tips: RoutineTip[] = []
   if (!method) {
@@ -18,25 +19,25 @@ function generateRoutineTips(methodId: string, profile: any): RoutineTip[] {
   }
   const days = profile?.cycle?.trainingDays?.length || 3
   tips.push({ title: `${method.nameEs} — ${days} días/semana`, detail: method.descriptionEs || 'Método activo en tu ciclo actual.' })
-  if (method.structure?.splitType) tips.push({ title: 'Split', detail: `Distribución: ${method.structure.splitType}. Respetá los grupos musculares asignados por día.` })
-  if (method.defaults?.rpeRange) tips.push({ title: 'Intensidad', detail: `RPE objetivo: ${method.defaults.rpeRange[0]}-${method.defaults.rpeRange[1]}. Si el RPE sube mucho, bajá carga.` })
-  if (method.progression?.method) tips.push({ title: 'Progresión', detail: method.progression.descriptionEs || method.progression.method })
-  if (profile?.painAreas?.length) tips.push({ title: 'Precaución', detail: `Zonas con historial de dolor: ${profile.painAreas.join(', ')}. Evitá sobrecargar esas zonas.` })
-  if (profile?.experienceLevel === 'beginner') tips.push({ title: 'Nivel', detail: 'Siendo principiante, priorizá la técnica sobre la carga. Usá el espejo para corregir postura.' })
+  if (method.structure?.splitType) {tips.push({ title: 'Split', detail: `Distribución: ${method.structure.splitType}. Respetá los grupos musculares asignados por día.` })}
+  if (method.defaults?.rpeRange) {tips.push({ title: 'Intensidad', detail: `RPE objetivo: ${method.defaults.rpeRange[0]}-${method.defaults.rpeRange[1]}. Si el RPE sube mucho, bajá carga.` })}
+  if (method.progression?.method) {tips.push({ title: 'Progresión', detail: method.progression.descriptionEs || method.progression.method })}
+  if (profile?.painAreas?.length) {tips.push({ title: 'Precaución', detail: `Zonas con historial de dolor: ${profile.painAreas.join(', ')}. Evitá sobrecargar esas zonas.` })}
+  if (profile?.experienceLevel === 'beginner') {tips.push({ title: 'Nivel', detail: 'Siendo principiante, priorizá la técnica sobre la carga. Usá el espejo para corregir postura.' })}
   return tips.slice(0, 5)
 }
 
 function generateCoachingTips(methodId: string): RoutineTip[] {
   const style = METHOD_COACHING_STYLES[methodId as TrainingMethodId]
-  if (!style) return []
+  if (!style) {return []}
   const method = getMethod(methodId as TrainingMethodId)
   const tips: RoutineTip[] = []
   tips.push({ title: `Estilo: ${style.tone}`, detail: style.motivationStyle })
-  if (style.directness > 0.7) tips.push({ title: 'Directo', detail: 'Este estilo prioriza instrucciones claras y cortas. Sin vueltas.' })
-  else if (style.directness < 0.4) tips.push({ title: 'Empático', detail: 'Este estilo te acompaña con paciencia. Tomate tu tiempo para aprender.' })
-  if (style.technicalFocus > 0.7) tips.push({ title: 'Técnico', detail: 'Se enfoca en la ejecución perfecta. Prestá atención a cada movimiento.' })
-  if (style.riskLevel > 0.7) tips.push({ title: 'Alto rendimiento', detail: 'Busca empujarte al límite. Solo si tenés experiencia y sin dolor.' })
-  if (method?.suitability?.bestFor?.length) tips.push({ title: 'Ideal para', detail: method.suitability.bestFor.join(', ') })
+  if (style.directness > 0.7) {tips.push({ title: 'Directo', detail: 'Este estilo prioriza instrucciones claras y cortas. Sin vueltas.' })}
+  else if (style.directness < 0.4) {tips.push({ title: 'Empático', detail: 'Este estilo te acompaña con paciencia. Tomate tu tiempo para aprender.' })}
+  if (style.technicalFocus > 0.7) {tips.push({ title: 'Técnico', detail: 'Se enfoca en la ejecución perfecta. Prestá atención a cada movimiento.' })}
+  if (style.riskLevel > 0.7) {tips.push({ title: 'Alto rendimiento', detail: 'Busca empujarte al límite. Solo si tenés experiencia y sin dolor.' })}
+  if (method?.suitability?.bestFor?.length) {tips.push({ title: 'Ideal para', detail: method.suitability.bestFor.join(', ') })}
   return tips.slice(0, 4)
 }
 
@@ -91,13 +92,13 @@ export default function Coach() {
 
   useEffect(() => {
     const load = async () => {
-      const profile = await db.userProfile.get('me').catch(() => null) as any
-      const methodId = profile?.cycle?.methodId || coachingMethod
+      const profile = (await db.userProfile.get('me').catch(() => null)) as UserProfile | null
+      const methodId = profile?.cycle?.methodId ?? coachingMethod
       setRoutineTips(generateRoutineTips(methodId, profile))
       setCoachingTips(generateCoachingTips(coachingMethod))
 
-      const surveys: any[] = await db.table('postWorkoutSurveys').toArray().catch(() => [])
-      const sessions: any[] = await db.table('trainingSessions').toArray().catch(() => [])
+      const surveys = await db.postWorkoutSurveys.toArray().catch(() => [])
+      const sessions = await db.trainingSessions.toArray().catch(() => [])
       const lastSession = sessions.filter(s => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus))
         .sort((a, b) => (a.calendarDate || '').localeCompare(b.calendarDate || '')).slice(-1)[0] || null
       setPostWorkoutTips(generatePostWorkoutTips(surveys, lastSession))
@@ -109,7 +110,7 @@ export default function Coach() {
     setCoachingMethod(id)
     localStorage.setItem('coachTrainingMethod', id)
     const style = METHOD_COACHING_STYLES[id]
-    if (style) localStorage.setItem('coachIntensity', style.tone)
+    if (style) {localStorage.setItem('coachIntensity', style.tone)}
     setCoachingTips(generateCoachingTips(id))
     setShowMethodPicker(false)
   }

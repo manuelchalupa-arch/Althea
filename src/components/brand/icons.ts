@@ -95,10 +95,11 @@ export interface NavItem { to: string; label: string; icon: keyof typeof ICONS; 
 
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Inicio', icon: 'home' },
-  { to: '/entrenar', label: 'Entrenamiento', icon: 'training', priority: true },
+  { to: '/entrenar', label: 'Entrenar', icon: 'training', priority: true },
   { to: '/nutricion', label: 'Nutrición', icon: 'nutrition' },
   { to: '/progresos', label: 'Progreso', icon: 'progress' },
-  { to: '/mas', label: 'Menú', icon: 'more' },
+  { to: '/calendario', label: 'Calendario', icon: 'calendar' },
+  { to: '/mas', label: 'Más', icon: 'more' },
 ]
 
 export interface MasGroup { title: string; items: { to: string; label: string; icon: keyof typeof ICONS }[] }
@@ -109,8 +110,8 @@ export const MAS_GROUPS: MasGroup[] = [
     title: 'Entrenamiento',
     items: [
       { to: '/rutinas', label: 'Rutinas', icon: 'routines' },
-      { to: '/calendario', label: 'Calendario e historial', icon: 'calendar' },
-      { to: '/recuperacion', label: 'Recuperación', icon: 'recovery' },
+      { to: '/calendario', label: 'Calendario y recuperación', icon: 'calendar' },
+      { to: '/recuperacion', label: 'Recuperación (detalle)', icon: 'recovery' },
     ],
   },
   {

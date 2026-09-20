@@ -14,7 +14,7 @@ export function getGroqHeaders(): Record<string, string> {
     const key = (() => {
       try { return (import.meta as any).env?.VITE_GROQ_API_KEY || '' } catch { return '' }
     })()
-    if (key) headers['Authorization'] = `Bearer ${key}`
+    if (key) {headers['Authorization'] = `Bearer ${key}`}
   }
   return headers
 }

@@ -37,6 +37,22 @@ export type AIContext = {
   nutritionAnalysis?: { tdee?: number; calorieGoal?: number; proteinPerKg?: number; gap?: string | null }
   sessionPain?: number
   painZone?: string
+  // ─── Campos contextuales del builder ───
+  cambiosRecientes?: string[]
+  nutriDaily?: { diarioCount: number; calendario: string; objetivo: string; ultimoAlimento: string } | null
+  prefs?: Record<string, unknown>
+  tendencia?: string
+  ultimaObservacion?: string | null
+  needs?: string
+  excluded?: string[]
+  limitations?: string[]
+  painAreas?: string[]
+  nutritionContext?: { weight: number; height: number; bmi: number; bmiCategory: string; activityLevel: string; estimatedBMR: number; estimatedTDEE: number; calorieGoal: number; proteinGoal?: string; proteinRange?: any; weightHistory: { date: string; weight?: number }[]; nutritionPreferences: string[]; foodLogCount: number } | null
+  nivelExigencia?: number
+  exigencia?: Record<string, unknown>
+  peso?: string
+  altura?: string
+  imc?: string
 }
 
 export interface AIProvider {

@@ -44,7 +44,7 @@ export function checkNutritionCompatibility(methodA: NutritionMethodId, methodB:
     c => (c.methodA === methodA && c.methodB === methodB) ||
          (c.methodA === methodB && c.methodB === methodA)
   )
-  if (found) return found
+  if (found) {return found}
 
   // Inferir por categoría
   const mA = getNutritionMethod(methodA)
@@ -117,9 +117,9 @@ export function checkGroupNutritionCompatibility(methods: NutritionMethodId[]): 
     for (let j = i + 1; j < methods.length; j++) {
       const compat = checkNutritionCompatibility(methods[i], methods[j])
       pairs++
-      if (compat.interference === 'high') totalInterference += 1
-      else if (compat.interference === 'moderate') totalInterference += 0.5
-      else if (compat.interference === 'low') totalInterference += 0.2
+      if (compat.interference === 'high') {totalInterference += 1}
+      else if (compat.interference === 'moderate') {totalInterference += 0.5}
+      else if (compat.interference === 'low') {totalInterference += 0.2}
 
       if (!compat.compatible) {
         recommendations.push(`${methods[i]} + ${methods[j]}: ${compat.notes}`)

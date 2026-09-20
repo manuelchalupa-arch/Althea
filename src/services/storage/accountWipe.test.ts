@@ -1,0 +1,58 @@
+import { describe, it, expect, beforeEach } from 'vitest'
+import { db } from './db'
+import { clearUserDataOnAccountDelete } from './accountWipe'
+
+describe('accountWipe — borrado selectivo al eliminar cuenta', () => {
+  beforeEach(async () => {
+    localStorage.clear()
+    await db.delete()
+    await db.open()
+  })
+
+  it('elimina solo claves de usuario y preserva preferencias UI y claves ajenas', async () => {
+    localStorage.setItem('althea:theme', 'dark')
+    localStorage.setItem('althea:textscale', 'm')
+    localStorage.setItem('althea:nav-collapsed', '1')
+    localStorage.setItem('third:party:key', 'x')
+    localStorage.setItem('firebase:auth:keep', 'y')
+    localStorage.setItem('onboard:nombre', 'Ana')
+    localStorage.setItem('coachMemory', '[]')
+    localStorage.setItem('rutinas:list', '[]')
+    localStorage.setItem('session:active:2026-01-01', 's1')
+    localStorage.setItem('exstate:2026-01-01:press', '{}')
+    localStorage.setItem('recovery:2026-01-01', '{}')
+    localStorage.setItem('nutri:diario_v2:2026-01-01', '{}')
+    localStorage.setItem('syncQueue', '[]')
+    localStorage.setItem('trainpwa-profile', '{}')
+    localStorage.setItem('codulia_api_key', 'secret')
+
+    const { removedKeys } = await clearUserDataOnAccountDelete()
+
+    expect(removedKeys).toContain('onboard:nombre')
+    expect(removedKeys).toContain('coachMemory')
+    expect(removedKeys).toContain('syncQueue')
+    expect(removedKeys).toContain('trainpwa-profile')
+    expect(localStorage.getItem('onboard:nombre')).toBeNull()
+    expect(localStorage.getItem('syncQueue')).toBeNull()
+
+    expect(localStorage.getItem('althea:theme')).toBe('dark')
+    expect(localStorage.getItem('althea:textscale')).toBe('m')
+    expect(localStorage.getItem('althea:nav-collapsed')).toBe('1')
+    expect(localStorage.getItem('third:party:key')).toBe('x')
+    expect(localStorage.getItem('firebase:auth:keep')).toBe('y')
+  })
+
+  it('vacía Dexie sin usar indexedDB.deleteDatabase con nombre incorrecto', async () => {
+    await db.recoveryChecks.put({
+      id: '2026-01-01', localDate: '2026-01-01', energy: 7, fatigue: 3,
+      stress: 3, motivation: 7, score: 70, color: 'green',
+    } as any)
+    expect(await db.recoveryChecks.count()).toBe(1)
+
+    const { dexieDeleted } = await clearUserDataOnAccountDelete()
+    expect(dexieDeleted).toBe(true)
+
+    await db.open()
+    expect(await db.recoveryChecks.count()).toBe(0)
+  })
+})

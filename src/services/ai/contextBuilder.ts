@@ -8,18 +8,23 @@ import { retrieveRelevant } from './knowledgeBase'
 import { analyzeExercise, analyzeGlobal } from './progressAnalyzer'
 import { analyzeRecovery } from './recoveryAnalyzer'
 import { analyzeNutrition } from './nutritionEngine'
+import type { UserProfile, RecoveryCheck } from '@/types'
+import type { ActivityLevel } from '@/utils/nutrition'
+import type { TrainingMethodId } from './trainingMethods'
+import type { CoachMemoryEntry } from '@/services/storage/db'
+import type { CoachDecision } from '@/services/ai/coachMemory'
 
 // Memoria estructurada reducida — no envía todo el historial
 export async function buildTrainingContext(exerciseId?:string, exerciseName?:string): Promise<AIContext>{
   const today = new Date().toISOString().slice(0,10)
-  const profile:any = await db.userProfile.get('me')
-  const cycle = getCycleFromProfile(profile)
+  const profile = await db.userProfile.get('me') as UserProfile | undefined
+  const cycle = getCycleFromProfile(profile ?? null)
   const diaInfo = getTrainingDayForDate(today, cycle)
   const dia = diaInfo.isRest ? 'Descanso' : `Día N°${diaInfo.n} ${diaInfo.name}`
   const objetivo = profile?.goal ?? 'hipertrofia'
   let storedTone: string | null = null
   try { storedTone = localStorage.getItem('coachIntensity') } catch { /* noop */ }
-  const personalidad = mapTone(storedTone || (profile as any)?.coachIntensity) as AIContext['personalidad']
+  const personalidad = mapTone(storedTone || profile?.coachIntensity) as AIContext['personalidad']
 
   // últimas 3 sesiones del ejercicio — unión oficial+legacy (no solo setLogs)
   let historial:{peso:number;reps:number;rpe?:number}[] = []
@@ -32,7 +37,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   }
 
   // recuperación hoy
-  const rec:any = await db.recoveryChecks.get(today) || JSON.parse(localStorage.getItem('recovery:'+today)||'null')
+  const rec = await db.recoveryChecks.get(today) as RecoveryCheck | undefined ?? JSON.parse(localStorage.getItem('recovery:'+today)||'null')
   const fatiga = rec ? (rec.fatigue>7?'alta': rec.fatigue>4?'moderada':'baja') : 'no registrada'
   const sueno = rec ? `${rec.sleepHours}h` : 'no registrado'
   const energia = rec ? `${rec.energy}/10` : 'no registrada'
@@ -45,30 +50,30 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   // dolor real: surveys post-entreno (zona/detalle) + QA de dolor, no keys legacy
   let pain = 'sin dolor'
   try{
-    const surveys: any[] = await db.table('postWorkoutSurveys').toArray().catch(()=>[])
+    const surveys = await db.postWorkoutSurveys.toArray().catch(()=>[])
     const withPain = surveys.filter(s=> Number(s.pain) > 0).sort((a,b)=> String(a.calendarDate) < String(b.calendarDate) ? -1 : 1)
     const lastP = withPain[withPain.length-1]
-    if(lastP) pain = `${lastP.calendarDate}: dolor${lastP.painZone ? ` en ${lastP.painZone}` : ''}${lastP.painDetail ? ` (${lastP.painDetail})` : ''}`
+    if(lastP) {pain = `${lastP.calendarDate}: dolor${lastP.painZone ? ` en ${lastP.painZone}` : ''}${lastP.painDetail ? ` (${lastP.painDetail})` : ''}`}
   }catch{ /* noop */ }
   // datos corporales
   const peso = profile?.weightKg ? `${profile.weightKg}kg` : 'no registrado'
   const altura = profile?.heightCm ? `${profile.heightCm}cm` : 'no registrado'
   const imc = (profile?.weightKg && profile?.heightCm) ? (profile.weightKg / Math.pow(profile.heightCm/100,2)).toFixed(1) : '—'
   // nutrición diaria (diario + calendario)
-  let nutriDaily:any = null
+  let nutriDaily: { diarioCount: number; calendario: string; objetivo: string; ultimoAlimento: string } | null = null
   try{
     const diario = await getDiaryEntries(today)
     nutriDaily = { diarioCount: diario.length, calendario: 'no', objetivo, ultimoAlimento: diario[diario.length-1]?.name || '—' }
   }catch{}
   // hidratación tendencia
   const hydLogs = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(()=>[])
-  const hydTrend = hydLogs.length ? `${hydLogs.reduce((a,b)=>a+b.amountMl,0)}ml hoy` : hidratacion
+  const hydTrend: string = hydLogs.length ? `${hydLogs.reduce((a,b)=>a+b.amountMl,0)}ml hoy` : hidratacion
   // memoria coach + última observación + perfil completo
-  let prefs:any = {}
+  let prefs: Record<string, unknown> = {}
   try{ prefs = JSON.parse(localStorage.getItem('coachPrefs')||'{}')}catch{}
-  const decisiones = JSON.parse(localStorage.getItem('coachMemory')||'[]') as any[]
-  const tendencia = decisiones.slice(-5).map(d=> `${d.type}:${d.motive||d.reason||''}`).join(' | ') || 'sin tendencia'
-  let ultimaObs:any = null
+  const decisiones = (JSON.parse(localStorage.getItem('coachMemory')||'[]') as CoachMemoryEntry[])
+  const tendencia = decisiones.slice(-5).map(d=> `${d.type}:${(d as { motive?: string; reason?: string }).motive || (d as { motive?: string; reason?: string }).reason || ''}`).join(' | ') || 'sin tendencia'
+  let ultimaObs: { motivos?: string[]; dolorDetalle?: string; comentario?: string } | null = null
   try{ ultimaObs = JSON.parse(localStorage.getItem(`observation:${today}`)||'null') }catch{}
   if(!ultimaObs){
     for(let i=1;i<=7;i++){
@@ -76,31 +81,31 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
       try{ const v=JSON.parse(localStorage.getItem(`observation:${k}`)||'null'); if(v){ ultimaObs=v; break}}catch{}
     }
   }
-  const needs = (profile as any)?.needsDescription || (profile as any)?.needs || ''
-  const excluded: string[] = (profile as any)?.excludedExercises || JSON.parse(localStorage.getItem('onboard:excluded')||'[]')
-  const limitations = (profile as any)?.limitations || []
-  const painAreas = (profile as any)?.painAreas || []
+  const needs = profile?.needsDescription || ''
+  const excluded: string[] = profile?.excludedExercises || JSON.parse(localStorage.getItem('onboard:excluded')||'[]')
+  const limitations = profile?.limitations || []
+  const painAreas = profile?.painAreas || []
   // NUTRITION_CONTEXT
-  let nutritionContext:any = null
+  let nutritionContext: { weight: number; height: number; bmi: number; bmiCategory: string; activityLevel: string; estimatedBMR: number; estimatedTDEE: number; calorieGoal: number; proteinGoal?: string; proteinRange?: any; weightHistory: { date: string; weight?: number }[]; nutritionPreferences: string[]; foodLogCount: number } | null = null
   try{
     const { calcIMC: _imc, calcTMB: _tmb, calcTDEE: _tdee, calorieGoal: _cg, proteinRange: _pr } = await import('@/utils/nutrition')
-    const w = (profile as any)?.weightKg, h = (profile as any)?.heightCm, age2 = (profile as any)?.age, sex2 = (profile as any)?.sex
-    const act2 = (profile as any)?.activityLevel || 'moderado'
+    const w = profile?.weightKg, h = profile?.heightCm, age2 = profile?.age, sex2 = profile?.sex
+    const act2 = profile?.activityLevel || 'moderado'
     if(w && h){
       const imc2 = _imc(w,h)
       const tmb2 = _tmb(w,h,age2,sex2)
-      const tdee2 = _tdee(tmb2, act2 as any, 4)
-      const cg2 = _cg(tdee2, (profile as any)?.goalPrimary || objetivo)
-      const pr2 = _pr(w, (profile as any)?.goalPrimary || objetivo)
+      const tdee2 = _tdee(tmb2, act2 as ActivityLevel, 4)
+      const cg2 = _cg(tdee2, profile?.goalPrimary || objetivo)
+      const pr2 = _pr(w, profile?.goalPrimary || objetivo)
       // peso evolución
-      const bodies:any[] = await db.table('bodyMeasurements').toArray().catch(()=>[])
+      const bodies = await db.bodyMeasurements.toArray().catch(()=>[])
       const sortedB = bodies.sort((a,b)=> a.localDate.localeCompare(b.localDate)).slice(-5)
       nutritionContext = {
-        weight: w, height: h, bmi: imc2.bmi, bmiCategory: imc2.bmiCat,
-        activityLevel: act2, estimatedBMR: tmb2, estimatedTDEE: tdee2,
-        calorieGoal: cg2, proteinGoal: pr2?.text, proteinRange: pr2,
+        weight: w, height: h, bmi: Number(imc2.bmi), bmiCategory: String(imc2.bmiCat),
+        activityLevel: String(act2), estimatedBMR: Number(tmb2), estimatedTDEE: Number(tdee2),
+        calorieGoal: Number(cg2), proteinGoal: pr2?.text, proteinRange: pr2,
         weightHistory: sortedB.map(b=> ({date:b.localDate, weight:b.weightKg})),
-        nutritionPreferences: (profile as any)?.restrictions || [],
+        nutritionPreferences: profile?.restrictions || [],
         foodLogCount: await getDiaryEntries(today).then(e => e.length).catch(() => 0)
       }
     }
@@ -119,7 +124,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
       .slice(-8)
       .map(d=> `${d.date} ${d.type}:${d.exercise || ''}${d.motive ? ` (porque: ${d.motive})` : ''}${d.reason ? ` — ${d.reason}` : ''}`)
     const answers = await getAllAnswers()
-    for(const k of Object.keys(answers)) qa[k] = { question: answers[k].question, answer: answers[k].answer, date: answers[k].date }
+    for(const k of Object.keys(answers)) {qa[k] = { question: answers[k].question, answer: answers[k].answer, date: answers[k].date }}
   }catch{ /* noop */ }
   try{
     const { buildInsights } = await import('./coachInsights')
@@ -137,9 +142,9 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   // ─── Coach IA v2: knowledge base retrieval ───
   let knowledgeChunks: string[] = []
   try{
-    const tags = [objetivo]
-    if(exerciseId) tags.push('ejercicio')
-    if(Number(rec?.pain ?? 0) > 5) tags.push('dolor', 'recuperación')
+    const tags: string[] = [objetivo]
+    if(exerciseId) {tags.push('ejercicio')}
+    if(Number(rec?.pain ?? 0) > 5) {tags.push('dolor', 'recuperación')}
     const chunks = await retrieveRelevant(tags, 3)
     knowledgeChunks = chunks.map(c => c.content.slice(0, 200))
   }catch{ /* noop */ }
@@ -179,13 +184,12 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     energia,
     hidratacion: hydTrend,
     dolor: ultimaObs?.motivos?.includes('Tenía alguna dolencia o molestia') ? (ultimaObs.dolorDetalle || 'molestia ayer') : pain,
-    personalidad: personalidad as any,
+    personalidad: personalidad as AIContext['personalidad'],
     peso, altura, imc, nutriDaily,
     prefs, tendencia,
     ultimaObservacion: ultimaObs ? `${ultimaObs.motivos?.join(', ')} — ${ultimaObs.comentario||''}` : null,
     needs, excluded, limitations, painAreas,
     nutritionContext,
-    // @ts-ignore extra fields para IA
     nivelExigencia: profile?.coachLevel || 3,
     exigencia: profile?.exigencia || {},
     // ─── Coach IA v2: nuevos campos ───
@@ -196,7 +200,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     nutritionAnalysis,
     sessionPain: undefined,
     painZone: undefined,
-  } as any
+  }
 }
 
 export function buildPrompt(ctx:AIContext):string{
@@ -219,12 +223,12 @@ export function buildPrompt(ctx:AIContext):string{
   // nutrition analysis
   const nutAnalysisLine = ctx.nutritionAnalysis ? `\nNUTRICIÓN: TDEE=${ctx.nutritionAnalysis.tdee||'?'}, objetivo calórico=${ctx.nutritionAnalysis.calorieGoal||'?'}, proteína/kg=${ctx.nutritionAnalysis.proteinPerKg||'?'}, gap=${ctx.nutritionAnalysis.gap||'sin gap'}` : ''
   // ─── Coach IA v2: method context ───
-  const methodId = (ctx.userProfile?.cycle as any)?.methodId
+  const methodId = ctx.userProfile?.cycle?.methodId as TrainingMethodId | undefined
   const methodContext = buildMethodContext(methodId)
   const methodLine = methodContext ? `\n${methodContext}` : ''
   // ─── Coach IA v2: nutrition method context ───
-  const nutritionMethodId = (ctx.userProfile?.activeNutritionMethod as string) || (ctx.userProfile?.cycle as any)?.nutritionMethodId
-  const nutritionMethodContext = buildNutritionMethodContext(nutritionMethodId as any)
+  const nutritionMethodId = (ctx.userProfile?.activeNutritionMethod as string) || ctx.userProfile?.cycle?.nutritionMethodId as string | undefined
+  const nutritionMethodContext = buildNutritionMethodContext(nutritionMethodId as unknown as import('./nutritionMethods').NutritionMethodId)
   const nutritionMethodLine = nutritionMethodContext ? `\n${nutritionMethodContext}` : ''
   // ─── Method coaching style ───
   const methodCoaching = buildMethodCoachingPrompt(methodId)

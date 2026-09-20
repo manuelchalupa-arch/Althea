@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { db } from '@/services/storage/db'
 import { v4 as uuid } from 'uuid'
-import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearance } from '@/utils/appearance'
+import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearance, type TextScale } from '@/utils/appearance'
 import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type NotifConfig, type NotifKind } from '@/services/notifications/scheduler'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
@@ -31,7 +31,7 @@ function getInitials(name: string) {
 }
 
 function imcCalc(weight: number, height: number) {
-  if (!weight || !height) return null
+  if (!weight || !height) {return null}
   const v = weight / Math.pow(height / 100, 2)
   const cat = v < 18.5 ? 'Bajo peso' : v < 25 ? 'Normopeso' : v < 30 ? 'Sobrepeso' : 'Obesidad'
   return { value: v.toFixed(1), cat }
@@ -89,7 +89,7 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
 
   const handleAdd = () => {
     const title = kind === 'custom' ? customTitle.trim() : NOTIF_TYPES.find(t => t.kind === kind)?.label || 'Recordatorio'
-    if (!title) return
+    if (!title) {return}
     onAdd({
       id: `custom_${Date.now()}`,
       kind: kind as NotifKind,
@@ -162,18 +162,18 @@ export default function Perfil() {
       if (p) {
         setProfile(p)
         setForm({
-          name: (p as any).displayName || (p as any).name || '',
+          name: p.displayName || '',
           age: String(p.age || ''),
           sex: p.sex || '',
           heightCm: String(p.heightCm || ''),
           weightKg: String(p.weightKg || ''),
-          targetWeightKg: String((p as any).targetWeightKg || ''),
+          targetWeightKg: String(p.targetWeightKg || ''),
           bodyFatPct: String(p.bodyFatPct || ''),
           muscleMassKg: String(p.muscleMassKg || ''),
-          activityLevel: (p as any).activityLevel || 'moderado',
-          restrictions: ((p as any).nutritionPrefs?.restrictions || (p as any).restrictions || []).join(', '),
-          allergies: ((p as any).nutritionPrefs?.allergies || []).join(', '),
-          dislikedFoods: ((p as any).nutritionPrefs?.dislikedFoods || []).join(', '),
+          activityLevel: p.activityLevel || 'moderado',
+          restrictions: (p.nutritionPrefs?.restrictions || []).join(', '),
+          allergies: (p.nutritionPrefs?.allergies || []).join(', '),
+          dislikedFoods: (p.nutritionPrefs?.dislikedFoods || []).join(', '),
         })
       }
     })
@@ -221,7 +221,7 @@ export default function Perfil() {
   }
 
   const updateGoal = async (goal: string) => {
-    if (!profile) return
+    if (!profile) {return}
     await db.userProfile.put({ ...profile, trainingGoal: goal, updatedAt: new Date().toISOString() })
     setProfile({ ...profile, trainingGoal: goal })
   }
@@ -243,7 +243,7 @@ export default function Perfil() {
 
   const updateTime = (id: string, oldTime: string, newTime: string) => {
     const nx = notifCfgs.map(c => {
-      if (c.id !== id) return c
+      if (c.id !== id) {return c}
       const times = c.times.map(t => t === oldTime ? newTime : t).sort()
       return { ...c, times }
     })
@@ -261,7 +261,7 @@ export default function Perfil() {
   }
 
   const handleLogout = async () => {
-    if (!firebaseReady) return
+    if (!firebaseReady) {return}
     try {
       const { currentUser } = await import('@/services/firebase/auth')
       const u = currentUser()
@@ -278,7 +278,7 @@ export default function Perfil() {
   }
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'ELIMINAR') return
+    if (deleteConfirm !== 'ELIMINAR') {return}
     try {
       const { currentUser } = await import('@/services/firebase/auth')
       const u = currentUser()
@@ -287,8 +287,8 @@ export default function Perfil() {
         await deleteUser(u)
       }
     } catch { /* noop — local data still gets cleared */ }
-    localStorage.clear()
-    try { indexedDB.deleteDatabase('althea') } catch { /* noop */ }
+    const { clearUserDataOnAccountDelete } = await import('@/services/storage/accountWipe')
+    await clearUserDataOnAccountDelete()
     window.location.href = '/login'
   }
 
@@ -503,7 +503,7 @@ export default function Perfil() {
             <div className="font-label-caps text-[10px] uppercase text-outline tracking-wider mb-2">Tamaño del texto</div>
             <div className="grid grid-cols-3 gap-2">
               {([['s', 'Chico'], ['m', 'Mediano'], ['l', 'Grande']] as const).map(([v, label]) => (
-                <button key={v} onClick={() => { setTextScale(v as any); saveAppearance(theme, v as any); applyAppearance() }}
+                <button key={v} onClick={() => { setTextScale(v); saveAppearance(theme, v); applyAppearance() }}
                   className={`py-2.5 rounded-lg border font-body-md text-[15px] text-on-surface transition ${textScale === v ? 'bg-surface-container-high border-primary/50' : 'bg-surface-container/50 border-outline-variant/50'}`}>
                   {label}
                 </button>
@@ -541,7 +541,7 @@ export default function Perfil() {
           value={notifCfgs.find(c => c.id === editTimeId)?.times[editTimeIdx] || '08:00'}
           onChange={newTime => {
             const cfg = notifCfgs.find(c => c.id === editTimeId)
-            if (cfg) updateTime(editTimeId, cfg.times[editTimeIdx], newTime)
+            if (cfg) {updateTime(editTimeId, cfg.times[editTimeIdx], newTime)}
           }}
           onClose={() => setEditTimeId(null)}
         />

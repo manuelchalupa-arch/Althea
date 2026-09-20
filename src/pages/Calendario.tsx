@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { db } from '@/services/storage/db'
 import { Dumbbell, Clock, AlertTriangle } from 'lucide-react'
 import { AltheaCard, AltheaCardHeader, AltheaBadge, StatusTag } from '@/components/althea'
+import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'
 import { getOverrideDay, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
+import type { CycleConfig } from '@/utils/cycle'
 
 function daysInMonth(y:number,m:number){ return new Date(y,m+1,0).getDate() }
 
@@ -11,18 +13,20 @@ export default function Calendario(){
   const [y,m] = [now.getFullYear(), now.getMonth()]
   const [map,setMap]=useState<Record<string,number>>({})
   const [detail,setDetail]=useState<{date:string; scheduled:string; actual:string; changed:boolean; sessions:any[]; hydration:number; recovery:any} | null>(null)
-  const [cycle,setCycle]=useState<any>(null)
+  const [cycle,setCycle]=useState<CycleConfig | null>(null)
   const [monthOverrides,setMonthOverrides]=useState<Record<string,boolean>>({})
+  const [showCheckin,setShowCheckin]=useState(false)
+  const [todayScore,setTodayScore]=useState<number|null>(null)
 
   useEffect(()=>{
     migrateSessionOverridesFromLocalStorage()
-    Promise.all([db.sessions.toArray().catch(()=>[]), db.table('trainingSessions').toArray().catch(()=>[])]).then(([legacy, official])=>{
+    Promise.all([db.sessions.toArray().catch(()=>[]), db.trainingSessions.toArray().catch(()=>[])]).then(([legacy, official])=>{
       const c: Record<string,number> = {}
       const seen = new Set<string>()
       // Unión oficial + legacy: misma fecha+id cuenta una vez (migración copia sin borrar).
-      for(const x of [...(legacy as any[]).map((s)=> ({ date: s.localDate, id: s.id })), ...(official as any[]).map((s)=> ({ date: s.calendarDate, id: s.sessionId || s.id }))]){
+      for(const x of [...legacy.map((s)=> ({ date: s.localDate, id: s.id })), ...official.map((s)=> ({ date: s.calendarDate, id: s.sessionId || s.id }))]){
         const k = `${x.date}|${x.id}`
-        if(seen.has(k) || !x.date) continue
+        if(seen.has(k) || !x.date) {continue}
         seen.add(k)
         c[x.date]=(c[x.date]||0)+1
       }
@@ -31,14 +35,26 @@ export default function Calendario(){
     try{
       import('@/services/storage/routineStore').then(({ getAllRoutines, getActiveRoutineId }) =>
         Promise.all([getAllRoutines(), getActiveRoutineId()]).then(([raw, activeId]) => {
-          const active=raw?.find((r:any)=>r.id===activeId) || raw?.[0]
-          if(active) setCycle(active.cycle)
+          const active=raw?.find((r)=>r.id===activeId) || raw?.[0]
+          if(active) {setCycle(active.cycle as CycleConfig)}
           else {
-            db.userProfile.get('me').then(p=> setCycle((p as any)?.cycle || null))
+            db.userProfile.get('me').then(p=> setCycle((p?.cycle as CycleConfig) || null))
           }
         })
       ).catch(()=>{})
     }catch{}
+  },[])
+
+  useEffect(()=>{
+    const loadTodayScore = async () => {
+      const r = await db.recoveryChecks.get(todayStr).catch(()=>null)
+      setTodayScore(typeof r?.score === 'number' ? r.score : null)
+    }
+    loadTodayScore()
+    const onRec = () => loadTodayScore()
+    window.addEventListener('recoveryChange', onRec)
+    return () => window.removeEventListener('recoveryChange', onRec)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[])
 
   useEffect(()=>{
@@ -49,7 +65,7 @@ export default function Calendario(){
     })
     Promise.all(keys.map(k => getOverrideDay(k))).then(results => {
       const ov: Record<string, boolean> = {}
-      results.forEach((r, i) => { if (r != null) ov[keys[i]] = true })
+      results.forEach((r, i) => { if (r != null) {ov[keys[i]] = true} })
       setMonthOverrides(ov)
     })
   }, [y, m])
@@ -58,18 +74,18 @@ export default function Calendario(){
     const d=new Date(key+'T12:00:00')
     const dow=d.getDay()
     const scheduledN = cycle?.weekMap?.[dow]
-    const scheduled = scheduledN ? cycle.trainingDays.find((x:any)=>x.n===scheduledN)?.name || `Día N°${scheduledN}` : 'Descanso'
+    const scheduled = scheduledN ? cycle.trainingDays.find((x)=>x.n===scheduledN)?.name || `Día N°${scheduledN}` : 'Descanso'
     const overrideVal = await getOverrideDay(key)
     const actualN = overrideVal != null ? overrideVal : scheduledN
-    const actual = actualN ? cycle?.trainingDays.find((x:any)=>x.n===actualN)?.name || `Día N°${actualN}` : 'Descanso'
+    const actual = actualN ? cycle?.trainingDays.find((x)=>x.n===actualN)?.name || `Día N°${actualN}` : 'Descanso'
     const changed = overrideVal != null && overrideVal !== scheduledN
     const [legacySessions, officialSessions] = await Promise.all([
       db.sessions.where('localDate').equals(key).toArray().catch(()=>[]),
-      db.table('trainingSessions').where('calendarDate').equals(key).toArray().catch(()=>[]),
+      db.trainingSessions.where('calendarDate').equals(key).toArray().catch(()=>[]),
     ])
     const sessions = [
-      ...(legacySessions as any[]).map((s)=> ({ id: s.id, localDate: s.localDate, status: s.finishedAt ? 'COMPLETED' : 'ABANDONED' })),
-      ...(officialSessions as any[]).map((s)=> ({ id: s.sessionId || s.id, localDate: s.calendarDate, status: s.sessionStatus, routineName: s.routineName })),
+      ...legacySessions.map((s)=> ({ id: s.id, localDate: s.localDate, status: s.finishedAt ? 'COMPLETED' : 'ABANDONED' })),
+      ...officialSessions.map((s)=> ({ id: s.sessionId || s.id, localDate: s.calendarDate, status: s.sessionStatus, routineName: s.routineName })),
     ]
     const hyd = await db.hydrationLogs.where('localDate').equals(key).toArray().then(a=> a.reduce((s,b)=>s+b.amountMl,0)).catch(()=>0)
     const rec = await db.recoveryChecks.get(key).catch(()=>null) || JSON.parse(localStorage.getItem(`recovery:${key}`)||'null')
@@ -82,7 +98,15 @@ export default function Calendario(){
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
-      <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario</h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario y recuperación</h1>
+        <div className="flex items-center gap-2">
+          {todayScore !== null && (
+            <span className="px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Hoy: {todayScore}/100</span>
+          )}
+          <button onClick={()=>setShowCheckin(true)} className="px-3 py-2 rounded-lg bg-primary text-on-surface font-medium text-sm min-h-[44px]">Check-in recuperación</button>
+        </div>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-8 space-y-3">
       <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
@@ -114,9 +138,9 @@ export default function Calendario(){
         </div>
         <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Clock size={14}/> Próximas sesiones</div>
-          {cycle?.trainingDays?.length > 0 ? (
+          {cycle?.trainingDays.length ?? 0 > 0 ? (
             <div className="space-y-1.5">
-              {cycle.trainingDays.slice(0, 4).map((d: any) => (
+              {cycle!.trainingDays.slice(0, 4).map((d) => (
                 <div key={d.n} className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs">
                   <span>N°{d.n} — {d.name}</span>
                   <span className="text-primary">Activo</span>
@@ -152,6 +176,19 @@ export default function Calendario(){
               </div>
             )}
             <button onClick={()=>setDetail(null)} className="w-full py-3 rounded bg-primary text-on-surface">Cerrar</button>
+          </div>
+        </div>
+      )}
+
+      {showCheckin && (
+        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setShowCheckin(false)}>
+          <div onClick={e=>e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[85vh] overflow-auto p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-headline-lg text-base font-semibold text-on-surface">Check-in de recuperación</h3>
+              <button onClick={()=>setShowCheckin(false)} className="px-3 py-2 rounded-lg border border-outline-variant text-sm min-h-[44px]">Cerrar</button>
+            </div>
+            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Solo registra tu estado. No modifica tu rutina.</p>
+            <RecoveryCheckForm onSaved={()=>setShowCheckin(false)} />
           </div>
         </div>
       )}

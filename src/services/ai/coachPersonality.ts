@@ -240,7 +240,7 @@ export function getMethodCoachingStyle(methodId: TrainingMethodId): MethodCoachi
 /** Obtener configuración de personalidad desde un método de entrenamiento */
 export function getPersonalityFromMethod(methodId: TrainingMethodId): PersonalityConfig {
   const style = METHOD_COACHING_STYLES[methodId]
-  if (!style) return PERSONALITY_CONFIGS.ABUELITOS
+  if (!style) {return PERSONALITY_CONFIGS.ABUELITOS}
 
   return {
     tone: style.tone,
@@ -268,7 +268,7 @@ export function applyPersonality(goalLogic: GoalLogic, tone: CoachTone): GoalLog
 /** Aplicar estilo de coaching de método a la lógica de objetivo */
 export function applyMethodCoaching(goalLogic: GoalLogic, methodId: TrainingMethodId): GoalLogic {
   const style = METHOD_COACHING_STYLES[methodId]
-  if (!style) return goalLogic
+  if (!style) {return goalLogic}
 
   return {
     ...goalLogic,

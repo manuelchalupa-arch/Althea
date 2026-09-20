@@ -1,5 +1,24 @@
 import Dexie, { type Table } from 'dexie'
-import type { Exercise, Routine, RoutineDay, RoutineExercise, Session, SetLog, RecoveryCheck, HydrationLog, UserProfile } from '@/types'
+import type { Exercise, Routine, RoutineDay, RoutineExercise, Session, SetLog, RecoveryCheck, HydrationLog, UserProfile, BodyMeasurement, WeeklySequence, PainLog } from '@/types'
+import type { TrainingSession, SessionExercise, SetRecord, SessionEvent, PostWorkoutSurvey, NegativeSet, ExerciseObservation } from '@/services/training/domain'
+import type { CustomExercise } from '@/services/training/customExercises'
+import type { RoutineData } from './routineStore'
+import type { DiaryEntry, AdherenceRecord } from './diaryStore'
+import type { SessionOverrideData } from './sessionOverrideStore'
+import type { ChatMessage, ChatConversation } from '@/services/ai/chatHistory'
+import type { CoachDecision, CoachQA } from '@/services/ai/coachMemory'
+import type { DecisionRecord } from '@/services/ai/decisionLogger'
+import type { KnowledgeDocument } from '@/services/ai/knowledgeBase'
+import type { ExerciseKnowledgeEntry } from '@/services/ai/exerciseKnowledge'
+
+export type CoachMemoryEntry = CoachDecision | (CoachQA & { type: 'qa' }) | { id: string; type: 'score'; date: string; score: number; factors: any; createdAt: string } | { id: string; type: 'observation'; date: string; sessionId: string; sessionStatus: string; routineName: string;[k: string]: any }
+
+export type OnboardingDraft = {
+  id: string
+  step: number
+  data: Record<string, any>
+  updatedAt: string
+}
 
 export class TrainDB extends Dexie {
   exercises!: Table<Exercise>
@@ -12,13 +31,35 @@ export class TrainDB extends Dexie {
   hydrationLogs!: Table<HydrationLog>
   userProfile!: Table<UserProfile>
   syncQueue!: Table<any>
-  bodyMeasurements!: Table<any>
-  routineStore!: Table<any>
-  chatMessages!: Table<any>
-  chatConversations!: Table<any>
-  nutritionDiary!: Table<any>
-  nutritionAdherence!: Table<any>
-  sessionOverrides!: Table<any>
+  bodyMeasurements!: Table<BodyMeasurement>
+  routineStore!: Table<RoutineData | { id: string; activeId: string; createdAt: string; updatedAt: string }>
+  chatMessages!: Table<ChatMessage>
+  chatConversations!: Table<ChatConversation>
+  nutritionDiary!: Table<DiaryEntry>
+  nutritionAdherence!: Table<AdherenceRecord>
+  sessionOverrides!: Table<SessionOverrideData>
+  coachMemory!: Table<CoachMemoryEntry>
+  knowledgeDocuments!: Table<KnowledgeDocument>
+  decisionLog!: Table<DecisionRecord>
+  exerciseKnowledge!: Table<ExerciseKnowledgeEntry>
+  trainingSessions!: Table<TrainingSession>
+  sessionExercises!: Table<SessionExercise>
+  setRecords!: Table<SetRecord>
+  sessionEvents!: Table<SessionEvent>
+  postWorkoutSurveys!: Table<PostWorkoutSurvey>
+  negativeSets!: Table<NegativeSet>
+  exerciseObservations!: Table<ExerciseObservation>
+  customExercises!: Table<CustomExercise>
+  weeklySequences!: Table<WeeklySequence>
+  exerciseRecords!: Table<any>
+  scoreSnapshots!: Table<any>
+  exerciseState!: Table<any>
+  sessionChanges!: Table<any>
+  sessionObservations!: Table<any>
+  exerciseGymCache!: Table<any>
+  migrationStatus!: Table<any>
+  onboardingDrafts!: Table<OnboardingDraft>
+  painLogs!: Table<PainLog>
   constructor() {
     super('trainPWA')
     this.version(1).stores({
@@ -88,17 +129,61 @@ export class TrainDB extends Dexie {
     this.version(11).stores({
       sessionOverrides: 'date',
     })
+    // v12: Fix exerciseKnowledge index — 'exerciseDifficulty' → 'difficulty' (field name mismatch).
+    this.version(12).stores({
+      exerciseKnowledge: 'id, muscle, movementPattern, difficulty',
+    })
+    // v13: Migración localStorage restante → Dexie (exerciseState, sessionChanges, sessionObservations, exerciseGymCache, migrationStatus)
+    this.version(13).stores({
+      exerciseState: 'id, date, exerciseId',
+      sessionChanges: 'id, date',
+      sessionObservations: 'id, date',
+      exerciseGymCache: 'key',
+      migrationStatus: 'id',
+    })
+    // v14: Onboarding drafts — borrador de onboarding persistido en Dexie (fuente de verdad)
+    // Permite reanudar onboarding tras cerrar/recargar la app
+    this.version(14).stores({
+      onboardingDrafts: 'id, updatedAt'
+    })
+    // v15: Pain logs — registro de dolor/molestias por ejercicio y sesión
+    this.version(15).stores({
+      painLogs: 'id, localDate, exerciseId, level, createdAt'
+    })
+    // v16: Demo data support — add isDemo field (no index, use in-memory filtering for test compatibility)
+    this.version(16).stores({
+      routineStore: 'id, createdAt, updatedAt',
+      trainingSessions: 'id, calendarDate, routineId, sessionId',
+    })
   }
 }
 export const db = new TrainDB()
 
 export async function ensureSeeded() {
   const count = await db.exercises.count()
-  if (count > 0) return
+  if (count > 0) {return}
   const { exercises } = await import('@/data/exercises.json')
   await db.exercises.bulkPut(exercises as Exercise[])
 }
 
 export async function getTodayLocalDate(): Promise<string> {
   return new Date().toISOString().slice(0,10)
+}
+
+export async function saveOnboardingDraft(step: number, data: Record<string, any>): Promise<void> {
+  await db.onboardingDrafts.put({
+    id: 'onboarding-draft',
+    step,
+    data,
+    updatedAt: new Date().toISOString()
+  })
+}
+
+export async function getOnboardingDraft(): Promise<OnboardingDraft | null> {
+  const draft = await db.onboardingDrafts.get('onboarding-draft')
+  return draft ?? null
+}
+
+export async function clearOnboardingDraft(): Promise<void> {
+  await db.onboardingDrafts.delete('onboarding-draft')
 }

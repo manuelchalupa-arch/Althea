@@ -15,7 +15,7 @@ function todayStr(): string { return new Date().toISOString().slice(0, 10) }
 function load(): UsageWindow {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) {return JSON.parse(raw)}
   } catch {}
   return { minuteStart: now(), minuteCount: 0, minuteTokens: 0, day: todayStr(), dayCount: 0 }
 }
@@ -43,8 +43,8 @@ export function canMakeRequest(): { ok: boolean; reason?: string } {
   w = resetMinuteIfNeeded(w)
   w = resetDayIfNeeded(w)
 
-  if (w.dayCount >= FREE_TIER.rpd) return { ok: false, reason: 'Límite diario alcanzado (1000 requests). Se renueva mañana.' }
-  if (w.minuteCount >= FREE_TIER.rpm) return { ok: false, reason: 'Límite por minuto alcanzado (30 RPM). Esperá ~60 segundos.' }
+  if (w.dayCount >= FREE_TIER.rpd) {return { ok: false, reason: 'Límite diario alcanzado (1000 requests). Se renueva mañana.' }}
+  if (w.minuteCount >= FREE_TIER.rpm) {return { ok: false, reason: 'Límite por minuto alcanzado (30 RPM). Esperá ~60 segundos.' }}
   return { ok: true }
 }
 

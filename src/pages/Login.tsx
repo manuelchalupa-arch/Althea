@@ -24,8 +24,8 @@ export default function Login({ onDone }: { onDone: () => void }) {
     }
     setBusy(true)
     try {
-      if (mode === 'in') await signIn(email, password)
-      else if (mode === 'up') await signUp(email, password)
+      if (mode === 'in') {await signIn(email, password)}
+      else if (mode === 'up') {await signUp(email, password)}
       else {
         await resetPassword(email)
         setOk('Te enviamos un correo para restablecer la contraseña.')

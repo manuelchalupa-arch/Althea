@@ -29,20 +29,20 @@ function compatibilityScore(original: ExerciseKnowledgeEntry, candidate: Exercis
   let score = 0
   // Mismo patrón de movimiento (30 pts)
   if (original.movementPattern && candidate.movementPattern) {
-    if (original.movementPattern === candidate.movementPattern) score += 30
-    else score += 5 // patrones relacionados
+    if (original.movementPattern === candidate.movementPattern) {score += 30}
+    else {score += 5} // patrones relacionados
   }
   // Mismo grupo muscular (25 pts)
-  if (original.muscle === candidate.muscle) score += 25
-  else if (original.secondaryMuscles?.includes(candidate.muscle)) score += 15
+  if (original.muscle === candidate.muscle) {score += 25}
+  else if (original.secondaryMuscles?.includes(candidate.muscle)) {score += 15}
   // Mismo equipamiento (15 pts)
-  if (original.equipment === candidate.equipment) score += 15
+  if (original.equipment === candidate.equipment) {score += 15}
   // Misma parte corporal (15 pts)
-  if (original.bodyPart === candidate.bodyPart) score += 15
+  if (original.bodyPart === candidate.bodyPart) {score += 15}
   // Misma categoría (10 pts)
-  if (original.category === candidate.category) score += 10
+  if (original.category === candidate.category) {score += 10}
   // Misma dificultad (5 pts)
-  if (original.difficulty === candidate.difficulty) score += 5
+  if (original.difficulty === candidate.difficulty) {score += 5}
   return Math.min(100, score)
 }
 
@@ -54,16 +54,16 @@ export async function findAlternatives(
   userProfile?: Partial<UserProfile>,
 ): Promise<SubstitutionResult> {
   const originalEx = allExercises.find(e => e.id === originalId)
-  if (!originalEx) return { original: enrichExercise(allExercises[0] || {} as Gym.Exercise), alternatives: [] }
+  if (!originalEx) {return { original: enrichExercise(allExercises[0] || {} as Gym.Exercise), alternatives: [] }}
   const original = enrichExercise(originalEx)
 
   // Filtrar candidatos
   const candidates = allExercises.filter(e => {
-    if (e.id === originalId) return false
+    if (e.id === originalId) {return false}
     // Excluir ejercicios del usuario
-    if (userProfile?.excludedExercises?.includes(e.id)) return false
+    if (userProfile?.excludedExercises?.includes(e.id)) {return false}
     // Excluir ejercicios con dolor
-    if (userProfile?.preferences?.painExercises?.includes(e.id)) return false
+    if (userProfile?.preferences?.painExercises?.includes(e.id)) {return false}
     return true
   })
 
@@ -72,9 +72,9 @@ export async function findAlternatives(
     const enriched = enrichExercise(c)
     const score = compatibilityScore(original, enriched)
     let type: SubstitutionResult['alternatives'][0]['type'] = 'equivalent'
-    if (reason === 'progression') type = 'progression'
-    else if (reason === 'regression') type = 'regression'
-    else if (score < 50) type = 'partial'
+    if (reason === 'progression') {type = 'progression'}
+    else if (reason === 'regression') {type = 'regression'}
+    else if (score < 50) {type = 'partial'}
 
     return {
       exercise: enriched,

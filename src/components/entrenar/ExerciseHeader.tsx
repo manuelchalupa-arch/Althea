@@ -25,13 +25,13 @@ export function ExerciseHeaderInline({ exId, fallbackMuscle }:{ exId:string; fal
         try{
           const [m,slug]=exId.split('/')
           const ex:any = await Gym.fetchOne(m,slug).catch(()=>null)
-          if(ex && !cancelled) setInfo(ex)
+          if(ex && !cancelled) {setInfo(ex)}
         }catch{}
       } else {
         try{
           const res=await Gym.fetchByMuscle('pectorals').catch(()=>null) as any
           const found=res?.exercises.find((e:any)=> e.id===exId)
-          if(found && !cancelled) setInfo(found)
+          if(found && !cancelled) {setInfo(found)}
         }catch{}
       }
     }

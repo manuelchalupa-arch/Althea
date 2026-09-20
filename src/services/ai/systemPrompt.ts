@@ -82,9 +82,9 @@ export const PERSONALITY_INSTRUCTION: Record<string,string> = {
 /** Migración de tonos legacy → perfiles oficiales (§17). */
 export function mapTone(stored?: string | null): 'PADELERO' | 'ABUELITOS' | 'ARNOLD' | 'PSYCHO' {
   const v = (stored || '').toUpperCase()
-  if (v === 'PADELERO' || v === 'MOTIVACIONAL') return 'PADELERO'
-  if (v === 'ARNOLD' || v === 'DURO') return 'ARNOLD'
-  if (v === 'PSYCHO' || v === 'EXTREMO') return 'PSYCHO'
+  if (v === 'PADELERO' || v === 'MOTIVACIONAL') {return 'PADELERO'}
+  if (v === 'ARNOLD' || v === 'DURO') {return 'ARNOLD'}
+  if (v === 'PSYCHO' || v === 'EXTREMO') {return 'PSYCHO'}
   return 'ABUELITOS'
 }
 
@@ -96,9 +96,9 @@ export const VERACITY_RULES = `REGLAS DE VERACIDAD (obligatorias):
 
 // ─── Contexto del método de entrenamiento seleccionado ───
 export function buildMethodContext(methodId?: TrainingMethodId | null): string {
-  if (!methodId) return ''
+  if (!methodId) {return ''}
   const method = getMethod(methodId)
-  if (!method) return ''
+  if (!method) {return ''}
 
   let ctx = `\nMÉTODO DE ENTRENAMIENTO ACTIVO: ${method.nameEs.toUpperCase()}\n`
   ctx += `Descripción: ${method.descriptionEs}\n`
@@ -116,9 +116,9 @@ export function buildMethodContext(methodId?: TrainingMethodId | null): string {
 
 // ─── Estilo de coaching basado en el método de entrenamiento ───
 export function buildMethodCoachingPrompt(methodId?: TrainingMethodId | null): string {
-  if (!methodId) return ''
+  if (!methodId) {return ''}
   const method = getMethod(methodId)
-  if (!method) return ''
+  if (!method) {return ''}
 
   const coachingMap: Record<string, string> = {
     strength: `ESTILO DE COACHING: Fuerza Máxima. Sé directo y técnico. Hablá de cargas, porcentajes de 1RM, progresión lineal. Exigí técnica perfecta antes de subir peso. Descansos largos (3-5 min). Frases cortas y firmes. Priorizá calidad sobre cantidad. Si el usuario falla una serie, no le subas carga.`,
@@ -141,9 +141,9 @@ export function buildMethodCoachingPrompt(methodId?: TrainingMethodId | null): s
 
 // ─── Contexto del método nutricional seleccionado ───
 export function buildNutritionMethodContext(methodId?: NutritionMethodId | null): string {
-  if (!methodId) return ''
+  if (!methodId) {return ''}
   const method = getNutritionMethod(methodId)
-  if (!method) return ''
+  if (!method) {return ''}
 
   let ctx = `\nESTRATEGIA NUTRICIONAL ACTIVA: ${method.nameEs.toUpperCase()}\n`
   ctx += `Descripción: ${method.descriptionEs}\n`

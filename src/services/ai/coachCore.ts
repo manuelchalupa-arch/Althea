@@ -112,7 +112,7 @@ export async function processRequest(request: CoachRequest): Promise<CoachRespon
   let methodRecommendation: MethodRecommendation | undefined
   try {
     const recentFatigue = recovery.lastCheck?.fatigue
-    const sessions: any[] = await db.table('trainingSessions').toArray().catch(() => [])
+    const sessions: any[] = await db.trainingSessions.toArray().catch(() => [])
     const recentSessions = sessions.filter(s => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus)).slice(-5)
     const recentVolume = recentSessions.reduce((a, s) => a + Number(s.totalVolume || 0), 0) / Math.max(1, recentSessions.length)
     methodRecommendation = selectMethods(profile || {}, recentVolume || undefined, recentFatigue)
@@ -121,7 +121,7 @@ export async function processRequest(request: CoachRequest): Promise<CoachRespon
   // 12. Nutrition method selection
   let nutritionMethodRecommendation: NutritionMethodRecommendation | undefined
   try {
-    const userProfile = await db.userProfile.get('me') as any
+    const userProfile = await db.userProfile.get('me')
     const trainingMethodId = userProfile?.cycle?.methodId || methodRecommendation?.primary
     nutritionMethodRecommendation = selectNutritionMethods(profile || {}, trainingMethodId)
   } catch { /* noop */ }

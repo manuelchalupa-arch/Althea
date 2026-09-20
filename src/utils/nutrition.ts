@@ -18,29 +18,29 @@ export function calcIMC(weightKg:number, heightCm:number){
 
 // Mifflin-St Jeor: 10*W + 6.25*H -5*A + s (s=+5 M, -161 F, -78 X promedio)
 export function calcTMB(weightKg:number, heightCm:number, age?:number, sex?:string){
-  if(!weightKg || !heightCm) return null
+  if(!weightKg || !heightCm) {return null}
   const a = age || 30
   const s = sex==='M' ? 5 : sex==='F' ? -161 : -78
   return Math.round(10*weightKg + 6.25*heightCm -5*a + s)
 }
 
 export function calcTDEE(tmb:number | null, activity: ActivityLevel, trainingDays:number){
-  if(!tmb) return null
+  if(!tmb) {return null}
   // ajusta levemente por frecuencia: +50 kcal por día extra sobre 3
   const extra = Math.max(0, trainingDays -3)*50
   return Math.round(tmb * FACTORS[activity] + extra)
 }
 
 export function calorieGoal(tdee:number | null, goalPrimary?:string){
-  if(!tdee) return null
+  if(!tdee) {return null}
   const g = (goalPrimary||'').toLowerCase()
-  if(g.includes('fat_loss') || g.includes('grasa') || g.includes('perder') || g.includes('bajar')) return Math.round(tdee * 0.85) // -15% déficit moderado
-  if(g.includes('hypertrophy') || g.includes('masa') || g.includes('ganar') || g.includes('strength') || g.includes('fuerza')) return Math.round(tdee * 1.10) // +10% superávit moderado
+  if(g.includes('fat_loss') || g.includes('grasa') || g.includes('perder') || g.includes('bajar')) {return Math.round(tdee * 0.85)} // -15% déficit moderado
+  if(g.includes('hypertrophy') || g.includes('masa') || g.includes('ganar') || g.includes('strength') || g.includes('fuerza')) {return Math.round(tdee * 1.10)} // +10% superávit moderado
   return tdee // mantenimiento
 }
 
 export function proteinRange(weightKg:number, goalPrimary?:string){
-  if(!weightKg) return null
+  if(!weightKg) {return null}
   const g = (goalPrimary||'').toLowerCase()
   let low=1.6, high=2.2
   if(g.includes('strength') || g.includes('fuerza')) { low=1.8; high=2.2 }

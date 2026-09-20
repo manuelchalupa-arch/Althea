@@ -28,17 +28,17 @@ export function sigilForSection(s: TempleSection): SigilKind {
 }
 
 export function sectionForPath(pathname: string): TempleSection {
-  if (pathname === '/') return 'inicio'
-  if (pathname.startsWith('/entrenar')) return 'entrenar'
-  if (pathname.startsWith('/nutricion')) return 'nutricion'
-  if (pathname.startsWith('/progreso')) return 'progreso'
-  if (pathname.startsWith('/mas')) return 'mas'
-  if (pathname.startsWith('/biblioteca')) return 'biblioteca'
-  if (pathname.startsWith('/rutina')) return 'rutina'
-  if (pathname.startsWith('/calendario')) return 'calendario'
-  if (pathname.startsWith('/recuperacion')) return 'recuperacion'
-  if (pathname.startsWith('/perfil')) return 'perfil'
-  if (pathname.startsWith('/coach')) return 'coach'
+  if (pathname === '/') {return 'inicio'}
+  if (pathname.startsWith('/entrenar')) {return 'entrenar'}
+  if (pathname.startsWith('/nutricion')) {return 'nutricion'}
+  if (pathname.startsWith('/progreso')) {return 'progreso'}
+  if (pathname.startsWith('/mas')) {return 'mas'}
+  if (pathname.startsWith('/biblioteca')) {return 'biblioteca'}
+  if (pathname.startsWith('/rutina')) {return 'rutina'}
+  if (pathname.startsWith('/calendario')) {return 'calendario'}
+  if (pathname.startsWith('/recuperacion')) {return 'recuperacion'}
+  if (pathname.startsWith('/perfil')) {return 'perfil'}
+  if (pathname.startsWith('/coach')) {return 'coach'}
   return 'default'
 }
 
@@ -141,16 +141,12 @@ export function MarbleVeil({ className = '' }: { className?: string }) {
   return <div aria-hidden="true" className={`temple-veil ${className}`} />
 }
 
-const HIDE_SIGIL: TempleSection[] = ['entrenar', 'nutricion', 'progreso', 'mas']
 export function TempleBackdrop() {
   const { pathname } = useLocation()
   const section = sectionForPath(pathname)
-  const showSigil = !HIDE_SIGIL.includes(section)
+  // Fondo sólido (sin vectores decorativos): el tema define el color vía CSS.
   return (
-    <div aria-hidden="true" className="temple-backdrop" data-section={section}>
-      <MarbleVeil />
-      {showSigil && <SectionSigil section={section} className="temple-sigil" />}
-    </div>
+    <div aria-hidden="true" className="temple-backdrop" data-section={section} />
   )
 }
 

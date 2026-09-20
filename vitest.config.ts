@@ -4,9 +4,13 @@ import path from 'path'
 export default defineConfig({
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   test: {
-    environment: 'node',
+    environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     pool: 'forks',
+    globals: true,
+    typecheck: {
+      tsconfig: './tsconfig.json'
+    }
   },
 })

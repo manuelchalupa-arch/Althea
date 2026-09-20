@@ -20,7 +20,7 @@ export const nutriCalendarioSchema = z.array(z.object({
 export function safeParseLocalStorage<T>(key:string, schema:z.ZodSchema<T>, fallback:T):T{
   try{
     const raw = localStorage.getItem(key)
-    if(!raw) return fallback
+    if(!raw) {return fallback}
     const json = JSON.parse(raw)
     return schema.parse(json)
   }catch{

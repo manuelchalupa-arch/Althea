@@ -49,9 +49,9 @@ export function buildBreakdown(input: Pick<CustomInput, 'muscle' | 'secondaryMus
 
 /** Breakdown efectivo: el guardado si existe, si no la heurística histórica 70/30. */
 export function effectiveBreakdown(ex: Pick<Exercise, 'muscle' | 'secondaryMuscles'> & { muscleBreakdown?: MuscleShare[] }): MuscleShare[] {
-  if (ex.muscleBreakdown && ex.muscleBreakdown.length > 0) return ex.muscleBreakdown
+  if (ex.muscleBreakdown && ex.muscleBreakdown.length > 0) {return ex.muscleBreakdown}
   const secs = ex.secondaryMuscles || []
-  if (secs.length === 0) return [{ name: ex.muscle, pct: 100, role: 'Principal' }]
+  if (secs.length === 0) {return [{ name: ex.muscle, pct: 100, role: 'Principal' }]}
   const secPct = Math.round(30 / secs.length)
   return [
     { name: ex.muscle, pct: 100 - secPct * secs.length, role: 'Principal' },
@@ -61,15 +61,15 @@ export function effectiveBreakdown(ex: Pick<Exercise, 'muscle' | 'secondaryMuscl
 
 export function validateCustomInput(input: CustomInput): string[] {
   const errs: string[] = []
-  if (!input.name || !input.name.trim()) errs.push('Nombre obligatorio')
-  if (!input.bodyPart) errs.push('Parte obligatoria')
-  if (!input.muscle) errs.push('Grupo muscular principal obligatorio')
+  if (!input.name || !input.name.trim()) {errs.push('Nombre obligatorio')}
+  if (!input.bodyPart) {errs.push('Parte obligatoria')}
+  if (!input.muscle) {errs.push('Grupo muscular principal obligatorio')}
   const all = [input.primaryPct, ...input.secondaryPcts]
-  if (all.some((p) => !Number.isFinite(p) || p < 0 || p > 100)) errs.push('Porcentajes entre 0 y 100')
-  if (input.secondaryMuscles.length !== input.secondaryPcts.length) errs.push('Cada secundario necesita su porcentaje')
+  if (all.some((p) => !Number.isFinite(p) || p < 0 || p > 100)) {errs.push('Porcentajes entre 0 y 100')}
+  if (input.secondaryMuscles.length !== input.secondaryPcts.length) {errs.push('Cada secundario necesita su porcentaje')}
   const sum = all.reduce((a, b) => a + b, 0)
-  if (Math.abs(sum - 100) > 0.001) errs.push(`Los porcentajes deben sumar 100 (actual: ${Math.round(sum * 10) / 10})`)
-  if (input.primaryPct <= 0) errs.push('El músculo principal debe tener activación mayor a 0')
+  if (Math.abs(sum - 100) > 0.001) {errs.push(`Los porcentajes deben sumar 100 (actual: ${Math.round(sum * 10) / 10})`)}
+  if (input.primaryPct <= 0) {errs.push('El músculo principal debe tener activación mayor a 0')}
   return errs
 }
 
@@ -78,16 +78,16 @@ export function matchesCustomFilter(
   tab: 'muscle' | 'equipment' | 'bodypart' | 'category',
   key: string,
 ): boolean {
-  if (key === '__all__') return true
-  if (tab === 'muscle') return c.muscle === key
-  if (tab === 'equipment') return c.equipment === key
-  if (tab === 'bodypart') return c.bodyPart === key
+  if (key === '__all__') {return true}
+  if (tab === 'muscle') {return c.muscle === key}
+  if (tab === 'equipment') {return c.equipment === key}
+  if (tab === 'bodypart') {return c.bodyPart === key}
   return c.category === key
 }
 
 export async function createCustomExercise(input: CustomInput): Promise<CustomExercise> {
   const errs = validateCustomInput(input)
-  if (errs.length > 0) throw new Error(errs.join(' · '))
+  if (errs.length > 0) {throw new Error(errs.join(' · '))}
   const now = new Date().toISOString()
   const slug = input.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'ejercicio'
   const rec: CustomExercise = {
@@ -111,14 +111,14 @@ export async function createCustomExercise(input: CustomInput): Promise<CustomEx
     createdAt: now,
     updatedAt: now,
   }
-  await db.table('customExercises').put(rec as never)
+  await db.customExercises.put(rec as never)
   return rec
 }
 
 export async function updateCustomExercise(id: string, patch: Partial<CustomInput>): Promise<CustomExercise> {
-  const prev = (await db.table('customExercises').get(id).catch(() => null)) as CustomExercise | null
-  if (!prev) throw new Error('Ejercicio inexistente')
-  if (prev.archived) throw new Error('El ejercicio está archivado')
+  const prev = (await db.customExercises.get(id).catch(() => null)) as CustomExercise | null
+  if (!prev) {throw new Error('Ejercicio inexistente')}
+  if (prev.archived) {throw new Error('El ejercicio está archivado')}
   const merged: CustomInput = {
     name: patch.name ?? prev.name,
     description: patch.description ?? prev.description,
@@ -134,7 +134,7 @@ export async function updateCustomExercise(id: string, patch: Partial<CustomInpu
     gifUrl: patch.gifUrl ?? prev.gifUrl,
   }
   const errs = validateCustomInput(merged)
-  if (errs.length > 0) throw new Error(errs.join(' · '))
+  if (errs.length > 0) {throw new Error(errs.join(' · '))}
   const nx: CustomExercise = {
     ...prev,
     name: merged.name.trim(),
@@ -150,18 +150,18 @@ export async function updateCustomExercise(id: string, patch: Partial<CustomInpu
     muscleBreakdown: buildBreakdown(merged),
     updatedAt: new Date().toISOString(),
   }
-  await db.table('customExercises').put(nx as never)
+  await db.customExercises.put(nx as never)
   return nx
 }
 
 export async function getCustomExercise(id: string): Promise<CustomExercise | null> {
-  const row = (await db.table('customExercises').get(id).catch(() => null)) as CustomExercise | null | undefined
+  const row = (await db.customExercises.get(id).catch(() => null)) as CustomExercise | null | undefined
   return row ?? null
 }
 
 /** Lista customs vigentes (no archivados), opcionalmente filtrados por tab/key. */
 export async function listCustomExercises(tab?: 'muscle' | 'equipment' | 'bodypart' | 'category', key?: string): Promise<CustomExercise[]> {
-  const rows = (await db.table('customExercises').toArray().catch(() => [])) as CustomExercise[]
+  const rows = (await db.customExercises.toArray().catch(() => [])) as CustomExercise[]
   return rows
     .filter((c) => !c.archived)
     .filter((c) => (!tab || !key ? true : matchesCustomFilter(c, tab, key)))
@@ -172,7 +172,7 @@ export async function listCustomExercises(tab?: 'muscle' | 'equipment' | 'bodypa
 export async function overlayCustomParts(map: Record<string, string>): Promise<Record<string, string>> {
   const customs = await listCustomExercises().catch(() => [])
   for (const c of customs) {
-    if (c?.id && c?.bodyPart && !map[c.id]) map[c.id] = c.bodyPart
+    if (c?.id && c?.bodyPart && !map[c.id]) {map[c.id] = c.bodyPart}
   }
   return map
 }
@@ -180,7 +180,7 @@ export async function overlayCustomParts(map: Record<string, string>): Promise<R
 /** ¿Tiene historial en sesiones/series? */
 export async function hasHistory(id: string): Promise<boolean> {
   const [recs, logs] = await Promise.all([
-    db.table('setRecords').where('exerciseId').equals(id).toArray().catch(() => []),
+    db.setRecords.where('exerciseId').equals(id).toArray().catch(() => []),
     db.setLogs.where('exerciseId').equals(id).toArray().catch(() => []),
   ])
   return recs.length > 0 || logs.length > 0
@@ -189,16 +189,16 @@ export async function hasHistory(id: string): Promise<boolean> {
 /** ¿Tiene historial? Si sí → soft delete (archived), si no → borrado físico. */
 export async function deleteCustomExercise(id: string): Promise<'archived' | 'deleted'> {
   const [recs, logs] = await Promise.all([
-    db.table('setRecords').where('exerciseId').equals(id).toArray().catch(() => []),
+    db.setRecords.where('exerciseId').equals(id).toArray().catch(() => []),
     db.setLogs.where('exerciseId').equals(id).toArray().catch(() => []),
   ])
   if (recs.length > 0 || logs.length > 0) {
     const prev = await getCustomExercise(id)
-    if (!prev) throw new Error('Ejercicio inexistente')
-    await db.table('customExercises').put({ ...prev, archived: true, updatedAt: new Date().toISOString() } as never)
+    if (!prev) {throw new Error('Ejercicio inexistente')}
+    await db.customExercises.put({ ...prev, archived: true, updatedAt: new Date().toISOString() } as never)
     return 'archived'
   }
-  await db.table('customExercises').delete(id).catch(() => null)
+  await db.customExercises.delete(id).catch(() => null)
   return 'deleted'
 }
 
@@ -216,7 +216,7 @@ export function fileToExerciseImage(file: File, maxSide = 640, quality = 0.82): 
         canvas.width = w
         canvas.height = h
         const ctx = canvas.getContext('2d')
-        if (!ctx) throw new Error('Sin canvas 2d')
+        if (!ctx) {throw new Error('Sin canvas 2d')}
         ctx.drawImage(img, 0, 0, w, h)
         const out = canvas.toDataURL('image/jpeg', quality)
         URL.revokeObjectURL(url)

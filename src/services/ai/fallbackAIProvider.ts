@@ -1,6 +1,8 @@
 import type { AIProvider, AIContext, AIRecommendation } from './aiProvider'
 import { recommendLoad } from './localEngine'
+import type { SetLog } from '@/types'
 import { resolveGoal, type TrainingGoal } from './goalEngine'
+import type { ExperienceLevel } from '@/types'
 import { applyPersonality, type CoachTone } from './coachPersonality'
 import { check as safetyCheck, type SafetyContext } from './safetyLayer'
 import { logDecision } from './decisionLogger'
@@ -46,9 +48,8 @@ export class FallbackAIProvider implements AIProvider {
     }
 
     // 2. Motor determinístico base
-    const hist = (ctx.historial||[]).map(h=> ({ weight:h.peso, reps:h.reps, rpe:h.rpe })) as any
-    // @ts-ignore hist shape compatible with localEngine
-    const rec:any = recommendLoad(hist as any)
+    const hist: SetLog[] = (ctx.historial||[]).map(h=> ({ weight: h.peso, reps: h.reps, rpe: h.rpe, completed: true, createdAt: new Date().toISOString(), id: '', sessionId: '', exerciseId: '', setNumber: 0 }))
+    const rec = recommendLoad(hist)
     let action = rec.text.includes('Probar') ? 'increase_weight' : rec.text.includes('bajar') ? 'decrease_weight' : 'maintain'
     let reason = rec.reason
     const factors = [...(rec.factors||[])]
@@ -59,8 +60,8 @@ export class FallbackAIProvider implements AIProvider {
       const top = warns[0]
       reason = `${top.title}. ${top.detail} ${rec.reason}`
       factors.unshift(`alerta: ${top.kind}`)
-      if(top.kind==='overtrain' || top.kind==='pain') action = 'decrease_volume'
-      if(top.kind==='pain') reason += ' Sin diagnosticar: si el dolor es importante, consultá profesional.'
+      if(top.kind==='overtrain' || top.kind==='pain') {action = 'decrease_volume'}
+      if(top.kind==='pain') {reason += ' Sin diagnosticar: si el dolor es importante, consultá profesional.'}
     } else if((ctx.insights||[]).length===0 && (ctx.historial||[]).length===0){
       reason = 'Todavía no tengo suficientes datos tuyos para determinarlo. ' + rec.reason
       factors.push('sin datos suficientes')
@@ -68,13 +69,13 @@ export class FallbackAIProvider implements AIProvider {
     if(ctx.score && ctx.score.score < 45){
       reason += ` Tu estado global está en ${ctx.score.score}/100: priorizá recuperación hoy.`
       factors.push(`score ${ctx.score.score}/100`)
-      if(action==='increase_weight') action = 'maintain'
+      if(action==='increase_weight') {action = 'maintain'}
     }
 
     // 4. Goal-driven adjustment
     const goal = (ctx.userProfile?.trainingGoal as TrainingGoal) || 'hypertrophy'
     const tone = (ctx.personalidad || 'ABUELITOS') as CoachTone
-    const goalLogic = applyPersonality(resolveGoal(goal, ctx.userProfile?.experienceLevel as any), tone)
+    const goalLogic = applyPersonality(resolveGoal(goal, ctx.userProfile?.experienceLevel as ExperienceLevel), tone)
     if (goalLogic.progressionRate === 'conservative' && action === 'increase_weight') {
       action = 'maintain'
       factors.push('objetivo conservador')

@@ -22,17 +22,17 @@ export class QwenProvider implements AIProvider {
   isModelReady(){ return status==='ready' && !!pipe }
   async getStatus(){
     const cap = await (await import('./capabilities')).detectCapabilities()
-    if(status==='ready' && pipe) return { icon:'🟢', status:'available', reason:`Qwen3-0.6B listo (${device})` }
-    if(status==='downloading') return { icon:'🟡', status:'limited', reason:`Descargando ${progress}%` }
-    if(cap.status==='unavailable') return { icon:'🔴', status:'unavailable', reason: cap.reason }
-    return { icon: cap.icon as any, status: cap.status, reason: cap.reason + (status==='not-installed'?' — modelo no instalado':'') }
+    if(status==='ready' && pipe) {return { icon:'🟢', status:'available', reason:`Qwen3-0.6B listo (${device})` }}
+    if(status==='downloading') {return { icon:'🟡', status:'limited', reason:`Descargando ${progress}%` }}
+    if(cap.status==='unavailable') {return { icon:'🔴', status:'unavailable', reason: cap.reason }}
+    return { icon: cap.icon, status: cap.status, reason: cap.reason + (status==='not-installed'?' — modelo no instalado':'') }
   }
   async isAvailable(){
     const s = await this.getStatus()
     return s.status!=='unavailable'
   }
   async downloadModel(onProgress?:(p:number)=>void):Promise<void>{
-    if(status==='ready' && pipe) return
+    if(status==='ready' && pipe) {return}
     setStatus('downloading'); progress=0
     const onProg = (p:any)=>{
       // transformers progress: {status, progress, file}
@@ -74,7 +74,7 @@ export class QwenProvider implements AIProvider {
       const text = Array.isArray(out) ? out[0]?.generated_text ?? '' : out.generated_text ?? String(out)
       // el pipeline devuelve prompt+completion; extrae JSON
       const rec = parseRecommendation(text)
-      if(rec) return rec
+      if(rec) {return rec}
       // si no parsea, fallback con texto truncado
       return { type:'training_recommendation', exercise:ctx.ejercicio||'', action:'maintain', reason: text.slice(0,180) || 'Mantener carga y controlar técnica.', factors:[prompt.slice(0,60)], confidence:0.5 }
     }catch{

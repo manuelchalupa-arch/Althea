@@ -11,7 +11,7 @@ export async function seedCoherentHistory(){
   // No borra perfil
 
   const routineId = 'seed-rutina-1'
-  await db.routines.put({ id: routineId, name: 'Hipertrofia Seed', createdAt: new Date(Date.now()-28*86400000).toISOString(), updatedAt: new Date().toISOString() } as any)
+  await db.routines.put({ id: routineId, name: 'Hipertrofia Seed', createdAt: new Date(Date.now()-28*86400000).toISOString(), updatedAt: new Date().toISOString() })
 
   // 4 semanas × 3 sesiones = 12 sesiones
   for(let w=0; w<4; w++){
@@ -28,7 +28,7 @@ export async function seedCoherentHistory(){
         finishedAt: new Date(date.setHours(19,0,0,0)).toISOString(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      } as any)
+      })
 
       // 3 ejercicios por sesión, 4 series c/u, progresión +2.5kg por semana
       const exs = [
@@ -50,7 +50,7 @@ export async function seedCoherentHistory(){
             reps,
             completed: true,
             createdAt: new Date(date).toISOString()
-          } as any)
+          })
         }
       }
 
@@ -69,21 +69,21 @@ export async function seedCoherentHistory(){
         hydration: 7 + Math.floor(Math.random()*2),
         score: 75 + Math.floor(Math.random()*10),
         color: 'green'
-      } as any).catch(()=>{})
+      }).catch(()=>{})
 
       await db.hydrationLogs.put({
         id: uuid(),
         localDate: iso,
         amountMl: 2000 + Math.floor(Math.random()*500),
         time: new Date().toISOString()
-      } as any)
+      })
     }
   }
 
   // Body measurements evolución
   for(let i=0;i<4;i++){
     const d=new Date(today); d.setDate(today.getDate()- (3-i)*7)
-    await db.table('bodyMeasurements').put({
+    await db.bodyMeasurements.put({
       id: uuid(),
       localDate: d.toISOString().slice(0,10),
       weightKg: 80 - i*0.5,
@@ -106,22 +106,35 @@ export async function wipeDatabase(){
   await db.routines.clear()
   await db.routineDays.clear()
   await db.routineExercises.clear()
-  try{ await db.table('bodyMeasurements').clear()}catch{}
-  try{ await db.table('coachMemory').clear()}catch{}
-  try{ await db.table('weeklySequences').clear()}catch{}
-  try{ await db.table('trainingSessions').clear()}catch{}
-  try{ await db.table('exerciseRecords').clear()}catch{}
-  try{ await db.table('customExercises').clear()}catch{}
-  for(const t of ['sessionExercises','setRecords','sessionEvents','postWorkoutSurveys','negativeSets','exerciseObservations']){
-    try{ await db.table(t).clear()}catch{ /* noop */ }
-  }
+  try{ await db.bodyMeasurements.clear()}catch{}
+  try{ await db.coachMemory.clear()}catch{}
+  try{ await db.weeklySequences.clear()}catch{}
+  try{ await db.trainingSessions.clear()}catch{}
+  try{ await db.exerciseRecords.clear()}catch{}
+  try{ await db.customExercises.clear()}catch{}
+  try{ await db.sessionExercises.clear()}catch{ /* noop */ }
+  try{ await db.setRecords.clear()}catch{ /* noop */ }
+  try{ await db.sessionEvents.clear()}catch{ /* noop */ }
+  try{ await db.postWorkoutSurveys.clear()}catch{ /* noop */ }
+  try{ await db.negativeSets.clear()}catch{ /* noop */ }
+  try{ await db.exerciseObservations.clear()}catch{ /* noop */ }
+  try{ await db.knowledgeDocuments.clear()}catch{ /* noop */ }
+  try{ await db.decisionLog.clear()}catch{ /* noop */ }
+  try{ await db.exerciseKnowledge.clear()}catch{ /* noop */ }
+  try{ await db.scoreSnapshots.clear()}catch{ /* noop */ }
+  try{ await db.chatMessages.clear()}catch{ /* noop */ }
+  try{ await db.chatConversations.clear()}catch{ /* noop */ }
+  try{ await db.routineStore.clear()}catch{ /* noop */ }
+  try{ await db.nutritionDiary.clear()}catch{ /* noop */ }
+  try{ await db.nutritionAdherence.clear()}catch{ /* noop */ }
+  try{ await db.sessionOverrides.clear()}catch{ /* noop */ }
   // localStorage claves de sesión/historial (no borra perfil)
   const keep = ['onboard:nombre','onboard:email','onboard:altura','onboard:peso']
   const toRemove:string[] = []
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i)
     if(k && !keep.includes(k) && (k.startsWith('session:') || k.startsWith('althea:session') || k.startsWith('althea:migration') || k.startsWith('althea:result:') || k.startsWith('exstate:') || k.startsWith('neg:') || k.startsWith('obs:') || k.startsWith('observation:') || k.startsWith('nutri:diario:') || k.startsWith('nutri:diario_v2:') || k.startsWith('nutrition:adherence') || k.startsWith('coachMemory') || k.startsWith('seed:') || k.startsWith('hydration:') || k.startsWith('post:') || k.startsWith('rec:') || k.startsWith('rutinas:') || k.startsWith('rutina:')))
-      toRemove.push(k)
+      {toRemove.push(k)}
   }
   toRemove.forEach(k=> localStorage.removeItem(k))
 }

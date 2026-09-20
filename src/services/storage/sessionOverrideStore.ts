@@ -1,4 +1,5 @@
 import { db } from './db'
+import type { Table } from 'dexie'
 
 export interface SessionOverrideData {
   date: string
@@ -7,8 +8,8 @@ export interface SessionOverrideData {
   observation: Record<string, any> | null
 }
 
-function table() {
-  return (db as any).sessionOverrides as import('dexie').Table<SessionOverrideData, string>
+function table(): Table<SessionOverrideData, string> {
+  return db.sessionOverrides
 }
 
 // ─── Read ───
@@ -47,7 +48,7 @@ export async function removeOverride(date: string): Promise<void> {
 
 export async function migrateSessionOverridesFromLocalStorage(): Promise<void> {
   const migrated = localStorage.getItem('althea:migration:sessionOverrides')
-  if (migrated === 'done') return
+  if (migrated === 'done') {return}
 
   const keys = Object.keys(localStorage).filter(k =>
     k.startsWith('session:override:') || k.startsWith('session:changed:') || k.startsWith('session:observation:')
@@ -56,7 +57,7 @@ export async function migrateSessionOverridesFromLocalStorage(): Promise<void> {
   const dates = new Set<string>()
   for (const k of keys) {
     const date = k.split(':').slice(2).join(':')
-    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) dates.add(date)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {dates.add(date)}
   }
 
   if (dates.size === 0) {
@@ -69,10 +70,10 @@ export async function migrateSessionOverridesFromLocalStorage(): Promise<void> {
 
   const toPut: SessionOverrideData[] = []
   for (const date of dates) {
-    if (existingDates.has(date)) continue
+    if (existingDates.has(date)) {continue}
     const raw = localStorage.getItem(`session:override:${date}`)
     const overrideDay = raw ? Number(raw) : null
-    if (overrideDay == null || isNaN(overrideDay)) continue
+    if (overrideDay == null || isNaN(overrideDay)) {continue}
 
     const changedRaw = localStorage.getItem(`session:changed:${date}`)
     const observationRaw = localStorage.getItem(`session:observation:${date}`)
@@ -85,6 +86,6 @@ export async function migrateSessionOverridesFromLocalStorage(): Promise<void> {
     })
   }
 
-  if (toPut.length) await table().bulkPut(toPut)
+  if (toPut.length) {await table().bulkPut(toPut)}
   localStorage.setItem('althea:migration:sessionOverrides', 'done')
 }

@@ -21,7 +21,7 @@ export async function analyzeExercise(
   // Unificar legacy + oficial
   const [legacy, official] = await Promise.all([
     db.setLogs.where('exerciseId').equals(exerciseId).toArray().catch(() => []),
-    db.table('setRecords').where('exerciseId').equals(exerciseId).toArray().catch(() => []),
+    db.setRecords.where('exerciseId').equals(exerciseId).toArray().catch(() => []),
   ])
 
   const allLogs = [
@@ -63,12 +63,12 @@ export async function analyzeExercise(
   if (last3.length >= 3) {
     const avg = last3.reduce((a, b) => a + b, 0) / 3
     const allSimilar = last3.every(v => Math.abs(v - avg) / avg < 0.05)
-    if (allSimilar) plateauWeeks = 3
+    if (allSimilar) {plateauWeeks = 3}
   }
 
   let trend: ProgressResult['trend'] = 'plateau'
-  if (changePct > 5) trend = 'improving'
-  else if (changePct < -5) trend = 'declining'
+  if (changePct > 5) {trend = 'improving'}
+  else if (changePct < -5) {trend = 'declining'}
 
   return {
     trend,
@@ -85,7 +85,7 @@ export async function analyzeGlobal(weeks = 4): Promise<ProgressResult> {
   since.setDate(since.getDate() - weeks * 7)
   const sinceStr = since.toISOString()
 
-  const sessions: any[] = await db.table('trainingSessions').toArray().catch(() => [])
+  const sessions: any[] = await db.trainingSessions.toArray().catch(() => [])
   const finals = sessions.filter(s => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus) && s.calendarDate >= sinceStr.slice(0, 10))
 
   if (finals.length < 3) {
@@ -107,8 +107,8 @@ export async function analyzeGlobal(weeks = 4): Promise<ProgressResult> {
   const changePct = first > 0 ? ((last - first) / first) * 100 : 0
 
   let trend: ProgressResult['trend'] = 'plateau'
-  if (changePct > 5) trend = 'improving'
-  else if (changePct < -5) trend = 'declining'
+  if (changePct > 5) {trend = 'improving'}
+  else if (changePct < -5) {trend = 'declining'}
 
   return {
     trend,

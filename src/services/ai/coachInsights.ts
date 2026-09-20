@@ -4,6 +4,8 @@
 // buildInsights() recolecta de los módulos reales (sin duplicar stores).
 import { db } from '@/services/storage/db'
 import { getDiaryEntries } from '@/services/storage/diaryStore'
+import type { TrainingSession, PostWorkoutSurvey } from '@/services/training/domain'
+import type { Session, RecoveryCheck, UserProfile } from '@/types'
 
 export type InsightLevel = 'info' | 'warn'
 export interface CoachInsight {
@@ -24,7 +26,7 @@ export interface SkipRow { date: string; exerciseId: string; exerciseName: strin
 
 // 1. Rendimiento por ejercicio: última vs anterior (§7-8)
 export function detectPerformanceDelta(history: PerfSample[]): CoachInsight | null {
-  if (history.length < 2) return null
+  if (history.length < 2) {return null}
   const sorted = history.slice().sort((a, b) => (a.date < b.date ? -1 : 1))
   const prev = sorted[sorted.length - 2]
   const last = sorted[sorted.length - 1]
@@ -55,7 +57,7 @@ export function detectPerformanceDelta(history: PerfSample[]): CoachInsight | nu
 export function detectAdherence(sessions: SessionRow[], plannedDays: string[]): CoachInsight | null {
   const done = sessions.filter((s) => s.status === 'COMPLETED' || s.status === 'PARTIAL').length
   const planned = plannedDays.length
-  if (planned < 2) return null // sin plan medible
+  if (planned < 2) {return null} // sin plan medible
   const pct = Math.round((done / planned) * 100)
   if (pct < 70) {
     return {
@@ -72,7 +74,7 @@ export function detectAdherence(sessions: SessionRow[], plannedDays: string[]): 
 // 3. Brecha sin entrenar (§10-11)
 export function detectGap(sessions: SessionRow[], today: string): CoachInsight | null {
   const finals = sessions.filter((s) => ['COMPLETED', 'PARTIAL'].includes(s.status)).map((s) => s.date).sort()
-  if (finals.length === 0) return null
+  if (finals.length === 0) {return null}
   const last = finals[finals.length - 1]
   const gap = Math.round((new Date(today).getTime() - new Date(last).getTime()) / 86400000)
   if (gap >= 5) {
@@ -89,11 +91,11 @@ export function detectGap(sessions: SessionRow[], today: string): CoachInsight |
 
 // 4. Omisión repetida de ejercicios (§12-13)
 export function detectSkipPatterns(skips: SkipRow[]): CoachInsight | null {
-  if (skips.length < 2) return null
+  if (skips.length < 2) {return null}
   const byEx: Record<string, SkipRow[]> = {}
   for (const s of skips) { (byEx[s.exerciseId] = byEx[s.exerciseId] || []).push(s) }
   const rep = Object.entries(byEx).find(([, v]) => v.length >= 2)
-  if (!rep) return null
+  if (!rep) {return null}
   const [exId, rows] = rep
   return {
     id: `missed:${exId}`, kind: 'missed', level: 'warn',
@@ -107,14 +109,14 @@ export function detectSkipPatterns(skips: SkipRow[]): CoachInsight | null {
 // 5. Dolor recurrente por zona (§13)
 export function detectPainZones(pains: PainRow[]): CoachInsight | null {
   const withZone = pains.filter((p) => p.zone && p.zone.trim())
-  if (withZone.length === 0) return null
+  if (withZone.length === 0) {return null}
   const byZone: Record<string, PainRow[]> = {}
   for (const p of withZone) {
     const z = p.zone.toLowerCase().trim()
     ;(byZone[z] = byZone[z] || []).push(p)
   }
   const rep = Object.entries(byZone).find(([, v]) => v.length >= 2 || v.some((r) => r.pain >= 7))
-  if (!rep) return null
+  if (!rep) {return null}
   const [zone, rows] = rep
   return {
     id: `pain:${zone}`, kind: 'pain', level: 'warn',
@@ -127,9 +129,9 @@ export function detectPainZones(pains: PainRow[]): CoachInsight | null {
 
 function singular(tok: string): string {
   const t = tok.toLowerCase().trim()
-  if (t.length <= 3) return t
-  if (t.endsWith('es')) return t.slice(0, -2)
-  if (t.endsWith('s')) return t.slice(0, -1)
+  if (t.length <= 3) {return t}
+  if (t.endsWith('es')) {return t.slice(0, -2)}
+  if (t.endsWith('s')) {return t.slice(0, -1)}
   return t
 }
 
@@ -138,13 +140,13 @@ function singular(tok: string): string {
 export function painMatchesMuscle(zone: string, muscle: string): boolean {
   const zt = zone.toLowerCase().split(/[^a-záéíóúñü]+/).filter(Boolean).map(singular)
   const mt = muscle.toLowerCase().split(/[^a-záéíóúñü]+/).filter(Boolean).map(singular)
-  if (zt.length === 0 || mt.length === 0) return false
+  if (zt.length === 0 || mt.length === 0) {return false}
   return zt.some((z) => mt.some((m) => z === m || z.includes(m) || m.includes(z)))
 }
 
 // 6. Exceso de carga: volumen semanal ×3 + recovery <60 ×2 (reutiliza shouldDeload, §9)
 export function detectOvertraining(weeklyVolumes: number[], recoveryScores: number[]): CoachInsight | null {
-  if (weeklyVolumes.length < 3 || recoveryScores.length < 2) return null
+  if (weeklyVolumes.length < 3 || recoveryScores.length < 2) {return null}
   const highVolume = weeklyVolumes[2] > weeklyVolumes[0] * 1.2
   const lowRecovery = recoveryScores.slice(-3).filter((s) => s < 60).length >= 2
   if (highVolume && lowRecovery) {
@@ -161,7 +163,7 @@ export function detectOvertraining(weeklyVolumes: number[], recoveryScores: numb
 
 // 7. Entrenamiento insuficiente semanal (§11)
 export function detectUnderTraining(thisWeek: number, prevAvg: number, prevWeeks: number): CoachInsight | null {
-  if (prevWeeks < 2 || prevAvg <= 0) return null
+  if (prevWeeks < 2 || prevAvg <= 0) {return null}
   if (thisWeek < prevAvg * 0.5) {
     return {
       id: 'undertrain', kind: 'undertrain', level: 'warn',
@@ -176,7 +178,7 @@ export function detectUnderTraining(thisWeek: number, prevAvg: number, prevWeeks
 
 // 8. Rutina envejecida + estancamiento (§16)
 export function detectRoutineStale(routineAgeDays: number, improvedRecently: boolean, totalSets: number): CoachInsight | null {
-  if (routineAgeDays < 21 || totalSets < 6) return null
+  if (routineAgeDays < 21 || totalSets < 6) {return null}
   if (!improvedRecently && routineAgeDays >= 45) {
     return {
       id: 'routine-stale', kind: 'routine', level: 'info',
@@ -191,7 +193,7 @@ export function detectRoutineStale(routineAgeDays: number, improvedRecently: boo
 
 // 9. Proteína insuficiente vs objetivo (§14) — estimado: el diario no registra porciones
 export function detectProteinGap(proteinEstimate: number | null, goalMin: number | null, items: number): CoachInsight | null {
-  if (goalMin == null || items === 0 || proteinEstimate == null) return null
+  if (goalMin == null || items === 0 || proteinEstimate == null) {return null}
   if (proteinEstimate < goalMin * 0.5) {
     return {
       id: 'protein-low', kind: 'nutrition', level: 'warn',
@@ -206,7 +208,7 @@ export function detectProteinGap(proteinEstimate: number | null, goalMin: number
 // 10. Entrenó en descanso / cambió día (§10, §4-5 test)
 export function detectRestDayTraining(sessions: SessionRow[]): CoachInsight | null {
   const rest = sessions.filter((s) => s.plannedDay == null && s.actualDay != null)
-  if (rest.length === 0) return null
+  if (rest.length === 0) {return null}
   return {
     id: 'rest-train', kind: 'restday', level: 'info',
     title: `Entrenaste ${rest.length} día(s) de descanso en el período`,
@@ -226,8 +228,8 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       return d.toISOString().slice(0, 10)
     }
     // sesiones finales 30d
-    const official: any[] = await db.table('trainingSessions').toArray().catch(() => [])
-    const legacy: any[] = await db.table('sessions').toArray().catch(() => [])
+    const official: TrainingSession[] = await db.trainingSessions.toArray().catch((): TrainingSession[] => [])
+    const legacy: Session[] = await db.sessions.toArray().catch((): Session[] => [])
     const finals = [
       ...official.filter((s) => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus)).map((s) => ({
         date: s.calendarDate, status: s.sessionStatus,
@@ -239,24 +241,24 @@ export async function buildInsights(): Promise<CoachInsight[]> {
     // adherencia 14d (días planificados según ciclo)
     let planned14: string[] = []
     try {
-      const p: any = await db.userProfile.get('me')
+      const p: UserProfile = await db.userProfile.get('me') as UserProfile
       const cycle = p?.cycle
       if (cycle?.weekMap) {
         for (let i = 0; i < 14; i++) {
           const d = new Date()
           d.setDate(d.getDate() - i)
           const iso = d.toISOString().slice(0, 10)
-          if (cycle.weekMap[d.getDay()] != null) planned14.push(iso)
+          if (cycle.weekMap[d.getDay()] != null) {planned14.push(iso)}
         }
       }
     } catch { /* noop */ }
-    const push = (x: CoachInsight | null) => { if (x) out.push(x) }
+    const push = (x: CoachInsight | null) => { if (x) {out.push(x)} }
     push(detectAdherence(finals.filter((s) => s.date >= since(14)), planned14))
     push(detectGap(finals, today))
     push(detectRestDayTraining(finals.filter((s) => s.date >= since(30))))
     // skips 30d (store)
     try {
-      const ses = await db.table('sessionExercises').toArray().catch(() => []) as any[]
+      const ses = await db.sessionExercises.toArray().catch(() => [])
       const skips: SkipRow[] = []
       // nombres/músculos desde rutinas activas
       const nameOf: Record<string, { name: string; muscle: string }> = {}
@@ -264,8 +266,8 @@ export async function buildInsights(): Promise<CoachInsight[]> {
         const { getAllRoutines } = await import('@/services/storage/routineStore')
         const rawList = await getAllRoutines()
         for (const r of rawList || []) {
-          for (const arr of Object.values((r as any).dayExercises || {})) {
-            for (const it of arr as any[]) nameOf[it.exId] = { name: it.name || it.exId, muscle: it.muscle || '' }
+          for (const arr of Object.values(r.dayExercises || {})) {
+            for (const it of arr) {nameOf[it.exId] = { name: it.name || it.exId, muscle: it.muscle || '' }}
           }
         }
       } catch {}
@@ -277,7 +279,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
     } catch { /* noop */ }
     // dolor 30d: surveys + observaciones
     try {
-      const surveys: any[] = await db.table('postWorkoutSurveys').toArray().catch(() => [])
+      const surveys: PostWorkoutSurvey[] = await db.postWorkoutSurveys.toArray().catch((): PostWorkoutSurvey[] => [])
       const pains: PainRow[] = surveys
         .filter((s) => Number(s.pain) > 0 && String(s.calendarDate || '') >= since(30))
         .map((s) => ({ date: String(s.calendarDate), zone: String(s.painZone || s.painArea || ''), detail: String(s.painDetail || s.painObservation || ''), pain: Number(s.pain) }))
@@ -289,9 +291,9 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       for (const s of finals) {
         const age = Math.round((new Date(today).getTime() - new Date(s.date).getTime()) / 86400000)
         const w = age < 7 ? 2 : age < 14 ? 1 : age < 21 ? 0 : -1
-        if (w >= 0) vols[w] += s.volume
+        if (w >= 0) {vols[w] += s.volume}
       }
-      const recs: any[] = await db.recoveryChecks.toArray().catch(() => [])
+      const recs: RecoveryCheck[] = await db.recoveryChecks.toArray().catch((): RecoveryCheck[] => [])
       const scores = recs.map((r) => Number(r.score)).filter((n) => !isNaN(n)).slice(-6)
       push(detectOvertraining(vols, scores))
       const thisWeek = finals.filter((s) => s.date >= since(7)).length
@@ -314,11 +316,11 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
       const rawList = await getAllRoutines()
       const activeId = await getActiveRoutineId()
-      const active = rawList?.find((r: any) => r.id === activeId) || rawList?.[0]
+      const active = rawList?.find((r) => r.id === activeId) || rawList?.[0]
       if (active?.createdAt) {
         const age = Math.round((Date.now() - new Date(active.createdAt).getTime()) / 86400000)
-        const off: any[] = await db.table('setRecords').toArray().catch(() => [])
-        const leg: any[] = await db.setLogs.toArray().catch(() => [])
+      const off = await db.setRecords.toArray().catch((): any[] => [])
+      const leg = await db.setLogs.toArray().catch((): any[] => [])
         const maxRecent = Math.max(0, ...off.filter((r) => r.status === 'COMPLETED' && String(r.completedAt || r.createdAt || '') >= since(14)).map((r) => Number(r.actualWeight || 0)), ...leg.filter((l) => l.completed && String(l.createdAt || '') >= since(14)).map((l) => Number(l.weight || 0)))
         const maxPrev = Math.max(0, ...off.filter((r) => r.status === 'COMPLETED' && String(r.completedAt || r.createdAt || '') < since(14) && String(r.completedAt || r.createdAt || '') >= since(60)).map((r) => Number(r.actualWeight || 0)), ...leg.filter((l) => l.completed && String(l.createdAt || '') < since(14) && String(l.createdAt || '') >= since(60)).map((l) => Number(l.weight || 0)))
         push(detectRoutineStale(age, maxRecent > maxPrev, off.length + leg.length))
@@ -326,13 +328,13 @@ export async function buildInsights(): Promise<CoachInsight[]> {
     } catch { /* noop */ }
     // proteína hoy (estimado honesto)
     try {
-      const p: any = await db.userProfile.get('me')
+      const p: UserProfile = await db.userProfile.get('me') as UserProfile
       const w = Number(p?.weightKg)
       if (w > 0) {
         const { proteinRange } = await import('@/utils/nutrition')
         const range = proteinRange(w, p?.goalPrimary)
         const diario = await getDiaryEntries(today)
-        const est = (diario as any[]).reduce((a, it) => a + Number(it?.macros?.proteins ?? 0), 0)
+        const est = diario.reduce((a: number, it) => a + Number(it?.macros?.proteins ?? 0), 0)
         push(detectProteinGap(est, range?.low ?? null, diario.length))
       }
     } catch { /* noop */ }

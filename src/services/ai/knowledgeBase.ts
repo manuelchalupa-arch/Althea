@@ -29,15 +29,15 @@ let allChunks: KnowledgeChunk[] = []
 let loaded = false
 
 async function loadDocuments() {
-  if (loaded) return
+  if (loaded) {return}
   try {
-    const docs: KnowledgeDocument[] = await db.table('knowledgeDocuments').toArray().catch(() => [])
+    const docs: KnowledgeDocument[] = await db.knowledgeDocuments.toArray().catch(() => [])
     // Si la tabla está vacía, importar documentos estáticos
     if (docs.length === 0) {
       try {
         const staticDocs = await import('@/data/knowledge/index')
         for (const doc of staticDocs.default) {
-          await db.table('knowledgeDocuments').put(doc as never)
+          await db.knowledgeDocuments.put(doc as never)
           docs.push(doc)
         }
       } catch { /* noop: documentos no disponibles aún */ }
@@ -47,7 +47,7 @@ async function loadDocuments() {
       for (const chunk of doc.chunks) {
         allChunks.push(chunk)
         for (const tag of chunk.tags) {
-          if (!tagIndex.has(tag)) tagIndex.set(tag, new Set())
+          if (!tagIndex.has(tag)) {tagIndex.set(tag, new Set())}
           tagIndex.get(tag)!.add(chunk.chunkId)
         }
       }
@@ -70,23 +70,4 @@ export async function retrieveRelevant(tags: string[], limit = 5): Promise<Knowl
   // Ordenar por score descendente
   const sorted = [...scores.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit)
   return sorted.map(([id]) => allChunks.find(c => c.chunkId === id)).filter(Boolean) as KnowledgeChunk[]
-}
-
-/** Obtener chunks por relevancia (training/nutrition/etc) */
-export async function retrieveByRelevance(relevance: KnowledgeChunk['relevance'], limit = 3): Promise<KnowledgeChunk[]> {
-  await loadDocuments()
-  return allChunks.filter(c => c.relevance === relevance).slice(0, limit)
-}
-
-/** Guardar un documento nuevo */
-export async function saveDocument(doc: KnowledgeDocument): Promise<void> {
-  await db.table('knowledgeDocuments').put(doc as never)
-  loaded = false // forzar recarga del índice
-}
-
-/** Listar documentos por tema */
-export async function listDocuments(topic?: string): Promise<KnowledgeDocument[]> {
-  const docs: KnowledgeDocument[] = await db.table('knowledgeDocuments').toArray().catch(() => [])
-  if (!topic) return docs
-  return docs.filter(d => d.topic === topic)
 }

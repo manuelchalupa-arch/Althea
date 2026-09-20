@@ -19,8 +19,8 @@ export function getActiveSessionId(): string | null {
 }
 function setActiveSessionId(id: string | null) {
   try {
-    if (id) localStorage.setItem(ACTIVE_ID_KEY, id);
-    else localStorage.removeItem(ACTIVE_ID_KEY);
+    if (id) {localStorage.setItem(ACTIVE_ID_KEY, id);}
+    else {localStorage.removeItem(ACTIVE_ID_KEY);}
   } catch { /* noop */ }
 }
 
@@ -28,13 +28,13 @@ const FINAL_STATES: SessionStatus[] = ['COMPLETED', 'PARTIAL', 'CANCELLED', 'ABA
 const ACTIVE_STATES: SessionStatus[] = ['READY', 'IN_PROGRESS', 'PAUSED', 'COMPLETING'];
 
 export async function getSession(sessionId: string): Promise<TrainingSession | null> {
-  const s = await db.table('trainingSessions').get(sessionId).catch(() => null);
+  const s = await db.trainingSessions.get(sessionId).catch(() => null);
   return (s as TrainingSession) || null;
 }
 
 export async function getActiveSession(): Promise<TrainingSession | null> {
   const id = getActiveSessionId();
-  if (!id) return null;
+  if (!id) {return null;}
   const s = await getSession(id);
   if (!s) { setActiveSessionId(null); return null; }
   if (FINAL_STATES.includes(s.sessionStatus)) { setActiveSessionId(null); return null; }
@@ -50,7 +50,7 @@ export async function logEvent(
     fromStatus: extra?.fromStatus, toStatus: extra?.toStatus,
     timestamp: new Date().toISOString(), metadata: extra?.metadata,
   };
-  await db.table('sessionEvents').put(ev as never);
+  await db.sessionEvents.put(ev);
 }
 
 // Crea READY. Si ya hay sesión activa, la recupera (no duplica, §10).
@@ -64,8 +64,8 @@ export async function createSession(input: {
   plannedExercises: Array<{ exId: string; name: string; sets: number; reps: number; weight: number; muscle?: string; gifUrl?: string; routineExerciseId?: string }>;
 }): Promise<TrainingSession> {
   const existing = await getActiveSession();
-  if (existing) return existing;
-  if (!input.routineId) throw new Error('READY sin routineId');
+  if (existing) {return existing;}
+  if (!input.routineId) {throw new Error('READY sin routineId');}
   const now = new Date().toISOString();
   const sessionId = uuid();
   // Dexie keyPath de trainingSessions es `id`: se duplica sessionId en id (misma identidad).
@@ -83,7 +83,7 @@ export async function createSession(input: {
     resumeCount: 0,
     createdAt: now, updatedAt: now,
   };
-  await db.table('trainingSessions').put(s as never);
+  await db.trainingSessions.put(s);
   // Snapshot planificado: un SessionExercise por ejercicio (la rutina original no se toca).
   for (let i = 0; i < input.plannedExercises.length; i++) {
     const p = input.plannedExercises[i];
@@ -95,7 +95,7 @@ export async function createSession(input: {
       plannedSets: Array.from({ length: p.sets }, (_, k) => ({ order: k + 1, reps: p.reps, weight: p.weight, setType: 'NORMAL' as SetType })),
       createdAt: now, updatedAt: now,
     };
-    await db.table('sessionExercises').put(se as never);
+    await db.sessionExercises.put(se);
     // SetRecords PENDING pre-creados con id estable (confirma = upsert, nunca duplica).
     for (const ps of se.plannedSets) {
       const rec: SetRecord = {
@@ -106,7 +106,7 @@ export async function createSession(input: {
         actualReps: ps.reps, actualWeight: ps.weight,
         status: 'PENDING', createdAt: now, updatedAt: now,
       };
-      await db.table('setRecords').put(rec as never);
+      await db.setRecords.put(rec);
     }
   }
   await logEvent(sessionId, 'SESSION_CREATED', { toStatus: 'READY', metadata: { plannedDay: input.plannedDay, actualDay: input.actualDay } });
@@ -127,7 +127,7 @@ async function withSessionLock<T>(sessionId: string, fn: () => Promise<T>): Prom
     return await fn();
   } finally {
     release();
-    if (sessionLocks.get(sessionId) === cur) sessionLocks.delete(sessionId);
+    if (sessionLocks.get(sessionId) === cur) {sessionLocks.delete(sessionId);}
   }
 }
 
@@ -144,7 +144,7 @@ async function transitionInner(
   opts?: { reason?: string; comment?: string },
 ): Promise<TrainingSession> {
   const s = await getSession(sessionId);
-  if (!s) throw new Error(`Sesión inexistente: ${sessionId}`);
+  if (!s) {throw new Error(`Sesión inexistente: ${sessionId}`);}
   // Cierre desde READY: la matriz exige pasar por IN_PROGRESS; se encadenan los dos
   // saltos válidos (ambos auditados) en vez de fallar. Hace imposible READY→COMPLETING.
   if (target === 'COMPLETING' && s.sessionStatus === 'READY') {
@@ -163,7 +163,7 @@ async function applyTransition(
   const now = new Date().toISOString();
   const nx: TrainingSession = { ...s, sessionStatus: target, updatedAt: now };
   if (target === 'IN_PROGRESS') {
-    if (!s.startedAt) nx.startedAt = now;
+    if (!s.startedAt) {nx.startedAt = now;}
     nx.resumedAt = s.sessionStatus === 'PAUSED' ? now : s.resumedAt;
     if (s.sessionStatus === 'PAUSED' && s.pausedAt) {
       const pausedSec = Math.max(0, Math.round((Date.now() - new Date(s.pausedAt).getTime()) / 1000));
@@ -172,24 +172,24 @@ async function applyTransition(
     }
     nx.pausedAt = undefined;
   }
-  if (target === 'PAUSED') nx.pausedAt = now;
-  if (target === 'COMPLETING') nx.completingAt = now;
+  if (target === 'PAUSED') {nx.pausedAt = now;}
+  if (target === 'COMPLETING') {nx.completingAt = now;}
   if (target === 'COMPLETED' || target === 'PARTIAL') {
-    if (!s.startedAt) throw new Error('No se puede finalizar sin startedAt');
+    if (!s.startedAt) {throw new Error('No se puede finalizar sin startedAt');}
     nx.completedAt = now;
     nx.endedAt = now;
   }
   if (target === 'CANCELLED') {
     nx.cancelledAt = now; nx.endedAt = now;
-    if (opts?.reason) nx.cancelReason = opts.reason;
-    if (opts?.comment) nx.cancelComment = opts.comment;
+    if (opts?.reason) {nx.cancelReason = opts.reason;}
+    if (opts?.comment) {nx.cancelComment = opts.comment;}
   }
   if (target === 'ABANDONED') {
     nx.abandonedAt = now; nx.endedAt = now;
-    if (opts?.reason) nx.abandonReason = opts.reason;
-    if (opts?.comment) nx.abandonComment = opts.comment;
+    if (opts?.reason) {nx.abandonReason = opts.reason;}
+    if (opts?.comment) {nx.abandonComment = opts.comment;}
   }
-  await db.table('trainingSessions').put(nx as never);
+  await db.trainingSessions.put(nx);
   const evType: Record<string, SessionEventType> = {
     IN_PROGRESS: s.sessionStatus === 'PAUSED' ? 'SESSION_RESUMED' : 'SESSION_STARTED',
     PAUSED: 'SESSION_PAUSED', COMPLETING: 'SESSION_COMPLETING',
@@ -199,30 +199,30 @@ async function applyTransition(
   await logEvent(s.sessionId, evType[target] ?? 'SESSION_COMPLETING', {
     fromStatus: s.sessionStatus, toStatus: target, metadata: opts ? { ...opts } : undefined,
   });
-  if (FINAL_STATES.includes(target)) setActiveSessionId(null);
-  else setActiveSessionId(s.sessionId);
+  if (FINAL_STATES.includes(target)) {setActiveSessionId(null);}
+  else {setActiveSessionId(s.sessionId);}
   return nx;
 }
 
 // Actualización parcial SIN cambio de estado (posición, contadores). No toca sessionStatus.
 export async function updateSession(sessionId: string, patch: Partial<TrainingSession>): Promise<TrainingSession> {
   const s = await getSession(sessionId);
-  if (!s) throw new Error(`Sesión inexistente: ${sessionId}`);
+  if (!s) {throw new Error(`Sesión inexistente: ${sessionId}`);}
   if (patch.sessionStatus && patch.sessionStatus !== s.sessionStatus) {
     throw new Error('updateSession no cambia estado: usar transitionSession');
   }
   const nx = { ...s, ...patch, sessionId: s.sessionId, updatedAt: new Date().toISOString() };
-  await db.table('trainingSessions').put(nx as never);
+  await db.trainingSessions.put(nx);
   return nx;
 }
 
 export async function getSessionExercises(sessionId: string): Promise<SessionExercise[]> {
-  const rows = await db.table('sessionExercises').where('sessionId').equals(sessionId).toArray().catch(() => []);
+  const rows = await db.sessionExercises.where('sessionId').equals(sessionId).toArray().catch(() => []);
   return (rows as SessionExercise[]).sort((a, b) => a.order - b.order);
 }
 
 export async function getSetRecords(sessionExerciseId: string): Promise<SetRecord[]> {
-  const rows = await db.table('setRecords').where('sessionExerciseId').equals(sessionExerciseId).toArray().catch(() => []);
+  const rows = await db.setRecords.where('sessionExerciseId').equals(sessionExerciseId).toArray().catch(() => []);
   return (rows as SetRecord[]).sort((a, b) => a.order - b.order);
 }
 
@@ -233,7 +233,7 @@ export async function confirmSetRecord(input: {
 }): Promise<SetRecord> {
   const now = new Date().toISOString();
   const id = setRecordIdFor(input.sessionExerciseId, input.order);
-  const prev = await db.table('setRecords').get(id).catch(() => null) as SetRecord | null;
+  const prev = await db.setRecords.get(id).catch(() => null) as SetRecord | null;
   const rec: SetRecord = {
     setRecordId: id, sessionId: input.sessionId, sessionExerciseId: input.sessionExerciseId,
     exerciseId: input.exerciseId, order: input.order, setType: input.setType ?? prev?.setType ?? 'NORMAL',
@@ -242,27 +242,27 @@ export async function confirmSetRecord(input: {
     status: 'COMPLETED', observation: input.observation ?? prev?.observation,
     completedAt: now, createdAt: prev?.createdAt ?? now, updatedAt: now,
   };
-  await db.table('setRecords').put(rec as never);
+  await db.setRecords.put(rec);
   await logEvent(input.sessionId, 'SET_COMPLETED', { metadata: { sessionExerciseId: input.sessionExerciseId, order: input.order } });
   await refreshSessionExerciseProgress(input.sessionExerciseId);
   return rec;
 }
 
 export async function skipSetRecord(sessionExerciseId: string, order: number, observation?: string): Promise<void> {
-  const prev = await db.table('setRecords').get(setRecordIdFor(sessionExerciseId, order)).catch(() => null) as SetRecord | null;
-  if (!prev) return;
+  const prev = await db.setRecords.get(setRecordIdFor(sessionExerciseId, order)).catch(() => null) as SetRecord | null;
+  if (!prev) {return;}
   const now = new Date().toISOString();
-  await db.table('setRecords').put({ ...prev, status: 'SKIPPED' as SetRecordStatus, observation: observation ?? prev.observation, updatedAt: now } as never);
+  await db.setRecords.put({ ...prev, status: 'SKIPPED' as SetRecordStatus, observation: observation ?? prev.observation, updatedAt: now });
   await logEvent(prev.sessionId, 'SET_SKIPPED', { metadata: { sessionExerciseId, order } });
   await refreshSessionExerciseProgress(sessionExerciseId);
 }
 
 // Agrega serie extra (actualSets): crea SetRecord con orden = max+1.
 export async function addExtraSet(sessionExerciseId: string, reps: number, weight: number, setType: SetType = 'NORMAL'): Promise<SetRecord> {
-  const prev = await db.table('setRecords').get(setRecordIdFor(sessionExerciseId, 0)).catch(() => null);
+  const prev = await db.setRecords.get(setRecordIdFor(sessionExerciseId, 0)).catch(() => null);
   const all = await getSetRecords(sessionExerciseId);
-  const se = await db.table('sessionExercises').get(sessionExerciseId).catch(() => null) as SessionExercise | null;
-  if (!se) throw new Error('SessionExercise inexistente');
+  const se = await db.sessionExercises.get(sessionExerciseId).catch(() => null) as SessionExercise | null;
+  if (!se) {throw new Error('SessionExercise inexistente');}
   const order = (all.length ? Math.max(...all.map((r) => r.order)) : 0) + 1;
   void prev;
   const now = new Date().toISOString();
@@ -272,42 +272,45 @@ export async function addExtraSet(sessionExerciseId: string, reps: number, weigh
     plannedReps: reps, plannedWeight: weight, actualReps: reps, actualWeight: weight,
     status: 'PENDING', createdAt: now, updatedAt: now,
   };
-  await db.table('setRecords').put(rec as never);
-  await db.table('sessionExercises').put({ ...se, actualSetCount: order, status: se.status === 'PENDING' ? 'IN_PROGRESS' : se.status, updatedAt: now } as never);
+  await db.setRecords.put(rec);
+  await db.sessionExercises.put({ ...se, actualSetCount: order, status: se.status === 'PENDING' ? 'IN_PROGRESS' : se.status, updatedAt: now });
   return rec;
 }
 
 export async function refreshSessionExerciseProgress(sessionExerciseId: string): Promise<SessionExercise | null> {
-  const se = await db.table('sessionExercises').get(sessionExerciseId).catch(() => null) as SessionExercise | null;
-  if (!se) return null;
+  const se = await db.sessionExercises.get(sessionExerciseId).catch(() => null) as SessionExercise | null;
+  if (!se) {return null;}
   const sets = await getSetRecords(sessionExerciseId);
   const doneCount = sets.filter((r) => r.status === 'COMPLETED').length;
   const skippedAll = sets.length > 0 && sets.every((r) => r.status === 'SKIPPED');
   let status: SessionExerciseStatus = se.status;
   if (se.status !== 'SKIPPED' && se.status !== 'REPLACED' && se.status !== 'EXTRA') {
-    if (skippedAll) status = 'SKIPPED';
-    else if (doneCount === 0) status = sets.some((r) => r.status !== 'PENDING') ? 'IN_PROGRESS' : 'PENDING';
-    else if (doneCount >= se.plannedSetCount && sets.every((r) => r.status === 'COMPLETED')) status = 'COMPLETED';
-    else status = doneCount > 0 ? 'PARTIAL' : 'IN_PROGRESS';
+    if (skippedAll) {status = 'SKIPPED';}
+    else if (doneCount === 0) {status = sets.some((r) => r.status !== 'PENDING') ? 'IN_PROGRESS' : 'PENDING';}
+    else if (doneCount >= se.plannedSetCount && sets.every((r) => r.status === 'COMPLETED')) {status = 'COMPLETED';}
+    else {status = doneCount > 0 ? 'PARTIAL' : 'IN_PROGRESS';}
   }
   const nx = { ...se, actualSetCount: Math.max(...sets.map((r) => r.order), 0), completed: status === 'COMPLETED', status, updatedAt: new Date().toISOString() };
-  await db.table('sessionExercises').put(nx as never);
+  await db.sessionExercises.put(nx);
   return nx;
 }
 
 export async function skipSessionExercise(sessionExerciseId: string, reason: string, comment?: string): Promise<void> {
-  const se = await db.table('sessionExercises').get(sessionExerciseId).catch(() => null) as SessionExercise | null;
-  if (!se) throw new Error('SessionExercise inexistente');
+  const se = await db.sessionExercises.get(sessionExerciseId).catch(() => null) as SessionExercise | null;
+  if (!se) {throw new Error('SessionExercise inexistente');}
   const now = new Date().toISOString();
-  await db.table('sessionExercises').put({ ...se, status: 'SKIPPED', completed: false, skipReason: reason, skipComment: comment, updatedAt: now } as never);
+  await db.sessionExercises.put({ ...se, status: 'SKIPPED', completed: false, skipReason: reason, skipComment: comment, updatedAt: now });
   await logEvent(se.sessionId, 'EXERCISE_SKIPPED', { metadata: { sessionExerciseId, reason, comment } });
 }
 
 export async function replaceSessionExercise(
   sessionExerciseId: string, replacementExerciseId: string, reason: string, comment?: string,
 ): Promise<SessionExercise> {
-  const se = await db.table('sessionExercises').get(sessionExerciseId).catch(() => null) as SessionExercise | null;
-  if (!se) throw new Error('SessionExercise inexistente');
+  const se = await db.sessionExercises.get(sessionExerciseId).catch(() => null) as SessionExercise | null;
+  if (!se) {throw new Error('SessionExercise inexistente');}
+  if (se.status === 'REPLACED' && se.replacement) {
+    return se;
+  }
   const now = new Date().toISOString();
   const replacement: ExerciseReplacement = {
     replacementId: uuid(), sessionId: se.sessionId, sessionExerciseId,
@@ -317,7 +320,7 @@ export async function replaceSessionExercise(
     ...se, exerciseId: replacementExerciseId, status: 'REPLACED',
     replacement, updatedAt: now,
   };
-  await db.table('sessionExercises').put(nx as never);
+  await db.sessionExercises.put(nx);
   await logEvent(se.sessionId, 'EXERCISE_REPLACED', { metadata: { sessionExerciseId, reason } });
   return nx;
 }
@@ -332,15 +335,15 @@ export async function addExtraExercise(sessionId: string, input: { exId: string;
     plannedSets: [],
     createdAt: now, updatedAt: now,
   };
-  await db.table('sessionExercises').put(se as never);
+  await db.sessionExercises.put(se);
   for (let k = 1; k <= input.sets; k++) {
-    await db.table('setRecords').put({
+    await db.setRecords.put({
       setRecordId: setRecordIdFor(se.sessionExerciseId, k), sessionId,
       sessionExerciseId: se.sessionExerciseId, exerciseId: input.exId, order: k, setType: 'NORMAL',
       plannedReps: input.reps, plannedWeight: input.weight,
       actualReps: input.reps, actualWeight: input.weight,
       status: 'PENDING', createdAt: now, updatedAt: now,
-    } as never);
+    });
   }
   await logEvent(sessionId, 'EXERCISE_ADDED', { metadata: { sessionExerciseId: se.sessionExerciseId, exerciseId: input.exId } });
   return se;
@@ -353,23 +356,24 @@ export async function saveNegatives(input: { sessionId: string; sessionExerciseI
     exerciseId: input.exerciseId, quantity: input.quantity, weight: input.weight,
     observation: input.observation, createdAt: now,
   };
-  await db.table('negativeSets').put(neg as never);
+  await db.negativeSets.put(neg);
   return neg;
 }
 
 export async function saveExerciseObservation(input: { sessionId: string; sessionExerciseId?: string; exerciseId?: string; text: string }): Promise<ExerciseObservation> {
+  const now = new Date().toISOString()
   const obs: ExerciseObservation = {
     observationId: uuid(), sessionId: input.sessionId,
     sessionExerciseId: input.sessionExerciseId, exerciseId: input.exerciseId,
-    text: input.text.slice(0, 500), createdAt: new Date().toISOString(),
+    text: input.text.slice(0, 500), createdAt: now, updatedAt: now,
   };
-  await db.table('exerciseObservations').put(obs as never);
+  await db.exerciseObservations.put(obs);
   return obs;
 }
 
 export async function saveSurvey(input: Omit<PostWorkoutSurvey, 'surveyId' | 'createdAt'>): Promise<PostWorkoutSurvey> {
   const s: PostWorkoutSurvey = { ...input, surveyId: uuid(), createdAt: new Date().toISOString() };
-  await db.table('postWorkoutSurveys').put(s as never);
+  await db.postWorkoutSurveys.put(s);
   return s;
 }
 
@@ -413,7 +417,7 @@ function toActive(s: TrainingSession, exercises: ActiveSession['exercises'] = []
 }
 
 async function exercisesOf(sessionId: string): Promise<ActiveSession['exercises']> {
-  const rows = await db.table('sessionExercises').where('sessionId').equals(sessionId).toArray().catch(() => []) as Array<Record<string, unknown>>;
+  const rows = await db.sessionExercises.where('sessionId').equals(sessionId).toArray().catch(() => []) as Array<Record<string, unknown>>;
   return (rows as Array<{ exerciseId: string; plannedSets: Array<{ order: number; reps: number; weight: number }>; status?: string }>)
     .sort((a, b) => (a as unknown as { order: number }).order - (b as unknown as { order: number }).order)
     .map((r) => ({
@@ -425,7 +429,7 @@ async function exercisesOf(sessionId: string): Promise<ActiveSession['exercises'
 
 export async function loadActiveSession(): Promise<ActiveSession | null> {
   const id = getActiveSessionId();
-  if (!id) return null;
+  if (!id) {return null;}
   const s = await getSession(id);
   if (!s) { setActiveSessionId(null); return null; }
   if (FINAL_STATES.includes(s.sessionStatus)) { setActiveSessionId(null); return null; }
@@ -437,7 +441,7 @@ export async function saveActiveSession(s: ActiveSession): Promise<void> {
   setActiveSessionId(s.sessionId);
   try {
     const cur = await getSession(s.sessionId);
-    if (cur) await updateSession(s.sessionId, { routineName: s.routineName, actualDayName: s.actualDayName });
+    if (cur) {await updateSession(s.sessionId, { routineName: s.routineName, actualDayName: s.actualDayName });}
   } catch { /* noop */ }
 }
 

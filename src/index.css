@@ -357,7 +357,7 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
 /* ============ TEMPLE BACKDROP =============================================== */
 .temple-backdrop {
   position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
-  background: transparent;
+  background: var(--c-bg);
 }
 .temple-veil {
   position: absolute; inset: 0;

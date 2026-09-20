@@ -12,26 +12,26 @@ function setLog(v:any){ localStorage.setItem(KEY, JSON.stringify(v)) }
 
 export function canSend(type:PushType): boolean {
   // Tipos del scheduler: sin tope legacy (el scheduler marca cada horario disparado); solo respeta duplicados del mismo tipo legacy.
-  if(!LEGACY_CAPPED.includes(type)) return true
+  if(!LEGACY_CAPPED.includes(type)) {return true}
   const today = todayStr()
   const log = getLog().find(x=>x.date===today)
-  if(!log) return true
-  if(log.count >=2) return false
-  if(log.types.includes(type)) return false
+  if(!log) {return true}
+  if(log.count >=2) {return false}
+  if(log.types.includes(type)) {return false}
   // suppress si sesión ya completada
-  if(type==='pre-entreno' && localStorage.getItem('session:todayCompleted')==='1') return false
+  if(type==='pre-entreno' && localStorage.getItem('session:todayCompleted')==='1') {return false}
   return true
 }
 
 export async function sendNotification(type:PushType, title:string, body:string, onClick?:()=>void){
-  if(!canSend(type)) return false
-  if(typeof Notification === 'undefined') return false
+  if(!canSend(type)) {return false}
+  if(typeof Notification === 'undefined') {return false}
   if(Notification.permission !== 'granted'){
     const p = await Notification.requestPermission()
-    if(p!=='granted') return false
+    if(p!=='granted') {return false}
   }
   const n = new Notification(title, { body, icon:'/icons/icon-192.png' })
-  if(onClick) n.onclick = (e)=>{ e.preventDefault(); try{ window.focus() }catch{ /* noop */ } onClick() }
+  if(onClick) {n.onclick = (e)=>{ e.preventDefault(); try{ window.focus() }catch{ /* noop */ } onClick() }}
   const log = getLog()
   let entry = log.find(x=>x.date===todayStr())
   if(!entry){ entry={date:todayStr(), count:0, types:[]}; log.push(entry) }
@@ -47,4 +47,42 @@ export function schedulePreEntreno(trainingTime:string){
   if(delay>0 && delay< 24*60*60*1000){
     setTimeout(()=> sendNotification('pre-entreno','En 45 min entrenás','Revisá la rutina y preparate.'), delay)
   }
+}
+
+// ===== Notification Log API =====
+export interface NotificationLogEntry {
+  id: string
+  type: PushType
+  title: string
+  body: string
+  date: string
+  time: string
+  sent: boolean
+  error?: string
+}
+
+const NOTIF_LOG_KEY = 'althea:notifLog:v1'
+
+function getNotifLog(): NotificationLogEntry[] {
+  try { return JSON.parse(localStorage.getItem(NOTIF_LOG_KEY) || '[]') } catch { return [] }
+}
+function setNotifLog(v: NotificationLogEntry[]) { localStorage.setItem(NOTIF_LOG_KEY, JSON.stringify(v)) }
+
+export function getNotificationLog(): NotificationLogEntry[] {
+  return getNotifLog()
+}
+
+export function addNotificationLog(entry: Omit<NotificationLogEntry, 'id'>): string {
+  const log = getNotifLog()
+  const id = `${entry.date}T${entry.time}:${entry.type}`
+  const newEntry = { ...entry, id }
+  log.unshift(newEntry)
+  // Keep last 100 entries
+  if (log.length > 100) {log.length = 100}
+  setNotifLog(log)
+  return id
+}
+
+export function clearNotificationLog(): void {
+  localStorage.removeItem(NOTIF_LOG_KEY)
 }

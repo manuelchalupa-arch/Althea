@@ -43,12 +43,12 @@ export default function Biblioteca(){
         // Todos: union completa del nivel (una sola request, cacheada). Sin duplicados por id.
         const all = await Gym.fetchAll()
         const seen = new Set<string>()
-        res = { exercises: (all.exercises || []).filter((e:any)=>{ if(!e || seen.has(e.id)) return false; seen.add(e.id); return true }) }
+        res = { exercises: (all.exercises || []).filter((e:any)=>{ if(!e || seen.has(e.id)) {return false;} seen.add(e.id); return true }) }
       }
-      else if(t==='muscle') res = await Gym.fetchByMuscle(key)
-      else if(t==='equipment') res = await Gym.fetchByEquipment(key)
-      else if(t==='bodypart') res = await Gym.fetchByBodyPart(key)
-      else if(t==='category') res = await Gym.fetchByCategory(key)
+      else if(t==='muscle') {res = await Gym.fetchByMuscle(key)}
+      else if(t==='equipment') {res = await Gym.fetchByEquipment(key)}
+      else if(t==='bodypart') {res = await Gym.fetchByBodyPart(key)}
+      else if(t==='category') {res = await Gym.fetchByCategory(key)}
       const customs = await listCustomExercises(key==='__all__' ? undefined : t, key==='__all__' ? undefined : key).catch(()=>[])
       const merged = [...(res.exercises || []), ...customs].sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
       setExercises(merged)
@@ -56,13 +56,13 @@ export default function Biblioteca(){
     }catch(e:any){
       const cached = Gym.cacheGet(cacheKey)
       if(cached){ setExercises(cached); setError('Mostrando caché offline (sin conexión).') }
-      else setError(e.message || 'Error al cargar')
+      else {setError(e.message || 'Error al cargar')}
     }finally{ setLoading(false) }
   }
 
   useEffect(()=>{ load('muscle','__all__') },[])
 
-  const filtered = exercises.filter(ex=>{ if(!q) return true; const s=q.toLowerCase(); return ex.name.toLowerCase().includes(s) || String(ex.muscle||'').toLowerCase().includes(s) || String(ex.bodyPart||'').toLowerCase().includes(s) || String(ex.equipment||'').toLowerCase().includes(s) || String(ex.category||'').toLowerCase().includes(s) })
+  const filtered = exercises.filter(ex=>{ if(!q) {return true;} const s=q.toLowerCase(); return ex.name.toLowerCase().includes(s) || String(ex.muscle||'').toLowerCase().includes(s) || String(ex.bodyPart||'').toLowerCase().includes(s) || String(ex.equipment||'').toLowerCase().includes(s) || String(ex.category||'').toLowerCase().includes(s) })
 
   const Chip = ({active, children, onClick}:{active:boolean; children:string; onClick:()=>void})=>(
     <button onClick={onClick} className={`px-3 py-1.5 rounded-full font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant whitespace-nowrap border ${active?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{children}</button>
@@ -74,7 +74,7 @@ export default function Biblioteca(){
     const msg = withHistory
       ? 'Tiene historial: se archivará (desaparece de listas, historial intacto). ¿Continuar?'
       : '¿Eliminar este ejercicio? No se puede deshacer.'
-    if(!confirm(msg)) return
+    if(!confirm(msg)) {return}
     const res = await mod.deleteCustomExercise(ex.id)
     alert(res==='archived' ? 'Archivado: fuera de listas, historial intacto.' : 'Ejercicio eliminado.')
     setDetail(null)
@@ -129,7 +129,7 @@ export default function Biblioteca(){
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Filtros avanzados · dificultad / patrón movimiento</div>
         <div className="flex gap-2 mt-2">
           <select onChange={e=>{
-            const v=e.target.value; const el=document.getElementById('list-ex'); if(!el) return;
+            const v=e.target.value; const el=document.getElementById('list-ex'); if(!el) {return;}
             // patrón simple: filtra por nombre
           }} className="flex-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
             <option value="">Patrón: todos</option><option>push</option><option>pull</option><option>squat</option><option>hinge</option><option>core</option>
@@ -149,10 +149,10 @@ export default function Biblioteca(){
           <div key={ex.id} onClick={()=>setDetail(ex)} className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden cursor-pointer active:bg-surface-container-low/90">
             <div className="flex gap-3 p-3">
               <div className="w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant flex items-center justify-center overflow-hidden">
-                {(ex.gifUrl || (ex as any).imageDataUrl) ? <img src={ex.gifUrl || (ex as any).imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="w-full h-full object-cover" /> : <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-[10px] text-center">GIF</span>}
+                {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="w-full h-full object-cover" /> : <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-[10px] text-center">GIF</span>}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-body-md text-sm text-on-surface font-medium text-sm flex items-center gap-2"><span className="truncate">{ex.name}</span>{(ex as any).origin==='USER_CREATED' ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[10px]">Mío</AltheaBadge> : null}</div>
+                <div className="font-body-md text-sm text-on-surface font-medium text-sm flex items-center gap-2"><span className="truncate">{ex.name}</span>{ex.origin==='USER_CREATED' ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[10px]">Mío</AltheaBadge> : null}</div>
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant text-xs">{ex.muscle} · {ex.equipment}</div>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {musclePct(ex).slice(0,3).map(m=> (
@@ -194,7 +194,7 @@ export default function Biblioteca(){
           <div onClick={e=>e.stopPropagation()} className="bg-surface-container-low/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[85vh] overflow-auto">
             <div className="relative w-full bg-black/40 border-b border-outline-variant flex items-center justify-center min-h-[240px] p-2">
               <span className="absolute font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">GIF no disponible</span>
-              {(detail.gifUrl || (detail as any).imageDataUrl) ? <img src={detail.gifUrl || (detail as any).imageDataUrl} alt={detail.name} onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative max-w-full w-auto h-auto max-h-[55vh] object-contain" /> : null}
+              {(detail.gifUrl || detail.imageDataUrl) ? <img src={detail.gifUrl || detail.imageDataUrl} alt={detail.name} onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative max-w-full w-auto h-auto max-h-[55vh] object-contain" /> : null}
             </div>
             <div className="p-4 space-y-3">
               <h2 className="font-headline-lg text-base font-semibold text-on-surface">{detail.name}</h2>
@@ -216,9 +216,9 @@ export default function Biblioteca(){
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cómo hacerlo</div>
                 <ol className="list-decimal list-inside font-body-md text-sm text-on-surface space-y-1 mt-1">{detail.instructions.map((s,i)=><li key={i}>{s}</li>)}</ol>
               </AltheaCard>
-              {(detail as any).origin==='USER_CREATED' ? (
+              {detail.origin==='USER_CREATED' ? (
                 <div className="flex gap-2">
-                  <button onClick={()=>{ setEditing(detail as any) }} className="flex-1 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Editar</button>
+                  <button onClick={()=>{ setEditing(detail as CustomExercise) }} className="flex-1 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Editar</button>
                   <button onClick={()=>handleDeleteCustom(detail)} className="flex-1 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-danger/50 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Eliminar</button>
                 </div>
               ) : null}

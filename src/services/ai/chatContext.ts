@@ -1,9 +1,10 @@
 import { db } from '@/services/storage/db'
 import { getDiaryEntries } from '@/services/storage/diaryStore'
+import type { UserProfile } from '@/types'
 
 interface PageContextData {
   page: string
-  profile: any
+  profile: UserProfile | null
   todayStats: any
   activeRoutine: any
   recentSessions: any[]
@@ -23,7 +24,7 @@ export async function buildChatContext(page: string): Promise<string> {
     recovery: null,
   }
 
-  try { ctx.profile = await db.userProfile.get('me') } catch {}
+  try { ctx.profile = (await db.userProfile.get('me')) ?? null } catch {}
   try {
     const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
     const raw = await getAllRoutines()
@@ -31,7 +32,7 @@ export async function buildChatContext(page: string): Promise<string> {
     ctx.activeRoutine = raw?.find((r: any) => r.id === activeId) || raw?.[0] || null
   } catch {}
   try {
-    const sessions: any[] = await db.table('trainingSessions').toArray()
+    const sessions: any[] = await db.trainingSessions.toArray()
     ctx.recentSessions = sessions.filter(s => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus))
       .sort((a, b) => (a.calendarDate || '').localeCompare(b.calendarDate || ''))
       .slice(-5)
@@ -53,20 +54,20 @@ export async function buildChatContext(page: string): Promise<string> {
 
 function formatContext(ctx: PageContextData): string {
   const parts: string[] = []
-  const p = ctx.profile as any
+  const p = ctx.profile
 
   if (p) {
-    parts.push(`USUARIO: ${p.name || 'sin nombre'}, ${p.age || '?'} años, ${p.weightKg || '?'}kg, ${p.heightCm || '?'}cm`)
-    if (p.goalPrimary) parts.push(`Objetivo: ${p.goalPrimary}`)
-    if (p.experienceLevel) parts.push(`Nivel: ${p.experienceLevel}`)
-    if (p.painAreas?.length) parts.push(`Zonas de dolor: ${p.painAreas.join(', ')}`)
-    if (p.excludedExercises?.length) parts.push(`Ejercicios excluidos: ${p.excludedExercises.join(', ')}`)
+    parts.push(`USUARIO: ${p.displayName || 'sin nombre'}, ${p.age || '?'} años, ${p.weightKg || '?'}kg, ${p.heightCm || '?'}cm`)
+    if (p.goalPrimary) {parts.push(`Objetivo: ${p.goalPrimary}`)}
+    if (p.experienceLevel) {parts.push(`Nivel: ${p.experienceLevel}`)}
+    if (p.painAreas?.length) {parts.push(`Zonas de dolor: ${p.painAreas.join(', ')}`)}
+    if (p.excludedExercises?.length) {parts.push(`Ejercicios excluidos: ${p.excludedExercises.join(', ')}`)}
   }
 
   if (ctx.activeRoutine?.cycle) {
     const cyc = ctx.activeRoutine.cycle
     parts.push(`Rutina activa: ${ctx.activeRoutine.name || 'Sin nombre'}`)
-    if (cyc.trainingDays) parts.push(`Días de entrenamiento: ${cyc.trainingDays.length}`)
+    if (cyc.trainingDays) {parts.push(`Días de entrenamiento: ${cyc.trainingDays.length}`)}
   }
 
   if (ctx.recentSessions.length > 0) {

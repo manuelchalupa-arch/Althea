@@ -12,7 +12,7 @@ export type { User }
 
 const OFFLINE_KEY = 'althea:offlineMode'
 
-export function useOfflineMode(): boolean {
+export function getOfflineMode(): boolean {
   try {
     return localStorage.getItem(OFFLINE_KEY) === '1'
   } catch {
@@ -69,14 +69,14 @@ export async function resetPassword(email: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
-  if (!isFirebaseConfigured()) return
+  if (!isFirebaseConfigured()) {return}
   try {
     await fbSignOut(firebaseAuth())
   } catch {}
 }
 
 export function currentUser(): User | null {
-  if (!isFirebaseConfigured()) return null
+  if (!isFirebaseConfigured()) {return null}
   try {
     return firebaseAuth().currentUser
   } catch {

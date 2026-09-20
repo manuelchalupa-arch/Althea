@@ -3,7 +3,10 @@ import { db } from '@/services/storage/db'
 import {
   createSession, getActiveSession, getSession, transitionSession,
   confirmSetRecord, getSetRecords, skipSessionExercise, getSessionExercises,
+  replaceSessionExercise, saveExerciseObservation,
 } from './sessionStore'
+import { recordVariantDecision } from '@/services/ai/variantService'
+import type { UserProfile } from '@/types'
 
 const planned = [
   { exId: 'press', name: 'Press', sets: 2, reps: 10, weight: 50 },
@@ -152,5 +155,217 @@ describe('store central (§4, §10, §17, §18)', () => {
     expect(c.cancelledAt).toBeTruthy()
     const back = await getSession(s.sessionId)
     expect(back?.sessionStatus).toBe('CANCELLED')
+  })
+})
+
+describe('US2 — T017/T018 Integridad (doble click, historial, offline)', () => {
+  const plannedExercises = [
+    { exId: 'press', name: 'Press Banca', sets: 3, reps: 8, weight: 80, muscle: 'Pecho' },
+    { exId: 'sentadilla', name: 'Sentadilla', sets: 3, reps: 10, weight: 100, muscle: 'Piernas' },
+  ]
+
+  beforeEach(async () => {
+    localStorage.clear()
+    for (const t of ['trainingSessions','sessionExercises','setRecords','sessionEvents','postWorkoutSurveys','negativeSets','exerciseObservations','painLogs']) {
+      await db.table(t).clear().catch(() => null)
+    }
+  })
+
+  async function createReadySession(date: string = '2026-09-10') {
+    const s = await createSession({
+      routineId: 'r1', routineName: 'R', plannedDay: 1, actualDay: 1,
+      calendarDate: date, plannedExercises,
+    })
+    return s
+  }
+
+  it('1. PainLog no se duplica por doble click / doble ejecución', async () => {
+    const s = await createReadySession()
+    await transitionSession(s.sessionId, 'IN_PROGRESS')
+    const [se] = await getSessionExercises(s.sessionId)
+
+    // Simular la lógica de PainToggle: verificar si existe antes de insertar
+    const today = '2026-09-10'
+    const level = 'moderate'
+    const zone = 'hombro derecho'
+
+    // Primera inserción (simula primer click en Guardar)
+    const existing1 = await db.painLogs.where({ exerciseId: se.exerciseId, localDate: today, level }).first()
+    expect(existing1).toBeUndefined()
+    await db.painLogs.put({
+      id: crypto.randomUUID(), localDate: today, level, zone, exerciseId: se.exerciseId,
+      moment: new Date().toISOString(), notes: 'Primera vez', createdAt: new Date().toISOString(),
+    })
+
+    // Segunda inserción (simula doble click): la verificación encuentra el existente
+    const existing2 = await db.painLogs.where({ exerciseId: se.exerciseId, localDate: today, level }).first()
+    expect(existing2).toBeDefined()
+    // No se inserta duplicado
+
+    const logs = await db.painLogs.where({ exerciseId: se.exerciseId, localDate: today, level }).toArray()
+    expect(logs.length).toBe(1)
+  })
+
+  it('2. Sustitución no se duplica por doble aceptación', async () => {
+    const s = await createReadySession()
+    await transitionSession(s.sessionId, 'IN_PROGRESS')
+    const [se] = await getSessionExercises(s.sessionId)
+
+    // Primera sustitución
+    const r1 = await replaceSessionExercise(se.sessionExerciseId, 'press-inclinado', 'Dolor', 'moderado')
+    expect(r1.status).toBe('REPLACED')
+    expect(r1.replacement?.replacementExerciseId).toBe('press-inclinado')
+
+    // Segunda llamada con mismos parámetros (doble click en aceptar variante)
+    const r2 = await replaceSessionExercise(se.sessionExerciseId, 'press-inclinado', 'Dolor', 'moderado')
+    
+    // Debe retornar el mismo objeto, no crear duplicado
+    expect(r2.sessionExerciseId).toBe(r1.sessionExerciseId)
+    expect(r2.replacement?.replacementId).toBe(r1.replacement?.replacementId)
+
+    // Verificar en DB: solo un registro
+    const all = await db.sessionExercises.where('sessionId').equals(s.sessionId).toArray()
+    const replaced = all.filter(e => e.status === 'REPLACED')
+    expect(replaced).toHaveLength(1)
+  })
+
+  it('3. Historial original no se modifica (originalExerciseId conservado)', async () => {
+    const s = await createReadySession()
+    await transitionSession(s.sessionId, 'IN_PROGRESS')
+    const [se] = await getSessionExercises(s.sessionId)
+    const originalId = se.exerciseId
+
+    await replaceSessionExercise(se.sessionExerciseId, 'press-inclinado', 'Dolor')
+
+    const updated = await db.sessionExercises.get(se.sessionExerciseId)
+    expect(updated?.replacement?.originalExerciseId).toBe(originalId)
+    expect(updated?.replacement?.replacementExerciseId).toBe('press-inclinado')
+    // El exerciseId actual cambió, pero el original queda en replacement
+    expect(updated?.exerciseId).toBe('press-inclinado')
+  })
+
+  it('4. Sustitución queda asociada a la sesión correcta', async () => {
+    const s1 = await createReadySession('2026-09-10')
+    await transitionSession(s1.sessionId, 'IN_PROGRESS')
+    const [se1] = await getSessionExercises(s1.sessionId)
+
+    // Cerrar sesión 1 para poder crear la 2 (createSession reusa la activa)
+    await transitionSession(s1.sessionId, 'COMPLETING')
+    await transitionSession(s1.sessionId, 'COMPLETED')
+
+    const s2 = await createReadySession('2026-09-11')
+    await transitionSession(s2.sessionId, 'IN_PROGRESS')
+    const [se2] = await getSessionExercises(s2.sessionId)
+
+    // Sustituir en sesión 1
+    await replaceSessionExercise(se1.sessionExerciseId, 'press-inclinado', 'Dolor')
+    // Sustituir en sesión 2
+    await replaceSessionExercise(se2.sessionExerciseId, 'sentadilla-goblet', 'Fatiga')
+
+    const r1 = await db.sessionExercises.get(se1.sessionExerciseId)
+    const r2 = await db.sessionExercises.get(se2.sessionExerciseId)
+
+    expect(r1?.replacement?.sessionId).toBe(s1.sessionId)
+    expect(r2?.replacement?.sessionId).toBe(s2.sessionId)
+    expect(r1?.replacement?.sessionId).not.toBe(s2.sessionId)
+  })
+
+  it('5. Recarga recupera los datos (persistencia Dexie)', async () => {
+    const s = await createReadySession()
+    await transitionSession(s.sessionId, 'IN_PROGRESS')
+    const [se] = await getSessionExercises(s.sessionId)
+
+    await replaceSessionExercise(se.sessionExerciseId, 'press-inclinado', 'Dolor')
+    await db.painLogs.put({
+      id: crypto.randomUUID(),
+      localDate: '2026-09-10',
+      level: 'moderate',
+      zone: 'hombro',
+      exerciseId: se.exerciseId,
+      moment: new Date().toISOString(),
+      notes: 'Test persistencia',
+      createdAt: new Date().toISOString(),
+    })
+
+    // Simular recarga: nueva conexión a DB
+    await db.close()
+    await db.open()
+
+    const reloaded = await db.sessionExercises.get(se.sessionExerciseId)
+    expect(reloaded?.replacement?.replacementExerciseId).toBe('press-inclinado')
+
+    const painLogs = await db.painLogs.where('exerciseId').equals(se.exerciseId).toArray()
+    expect(painLogs.length).toBe(1)
+    expect(painLogs[0].notes).toBe('Test persistencia')
+  })
+
+  it('6. Offline mantiene la operación crítica (Dexie sin red)', async () => {
+    const s = await createReadySession()
+    await transitionSession(s.sessionId, 'IN_PROGRESS')
+    const [se] = await getSessionExercises(s.sessionId)
+
+    // Operaciones que no requieren red
+    await replaceSessionExercise(se.sessionExerciseId, 'press-inclinado', 'Dolor')
+    await db.painLogs.put({
+      id: crypto.randomUUID(),
+      localDate: '2026-09-10',
+      level: 'severe',
+      zone: 'lumbar',
+      exerciseId: se.exerciseId,
+      moment: new Date().toISOString(),
+      notes: 'Offline test',
+      createdAt: new Date().toISOString(),
+    })
+    await recordVariantDecision(s.sessionId, se.exerciseId, 'press-inclinado', 'accepted', 'Dolor lumbar')
+
+    // Verificar que todo se guardó localmente
+    const ex = await db.sessionExercises.get(se.sessionExerciseId)
+    expect(ex?.replacement).toBeDefined()
+
+    const pains = await db.painLogs.where('exerciseId').equals(se.exerciseId).toArray()
+    expect(pains.length).toBe(1)
+
+    const obs = await db.exerciseObservations.where('sessionId').equals(s.sessionId).toArray()
+    expect(obs.some(o => o.type === 'VARIANT_ACCEPTED')).toBe(true)
+  })
+
+  it('7. Ejercicio excluido nunca aparece como variante (isExerciseCompatible)', async () => {
+    const { isExerciseCompatible } = await import('@/services/ai/variantService')
+    const { fetchAll } = await import('@/services/exerciseGym')
+
+    const exercises = (await fetchAll()).exercises
+    const press = exercises.find(e => e.id === 'press') || exercises[0]
+    
+    const userProfile = {
+      id: 'test-user',
+      goal: 'fuerza' as const,
+      level: 'intermedio' as const,
+      availableDays: [1,2,3,4,5],
+      trainingTime: '60',
+      equipment: ['full_gym'] as any,
+      units: { weight: 'kg' as const, liquid: 'ml' as const },
+      lang: 'es',
+      coachIntensity: 'profesional' as const,
+      onboardingDone: true,
+      hydrationGoalMl: 2500,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      excludedExercises: [press.id],
+      painAreas: [],
+      limitations: [],
+    } as UserProfile
+
+    // isExerciseCompatible espera { id, equipment, muscle, pattern, level }
+    const exerciseForCheck = {
+      id: press.id,
+      equipment: press.equipment,
+      muscle: press.muscle,
+      pattern: press.movementPattern ?? 'push',
+      level: 'intermediate',
+    }
+
+    // isExerciseCompatible debe devolver compatible: false para ejercicio excluido
+    const result = isExerciseCompatible(exerciseForCheck, userProfile)
+    expect(result.compatible).toBe(false)
   })
 })

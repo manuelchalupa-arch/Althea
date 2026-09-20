@@ -58,7 +58,7 @@ export function checkCompatibility(methodA: TrainingMethodId, methodB: TrainingM
     c => (c.methodA === methodA && c.methodB === methodB) ||
          (c.methodA === methodB && c.methodB === methodA)
   )
-  if (found) return found
+  if (found) {return found}
 
   // Si no está en la matriz, inferir por categoría
   const mA = getMethod(methodA)
@@ -137,13 +137,13 @@ export function checkGroupCompatibility(methods: TrainingMethodId[]): {
     for (let j = i + 1; j < methods.length; j++) {
       const compat = checkCompatibility(methods[i], methods[j])
       pairs++
-      if (compat.interference === 'high') totalInterference += 1
-      else if (compat.interference === 'moderate') totalInterference += 0.5
-      else if (compat.interference === 'low') totalInterference += 0.2
+      if (compat.interference === 'high') {totalInterference += 1}
+      else if (compat.interference === 'moderate') {totalInterference += 0.5}
+      else if (compat.interference === 'low') {totalInterference += 0.2}
 
-      if (compat.recoveryImpact === 'significant') totalRecoveryImpact += 1
-      else if (compat.recoveryImpact === 'moderate') totalRecoveryImpact += 0.5
-      else totalRecoveryImpact += 0.1
+      if (compat.recoveryImpact === 'significant') {totalRecoveryImpact += 1}
+      else if (compat.recoveryImpact === 'moderate') {totalRecoveryImpact += 0.5}
+      else {totalRecoveryImpact += 0.1}
 
       if (!compat.compatible) {
         recommendations.push(`${methods[i]} + ${methods[j]}: ${compat.notes}`)

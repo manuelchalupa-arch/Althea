@@ -1,37 +1,52 @@
 {
   "id": "nutrition",
   "title": "Nutrición Deportiva",
+  "source": "Phillips et al. (2016); Thomas et al. (2016); Kreider et al. (2017)",
+  "type": "evidence_review",
+  "topic": "nutrition",
+  "evidenceLevel": "strong",
+  "updatedAt": "2026-09-14",
   "tags": ["nutrición", "macros", "proteína", "calorías"],
   "chunks": [
     {
-      "id": "nut-protein",
+      "chunkId": "nut-protein",
+      "documentId": "nutrition",
       "tags": ["proteína", "nutrición"],
       "content": "Proteína diaria: 1.6-2.2g/kg para personas activas. En déficit: subir a 2.0-2.4g/kg para preservar masa muscular. Distribuir en 4-5 comidas de 0.4-0.5g/kg cada una para maximizar MPS.",
-      "citation": "Stuart Phillips et al. (2016) ISSN Position Stand on protein. J Int Soc Sports Nutr."
+      "citation": "Stuart Phillips et al. (2016) ISSN Position Stand on protein. J Int Soc Sports Nutr.",
+      "relevance": "nutrition"
     },
     {
-      "id": "nut-calories",
+      "chunkId": "nut-calories",
+      "documentId": "nutrition",
       "tags": ["calorías", "TDEE"],
       "content": "TDEE = TMB × factor de actividad + ajuste por días de entrenamiento. Mifflin-St Jeor: 10×peso + 6.25×altura - 5×edad + s. Déficit moderado: -15% TDEE. Superávit moderado: +10% TDEE.",
-      "citation": "Mifflin MD et al. (1990) Am J Clin Nutr. Prediction of resting metabolic rate."
+      "citation": "Mifflin MD et al. (1990) Am J Clin Nutr. Prediction of resting metabolic rate.",
+      "relevance": "nutrition"
     },
     {
-      "id": "nut-carbs",
+      "chunkId": "nut-carbs",
+      "documentId": "nutrition",
       "tags": ["carbohidratos", "nutrición"],
       "content": "Carbohidratos: 3-7g/kg según nivel de actividad. Para hipertrofia: 4-6g/kg. Para pérdida de grasa: 2-3g/kg (no bajar de 2g/kg para mantener rendimiento). Entrenar con carbohidratos disponibles mejora rendimiento.",
-      "citation": "Thomas DT et al. (2016) ACSM Position Stand on nutrition. Med Sci Sports Exerc."
+      "citation": "Thomas DT et al. (2016) ACSM Position Stand on nutrition. Med Sci Sports Exerc.",
+      "relevance": "nutrition"
     },
     {
-      "id": "nut-timing",
+      "chunkId": "nut-timing",
+      "documentId": "nutrition",
       "tags": ["timing", "nutrición"],
       "content": "Pre-entreno: comida completa 2-3h antes o snack 30-60min antes. Post-entreno: 35g proteína alta calidad (whey) es suficiente para MPS máximo (Larsen et al. 2023). La ventana anabólica es de ~4-6 horas, no 30 minutos.",
-      "citation": "Larsen MS et al. J Nutr. 2023. | Kerksick CM et al. (2017) ISSN Position Stand on timing."
+      "citation": "Larsen MS et al. J Nutr. 2023. | Kerksick CM et al. (2017) ISSN Position Stand on timing.",
+      "relevance": "nutrition"
     },
     {
-      "id": "nut-supplements",
+      "chunkId": "nut-supplements",
+      "documentId": "nutrition",
       "tags": ["suplementos", "nutrición"],
       "content": "Suplementos con evidencia sólida: creatina monohidratada (3-5g/día), cafeína (3-6mg/kg pre-entreno), proteína whey (conveniencia). Sin evidencia para quemagrasos, BCAAs (si ya se consume suficiente proteína), o boosters de testosterona.",
-      "citation": "Kreider RB et al. (2017) ISSN Position Stand on supplements. J Int Soc Sports Nutr."
+      "citation": "Kreider RB et al. (2017) ISSN Position Stand on supplements. J Int Soc Sports Nutr.",
+      "relevance": "nutrition"
     }
   ]
 }

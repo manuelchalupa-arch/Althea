@@ -39,10 +39,7 @@ export default function BrandIcon({
         height={size}
         className={className}
         onError={() => {
-          if (!warned.has(name)) {
-            warned.add(name)
-            console.warn(`[ICONO PENDIENTE: ${def.group}/${def.file}] usando fallback temporal.`)
-          }
+          warned.add(name)
           setMissing(true)
         }}
       />
@@ -50,7 +47,7 @@ export default function BrandIcon({
   }
 
   // Fallback a Lucide
-  if (!def) return null
+  if (!def) {return null}
   const Fallback = def.lucide
   return (
     <span className={className} role="img" aria-label={label || def.label} data-icon-fallback={name}>

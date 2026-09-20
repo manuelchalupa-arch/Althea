@@ -74,7 +74,7 @@ export async function syncAll(
   const tables: string[] = []
 
   for (const table of TABLES) {
-    if (!(await tableExists(table))) continue
+    if (!(await tableExists(table))) {continue}
     onProgress?.(`Sincronizando ${table}…`)
     const col = collection(fsdb, 'users', uid, table)
     // --- download: nube -> local (last-write-wins) ---

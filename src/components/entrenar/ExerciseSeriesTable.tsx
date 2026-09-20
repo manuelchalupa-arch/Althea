@@ -21,13 +21,13 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
       const raw = localStorage.getItem(EX_STATE_KEY(today, exerciseId))
       if(raw){
         const s = JSON.parse(raw)
-        if(s.weights) setWeights(s.weights)
-        if(s.reps) setReps(s.reps)
-        if(s.checks) setChecks(s.checks)
-        if(typeof s.negEnabled==='boolean') setNegEnabled(s.negEnabled)
-        if(s.negReps) setNegReps(s.negReps)
-        if(s.negWeight) setNegWeight(s.negWeight)
-        if(s.obs) setObs(s.obs)
+        if(s.weights) {setWeights(s.weights)}
+        if(s.reps) {setReps(s.reps)}
+        if(s.checks) {setChecks(s.checks)}
+        if(typeof s.negEnabled==='boolean') {setNegEnabled(s.negEnabled)}
+        if(s.negReps) {setNegReps(s.negReps)}
+        if(s.negWeight) {setNegWeight(s.negWeight)}
+        if(s.obs) {setObs(s.obs)}
       }
     }catch{}
   }, [today, exerciseId])
@@ -43,13 +43,13 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
         if(exerciseId.startsWith('custom/')){
           const { getCustomExercise } = await import('@/services/training/customExercises')
           const c = await getCustomExercise(exerciseId)
-          if(c) setExInfo({ muscle: c.muscle, secondaryMuscles: c.secondaryMuscles, muscleBreakdown: c.muscleBreakdown })
+          if(c) {setExInfo({ muscle: c.muscle, secondaryMuscles: c.secondaryMuscles, muscleBreakdown: c.muscleBreakdown })}
         }
         const { fetchOne } = await import('@/services/exerciseGym')
         if(exerciseId.includes('/') && !exerciseId.startsWith('custom/')){
           const [m,slug]=exerciseId.split('/')
           const ex:any = await fetchOne(m,slug).catch(()=>null)
-          if(ex) setExInfo(ex)
+          if(ex) {setExInfo(ex)}
         }
       }catch{}
       const obj:Record<number,any>={}
@@ -59,7 +59,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
       }
       setRefs(obj)
       const last = await getLastExecutionByExercise(exerciseId)
-      if(last) setLastSession(last)
+      if(last) {setLastSession(last)}
       const all = await unifiedCompletedSets(exerciseId)
       const bySession = new Map<string, {totalVolume:number; setsCount:number; date:string}>()
       for(const s of all){
@@ -67,7 +67,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
         const existing = bySession.get(key)
         const vol = s.weight * s.reps
         if(existing){ existing.totalVolume += vol; existing.setsCount++ }
-        else bySession.set(key, { totalVolume: vol, setsCount: 1, date: s.createdAt.slice(0,10) })
+        else {bySession.set(key, { totalVolume: vol, setsCount: 1, date: s.createdAt.slice(0,10) })}
       }
       const sessions = Array.from(bySession.values()).sort((a,b)=> b.date.localeCompare(a.date)).slice(0,5)
       setPrevSessions(sessions)
@@ -76,8 +76,8 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
       setWeights(baseW); setReps(baseR); setChecks(baseC)
       loadPersisted()
       try{
-        if(initialCompleted) for(const k of Object.keys(initialCompleted)){ const i=Number(k); baseW[i]=initialCompleted[i].weight; baseR[i]=initialCompleted[i].reps; baseC[i]=true }
-        if(initialSkipped) for(const i of initialSkipped){ baseC[i]=false }
+        if(initialCompleted) {for(const k of Object.keys(initialCompleted)){ const i=Number(k); baseW[i]=initialCompleted[i].weight; baseR[i]=initialCompleted[i].reps; baseC[i]=true }}
+        if(initialSkipped) {for(const i of initialSkipped){ baseC[i]=false }}
         setWeights({...baseW}); setReps({...baseR}); setChecks({...baseC})
       }catch{ /* noop */ }
       setLoaded(true)
@@ -87,7 +87,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
 
   const parseKg = (v:string)=>{
     const n = Number(v)
-    if(isNaN(n)) return 0
+    if(isNaN(n)) {return 0}
     return Math.round(n*10)/10
   }
 
@@ -95,9 +95,9 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
     savePersisted({ weights, reps, checks, negEnabled, negReps, negWeight, obs })
   }, [weights, reps, checks, negEnabled, negReps, negWeight, obs, savePersisted])
 
-  useEffect(()=>{ if(loaded) persistAll() }, [weights, reps, checks, negEnabled, negReps, negWeight, obs, loaded, persistAll])
+  useEffect(()=>{ if(loaded) {persistAll()} }, [weights, reps, checks, negEnabled, negReps, negWeight, obs, loaded, persistAll])
 
-  if(!loaded) return <div className="space-y-3"><div className="h-8 bg-surface-container-low/90 border border-outline-variant rounded-lg animate-pulse"/></div>
+  if(!loaded) {return <div className="space-y-3"><div className="h-8 bg-surface-container-low/90 border border-outline-variant rounded-lg animate-pulse"/></div>}
 
   const romanNumerals = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX']
   const nextUncompletedIdx = Array.from({length:sets}).find((_, i)=> !checks[i] && !(initialSkipped||[]).includes(i))
@@ -205,7 +205,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                         setChecks({...checks, [si]: true})
                         try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ }
                         onComplete(si, parseKg(String(w)), r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obs||undefined)
-                      }} className="px-2 py-1 rounded bg-secondary text-on-secondary-fixed font-label-caps text-[9px] uppercase font-bold shadow-sm transition-all active:scale-95">
+                      }} className="px-4 py-3 min-h-[44px] min-w-[44px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[11px] uppercase font-bold shadow-sm transition-all active:scale-95">
                         OK
                       </button>
                     )}

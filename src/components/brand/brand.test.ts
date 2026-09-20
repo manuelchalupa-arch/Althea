@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { ICONS, NAV_ITEMS, MAS_GROUPS, ICON_MANIFEST, iconSrc, type NavItem } from './icons'
 import { sigilForSection, sectionForPath, type TempleSection } from './temple'
 
-const SEMANTIC = /^[a-z0-9-]+\.svg$/
+const SEMANTIC = /^[a-z0-9-]+\.(svg|png)$/
 const BANNED = /icon\d|final|newicon|definitiv/i
 const GROUPS = new Set(['navigation', 'more', 'actions', 'modules'])
 

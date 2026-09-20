@@ -28,24 +28,14 @@ export async function logDecision(record: Omit<DecisionRecord, 'id' | 'timestamp
     id: `decision-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     timestamp: new Date().toISOString(),
   }
-  await db.table('decisionLog').put(entry as never)
+  await db.decisionLog.put(entry as never)
   return entry
 }
 
 /** Obtener decisiones recientes */
 export async function getRecentDecisions(type?: string, limit = 20): Promise<DecisionRecord[]> {
-  const all: DecisionRecord[] = await db.table('decisionLog').toArray().catch(() => [])
+  const all: DecisionRecord[] = await db.decisionLog.toArray().catch(() => [])
   let filtered = all
-  if (type) filtered = all.filter(d => d.type === type)
+  if (type) {filtered = all.filter(d => d.type === type)}
   return filtered.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, limit)
-}
-
-/** Obtener tendencia de decisiones (qué tipo predomina) */
-export async function getDecisionTrend(): Promise<Record<string, number>> {
-  const all: DecisionRecord[] = await db.table('decisionLog').toArray().catch(() => [])
-  const trend: Record<string, number> = {}
-  for (const d of all) {
-    trend[d.type] = (trend[d.type] || 0) + 1
-  }
-  return trend
 }

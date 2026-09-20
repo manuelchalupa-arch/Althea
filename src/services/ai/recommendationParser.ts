@@ -6,11 +6,11 @@ export function parseRecommendation(raw:string): AIRecommendation | null {
   try{
     // extrae JSON aunque venga con texto extra
     const m = raw.match(/\{[\s\S]*\}/)
-    if(!m) return null
+    if(!m) {return null}
     const j = JSON.parse(m[0])
-    if(j.type !== 'training_recommendation' && j.type !== 'nutrition_recommendation' && j.type !== 'hydration_recommendation' && j.type !== 'recovery_recommendation') return null
-    if(!allowedActions.has(j.action) && j.action!=='maintain') return null
-    if(typeof j.reason !== 'string' || j.reason.length<5) return null
+    if(j.type !== 'training_recommendation' && j.type !== 'nutrition_recommendation' && j.type !== 'hydration_recommendation' && j.type !== 'recovery_recommendation') {return null}
+    if(!allowedActions.has(j.action) && j.action!=='maintain') {return null}
+    if(typeof j.reason !== 'string' || j.reason.length<5) {return null}
     const rec: AIRecommendation = {
       type: j.type || 'training_recommendation',
       exercise: j.exercise || '',
@@ -29,6 +29,6 @@ export function parseRecommendation(raw:string): AIRecommendation | null {
 export function toCoachCard(rec: AIRecommendation): { text:string; why:string[] }{
   const w = rec.suggested_weight ? `${rec.suggested_weight} kg` : ''
   let text = rec.reason
-  if(rec.action==='increase_weight' && w) text = `Hoy podés intentar ${w} — ${rec.reason}`
+  if(rec.action==='increase_weight' && w) {text = `Hoy podés intentar ${w} — ${rec.reason}`}
   return { text, why: rec.factors || rec.why || [] }
 }

@@ -1,37 +1,52 @@
 {
   "id": "strength",
   "title": "Fuerza y Progresión",
+  "source": "NSCA (2016); Schoenfeld et al. (2021)",
+  "type": "evidence_review",
+  "topic": "strength",
+  "evidenceLevel": "strong",
+  "updatedAt": "2026-09-14",
   "tags": ["fuerza", "progresión", "carga", "periodización"],
   "chunks": [
     {
-      "id": "strength-01",
+      "chunkId": "strength-01",
+      "documentId": "strength",
       "tags": ["fuerza", "carga"],
       "content": "Progresión de fuerza óptima: incrementos de 2.5-5% en carga cuando se completan todas las series con buena técnica. Para principiantes: +2.5kg en tren superior, +5kg en tren inferior por sesión.",
-      "citation": "NSCA (2016) Essentials of Strength Training and Conditioning. Progression guidelines."
+      "citation": "NSCA (2016) Essentials of Strength Training and Conditioning. Progression guidelines.",
+      "relevance": "training"
     },
     {
-      "id": "strength-02",
+      "chunkId": "strength-02",
+      "documentId": "strength",
       "tags": ["fuerza", "sets_reps"],
       "content": "Para fuerza máxima: 1-6 reps por serie, 85-100% 1RM, descansos 3-5 minutos. Frecuencia: 2-3x/semana por movimiento. El volumen total es menor que hipertrofia pero la intensidad es mayor.",
-      "citation": "Schoenfeld et al. (2021) IUSCA Position Stand. Strength recommendations."
+      "citation": "Schoenfeld et al. (2021) IUSCA Position Stand. Strength recommendations.",
+      "relevance": "training"
     },
     {
-      "id": "strength-03",
+      "chunkId": "strength-03",
+      "documentId": "strength",
       "tags": ["fuerza", "ejercicios"],
       "content": "Ejercicios fundamentales para fuerza: sentadilla, peso muerto, press de banca, press militar, remo. Son los que permiten mayor carga y reclutamiento motor. Complementar con accesorios para músculos débiles.",
-      "citation": "NSCA (2016) Essentials of Strength Training and Conditioning."
+      "citation": "NSCA (2016) Essentials of Strength Training and Conditioning.",
+      "relevance": "training"
     },
     {
-      "id": "strength-04",
+      "chunkId": "strength-04",
+      "documentId": "strength",
       "tags": ["fuerza", "deload"],
       "content": "Deload cada 4-6 semanas: reducir volumen o intensidad un 40-50% por 1 semana. Permite recuperación del sistema nervioso central y previene sobreentrenamiento. El aumento gradual (~20% por ciclo) es más seguro.",
-      "citation": "Schoenfeld et al. (2021) IUSCA Position Stand. Volume periodization."
+      "citation": "Schoenfeld et al. (2021) IUSCA Position Stand. Volume periodization.",
+      "relevance": "training"
     },
     {
-      "id": "strength-05",
+      "chunkId": "strength-05",
+      "documentId": "strength",
       "tags": ["fuerza", "periodización"],
       "content": "Periodización ondulante (variar carga/volumen diariamente) produce mejores resultados que lineal para fuerza. Variar entre días pesados (85% 1RM) y livianos (65% 1RM) mantiene la adaptación.",
-      "citation": "Rhea MR et al. (2002) Meta-analysis on periodization. J Strength Cond Res."
+      "citation": "Rhea MR et al. (2002) Meta-analysis on periodization. J Strength Cond Res.",
+      "relevance": "training"
     }
   ]
 }

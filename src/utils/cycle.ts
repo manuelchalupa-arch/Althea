@@ -25,7 +25,7 @@ export const DEFAULT_CYCLE: CycleConfig = {
 /** Generar CycleConfig desde un método de entrenamiento */
 export function buildCycleFromMethod(methodId: TrainingMethodId, availableDays?: number[], startDate?: string): CycleConfig {
   const method = getMethod(methodId)
-  if (!method) return DEFAULT_CYCLE
+  if (!method) {return DEFAULT_CYCLE}
 
   const days = availableDays || getDefaultDays(method.structure.typicalFrequency[0] || 3)
   const splitType = method.structure.splitType
@@ -54,7 +54,7 @@ export function buildCycleFromRecommendation(rec: { primary: TrainingMethodId; m
   // Usar método mixto si existe, sino el primario
   const methodId = rec.primary
   const method = getMethod(methodId)
-  if (!method) return DEFAULT_CYCLE
+  if (!method) {return DEFAULT_CYCLE}
 
   const daysCount = rec.mixed?.structure?.daysPerWeek || method.structure.typicalFrequency[0] || 3
   const days = availableDays || getDefaultDays(daysCount)
@@ -85,8 +85,8 @@ function getDefaultDays(count: number): number[] {
   // Lunes=1, Martes=2, Miércoles=3, Jueves=4, Viernes=5, Sábado=6
   const allDays = [1, 2, 3, 4, 5, 6]
   // Distribuir equitativamente
-  if (count >= 6) return allDays
-  if (count <= 0) return [1, 3, 5]
+  if (count >= 6) {return allDays}
+  if (count <= 0) {return [1, 3, 5]}
   const step = Math.floor(6 / count)
   const days: number[] = []
   for (let i = 0; i < count; i++) {
@@ -106,8 +106,8 @@ function generateDayNames(splitType: string, methodId: TrainingMethodId, daysCou
       const upper: string[] = []
       const lower: string[] = []
       for (let i = 0; i < daysCount; i++) {
-        if (i % 2 === 0) upper.push(`Tren superior ${Math.floor(i / 2) + 1}`)
-        else lower.push(`Tren inferior ${Math.floor(i / 2) + 1}`)
+        if (i % 2 === 0) {upper.push(`Tren superior ${Math.floor(i / 2) + 1}`)}
+        else {lower.push(`Tren inferior ${Math.floor(i / 2) + 1}`)}
       }
       return [...upper, ...lower]
     case 'push_pull_legs':
@@ -124,15 +124,15 @@ function generateDayNames(splitType: string, methodId: TrainingMethodId, daysCou
 }
 
 export function getCycleFromProfile(p: UserProfile | null): CycleConfig {
-  if (!p || !(p as any).cycle) return DEFAULT_CYCLE
-  return (p as any).cycle as CycleConfig
+  if (!p || !p.cycle) {return DEFAULT_CYCLE}
+  return { ...p.cycle, methodId: p.cycle.methodId as TrainingMethodId | undefined }
 }
 
 export function getTrainingDayForDate(dateStr: string, cycle: CycleConfig): { n: number | null; name: string | null; isRest: boolean } {
   const d = new Date(dateStr + 'T12:00:00')
   const dow = d.getDay()
   const n = cycle.weekMap[dow] ?? null
-  if (n === null) return { n: null, name: null, isRest: true }
+  if (n === null) {return { n: null, name: null, isRest: true }}
   const td = cycle.trainingDays.find(x => x.n === n)
   return { n, name: td?.name ?? `Día N°${n}`, isRest: false }
 }

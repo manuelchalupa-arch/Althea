@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import * as Codulia from '@/services/codulia'
 import { db } from '@/services/storage/db'
-import { getDiaryEntries, addDiaryEntry, removeDiaryEntry, migrateDiaryFromLocalStorage, migrateAdherenceFromLocalStorage } from '@/services/storage/diaryStore'
+import { getDiaryEntries, addDiaryEntry, removeDiaryEntry, migrateDiaryFromLocalStorage, migrateAdherenceFromLocalStorage, type DiaryEntry as StoredDiaryEntry } from '@/services/storage/diaryStore'
 import { calcIMC, calcTMB, calcTDEE, calorieGoal, proteinRange } from '@/utils/nutrition'
 import { getNutritionMethod } from '@/services/ai/nutritionMethodsDB'
+import type { NutritionMethodId } from '@/services/ai/nutritionMethods'
+import type { UserProfile, BodyMeasurement } from '@/types'
 import { checkNutritionSafety, type NutritionSafetyAlert } from '@/services/ai/nutritionSafety'
 import { recordAdherence, calculateAutomaticAdherence, getAdherenceTrend, type AdherenceRecord } from '@/services/ai/adherenceTracker'
 import { Search, Plus, Droplets, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, Minus, Target, Utensils, X } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts'
 import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaKPICard, AltheaProgress, AltheaButton, AltheaSection } from '@/components/althea'
+import { HydrationWidget } from '@/components/recovery/HydrationWidget'
 
 type MealType = 'desayuno' | 'almuerzo' | 'merienda' | 'cena' | 'snack'
 const MEAL_LABELS: Record<MealType, string> = { desayuno: 'Desayuno', almuerzo: 'Almuerzo', merienda: 'Merienda', cena: 'Cena', snack: 'Snack' }
@@ -25,7 +28,7 @@ const MEAL_SUBTITLES: Record<MealType, string> = {
 interface DiaryEntry {
   id: string
   name: string
-  mealType: MealType
+  mealType: string
   servingLabel: string
   amount: number
   unit: string
@@ -41,17 +44,14 @@ interface NutritionGoals {
 }
 
 export default function Nutricion() {
-  const [perfil, setPerfil] = useState<any>(null)
-  const [pesoEvo, setPesoEvo] = useState<any[]>([])
+  const [perfil, setPerfil] = useState<UserProfile | null>(null)
+  const [pesoEvo, setPesoEvo] = useState<BodyMeasurement[]>([])
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
   const [activeMealType, setActiveMealType] = useState<MealType>('desayuno')
   const [showSearch, setShowSearch] = useState(false)
   const [showBarcode, setShowBarcode] = useState(false)
   const [safetyAlerts, setSafetyAlerts] = useState<NutritionSafetyAlert[]>([])
-  const [hydrationToday, setHydrationToday] = useState(0)
   const [adherenceRecord, setAdherenceRecord] = useState<AdherenceRecord | null>(null)
-  const [showAddHydration, setShowAddHydration] = useState(false)
-  const [hydrationAmount, setHydrationAmount] = useState(250)
   const [goals, setGoals] = useState<NutritionGoals>({ calories: 2200, protein: 150, carbs: 250, fat: 70 })
   const [showFoodSearch, setShowFoodSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -71,17 +71,14 @@ export default function Nutricion() {
     try {
       await migrateDiaryFromLocalStorage()
       await migrateAdherenceFromLocalStorage()
-      const p = await db.userProfile.get('me') as any
-      setPerfil(p)
-      const bodies: any[] = await db.table('bodyMeasurements').toArray().catch(() => [])
-      const sorted = bodies.sort((a: any, b: any) => a.localDate.localeCompare(b.localDate)).slice(-30)
+      const p = await db.userProfile.get('me')
+      setPerfil(p ?? null)
+      const bodies = await db.bodyMeasurements.toArray().catch(() => [])
+      const sorted = bodies.sort((a, b) => a.localDate.localeCompare(b.localDate)).slice(-30)
       setPesoEvo(sorted)
       const today = new Date().toISOString().slice(0, 10)
-      const diaryData: DiaryEntry[] = await getDiaryEntries(today) as any
+      const diaryData: DiaryEntry[] = await getDiaryEntries(today)
       setDiaryEntries(diaryData)
-      const hydLogs: any[] = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(() => [])
-      const totalHyd = hydLogs.reduce((a: number, b: any) => a + Number(b.amountMl || 0), 0)
-      setHydrationToday(totalHyd)
       if (p) {
         const w = p.weightKg, h = p.heightCm, age = p.age, sex = p.sex
         const act = p.activityLevel || 'moderado'
@@ -95,7 +92,7 @@ export default function Nutricion() {
           const carbGoal = Math.round((calGoal - protGoal * 4 - fatGoal * 9) / 4)
           setGoals({ calories: calGoal, protein: protGoal, carbs: carbGoal, fat: fatGoal })
         }
-        const activeMethod = p.activeNutritionMethod
+        const activeMethod = p.activeNutritionMethod as NutritionMethodId | undefined
         if (activeMethod) {
           const safetyResult = checkNutritionSafety({
             trainingGoal: p.trainingGoal || 'health',
@@ -115,7 +112,7 @@ export default function Nutricion() {
       if (cycle?.trainingDays) {
         const dow = new Date().getDay()
         const todayName = cycle.trainingDays.find((d: any) => d.n === dow)
-        if (todayName) setTodayTraining({ name: todayName.name, exercises: [] })
+        if (todayName) {setTodayTraining({ name: todayName.name, exercises: [] })}
       }
     } catch { /* noop */ }
   }
@@ -164,17 +161,10 @@ export default function Nutricion() {
     removeDiaryEntry(id)
   }
 
-  const addHydration = async (ml: number) => {
-    const { v4: uuid } = await import('uuid')
-    await db.hydrationLogs.put({ id: uuid(), localDate: today, amountMl: ml, time: new Date().toISOString() } as any)
-    setHydrationToday(prev => prev + ml)
-    setShowAddHydration(false)
-  }
-
   const recordDailyAdherence = async (score: number) => {
-    if (!perfil?.activeNutritionMethod) return
+    if (!perfil?.activeNutritionMethod) {return}
     const record = await recordAdherence({
-      methodId: perfil.activeNutritionMethod, score,
+      methodId: perfil.activeNutritionMethod as NutritionMethodId, score,
       mealsLogged: diaryEntries.length, mealsExpected: 4,
       calorieAdherence: Math.min(100, (dayTotals.calories / goals.calories) * 100),
       proteinAdherence: Math.min(100, (dayTotals.protein / goals.protein) * 100),
@@ -183,12 +173,12 @@ export default function Nutricion() {
   }
 
   const doSearch = async () => {
-    if (!searchQuery.trim()) return
+    if (!searchQuery.trim()) {return}
     setSearchError(null); setSearchLoading(true); setSearchResults([]); setSelectedFood(null)
     try {
       const r = await Codulia.searchFoods(searchQuery, { limit: 20 })
       setSearchResults(r)
-      if (r.length === 0) setSearchError('Sin resultados para "' + searchQuery + '"')
+      if (r.length === 0) {setSearchError('Sin resultados para "' + searchQuery + '"')}
     } catch (e: any) { setSearchError(e.message) }
     finally { setSearchLoading(false) }
   }
@@ -202,9 +192,7 @@ export default function Nutricion() {
     finally { setFoodDetailLoading(false) }
   }
 
-  const activeMethod = perfil?.activeNutritionMethod ? getNutritionMethod(perfil.activeNutritionMethod) : null
-  const hydrationGoal = perfil?.hydrationGoalMl || 3500
-  const hydrationPct = Math.min(100, (hydrationToday / hydrationGoal) * 100)
+  const activeMethod = perfil?.activeNutritionMethod ? getNutritionMethod(perfil.activeNutritionMethod as NutritionMethodId) : null
   const weightData = pesoEvo.map(m => ({ date: m.localDate.slice(5), weight: m.weightKg })).filter(d => d.weight)
   const imcResult = perfil?.weightKg && perfil?.heightCm ? calcIMC(perfil.weightKg, perfil.heightCm) : null
   const tmbVal = perfil?.weightKg && perfil?.heightCm ? calcTMB(perfil.weightKg, perfil.heightCm, perfil.age, perfil.sex) : null
@@ -300,7 +288,7 @@ export default function Nutricion() {
           </div>
           <div className="flex items-center justify-between text-[10px] text-outline border-t border-outline-variant/20 pt-1.5">
             <span>Actividad: {perfil?.activityLevel || 'Moderada'}</span>
-            <span className="font-mono text-secondary">× {perfil?.activityLevel === 'intenso' ? '1.725' : perfil?.activityLevel === 'muy_intenso' ? '1.9' : '1.55'}</span>
+            <span className="font-mono text-secondary">× {perfil?.activityLevel === 'extremadamente_activo' ? '1.9' : perfil?.activityLevel === 'muy_activo' ? '1.725' : '1.55'}</span>
           </div>
         </div>
         {/* TMB */}
@@ -339,30 +327,13 @@ export default function Nutricion() {
             <span className="text-secondary font-medium">{imcResult?.bmi && Number(imcResult.bmi) < 25 ? 'Óptimo' : 'Revisar'}</span>
           </div>
         </div>
-        {/* Hidratación */}
+        {/* Hidratación — widget visual único (barra + litros). Fuente: Dexie `hydrationLogs`. */}
         <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-3.5 stone-plate flex flex-col justify-between">
-          <div className="flex items-center justify-between text-outline">
+          <div className="flex items-center justify-between text-outline mb-2">
             <span className="font-label-caps text-label-caps uppercase text-primary">Néctar & Hidratación</span>
             <span className="material-symbols-outlined text-[16px] text-primary">water_drop</span>
           </div>
-          <div className="my-2">
-            <div className="flex items-baseline gap-1">
-              <span className="font-headline-md text-headline-md text-on-surface font-semibold">{(hydrationToday / 1000).toFixed(1)}</span>
-              <span className="text-on-surface-variant text-body-sm">/ {(hydrationGoal / 1000).toFixed(1)} L</span>
-            </div>
-            <div className="flex items-center gap-1 mt-1 text-primary">
-              {Array.from({ length: Math.min(5, Math.ceil(hydrationPct / 20)) }).map((_, i) => (
-                <span key={i} className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>wine_bar</span>
-              ))}
-              {Array.from({ length: Math.max(0, 5 - Math.ceil(hydrationPct / 20)) }).map((_, i) => (
-                <span key={`e${i}`} className="material-symbols-outlined text-[15px] opacity-30">wine_bar</span>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-[10px] text-outline border-t border-outline-variant/20 pt-1.5">
-            <span>Electrolitos: 100%</span>
-            <button onClick={() => addHydration(250)} className="font-mono text-primary hover:underline cursor-pointer">+250ml</button>
-          </div>
+          <HydrationWidget />
         </div>
       </div>
 
@@ -689,7 +660,7 @@ export default function Nutricion() {
                       <div className="flex-1 min-w-0">
                         <div className="font-body-md text-sm text-on-surface font-medium truncate">{r.name}</div>
                         <div className="font-body-md text-xs text-on-surface-variant truncate">{r.brand || r.source} · {r.baseUnit}</div>
-                        <div className="font-body-md text-xs text-primary">{(r as any).caloriesPer100g ?? (r as any).calories ?? '—'} kcal/100{r.baseUnit}</div>
+                        <div className="font-body-md text-xs text-primary">{r.caloriesPer100g ?? r.calories ?? '—'} kcal/100{r.baseUnit}</div>
                       </div>
                     </div>
                   ))}
@@ -714,7 +685,7 @@ function FoodPortionSelector({ food, onAdd, onCancel }: {
   const per100 = food.macros; const servings = food.servings
   const getNutrients = (idx: number, customAmt?: number) => {
     if (customAmt) { const f = customAmt / 100; return { calories: Math.round(per100.calories * f), proteins: Math.round(per100.proteins * f * 10) / 10, carbs: Math.round(per100.carbs * f * 10) / 10, fats: Math.round(per100.fats * f * 10) / 10 } }
-    const s = servings[idx]; if (!s) return { calories: 0, proteins: 0, carbs: 0, fats: 0 }
+    const s = servings[idx]; if (!s) {return { calories: 0, proteins: 0, carbs: 0, fats: 0 }}
     const f = s.amount / 100; return { calories: Math.round(per100.calories * f), proteins: Math.round(per100.proteins * f * 10) / 10, carbs: Math.round(per100.carbs * f * 10) / 10, fats: Math.round(per100.fats * f * 10) / 10 }
   }
   const customAmt = customGrams ? Number(customGrams) : undefined

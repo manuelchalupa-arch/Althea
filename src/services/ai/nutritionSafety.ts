@@ -242,7 +242,7 @@ export function checkAgeRisks(profile: NutritionUserProfile, selectedMethod: Nut
   const alerts: NutritionSafetyAlert[] = []
   const age = profile.age
 
-  if (!age) return alerts
+  if (!age) {return alerts}
 
   // Adolescentes (<18): no dietas restrictivas
   if (age < 18) {
@@ -376,7 +376,7 @@ export function checkNutritionSafety(
   // Deduplicate by id
   const seen = new Set<string>()
   const uniqueAlerts = allAlerts.filter(a => {
-    if (seen.has(a.id)) return false
+    if (seen.has(a.id)) {return false}
     seen.add(a.id)
     return true
   })
@@ -385,7 +385,7 @@ export function checkNutritionSafety(
   const blockedSet = new Set<NutritionMethodId>()
   for (const alert of uniqueAlerts) {
     if (alert.blockedMethods) {
-      for (const m of alert.blockedMethods) blockedSet.add(m)
+      for (const m of alert.blockedMethods) {blockedSet.add(m)}
     }
   }
 

@@ -28,7 +28,7 @@ export function isFirebaseConfigured(): boolean {
 
 function ensure(): { app: FirebaseApp; auth: Auth; db: Firestore } {
   const cfg = readConfig()
-  if (!cfg) throw new Error('Firebase no configurado: faltan variables VITE_FIREBASE_* (ver .env.example)')
+  if (!cfg) {throw new Error('Firebase no configurado: faltan variables VITE_FIREBASE_* (ver .env.example)')}
   if (!app) {
     app = getApps().length ? getApps()[0]! : initializeApp(cfg)
     auth = getAuth(app)

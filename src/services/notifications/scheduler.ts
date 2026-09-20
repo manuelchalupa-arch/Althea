@@ -53,7 +53,7 @@ export function loadConfigs(): NotifConfig[] {
     const raw = localStorage.getItem(KEY)
     if (raw) {
       const arr = JSON.parse(raw) as NotifConfig[]
-      if (Array.isArray(arr)) return arr
+      if (Array.isArray(arr)) {return arr}
     }
   } catch { /* noop */ }
   return defaultConfigs()
@@ -94,8 +94,8 @@ export function dueNotifications(cfgs: NotifConfig[], now: Date, isTrainingDay: 
   const time = localTimeStr(now)
   const day = localDayIdx(now)
   return cfgs.filter((c) => {
-    if (!c.enabled || !c.days[day]) return false
-    if (c.kind === 'entrenamiento' && !isTrainingDay(date)) return false
+    if (!c.enabled || !c.days[day]) {return false}
+    if (c.kind === 'entrenamiento' && !isTrainingDay(date)) {return false}
     return c.times.some((t) => t <= time && !wasFired(c.id, date, t))
   })
 }
@@ -132,14 +132,14 @@ export async function checkAndFire(
 
 export async function permissionStatus(): Promise<NotificationPermission> {
   try {
-    if (!('Notification' in window)) return 'denied'
+    if (!('Notification' in window)) {return 'denied'}
     return Notification.permission
   } catch { return 'denied' }
 }
 
 export async function requestPermission(): Promise<NotificationPermission> {
   try {
-    if (!('Notification' in window)) return 'denied'
+    if (!('Notification' in window)) {return 'denied'}
     return await Notification.requestPermission()
   } catch { return 'denied' }
 }

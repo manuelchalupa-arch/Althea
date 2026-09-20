@@ -18,7 +18,7 @@ export function completionOf(exercises: SessionExercise[], sets: SetRecord[]): C
 export function volumeOf(sets: SetRecord[]): { reps: number; volume: number } {
   let reps = 0, volume = 0;
   for (const s of sets) {
-    if (s.status !== 'COMPLETED') continue;
+    if (s.status !== 'COMPLETED') {continue;}
     reps += s.actualReps;
     volume += s.actualReps * s.actualWeight;
   }
@@ -33,12 +33,12 @@ export function muscleWorkOf(
 ): Array<{ muscle: string; volume: number; pct: number }> {
   const acc = new Map<string, number>();
   for (const s of sets) {
-    if (s.status !== 'COMPLETED') continue;
+    if (s.status !== 'COMPLETED') {continue;}
     const v = s.actualReps * s.actualWeight;
     const m = muscleOf(s.exerciseId);
     acc.set(m.primary, (acc.get(m.primary) ?? 0) + v * weights.primary);
-    if (m.secondary[0]) acc.set(m.secondary[0], (acc.get(m.secondary[0]) ?? 0) + v * weights.secondary1);
-    if (m.secondary[1]) acc.set(m.secondary[1], (acc.get(m.secondary[1]) ?? 0) + v * weights.secondary2);
+    if (m.secondary[0]) {acc.set(m.secondary[0], (acc.get(m.secondary[0]) ?? 0) + v * weights.secondary1);}
+    if (m.secondary[1]) {acc.set(m.secondary[1], (acc.get(m.secondary[1]) ?? 0) + v * weights.secondary2);}
   }
   const total = [...acc.values()].reduce((a, b) => a + b, 0);
   return [...acc.entries()]
@@ -53,7 +53,7 @@ export function progressVsLast(
   currentFirstSet: { reps: number; weight: number } | null,
   lastFirstSet: { reps: number; weight: number; date: string } | null,
 ): ProgressDelta | null {
-  if (!currentFirstSet || !lastFirstSet) return null;
+  if (!currentFirstSet || !lastFirstSet) {return null;}
   const repsDelta = currentFirstSet.reps - lastFirstSet.reps;
   const weightDelta = Math.round((currentFirstSet.weight - lastFirstSet.weight) * 10) / 10;
   const volumeDelta = Math.round((currentFirstSet.reps * currentFirstSet.weight - lastFirstSet.reps * lastFirstSet.weight) * 10) / 10;
@@ -75,10 +75,10 @@ export function progressVsLast(
 export interface CombinedPoint { date: string; w: number; r: number; s: number; v: number }
 export function combinedIndexOf(points: CombinedPoint[]): Array<{ date: string; indice: number }> | null {
   const sorted = points.slice().sort((a, b) => (a.date < b.date ? -1 : 1))
-  if (sorted.length < 2) return null
+  if (sorted.length < 2) {return null}
   const base = sorted[0]
   const keys = (['w', 'r', 's', 'v'] as const).filter((k) => base[k] > 0)
-  if (keys.length === 0) return null
+  if (keys.length === 0) {return null}
   return sorted.map((p) => {
     const ratios = keys.map((k) => p[k] / (base[k] as number))
     const mean = ratios.reduce((a, b) => a + b, 0) / keys.length

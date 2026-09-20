@@ -22,7 +22,7 @@ import { db } from '@/services/storage/db'
 // Lectura unificada: SetRecord oficial + setLogs legacy (solo-lectura). Clave: userId+exerciseId.
 export async function unifiedCompletedSets(exerciseId: string): Promise<Array<{ setNumber: number; weight: number; reps: number; completed: boolean; createdAt: string; sessionId: string }>> {
   const [official, legacy] = await Promise.all([
-    db.table('setRecords').where('exerciseId').equals(exerciseId).filter((r: { status: string }) => r.status === 'COMPLETED').toArray().catch(() => []),
+    db.setRecords.where('exerciseId').equals(exerciseId).filter((r: { status: string }) => r.status === 'COMPLETED').toArray().catch(() => []),
     db.setLogs.where('exerciseId').equals(exerciseId).filter(l => l.completed).toArray().catch(() => []),
   ]);
   const a = (official as Array<Record<string, unknown>>).map((r) => ({
@@ -38,7 +38,7 @@ export async function unifiedCompletedSets(exerciseId: string): Promise<Array<{ 
 export async function getLastExecutionByExercise(exerciseId: string){
   // última sesión donde se completó al menos una serie de ese ejercicio
   const logs = await unifiedCompletedSets(exerciseId)
-  if(logs.length===0) return null
+  if(logs.length===0) {return null}
   // agrupa por sessionId + createdAt para encontrar última ejecución
   logs.sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   const lastDate = logs[0].createdAt.slice(0,10)
@@ -62,7 +62,7 @@ export function generateSeedSerie(exerciseId: string, setNumber: number){
 
 export async function getLastSerie(exerciseId: string, setNumber: number){
   const logs = (await unifiedCompletedSets(exerciseId)).filter(l=> l.setNumber===setNumber)
-  if(logs.length===0) return generateSeedSerie(exerciseId, setNumber) as any
+  if(logs.length===0) {return generateSeedSerie(exerciseId, setNumber) as any}
   logs.sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   return logs[0] // {weight, reps, createdAt}
 }
@@ -80,4 +80,41 @@ export async function getLastSerieWithSource(exerciseId: string, setNumber: numb
 // Para Prueba A/B/C: no se borra al cambiar/eliminar rutina — routineId no es parte de la query
 export async function countHistory(exerciseId: string){
   return db.setLogs.where('exerciseId').equals(exerciseId).count()
+}
+
+// Reinicio SELECTIVO del historial de entrenamiento.
+// Borra solo ejecución de sesiones (oficial + legacy). No toca perfil, rutinas,
+// nutrición, recuperación, hidratación, sueño, coach ni configuración.
+// Requiere confirmación explícita en UI antes de llamar.
+export const TRAINING_HISTORY_TABLES = [
+  'trainingSessions', 'sessionExercises', 'setRecords', 'sessionEvents',
+  'postWorkoutSurveys', 'negativeSets', 'exerciseObservations',
+  'sessions', 'setLogs', 'exerciseRecords',
+] as const
+
+export async function resetTrainingHistory(): Promise<void> {
+  for (const t of TRAINING_HISTORY_TABLES) {
+    await db.table(t).clear().catch(() => {})
+  }
+}
+
+// Formato unificado para PR service: weight, reps, date, setRecordId
+export async function unifiedSetsForPR(exerciseId: string): Promise<Array<{ weight: number; reps: number; date: string; setRecordId: string; order?: number }>> {
+  const [official, legacy] = await Promise.all([
+    db.setRecords.where('exerciseId').equals(exerciseId).filter((r: { status: string }) => r.status === 'COMPLETED').toArray().catch(() => []),
+    db.setLogs.where('exerciseId').equals(exerciseId).filter(l => l.completed).toArray().catch(() => []),
+  ]);
+  const a = (official as Array<Record<string, unknown>>).map((r) => ({
+    weight: Number(r.actualWeight ?? 0), reps: Number(r.actualReps ?? 0),
+    date: String(r.completedAt ?? r.createdAt ?? '').slice(0, 10),
+    setRecordId: String(r.setRecordId ?? ''),
+    order: Number(r.order ?? 0),
+  }));
+  const b = (legacy as Array<Record<string, unknown>>).map((l) => ({
+    weight: Number(l.weight ?? 0), reps: Number(l.reps ?? 0),
+    date: String(l.createdAt ?? '').slice(0, 10),
+    setRecordId: String(l.id ?? ''),
+    order: Number(l.setNumber ?? 0),
+  }));
+  return [...a, ...b].filter(s => s.weight > 0 && s.reps > 0 && s.date)
 }

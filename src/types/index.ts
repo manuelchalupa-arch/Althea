@@ -40,8 +40,18 @@ export interface SetLog {
   id: string; sessionId: string; exerciseId: string; setNumber: number
   weight: number; reps: number; rpe?: number; rir?: number; completed: boolean; notes?: string; createdAt: string
 }
-export interface RecoveryCheck { id: string; localDate: string; energy: number; fatigue: number; stress: number; sleepHours: number; sleepQuality: number; soreness: number; motivation: number; digestion: number; hydration: number; score: number; color: 'green'|'yellow'|'red' }
-export interface HydrationLog { id: string; localDate: string; amountMl: number; time: string }
+export interface RecoveryCheck { id: string; localDate: string; energy: number; fatigue: number; stress: number; sleepHours?: number; sleepQuality?: number; soreness?: number; motivation: number; digestion?: number; hydration?: number; score: number; color: 'green'|'yellow'|'red'; perceivedExertion?: number; painArea?: string; painObservation?: string; isDemo?: boolean }
+export interface HydrationLog { id: string; localDate: string; amountMl: number; time: string; isDemo?: boolean }
+export interface PainLog {
+  id: string
+  localDate: string
+  level: 'none' | 'mild' | 'moderate' | 'severe'
+  zone: string
+  exerciseId?: string
+  moment: string
+  notes?: string
+  createdAt: string
+}
 export interface UserProfile {
   id: string; goal: Goal; level: Level; availableDays: number[]; trainingTime: string
   equipment: Equipment[]; units: { weight: 'kg'|'lb'; liquid: 'ml'|'oz' }; lang: string
@@ -97,9 +107,20 @@ export interface UserProfile {
     armCm?: number
     thighCm?: number
   }
+
+  // ─── Coach IA v2: exigencia ───
+  coachLevel?: number
+  exigencia?: {
+    entrenamiento: 1|2|3|4|5
+    nutricion: 1|2|3|4|5
+    recuperacion: 1|2|3|4|5
+  }
+  activeNutritionMethod?: string
+  healthConditions?: string[]
+  sessionDurationMin?: number
 }
-export interface BodyMeasurement { id: string; localDate: string; weightKg?: number; heightCm?: number; bodyFatPct?: number; muscleMassKg?: number; chestCm?: number; waistCm?: number; hipCm?: number; createdAt: string }
-export interface WeeklySequence { id: string; cycleId: string; weekNumber: number; startDate: string; plannedDays: number[]; completedDays: number[]; createdAt: string }
+export interface BodyMeasurement { id: string; localDate: string; weightKg?: number; heightCm?: number; bodyFatPct?: number; muscleMassKg?: number; chestCm?: number; waistCm?: number; hipCm?: number; createdAt: string; isDemo?: boolean }
+export interface WeeklySequence { id: string; cycleId: string; weekNumber: number; startDate: string; plannedDays: number[]; completedDays: number[]; partialDays?: number[]; createdAt: string }
 /** @deprecated Reemplazado por el modelo oficial TrainingSession (domain.ts). Solo lectura legacy. */
 export interface LegacyTrainingSession {
   id: string; userId?: string; routineId: string; cycleId?: string; weekNumber?: number;

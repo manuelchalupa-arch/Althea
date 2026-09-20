@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto'
+import '@testing-library/jest-dom'
 
 // localStorage mínimo para node (sessionStore lo usa para activeSessionId).
 const store = new Map<string, string>()
@@ -12,4 +13,5 @@ Object.defineProperty(globalThis, 'localStorage', {
     get length() { return store.size },
   },
   writable: true,
+  configurable: true,
 })

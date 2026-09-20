@@ -50,7 +50,7 @@ async function getRecords(): Promise<AdherenceRecord[]> {
 
 async function saveRecords(records: AdherenceRecord[]): Promise<void> {
   const trimmed = records.slice(-MAX_RECORDS)
-  await saveAdherenceRecords(trimmed as any)
+  await saveAdherenceRecords(trimmed as AdherenceRecord[])
 }
 
 // ─── Registrar adherencia diaria ───
@@ -91,7 +91,7 @@ export async function recordAdherence(input: {
 
 // ─── Calcular días consecutivos ───
 function calculateConsecutiveDays(records: AdherenceRecord[], upToDate: string): number {
-  if (records.length === 0) return 0
+  if (records.length === 0) {return 0}
 
   const dates = [...new Set(records.map(r => r.date))].sort().reverse()
   let streak = 0
@@ -140,14 +140,14 @@ export async function getAdherenceTrend(methodId: NutritionMethodId): Promise<Ad
   const previousAvg = previous.length > 0 ? previous.reduce((a, b) => a + b, 0) / previous.length : recentAvg
 
   let trend: 'improving' | 'stable' | 'declining' = 'stable'
-  if (recentAvg > previousAvg + 0.5) trend = 'improving'
-  else if (recentAvg < previousAvg - 0.5) trend = 'declining'
+  if (recentAvg > previousAvg + 0.5) {trend = 'improving'}
+  else if (recentAvg < previousAvg - 0.5) {trend = 'declining'}
 
   // Consecutive declining days
   let consecutiveDeclining = 0
   for (let i = scores.length - 1; i > 0; i--) {
-    if (scores[i] < scores[i - 1]) consecutiveDeclining++
-    else break
+    if (scores[i] < scores[i - 1]) {consecutiveDeclining++}
+    else {break}
   }
 
   // Streaks
@@ -198,7 +198,7 @@ export async function detectAdherenceProblems(
   const trend = await getAdherenceTrend(methodId)
 
   // No hay datos suficientes
-  if (trend.records.length < 3) return null
+  if (trend.records.length < 3) {return null}
 
   const method = getNutritionMethod(methodId)
 
@@ -282,8 +282,8 @@ function suggestAlternative(
   const restrictiveMethods = ['keto', 'whole30', 'paleo']
   if (restrictiveMethods.includes(currentMethod)) {
     const goal = profile.trainingGoal || 'health'
-    if (goal === 'fat_loss' || goal === 'recomposition') return 'mediterranean'
-    if (goal === 'hypertrophy' || goal === 'muscle_gain') return 'flexitarian'
+    if (goal === 'fat_loss' || goal === 'recomposition') {return 'mediterranean'}
+    if (goal === 'hypertrophy' || goal === 'muscle_gain') {return 'flexitarian'}
     return 'mediterranean'
   }
 
@@ -349,7 +349,7 @@ export function calculateAutomaticAdherence(
   targetProtein: number,
 ): number {
   const method = getNutritionMethod(methodId)
-  if (!method) return 5
+  if (!method) {return 5}
 
   const expectedMeals = Math.round((method.defaults.mealFrequency[0] + method.defaults.mealFrequency[1]) / 2)
   const mealScore = Math.min(1, mealsLoggedToday / Math.max(1, expectedMeals))
@@ -409,7 +409,7 @@ export async function getAdherenceSummary(profile: NutritionUserProfile): Promis
   const activeIssues: AdaptationRecommendation[] = []
   for (const t of trends) {
     const issue = await detectAdherenceProblems(t.id, profile)
-    if (issue) activeIssues.push(issue)
+    if (issue) {activeIssues.push(issue)}
   }
 
   // Recommendations

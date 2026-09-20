@@ -8,7 +8,7 @@ export function ModifyModal({ show, onClose, exerciseName, mod, setMod, onApply 
   show:boolean; onClose:()=>void; exerciseName:string;
   mod:{weight:number;reps:number;sets:number;seriesType?:string}; setMod:(m:any)=>void; onApply:()=>void
 }){
-  if(!show) return null
+  if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
@@ -31,7 +31,7 @@ export function ModifyModal({ show, onClose, exerciseName, mod, setMod, onApply 
 
 /* ── Viewer Modal ── */
 export function ViewerModal({ viewer, onClose }:{ viewer:any; onClose:()=>void }){
-  if(!viewer) return null
+  if(!viewer) {return null}
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
@@ -54,7 +54,7 @@ export function SwapModal({ show, onClose, muscleName, swapLoading, swapOptions,
   swapLoading:boolean; swapOptions:any[]; swapExplain:string|null; setSwapExplain:(id:string|null)=>void;
   onSwap:(exercise:any)=>void; swapReason:string; setSwapReason:(v:string)=>void; swapComment:string; setSwapComment:(v:string)=>void
 }){
-  if(!show) return null
+  if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[80vh] overflow-auto">
@@ -107,7 +107,7 @@ export function SkipReasonModal({ show, onClose, exerciseName, skipReason, setSk
   show:boolean; onClose:()=>void; exerciseName?:string;
   skipReason:string; setSkipReason:(v:string)=>void; onConfirm:()=>void
 }){
-  if(!show) return null
+  if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
@@ -128,7 +128,7 @@ export function CancelModal({ show, onClose, reason, setReason, comment, setComm
   show:boolean; onClose:()=>void;
   reason:string; setReason:(v:string)=>void; comment:string; setComment:(v:string)=>void; onConfirm:()=>void
 }){
-  if(!show) return null
+  if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
@@ -153,7 +153,7 @@ export function AbandonModal({ show, onClose, reason, setReason, comment, setCom
   show:boolean; onClose:()=>void;
   reason:string; setReason:(v:string)=>void; comment:string; setComment:(v:string)=>void; onConfirm:()=>void
 }){
-  if(!show) return null
+  if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
@@ -178,7 +178,7 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
   show:boolean; onClose:()=>void; options:Gym.Exercise[];
   reason:string; setReason:(v:string)=>void; comment:string; setComment:(v:string)=>void; onAdd:(ex:Gym.Exercise)=>void
 }){
-  if(!show) return null
+  if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[80vh] overflow-auto">
@@ -217,7 +217,7 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
   finishSurvey:any; setFinishSurvey:(fn:(p:any)=>any)=>void; finishError:string; isSaving:boolean; onConfirm:()=>void;
   session:any; sessionId:string; setSession:(s:any)=>void; setSessionStatus:(s:any)=>void
 }){
-  if(!show) return null
+  if(!show) {return null}
   const s = summary
   const setSurvey = (k:string,v:any)=> setFinishSurvey((p:any)=> ({...p,[k]:v}))
   return (

@@ -1,37 +1,52 @@
 {
   "id": "recovery",
   "title": "Recuperación y Descanso",
+  "source": "Lamon et al. (2021); Meeusen et al. (2013); Schoenfeld et al. (2021)",
+  "type": "evidence_review",
+  "topic": "recovery",
+  "evidenceLevel": "strong",
+  "updatedAt": "2026-09-14",
   "tags": ["recuperación", "descanso", "sueño", "fatiga", "dolor"],
   "chunks": [
     {
-      "id": "recovery-01",
+      "chunkId": "recovery-01",
+      "documentId": "recovery",
       "tags": ["recuperación", "sueño"],
       "content": "Una noche de privación total de sueño reduce la síntesis proteica muscular (MPS) un 18% en adultos jóvenes sanos (Lamon et al. 2021). Además aumenta cortisol un 21% y reduce testosterona un 24%. Cinco noches de restricción (4h/noche) reducen MPS un 19% (Saner et al. 2020).",
-      "citation": "Lamon S et al. Physiol Rep. 2021;9(1):e14660. doi:10.14814/phy2.14660 | Saner NJ et al. J Physiol. 2020;598(8):1533-1547. doi:10.1113/JP278828"
+      "citation": "Lamon S et al. Physiol Rep. 2021;9(1):e14660. | Saner NJ et al. J Physiol. 2020;598(8):1533-1547.",
+      "relevance": "recovery"
     },
     {
-      "id": "recovery-02",
+      "chunkId": "recovery-02",
+      "documentId": "recovery",
       "tags": ["recuperación", "fatiga"],
       "content": "Señales de sobreentrenamiento: fatiga persistente, insomnio, irritabilidad, caída de rendimiento >2 semanas, frecuencia cardíaca en reposo elevada. Acción recomendada: reducir volumen 40-50% por 1-2 semanas (deload). No es un diagnóstico médico.",
-      "citation": "Meeusen R et al. (2013) Med Sci Sports Exerc. Overtraining consensus statement."
+      "citation": "Meeusen R et al. (2013) Med Sci Sports Exerc. Overtraining consensus statement.",
+      "relevance": "recovery"
     },
     {
-      "id": "recovery-03",
+      "chunkId": "recovery-03",
+      "documentId": "recovery",
       "tags": ["recuperación", "dolor"],
       "content": "DOMS (Delayed Onset Muscle Soreness): pico a 24-72h post-ejercicio. Es normal y parte de la adaptación. Dolor articular o dolor que empeora con el movimiento NO es normal: consultar profesional. Hidratación y movimiento ligero ayudan al DOMS.",
-      "citation": "Cheung K et al. (2003) Sports Medicine. Review on DOMS mechanisms."
+      "citation": "Cheung K et al. (2003) Sports Medicine. Review on DOMS mechanisms.",
+      "relevance": "recovery"
     },
     {
-      "id": "recovery-04",
+      "chunkId": "recovery-04",
+      "documentId": "recovery",
       "tags": ["recuperación", "descanso"],
       "content": "Periodos de deload: cada 4-6 semanas, reducir volumen o intensidad un 40-50% por 1 semana. Previene acumulación de fatiga y mejora respuesta al siguiente bloque. El aumento gradual de volumen (~20% por ciclo de 4 semanas) es más seguro que saltos grandes.",
-      "citation": "Schoenfeld et al. (2021) IUSCA Position Stand. Volume periodization."
+      "citation": "Schoenfeld et al. (2021) IUSCA Position Stand. Volume periodization.",
+      "relevance": "recovery"
     },
     {
-      "id": "recovery-05",
+      "chunkId": "recovery-05",
+      "documentId": "recovery",
       "tags": ["recuperación", "nutrición"],
       "content": "Post-entreno: la ventana anabólica es más amplia de lo que se creía (~4-6 horas, no 30 minutos). Consumir 35g de proteína de alta calidad es suficiente para estimular MPS máximo (Larsen et al. 2023). La comida completa es suficiente.",
-      "citation": "Larsen MS et al. J Nutr. 2023. doi:10.1016/j.tjnut.2023.08.011"
+      "citation": "Larsen MS et al. J Nutr. 2023. doi:10.1016/j.tjnut.2023.08.011",
+      "relevance": "recovery"
     }
   ]
 }

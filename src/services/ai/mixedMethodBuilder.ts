@@ -86,8 +86,8 @@ export function createMixedMethod(
 
 /** Determinar fase según objetivo y nivel */
 export function determinePhase(goal: string, level: string): MixedMethod['phase'] {
-  if (level === 'beginner') return 'base'
-  if (goal === 'fat_loss') return 'build'
-  if (goal === 'strength') return 'peak'
+  if (level === 'beginner') {return 'base'}
+  if (goal === 'fat_loss') {return 'build'}
+  if (goal === 'strength') {return 'peak'}
   return 'build'
 }

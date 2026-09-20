@@ -51,7 +51,7 @@ export async function buildUserMemory(): Promise<UserMemory> {
   for (const d of decisions) {
     if (d.motive?.includes('dolor') || d.motive?.includes('molestia')) {
       const area = d.motive.split(' ').slice(1).join(' ')
-      if (area) painAreas[area] = (painAreas[area] || 0) + 1
+      if (area) {painAreas[area] = (painAreas[area] || 0) + 1}
     }
   }
 

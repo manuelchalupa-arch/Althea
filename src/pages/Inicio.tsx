@@ -6,13 +6,15 @@ import { aiService } from '@/services/ai/aiService'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { detectCapabilities } from '@/services/ai/capabilities'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
+import type { TrainingMethodId } from '@/services/ai/trainingMethods'
+import type { CycleConfig } from '@/utils/cycle'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X']
 
 function SessionStatusIcon({ status }: { status: string | null }) {
-  if (!status) return <span className="material-symbols-outlined text-outline" style={{ fontSize: 15 }}>schedule</span>
+  if (!status) {return <span className="material-symbols-outlined text-outline" style={{ fontSize: 15 }}>schedule</span>}
   const map: Record<string, { icon: string; color: string }> = {
     COMPLETED: { icon: 'check_circle', color: 'text-primary' },
     PARTIAL: { icon: 'do_not_disturb_on', color: 'text-secondary' },
@@ -97,13 +99,13 @@ export default function Inicio(){
 
   useEffect(()=>{
     const loadWeek = async ()=>{
-      const sessions = await db.table('trainingSessions').toArray().catch(()=>[]) as any[]
+      const sessions = await db.trainingSessions.toArray().catch(()=>[])
       const byDate: Record<string,any> = {}
       for(const s of sessions){
-        const k = s.calendarDate || s.localDate
-        if(!k) continue
+        const k = s.calendarDate
+        if(!k) {continue}
         const prev = byDate[k]
-        if(!prev || String(s.updatedAt||'') > String(prev.updatedAt||'')) byDate[k] = s
+        if(!prev || String(s.updatedAt||'') > String(prev.updatedAt||'')) {byDate[k] = s}
       }
       const overrides = await Promise.all(weekKeys.map(k => getOverrideDay(k)))
       const map: typeof dayStatus = {}
@@ -155,15 +157,15 @@ export default function Inicio(){
     ensureSeeded()
     migrateSessionOverridesFromLocalStorage()
     db.userProfile.get('me').then(async p=>{
-      const c = getCycleFromProfile(p as any)
+      const c = getCycleFromProfile(p!)
       setCycle(c)
       const override = await getOverrideDay(todayStr)
       const n = override != null ? override : getTrainingDayForDate(todayStr, c).n
       setOverrideDay(override)
       loadDay(c, n)
       if(c.methodId){
-        const m = getMethod(c.methodId as any)
-        if(m) setActiveMethodName(m.nameEs)
+        const m = getMethod(c.methodId as TrainingMethodId)
+        if(m) {setActiveMethodName(m.nameEs)}
       }
     })
     // Leer hidratación desde Dexie (fuente de verdad)
@@ -179,7 +181,7 @@ export default function Inicio(){
   const rawAgenda = getTrainingDayForDate(todayStr, cycle)
   const effectiveN = overrideDay ?? rawAgenda.n
   const effectiveInfo = effectiveN ? { n: effectiveN, name: cycle.trainingDays.find(d=>d.n===effectiveN)?.name || rawAgenda.name, isRest: false } : rawAgenda
-  const agenda:any = effectiveInfo
+  const agenda = effectiveInfo
   const isRest = !effectiveN ? true : (overrideDay ? false : rawAgenda.isRest)
   const isOverridden = overrideDay !== null && overrideDay !== rawAgenda.n
   const completedCount = Object.values(dayStatus).filter(s=> s.sessionStatus==='COMPLETED').length
@@ -215,7 +217,7 @@ export default function Inicio(){
           <button onClick={()=> setShowCalendarPopover(!showCalendarPopover)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
             <span className="material-symbols-outlined text-outline" style={{ fontSize: 16 }}>date_range</span>
-            <span className="font-medium text-body-sm">Semana {Math.max(1, Math.floor((Date.now() - new Date((cycle as any).startDate || todayStr).getTime()) / (7*86400000)) + 1)}</span>
+            <span className="font-medium text-body-sm">Semana {Math.max(1, Math.floor((Date.now() - new Date((cycle as CycleConfig).startDate || todayStr).getTime()) / (7*86400000)) + 1)}</span>
           </button>
           <button onClick={async()=>{
             const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
@@ -322,8 +324,9 @@ export default function Inicio(){
 
       {/* 3. BENTO CORE: WORKOUT (LEFT 8) + WIDGETS (RIGHT 4) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-4">
-        {/* LEFT 8: WORKOUT CARD */}
+        {/* LEFT 8: WORKOUT CARD — ¿Qué tengo que hacer hoy? */}
         <div className="lg:col-span-8  border border-outline-variant/40 rounded-lg p-4 sm:p-5 space-y-4">
+          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Qué tengo que hacer hoy?</div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-bright">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
@@ -342,14 +345,14 @@ export default function Inicio(){
                 const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
                 const rawList = await getAllRoutines()
                 const activeId = await getActiveRoutineId()
-                const active:any = rawList?.find((r:any)=>r.id===activeId) || rawList?.[0]
+const active = rawList?.find((r)=>r.id===activeId) || rawList?.[0]
                 const n = effectiveN
                 const { getDayExercises } = await import('@/utils/routine')
                 const list = await getDayExercises(n, cycle)
                 const { createReadySession } = await import('@/services/training/sessionStore')
                 const changed = await getChangedData(todayStr)
                 const weekNumber = (()=>{ try{
-                  const start = new Date((cycle as any).startDate || todayStr)
+const start = new Date((cycle as CycleConfig).startDate || todayStr)
                   const now = new Date(todayStr)
                   return Math.max(1, Math.floor((now.getTime()-start.getTime())/(7*86400000))+1)
                 }catch{ return 1 } })()
@@ -357,7 +360,7 @@ export default function Inicio(){
                   calendarDate: todayStr, routineId: active?.id || 'r1', routineName: active?.name || 'Rutina',
                   plannedDay: rawAgenda.n ?? null, plannedDayName: rawAgenda.name ?? null,
                   actualDay: n ?? null, actualDayName: agenda.name ?? null,
-                  exercises: list.map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl })),
+exercises: list.map((x)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl })),
                   dayChangeReason: changed?.changeReason || (isOverridden ? 'Cambio de día desde Inicio' : undefined),
                   dayChangeComment: changed?.changeComment, weekNumber,
                 })
@@ -570,7 +573,7 @@ export default function Inicio(){
                 setHydration(newTotal)
                 // Guardar en Dexie
                 import('@/services/storage/db').then(({ db })=>{
-                  db.hydrationLogs.add({ id: `h:${todayStr}:${Date.now()}`, localDate: todayStr, amountMl: addMl, time: new Date().toISOString().slice(11,16) } as any).catch(()=>{})
+                  db.hydrationLogs.add({ id: `h:${todayStr}:${Date.now()}`, localDate: todayStr, amountMl: addMl, time: new Date().toISOString().slice(11,16) }).catch(()=>{})
                 }).catch(()=>{})
               }}
               className="w-full py-2 rounded-lg bg-primary-container/30 border border-primary/40 text-primary font-label-caps text-[10px] uppercase font-bold hover:bg-primary-container/50 transition-colors active:scale-[0.98]"

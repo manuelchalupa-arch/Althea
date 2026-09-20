@@ -48,7 +48,7 @@ function canRequestNow(): { ok: boolean; waitSec: number } {
   try {
     const last = Number(localStorage.getItem(RATE_LIMIT_KEY) || '0')
     const elapsed = Date.now() - last
-    if (elapsed < MIN_GAP_MS) return { ok: false, waitSec: Math.ceil((MIN_GAP_MS - elapsed) / 1000) }
+    if (elapsed < MIN_GAP_MS) {return { ok: false, waitSec: Math.ceil((MIN_GAP_MS - elapsed) / 1000) }}
     return { ok: true, waitSec: 0 }
   } catch { return { ok: true, waitSec: 0 } }
 }
@@ -69,17 +69,17 @@ async function collectContext(wants: UserWants): Promise<{
 
   let history = ''
   try {
-    const sessions: any[] = await db.table('trainingSessions').toArray().catch(() => [])
+    const sessions: any[] = await db.trainingSessions.toArray().catch(() => [])
     const done = sessions.filter(s => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus))
       .sort((a, b) => (a.calendarDate || '').localeCompare(b.calendarDate || '')).slice(-3)
     if (done.length > 0) {
       const lines: string[] = []
       for (const s of done) {
-        const ex: any[] = await db.table('sessionExercises').where('sessionId').equals(s.id).toArray().catch(() => [])
+        const ex: any[] = await db.sessionExercises.where('sessionId').equals(s.id).toArray().catch(() => [])
         const names = ex.slice(0, 3).map((e: any) => e.exerciseName || e.exerciseId)
         lines.push(`${s.calendarDate}:${s.sessionStatus === 'COMPLETED' ? 'OK' : 'PARCIAL'} ${ex.length}ex ${names.join(',')} ${Math.round(Number(s.totalVolume || 0))}kg`)
       }
-      const surveys: any[] = await db.table('postWorkoutSurveys').toArray().catch(() => [])
+      const surveys: any[] = await db.postWorkoutSurveys.toArray().catch(() => [])
       const last3 = surveys.slice(-3)
       if (last3.length > 0) {
         const avg = Math.round(last3.reduce((a: number, s: any) => a + (s.sessionRating || 3), 0) / last3.length)
@@ -243,7 +243,7 @@ async function callGroq(_apiKey: string, prompt: string, attempt = 0): Promise<s
 }
 
 export async function generateRoutineWithAI(wants: UserWants): Promise<GeneratedRoutine> {
-  if (!isAvailable()) throw new Error('API proxy no configurado. Configurá VITE_GROQ_PROXY_URL en .env')
+  if (!isAvailable()) {throw new Error('API proxy no configurado. Configurá VITE_GROQ_PROXY_URL en .env')}
 
   const cooldown = canRequestNow()
   if (!cooldown.ok) {
@@ -256,7 +256,7 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
   markRequested()
   const content = await callGroq('', prompt)
 
-  if (!content) throw new Error('Respuesta vacía de Groq.')
+  if (!content) {throw new Error('Respuesta vacía de Groq.')}
 
   const jsonStr = extractJSON(content)
 
@@ -270,7 +270,7 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
   // Normalize methodId
   if (parsed.cycle) {
     parsed.cycle.methodId = (parsed.cycle.methodId || 'hypertrophy') as TrainingMethodId
-    if (!parsed.cycle.startDate) parsed.cycle.startDate = new Date().toISOString().slice(0, 10)
+    if (!parsed.cycle.startDate) {parsed.cycle.startDate = new Date().toISOString().slice(0, 10)}
   }
 
   // Validate structure
@@ -280,7 +280,7 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
 
   // Ensure all trainingDays have names
   for (const d of parsed.cycle.trainingDays) {
-    if (!d.name) d.name = `Día ${d.n}`
+    if (!d.name) {d.name = `Día ${d.n}`}
   }
 
   // Assign local IDs and normalize exercises

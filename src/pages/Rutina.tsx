@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { db, ensureSeeded } from '@/services/storage/db'
-import type { Exercise } from '@/types'
+import type { Exercise, UserProfile } from '@/types'
 import { DEFAULT_CYCLE, type CycleConfig } from '@/utils/cycle'
 import { v4 as uuid } from 'uuid'
 import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye, Sparkles, X, Check, RefreshCw } from 'lucide-react'
@@ -11,7 +11,9 @@ import { generateRoutineWithAI, isRoutineAIAvailable, type GeneratedRoutine, typ
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { getCycleFromProfile } from '@/utils/cycle'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
+import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import * as Gym from '@/services/exerciseGym'
+import { PeriodizationEditor } from '@/components/recovery/PeriodizationEditor'
 
 const WEEK_LABELS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
 
@@ -31,7 +33,7 @@ type RutinaData = {
   updatedAt: string
   rotationDays: number
   cycle: CycleConfig
-  dayExercises: Record<number, {id:string; exId:string; sets:number; reps:number; weight:number; gifUrl?:string; name?:string; muscle?:string}[]>
+  dayExercises: Record<number, {id:string; exId:string; sets:number; reps:number; weight:number; gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string}[]>
 }
 
 // Migración no destructiva: si existe viejo formato, convertir a lista
@@ -41,7 +43,7 @@ async function loadRoutines(): Promise<{ list: RutinaData[]; activeId: string | 
     await migrateRoutinesFromLocalStorage()
     const list = await getAllRoutines()
     const activeId = await getActiveRoutineId()
-    if (list.length > 0) return { list, activeId }
+    if (list.length > 0) {return { list, activeId }}
   } catch {}
   const def: RutinaData = {
     id: 'r1', name: 'Rutina 1', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -73,6 +75,7 @@ export default function RutinaPage(){
   const [aiError,setAiError]=useState<string|null>(null)
   const [aiPreview,setAiPreview]=useState<GeneratedRoutine|null>(null)
   const [showQuestionnaire,setShowQuestionnaire]=useState(false)
+  const [showPeriodization,setShowPeriodization]=useState(false)
 
   useEffect(()=>{
     ensureSeeded().then(async()=>{
@@ -81,9 +84,9 @@ export default function RutinaPage(){
       const { list, activeId: aid } = await loadRoutines()
       setRoutines(list); setActiveId(aid); setRoutinesLoaded(true)
       // si active no tiene cycle, intenta cargar de userProfile
-      const p = await db.userProfile.get('me') as any
+      const p = await db.userProfile.get('me')
       if(p?.cycle && list.length===1 && JSON.stringify(list[0].cycle)===JSON.stringify(DEFAULT_CYCLE)){
-        const upd = list.map(r=> r.id===aid ? {...r, cycle: p.cycle} : r)
+        const upd = list.map(r=> r.id===aid ? {...r, cycle: p.cycle! as CycleConfig} : r)
         setRoutines(upd); saveRoutines(upd, aid)
       }
     })
@@ -91,18 +94,18 @@ export default function RutinaPage(){
 
   // sync active cycle a userProfile para que Inicio/Entrenar/Coach usen rutina activa
   useEffect(()=>{
-    if(!active) return
+    if(!active) {return}
     db.userProfile.get('me').then(async p=>{
-      const base = p ?? { id:'me', goal:'hipertrofia', level:'intermedio', availableDays:[1,3,5], trainingTime:'18:00', equipment:['barra'], units:{weight:'kg',liquid:'ml'}, lang:'es', coachIntensity:'profesional', onboardingDone:true, hydrationGoalMl:2500, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
-      if(JSON.stringify((base as any).cycle) !== JSON.stringify(active.cycle)){
-        await db.userProfile.put({ ...base, cycle: active.cycle, updatedAt: new Date().toISOString() } as any)
+      const base: UserProfile = p ?? { id:'me', goal:'hipertrofia', level:'intermedio', availableDays:[1,3,5], trainingTime:'18:00', equipment:['barra'], units:{weight:'kg',liquid:'ml'}, lang:'es', coachIntensity:'profesional', onboardingDone:true, hydrationGoalMl:2500, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
+      if(JSON.stringify(base.cycle) !== JSON.stringify(active.cycle)){
+        await db.userProfile.put({ ...base, cycle: active.cycle, updatedAt: new Date().toISOString() })
       }
     })
     const days = Math.floor((Date.now() - new Date(active.createdAt).getTime())/86400000)
     if(days >= active.rotationDays){
-      const hist = Object.values(active.dayExercises).flat().slice(0,3).map(x=> (x as any).name || x.exId).join(', ')
+      const hist = Object.values(active.dayExercises).flat().slice(0,3).map(x=> x.name || x.exId).join(', ')
       setRotationRec(`Tu rutina "${active.name}" lleva ${days} días (límite ${active.rotationDays}). Ejercicios: ${hist || '—'}. Sugerencia: cambiar Press inclinado con barra por Press inclinado con mancuernas (mismo grupo pecho).`)
-    } else setRotationRec(null)
+    } else {setRotationRec(null)}
   },[activeId, active?.cycle, active?.createdAt])
 
   const updateActive = (fn:(r:RutinaData)=>RutinaData)=>{
@@ -114,10 +117,10 @@ export default function RutinaPage(){
     import('@/services/storage/routineStore').then(({ setActiveRoutineId }) => setActiveRoutineId(id))
     // sync cycle
     const r = routines.find(x=>x.id===id)
-    if(r) db.userProfile.get('me').then(async p=>{
-      const base = p ?? { id:'me', goal:'hipertrofia', level:'intermedio', availableDays:[1,3,5], trainingTime:'18:00', equipment:['barra'], units:{weight:'kg',liquid:'ml'}, lang:'es', coachIntensity:'profesional', onboardingDone:true, hydrationGoalMl:2500, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
-      await db.userProfile.put({ ...base, cycle: r.cycle, updatedAt: new Date().toISOString() } as any)
-    })
+    if(r) {db.userProfile.get('me').then(async p=>{
+      const base: UserProfile = p ?? { id:'me', goal:'hipertrofia', level:'intermedio', availableDays:[1,3,5], trainingTime:'18:00', equipment:['barra'], units:{weight:'kg',liquid:'ml'}, lang:'es', coachIntensity:'profesional', onboardingDone:true, hydrationGoalMl:2500, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
+      await db.userProfile.put({ ...base, cycle: r.cycle, updatedAt: new Date().toISOString() })
+    })}
   }
   const createNew = ()=>{
     if(routines.length>=4){
@@ -133,7 +136,7 @@ export default function RutinaPage(){
     setRoutines(next); setActiveId(data.id); saveRoutines(next, data.id); setNewName(''); setShowNew(false)
   }
   const deleteRoutine = (id:string)=>{
-    if(!confirm('¿Eliminar esta rutina?\nEsta acción eliminará la rutina guardada y su configuración.')) return
+    if(!confirm('¿Eliminar esta rutina?\nEsta acción eliminará la rutina guardada y su configuración.')) {return}
     const next = routines.filter(r=>r.id!==id)
     let nextActive = activeId
     if(id===activeId){
@@ -225,7 +228,7 @@ export default function RutinaPage(){
             <div className="flex gap-1 mt-2">
               <button onClick={()=>{ alert('Recomendación aceptada — editá los ejercicios'); setRotationRec(null)}} className="flex-1 py-2 rounded-lg bg-primary text-on-surface">Aceptar</button>
               <button onClick={()=>setRotationRec(null)} className="flex-1 py-2 rounded-lg bg-surface border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rechazar</button>
-              <button onClick={()=>{ const n=prompt('Modificar días para revisar?'); if(n) updateActive(r=> ({...r, rotationDays: Number(n)}))}} className="flex-1 py-2 rounded-lg bg-surface/60 border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Modificar</button>
+              <button onClick={()=>{ const n=prompt('Modificar días para revisar?'); if(n) {updateActive(r=> ({...r, rotationDays: Number(n)}))}}} className="flex-1 py-2 rounded-lg bg-surface/60 border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Modificar</button>
             </div>
           </div>
         )}
@@ -251,25 +254,25 @@ export default function RutinaPage(){
               </div>
               <div className="space-y-2">
                 {exs.map((it,idx)=>{
-                  const ex = exercises.find(e=>e.id===it.exId) as any
+                  const ex = exercises.find(e=>e.id===it.exId)
                   return (
                     <div key={it.id} className="rounded bg-surface/60 border border-outline-variant p-3">
                       <div className="flex justify-between">
-                        <span className="font-body-md text-sm text-on-surface font-medium">{ex?.name || (it as any).name || it.exId}</span>
+                        <span className="font-body-md text-sm text-on-surface font-medium">{ex?.name || it.name || it.exId}</span>
                         <button onClick={()=>{
                           updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [d.n]: (r.dayExercises[d.n]||[]).filter((_,i)=>i!==idx)}}))
                         }} className="text-on-surface-variant"><Trash2 size={14}/></button>
                       </div>
-                      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex?.groupMain || (it as any).muscle || 'grupo'} · {ex?.equipment || ''} · objetivo {it.sets}×{it.reps} · {it.weight}kg</div>
+                      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex?.groupMain || it.muscle || 'grupo'} · {ex?.equipment || ''} · objetivo {it.sets}×{it.reps} · {it.weight}kg</div>
                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 mt-2">
                         <input type="number" value={it.sets} onChange={e=>{
-                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; (a[idx] as any).sets=Number(e.target.value); return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
+                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], sets:Number(e.target.value)}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
                         }} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant" placeholder="Series"/>
                         <input type="number" value={it.reps} onChange={e=>{
-                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; (a[idx] as any).reps=Number(e.target.value); return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
+                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], reps:Number(e.target.value)}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
                         }} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant" placeholder="Reps"/>
                         <input type="number" value={it.weight} onChange={e=>{
-                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; (a[idx] as any).weight=Number(e.target.value); return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
+                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], weight:Number(e.target.value)}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
                         }} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant" placeholder="Peso"/>
                       </div>
                     </div>
@@ -311,6 +314,18 @@ export default function RutinaPage(){
         </div>
       </div>
 
+      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+        <button onClick={()=>setShowPeriodization(v=>!v)} className="w-full flex items-center justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+          <span>Periodización avanzada (solo planificación futura)</span>
+          <span>{showPeriodization ? 'Ocultar' : 'Ver'}</span>
+        </button>
+        {showPeriodization && (
+          <div className="mt-3">
+            <PeriodizationEditor onClose={()=>setShowPeriodization(false)} />
+          </div>
+        )}
+      </div>
+
       </div>
 
       <div className="lg:col-span-4 space-y-3 hidden lg:block">
@@ -318,7 +333,7 @@ export default function RutinaPage(){
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Dumbbell size={14}/> Stats de la rutina</div>
           <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Días de entrenamiento</span><span className="font-body-md text-sm text-on-surface font-medium">{active.cycle.trainingDays.length}/semana</span></div>
           <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total ejercicios</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(active.dayExercises).flat().length}</span></div>
-          <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total series</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(active.dayExercises).flat().reduce((a: number, e: any) => a + (e.sets || 0), 0)}</span></div>
+          <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total series</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(active.dayExercises).flat().reduce((a, e) => a + (e.sets || 0), 0)}</span></div>
         </div>
         {active.cycle.methodId && (() => {
           const m = getMethod(active.cycle.methodId)
@@ -368,7 +383,7 @@ export default function RutinaPage(){
           dayName={active.cycle.trainingDays.find(d=>d.n===pickerFor)?.name || ''}
           onAdd={(exId,gifUrl,name,muscle,imageDataUrl)=>{
             const d = getMethodDefaults(active.cycle)
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl, name, muscle, imageDataUrl } as any]}}))
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl, name, muscle, imageDataUrl }]}}))
             setPickerFor(null)
           }}
           onClose={()=>setPickerFor(null)}
@@ -380,7 +395,7 @@ export default function RutinaPage(){
         <ExerciseViewer exercise={viewer} onClose={()=>setViewer(null)} onAdd={()=>{
           if(pickerFor!==null){
             const d = getMethodDefaults(active.cycle)
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId: viewer.id, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: viewer.gifUrl, name: viewer.name, muscle: viewer.muscle, imageDataUrl: (viewer as any).imageDataUrl } as any]}}))
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId: viewer.id, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: viewer.gifUrl, name: viewer.name, muscle: viewer.muscle, imageDataUrl: viewer.imageDataUrl }]}}))
           }
           setViewer(null); setPickerFor(null)
         }} />
@@ -464,28 +479,28 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
   const [err,setErr]=useState<string|null>(null)
   const [methodHint,setMethodHint]=useState<{types:string[];avoid:string[]}|null>(null)
   useEffect(()=>{
-    if(muscles.length===0) return
+    if(muscles.length===0) {return}
     let cancelled=false
     // Load method hint for exercise prioritization
     db.userProfile.get('me').then(p=>{
-      if(cancelled) return
-      const cycle = (p as any)?.cycle
+      if(cancelled) {return}
+      const cycle = p?.cycle
       if(cycle?.methodId){
         import('@/services/ai/trainingMethodsDB').then(({ getMethod })=>{
-          if(cancelled) return
-          const m = getMethod(cycle.methodId)
-          if(m) setMethodHint({ types: m.exerciseSelection.primaryTypes, avoid: m.exerciseSelection.avoidExercises || [] })
+          if(cancelled) {return}
+          const m = getMethod(cycle.methodId as TrainingMethodId)
+          if(m) {setMethodHint({ types: m.exerciseSelection.primaryTypes, avoid: m.exerciseSelection.avoidExercises || [] })}
         })
       }
     }).catch(()=>{})
     const load = async ()=>{
       setLoading(true); setErr(null)
       try{
-        const results = await Promise.all(muscles.map(m=> Gym.fetchByMuscle(m).catch(()=> ({exercises:[] as Gym.Exercise[]})) ))
+        const results = await Promise.all(muscles.map(m=> Gym.fetchByMuscle(m).catch((): {exercises:Gym.Exercise[]}=> ({exercises:[]})) ))
         let merged:Gym.Exercise[] = []
         const seen=new Set<string>()
         results.forEach(r=>{
-          (r as any).exercises?.forEach((ex:Gym.Exercise)=>{
+          r.exercises?.forEach((ex:Gym.Exercise)=>{
             if(!seen.has(ex.id) && ex.muscle && muscles.includes(ex.muscle)){
               seen.add(ex.id); merged.push(ex)
             }
@@ -498,19 +513,19 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
           merged.push(...customs)
           merged.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
         }catch{ /* noop */ }
-        if(merged.length===0 && !cancelled) setErr('No encontramos ejercicios compatibles con este grupo muscular.\nProbá con otro grupo, equipamiento o término de búsqueda.')
-        if(!cancelled) setItems(merged)
-      }catch(e:any){ if(!cancelled) setErr(e.message) }
-      finally{ if(!cancelled) setLoading(false) }
+        if(merged.length===0 && !cancelled) {setErr('No encontramos ejercicios compatibles con este grupo muscular.\nProbá con otro grupo, equipamiento o término de búsqueda.')}
+        if(!cancelled) {setItems(merged)}
+      }catch(e:any){ if(!cancelled) {setErr(e.message)} }
+      finally{ if(!cancelled) {setLoading(false)} }
     }
     load()
     return ()=>{ cancelled=true }
   },[dayName])
 
   const filtered = items.filter(ex=>{
-    if(equipFilter!=='todos' && ex.equipment !== equipFilter) return false
-    if(q && !ex.name.toLowerCase().includes(q.toLowerCase())) return false
-    if(methodHint?.avoid?.length && methodHint.avoid.some(a => ex.name.toLowerCase().includes(a.toLowerCase()))) return false
+    if(equipFilter!=='todos' && ex.equipment !== equipFilter) {return false}
+    if(q && !ex.name.toLowerCase().includes(q.toLowerCase())) {return false}
+    if(methodHint?.avoid?.length && methodHint.avoid.some(a => ex.name.toLowerCase().includes(a.toLowerCase()))) {return false}
     return true
   })
 
@@ -565,15 +580,15 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
           {sorted.slice(0,60).map(ex=>(
             <div key={ex.id} className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden">
               <div className="h-36 bg-surface/60 border-b border-outline-variant flex items-center justify-center overflow-hidden">
-                {(ex.gifUrl || (ex as any).imageDataUrl) ? <img src={ex.gifUrl || (ex as any).imageDataUrl} alt={ex.name} loading="lazy" className="w-full h-full object-cover" onError={e=>{ (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }} /> : null}
+                {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" className="w-full h-full object-cover" onError={e=>{ (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }} /> : null}
                 <div className="hidden p-4 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">Vista alternativa — {ex.name}</div>
               </div>
               <div className="p-3">
-                <div className="font-body-md text-sm text-on-surface font-medium flex items-center gap-2"><span className="truncate">{ex.name}</span>{(ex as any).origin==='USER_CREATED' ? <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-primary px-2 py-0.5 rounded-full bg-surface-container-high border border-primary shrink-0">Mío</span> : null}</div>
+                <div className="font-body-md text-sm text-on-surface font-medium flex items-center gap-2"><span className="truncate">{ex.name}</span>{ex.origin==='USER_CREATED' ? <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-primary px-2 py-0.5 rounded-full bg-surface-container-high border border-primary shrink-0">Mío</span> : null}</div>
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{displayMuscle(ex.muscle)} · {ex.equipment} · {ex.bodyPart}</div>
                 <div className="flex gap-2 mt-2">
                   <button onClick={()=> onView(ex)} className="flex-1 py-2 rounded bg-surface/60 border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1"><Eye size={14}/> Ver ejercicio</button>
-                  <button onClick={()=> onAdd(ex.id, ex.gifUrl, ex.name, ex.muscle, (ex as any).imageDataUrl)} className="flex-1 py-2 rounded bg-primary text-on-surface font-medium">AGREGAR</button>
+                  <button onClick={()=> onAdd(ex.id, ex.gifUrl, ex.name, ex.muscle, ex.imageDataUrl)} className="flex-1 py-2 rounded bg-primary text-on-surface font-medium">AGREGAR</button>
                 </div>
               </div>
             </div>
@@ -601,9 +616,9 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
         <div className="p-4">
           <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden flex items-center justify-center min-h-[280px] md:min-h-[400px] p-2">
             {loading && !err && <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cargando ejercicio...</span>}
-            {(!err && (exercise.gifUrl || (exercise as any).imageDataUrl)) ? (
+            {(!err && (exercise.gifUrl || exercise.imageDataUrl)) ? (
               <img
-                src={(exercise as any).imageDataUrl || exercise.gifUrl}
+                src={exercise.imageDataUrl || exercise.gifUrl}
                 alt={exercise.name}
                 className="max-w-full max-h-[60vh] md:max-h-[65vh] w-auto h-auto object-contain"
                 onLoad={()=>setLoading(false)}
@@ -633,7 +648,7 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
 
 function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:GeneratedRoutine; onConfirm:(name:string)=>void; onRegenerate:()=>void; onClose:()=>void}){
   const [name,setName]=useState(routine.name)
-  const method = routine.cycle.methodId ? getMethod(routine.cycle.methodId as any) : null
+  const method = routine.cycle.methodId ? getMethod(routine.cycle.methodId) : null
   const totalExercises = Object.values(routine.dayExercises).flat().length
   const totalSets = Object.values(routine.dayExercises).flat().reduce((a,e)=>a+(e.sets||0),0)
   const WEEK=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']

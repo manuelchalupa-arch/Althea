@@ -28,7 +28,7 @@ class AIService implements AIProvider {
   async isAvailable(){ return this.active.isAvailable() }
   async getStatus(){
     const q = await this.qwen.getStatus()
-    if(q.status==='available') return q
+    if(q.status==='available') {return q}
     return this.fallback.getStatus()
   }
   async generateRecommendation(ctx:any){

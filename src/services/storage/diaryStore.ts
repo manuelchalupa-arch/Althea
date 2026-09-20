@@ -25,11 +25,11 @@ function todayLocalDate(): string {
 
 export async function getDiaryEntries(date?: string): Promise<DiaryEntry[]> {
   const d = date || todayLocalDate()
-  return db.nutritionDiary.where('date').equals(d).toArray() as Promise<DiaryEntry[]>
+  return db.nutritionDiary.where('date').equals(d).toArray()
 }
 
 export async function addDiaryEntry(entry: DiaryEntry): Promise<void> {
-  await db.nutritionDiary.put(entry as any)
+  await db.nutritionDiary.put(entry)
 }
 
 export async function removeDiaryEntry(id: string): Promise<void> {
@@ -40,9 +40,9 @@ export async function saveDiaryEntries(entries: DiaryEntry[], date?: string): Pr
   const d = date || todayLocalDate()
   // Remove existing entries for this date
   const existing = await db.nutritionDiary.where('date').equals(d).toArray()
-  const toRemove = existing.map((e: any) => e.id).filter((id: string) => !entries.find(e => e.id === id))
+  const toRemove = existing.map((e) => e.id).filter((id) => !entries.find(e => e.id === id))
   await db.nutritionDiary.bulkDelete(toRemove)
-  await db.nutritionDiary.bulkPut(entries as any)
+  await db.nutritionDiary.bulkPut(entries)
 }
 
 export async function migrateDiaryFromLocalStorage(): Promise<void> {
@@ -50,16 +50,16 @@ export async function migrateDiaryFromLocalStorage(): Promise<void> {
     // Migrate all nutri:diario_v2:* keys
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (!key || !key.startsWith(LS_PREFIX)) continue
+      if (!key || !key.startsWith(LS_PREFIX)) {continue}
       const date = key.slice(LS_PREFIX.length)
       const raw = localStorage.getItem(key)
-      if (!raw) continue
+      if (!raw) {continue}
       try {
         const entries: DiaryEntry[] = JSON.parse(raw)
         if (Array.isArray(entries) && entries.length > 0) {
           // Ensure each entry has a date field
           const dated = entries.map(e => ({ ...e, date: e.date || date }))
-          await db.nutritionDiary.bulkPut(dated as any)
+          await db.nutritionDiary.bulkPut(dated as DiaryEntry[])
         }
         localStorage.removeItem(key)
       } catch { /* skip corrupted data */ }
@@ -68,15 +68,15 @@ export async function migrateDiaryFromLocalStorage(): Promise<void> {
     const v1Prefix = 'nutri:diario:'
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (!key || !key.startsWith(v1Prefix)) continue
+      if (!key || !key.startsWith(v1Prefix)) {continue}
       const date = key.slice(v1Prefix.length)
       const raw = localStorage.getItem(key)
-      if (!raw) continue
+      if (!raw) {continue}
       try {
         const entries: DiaryEntry[] = JSON.parse(raw)
         if (Array.isArray(entries) && entries.length > 0) {
           const dated = entries.map(e => ({ ...e, date: e.date || date }))
-          await db.nutritionDiary.bulkPut(dated as any)
+          await db.nutritionDiary.bulkPut(dated as DiaryEntry[])
         }
         localStorage.removeItem(key)
       } catch { /* skip */ }
@@ -107,20 +107,20 @@ export async function getAdherenceRecords(): Promise<AdherenceRecord[]> {
 }
 
 export async function saveAdherenceRecords(records: AdherenceRecord[]): Promise<void> {
-  const ids = records.map((r: any) => r.id)
+  const ids = records.map((r) => r.id)
   const existing = await db.nutritionAdherence.toArray()
-  const toDelete = existing.filter((e: any) => !ids.includes(e.id)).map((e: any) => e.id)
-  if (toDelete.length) await db.nutritionAdherence.bulkDelete(toDelete)
-  if (records.length) await db.nutritionAdherence.bulkPut(records as any)
+  const toDelete = existing.filter((e) => !ids.includes(e.id)).map((e) => e.id)
+  if (toDelete.length) {await db.nutritionAdherence.bulkDelete(toDelete)}
+  if (records.length) {await db.nutritionAdherence.bulkPut(records as AdherenceRecord[])}
 }
 
 export async function migrateAdherenceFromLocalStorage(): Promise<void> {
   try {
     const raw = localStorage.getItem(ADHERENCE_KEY)
-    if (!raw) return
+    if (!raw) {return}
     const records: AdherenceRecord[] = JSON.parse(raw)
     if (Array.isArray(records) && records.length > 0) {
-      await db.nutritionAdherence.bulkPut(records as any)
+      await db.nutritionAdherence.bulkPut(records as AdherenceRecord[])
     }
     localStorage.removeItem(ADHERENCE_KEY)
   } catch { /* best-effort */ }

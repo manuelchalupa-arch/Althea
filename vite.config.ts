@@ -37,11 +37,6 @@ export default defineConfig({
             options: { cacheName: 'wasm-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60*60*24*30 }, cacheableResponse: { statuses:[0,200] } }
           },
           {
-            urlPattern: /.*\.wasm$/i,
-            handler: 'CacheFirst',
-            options: { cacheName: 'wasm-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60*60*24*30 }, cacheableResponse: { statuses:[0,200] } }
-          },
-          {
             urlPattern: /^https:\/\/api\.groq\.com\/.*/i,
             handler: 'NetworkOnly',
             options: { cacheName: 'groq-api' }
@@ -53,14 +48,57 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          charts: ['recharts'],
-          db: ['dexie', 'zustand'],
-          transformers: ['@huggingface/transformers']
+        manualChunks: (id) => {
+          // Core vendor
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/scheduler')) {
+            return 'vendor-react'
+          }
+          if (id.includes('node_modules/react-router')) {
+            return 'vendor-router'
+          }
+          // State management
+          if (id.includes('node_modules/dexie') || id.includes('node_modules/zustand')) {
+            return 'vendor-state'
+          }
+          // Charts - split recharts
+          if (id.includes('node_modules/recharts')) {
+            return 'vendor-charts'
+          }
+          // Heavy AI/ML
+          if (id.includes('node_modules/@huggingface/transformers')) {
+            return 'vendor-transformers'
+          }
+          // Firebase
+          if (id.includes('node_modules/firebase')) {
+            return 'vendor-firebase'
+          }
+          // Utils
+          if (id.includes('node_modules/uuid')) {
+            return 'vendor-utils'
+          }
+          // UI icons
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor-icons'
+          }
+          // Other node_modules
+          if (id.includes('node_modules')) {
+            return 'vendor-other'
+          }
         }
       }
-    }
+    },
+    // Reduce chunk size warning threshold
+    chunkSizeWarningLimit: 500,
+    // Enable CSS code splitting
+    cssCodeSplit: true,
+    // Minify options
+    minify: 'esbuild',
+    target: 'es2020'
   },
-  server: { port: 5173 }
+  server: { port: 5173 },
+  // Optimize dependencies
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', 'dexie', 'zustand'],
+    exclude: ['@huggingface/transformers']
+  }
 })

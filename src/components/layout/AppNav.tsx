@@ -28,7 +28,7 @@ export default function AppNav() {
   return (
     <>
       {/* Desktop: sidebar — Hellenic side rail */}
-      <aside className="hidden md:flex fixed left-0 top-[52px] h-[calc(100vh-52px)] w-[208px] z-40 flex-col justify-between py-6 px-3 bg-surface-container-low border-r border-outline-variant/30 shadow-sm transition-colors duration-500">
+      <aside aria-label="Menú lateral" className="hidden md:flex fixed left-0 top-[52px] h-[calc(100vh-52px)] w-[208px] z-40 flex-col justify-between py-6 px-3 bg-surface-container-low border-r border-outline-variant/30 shadow-sm transition-colors duration-500">
         <div className="flex flex-col gap-6">
           {/* Brand Header */}
           <div className={`flex items-center gap-3 px-2 pb-4 mb-3 border-b border-outline-variant/20 ${collapsed ? 'justify-center' : ''}`}>
@@ -102,7 +102,7 @@ export default function AppNav() {
             <NavLink
               key={to} to={to} aria-label={label} title={label}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center py-1 px-2 rounded-lg transition-colors active:scale-[0.97] ${
+                `flex flex-col items-center justify-center py-2 px-3 min-h-[44px] min-w-[44px] rounded-lg transition-colors active:scale-[0.97] ${
                   isActive
                     ? 'text-primary font-bold border-b-2 border-primary'
                     : 'text-on-surface-variant hover:text-primary'
