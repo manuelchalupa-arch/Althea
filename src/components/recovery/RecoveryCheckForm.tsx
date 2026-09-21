@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { recoveryIndex, recoveryColor } from '@/utils/calc'
 import { db } from '@/services/storage/db'
+import { updateRecoveryCheck } from '@/services/recovery/recoveryService'
 
 // Cuestionario de recuperación (nombres internos estables, etiquetas en español).
 // Positivas: energy, mood, motivation · Negativas: fatigue, pain, perceivedExertion, stress.
@@ -36,13 +37,20 @@ export function RecoveryCheckForm({ date, onChange, onSaved }: Props) {
   const [score, setScore] = useState(0)
   const [color, setColor] = useState<'green' | 'yellow' | 'red'>('green')
   const [saving, setSaving] = useState(false)
+  const [hasRecord, setHasRecord] = useState(false)
 
   useEffect(() => {
-    db.recoveryChecks.get(today).then(r => {
+    // Fuente única: Dexie. Migración por única vez del espejo legacy de
+    // localStorage (si existe y Dexie está vacío) sin perder datos.
+    const applyRecord = (r: {
+      energy?: number; fatigue?: number; soreness?: number; pain?: number;
+      motivation?: number; perceivedExertion?: number; stress?: number;
+      painArea?: string; painObservation?: string; score?: number;
+    } | undefined) => {
       if (r && r.energy !== undefined) {
         const v: RecoveryCheckValues = {
           energy: Number(r.energy ?? 7), fatigue: Number(r.fatigue ?? 4),
-          pain: Number((r as { soreness?: number }).soreness ?? 2), mood: Number(r.motivation ?? 7),
+          pain: Number(r.soreness ?? r.pain ?? 2), mood: Number(r.motivation ?? 7),
           motivation: Number(r.motivation ?? 7), perceivedExertion: Number(r.perceivedExertion ?? 5),
           stress: Number(r.stress ?? 3), painArea: String(r.painArea ?? ''), painObservation: String(r.painObservation ?? ''),
         }
@@ -50,25 +58,39 @@ export function RecoveryCheckForm({ date, onChange, onSaved }: Props) {
         const s = typeof r.score === 'number' ? r.score : recoveryIndex(v)
         const c = recoveryColor(s)
         setScore(s); setColor(c)
+        setHasRecord(true)
         onChange?.(v, s, c)
       } else {
-        const saved = localStorage.getItem('recovery:' + today)
-        if (saved) {
-          try {
-            const v = { ...DEFAULT_RECOVERY_VALS, ...JSON.parse(saved) }
-            setVals(v)
-            const s = recoveryIndex(v)
-            const c = recoveryColor(s)
-            setScore(s); setColor(c)
-            onChange?.(v, s, c)
-          } catch { /* noop */ }
-        } else {
-          const s = recoveryIndex(DEFAULT_RECOVERY_VALS)
-          const c = recoveryColor(s)
-          setScore(s); setColor(c)
-          onChange?.(DEFAULT_RECOVERY_VALS, s, c)
-        }
+        const s = recoveryIndex(DEFAULT_RECOVERY_VALS)
+        const c = recoveryColor(s)
+        setScore(s); setColor(c)
+        setHasRecord(false)
+        onChange?.(DEFAULT_RECOVERY_VALS, s, c)
       }
+    }
+    db.recoveryChecks.get(today).then(async r => {
+      if (r) {
+        applyRecord(r)
+        return
+      }
+      try {
+        const mirror = localStorage.getItem('recovery:' + today)
+        if (mirror) {
+          const v = { ...DEFAULT_RECOVERY_VALS, ...JSON.parse(mirror) }
+          await updateRecoveryCheck({
+            energy: v.energy, fatigue: v.fatigue, stress: v.stress,
+            soreness: v.pain, motivation: v.motivation,
+            perceivedExertion: v.perceivedExertion,
+            painArea: v.painArea, painObservation: v.painObservation,
+            score: recoveryIndex(v), color: recoveryColor(recoveryIndex(v)),
+          }, today)
+          localStorage.removeItem('recovery:' + today)
+          const migrated = await db.recoveryChecks.get(today).catch(() => undefined)
+          applyRecord(migrated)
+          return
+        }
+      } catch { /* noop */ }
+      applyRecord(undefined)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today])
@@ -85,9 +107,16 @@ export function RecoveryCheckForm({ date, onChange, onSaved }: Props) {
   const save = async () => {
     setSaving(true)
     try {
-      localStorage.setItem('recovery:' + today, JSON.stringify(vals))
-      await db.recoveryChecks.put({ id: today, localDate: today, ...vals, score, color })
-      try { window.dispatchEvent(new Event('recoveryChange')) } catch { /* noop */ }
+      // Guardado no destructivo vía servicio (merge sobre lo existente).
+      // `pain` interno se persiste como `soreness` canónico.
+      await updateRecoveryCheck({
+        energy: vals.energy, fatigue: vals.fatigue, stress: vals.stress,
+        soreness: vals.pain, motivation: vals.motivation,
+        perceivedExertion: vals.perceivedExertion,
+        painArea: vals.painArea, painObservation: vals.painObservation,
+        score, color,
+      }, today)
+      setHasRecord(true)
       onSaved?.(score)
     } finally {
       setSaving(false)
@@ -100,6 +129,9 @@ export function RecoveryCheckForm({ date, onChange, onSaved }: Props) {
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant opacity-70">RECUPERACIÓN</div>
         <div className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface mt-1 flex items-center justify-center gap-2">{score}/100 <span aria-hidden className={`inline-block w-3 h-3 rounded-full ${color === 'green' ? 'bg-success' : color === 'yellow' ? 'bg-warning' : 'bg-danger'}`}></span></div>
         <div className="font-body-md text-sm text-on-surface opacity-80 mt-1">{color === 'green' ? 'Normal' : color === 'yellow' ? 'Moderada' : 'Baja'} — {color === 'green' ? 'Listo para entrenar' : color === 'yellow' ? 'Considerá bajar volumen' : 'Priorizá descanso'}</div>
+        {!hasRecord && (
+          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant opacity-70 mt-1">Sin check-in guardado — completá y guardá para registrar tu estado real</div>
+        )}
       </div>
 
       <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-3">

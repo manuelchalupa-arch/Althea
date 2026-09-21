@@ -22,9 +22,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   const diaInfo = getTrainingDayForDate(today, cycle)
   const dia = diaInfo.isRest ? 'Descanso' : `Día N°${diaInfo.n} ${diaInfo.name}`
   const objetivo = profile?.goal ?? 'hipertrofia'
-  let storedTone: string | null = null
-  try { storedTone = localStorage.getItem('coachIntensity') } catch { /* noop */ }
-  const personalidad = mapTone(storedTone || profile?.coachIntensity) as AIContext['personalidad']
+  const personalidad = mapTone(profile?.coachTone || profile?.coachIntensity) as AIContext['personalidad']
 
   // últimas 3 sesiones del ejercicio — unión oficial+legacy (no solo setLogs)
   let historial:{peso:number;reps:number;rpe?:number}[] = []
@@ -36,16 +34,16 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     }catch{ /* noop */ }
   }
 
-  // recuperación hoy
-  const rec = await db.recoveryChecks.get(today) as RecoveryCheck | undefined ?? JSON.parse(localStorage.getItem('recovery:'+today)||'null')
+  // recuperación hoy (solo Dexie; sin dato → "no registrada")
+  const rec = await db.recoveryChecks.get(today) as RecoveryCheck | undefined ?? undefined
   const fatiga = rec ? (rec.fatigue>7?'alta': rec.fatigue>4?'moderada':'baja') : 'no registrada'
   const sueno = rec ? `${rec.sleepHours}h` : 'no registrado'
   const energia = rec ? `${rec.energy}/10` : 'no registrada'
 
-  // hidratación hoy
+  // hidratación hoy (real; sin registros → 0, no se inventa)
   const hydLogs0 = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(()=>[])
-  const hyd = hydLogs0.length ? hydLogs0.reduce((a,b)=>a+b.amountMl,0) : 1500
-  const hidratacion = `Hoy ${hyd} ml / 2500 ml`
+  const hyd = hydLogs0.reduce((a,b)=>a+Number(b.amountMl||0),0)
+  const hidratacion = hydLogs0.length ? `Hoy ${hyd} ml / 2500 ml` : 'Sin datos'
 
   // dolor real: surveys post-entreno (zona/detalle) + QA de dolor, no keys legacy
   let pain = 'sin dolor'
@@ -68,21 +66,19 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   // hidratación tendencia
   const hydLogs = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(()=>[])
   const hydTrend: string = hydLogs.length ? `${hydLogs.reduce((a,b)=>a+b.amountMl,0)}ml hoy` : hidratacion
-  // memoria coach + última observación + perfil completo
-  let prefs: Record<string, unknown> = {}
-  try{ prefs = JSON.parse(localStorage.getItem('coachPrefs')||'{}')}catch{}
-  const decisiones = (JSON.parse(localStorage.getItem('coachMemory')||'[]') as CoachMemoryEntry[])
-  const tendencia = decisiones.slice(-5).map(d=> `${d.type}:${(d as { motive?: string; reason?: string }).motive || (d as { motive?: string; reason?: string }).reason || ''}`).join(' | ') || 'sin tendencia'
+  // memoria coach + última observación + perfil completo (solo Dexie)
+  const { getPrefs: getCoachPrefs, getAllDecisions: getCoachDecisions } = await import('./coachMemory')
+  const prefs: Record<string, unknown> = await getCoachPrefs().catch(() => ({}))
+  const decisiones = await getCoachDecisions().catch(() => [])
+  const tendencia = decisiones.slice(-5).map(d=> `${d.type}:${d.motive || d.reason || ''}`).join(' | ') || 'sin tendencia'
   let ultimaObs: { motivos?: string[]; dolorDetalle?: string; comentario?: string } | null = null
-  try{ ultimaObs = JSON.parse(localStorage.getItem(`observation:${today}`)||'null') }catch{}
-  if(!ultimaObs){
-    for(let i=1;i<=7;i++){
-      const d=new Date(); d.setDate(d.getDate()-i); const k=d.toISOString().slice(0,10)
-      try{ const v=JSON.parse(localStorage.getItem(`observation:${k}`)||'null'); if(v){ ultimaObs=v; break}}catch{}
-    }
-  }
+  try {
+    const obsRows = await db.sessionObservations.orderBy('date').reverse().limit(8).toArray().catch(() => [])
+    const found = obsRows.find(r => r && (r.motivos || r.comentario || r.dolorDetalle))
+    if (found) { ultimaObs = { motivos: found.motivos, dolorDetalle: found.dolorDetalle, comentario: found.comentario } }
+  } catch { /* noop */ }
   const needs = profile?.needsDescription || ''
-  const excluded: string[] = profile?.excludedExercises || JSON.parse(localStorage.getItem('onboard:excluded')||'[]')
+  const excluded: string[] = profile?.excludedExercises || []
   const limitations = profile?.limitations || []
   const painAreas = profile?.painAreas || []
   // NUTRITION_CONTEXT
@@ -144,10 +140,65 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   try{
     const tags: string[] = [objetivo]
     if(exerciseId) {tags.push('ejercicio')}
-    if(Number(rec?.pain ?? 0) > 5) {tags.push('dolor', 'recuperación')}
+    if(Number(rec?.soreness ?? (rec as { pain?: number })?.pain ?? 0) > 5) {tags.push('dolor', 'recuperación')}
     const chunks = await retrieveRelevant(tags, 3)
     knowledgeChunks = chunks.map(c => c.content.slice(0, 200))
   }catch{ /* noop */ }
+
+  // ─── ET16: patrones observacionales (solo lectura, con evidencia) ───
+  let patterns: { kind: string; statement: string; evidence: string[] }[] | undefined
+  try {
+    const { learnPatterns } = await import('./patternLearning')
+    const learned = await learnPatterns()
+    if (learned.length > 0) { patterns = learned.slice(0, 8) }
+  } catch { /* noop */ }
+
+  // ─── ET17: rutina, versión, sustituciones y mapa (solo lectura) ───
+  let rutina: { name?: string; version?: number; planVersion?: number } | undefined
+  let sustituciones: string[] | undefined
+  let mapaMuscular: string | undefined
+  try {
+    const { getActiveRoutine } = await import('@/services/storage/routineStore')
+    const active = await getActiveRoutine().catch(() => null)
+    if (active) {
+      rutina = { name: active.name, version: (active as { version?: number }).version }
+      try {
+        const { getActiveVersion, PROFILE_SCOPE } = await import('@/services/planning/cycleVersions')
+        const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+        if (pv) { rutina.planVersion = pv.version }
+      } catch { /* noop */ }
+    }
+  } catch { /* noop */ }
+  try {
+    const allSE = await db.sessionExercises.toArray().catch(() => [])
+    const swaps = allSE
+      .filter(se => (se as { status?: string }).status === 'REPLACED' && (se as { replacement?: { originalExerciseId?: string } }).replacement)
+      .slice(-5)
+      .map(se => {
+        const r = (se as { replacement: { originalExerciseId: string }; exerciseId: string }).replacement
+        return `${r.originalExerciseId} → ${se.exerciseId}`
+      })
+    if (swaps.length > 0) { sustituciones = swaps }
+  } catch { /* noop */ }
+  try {
+    const { muscleLoadOf } = await import('@/services/training/metrics')
+    const { buildMuscleResolver } = await import('@/services/training/muscleAttribution')
+    const { fetchPartMap } = await import('@/services/exerciseGym')
+    const partMap = await fetchPartMap().catch(() => ({} as Record<string, string>))
+    const resolver = await buildMuscleResolver(partMap).catch(() => null)
+    if (resolver) {
+      const cut = new Date(); cut.setDate(cut.getDate() - 30)
+      const cutStr = cut.toISOString().slice(0, 10)
+      const { unifiedAllCompletedSets } = await import('@/services/history')
+      const all = await unifiedAllCompletedSets().catch(() => [])
+      const items = all.filter(s => s.createdAt.slice(0, 10) >= cutStr)
+        .map(s => ({ exerciseId: s.exerciseId, volume: s.weight * s.reps }))
+      const load = muscleLoadOf(items, resolver.muscleOf)
+      if (load.loads.length > 0) {
+        mapaMuscular = load.loads.slice(0, 3).map(m => `${m.muscle} ${m.pct}%`).join(', ')
+      }
+    }
+  } catch { /* noop */ }
 
   // ─── Coach IA v2: progress analyzer ───
   let progressData: { trend?: string; rate?: number; confidence?: number } | undefined
@@ -196,6 +247,10 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     userProfile: profile || {},
     knowledgeChunks,
     progress: progressData,
+    patterns,
+    rutina,
+    sustituciones,
+    mapaMuscular,
     recovery: recoveryData,
     nutritionAnalysis,
     sessionPain: undefined,
@@ -259,8 +314,12 @@ MEMORIA LONGITUDINAL (datos reales):
 ${sc}
 Patrones:
 ${ins}
+${ctx.patterns?.length ? `Patrones observados:\n${ctx.patterns.map(p => `[${p.kind}] ${p.statement}`).join('\n')}` : ''}
+${ctx.rutina?.name ? `Rutina activa: ${ctx.rutina.name}${ctx.rutina.version ? ` (v${ctx.rutina.version})` : ''}${ctx.rutina.planVersion ? `, planificación v${ctx.rutina.planVersion}` : ''}` : ''}
+${ctx.sustituciones?.length ? `Sustituciones recientes: ${ctx.sustituciones.join(' | ')}` : ''}
+${ctx.mapaMuscular ? `Mapa muscular 30d: ${ctx.mapaMuscular}` : ''}
 Respuestas del usuario:
 ${qaLines}
 
-INSTRUCCIÓN: Genera 1 recomendación breve en español con el tono indicado, con lista de por qué. Si corresponde a ejercicio, usa solo ExerciseGymGifsDB y menciona gifUrl alternativo si es change_exercise. Si es nutrición, usa solo Codulia y menciona macros por 100g/ml + porción real. No inventes valores no registrados. Devuelve SOLO JSON como en ejemplos.`
+INSTRUCCIÓN: Genera 1 recomendación breve en español con el tono indicado, con lista de por qué. Explicá siempre con estas etiquetas: Dato: (lo registrado), Cálculo: (métrica derivada), Te recomiendo: (acción propuesta), Mi opinión: (juicio explícito como opinión). Si no hay datos suficientes, decilo. Nunca modifiques rutinas, objetivos ni históricos: solo recomendá y esperá la decisión del usuario. Si corresponde a ejercicio, usa solo ExerciseGymGifsDB y menciona gifUrl alternativo si es change_exercise. Si es nutrición, usa solo Codulia y menciona macros por 100g/ml + porción real. No inventes valores no registrados. Devuelve SOLO JSON como en ejemplos.`
 }

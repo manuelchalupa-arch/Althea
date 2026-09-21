@@ -1,6 +1,6 @@
 // MEMORY MANAGER — Memoria expandida: preferencias, patrones, historial
 import { db } from '@/services/storage/db'
-import { getAllDecisions, getAllAnswers } from './coachMemory'
+import { getAllDecisions, getAllAnswers, getPrefs } from './coachMemory'
 
 export interface UserMemory {
   preferences: Record<string, unknown>
@@ -55,12 +55,13 @@ export async function buildUserMemory(): Promise<UserMemory> {
     }
   }
 
-  // Preferencias de tono
-  const tone = localStorage.getItem('coachIntensity') || 'ABUELITOS'
+  // Preferencias de tono: perfil Dexie (sin localStorage como fuente)
+  const profile = await db.userProfile.get('me').catch(() => null) as { coachTone?: string } | null
+  const tone = profile?.coachTone || 'ABUELITOS'
   const directness = tone === 'PSYCHO' ? 0.9 : tone === 'ARNOLD' ? 0.7 : tone === 'ABUELITOS' ? 0.5 : 0.3
 
   return {
-    preferences: JSON.parse(localStorage.getItem('coachPrefs') || '{}'),
+    preferences: await getPrefs(),
     patterns: {
       frequentExercises: Object.entries(exCounts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id]) => id),
       avoidedExercises: Object.entries(avoided).filter(([, c]) => c >= 2).map(([id]) => id),

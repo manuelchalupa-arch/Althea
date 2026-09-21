@@ -14,6 +14,7 @@ import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import * as Gym from '@/services/exerciseGym'
 import { PeriodizationEditor } from '@/components/recovery/PeriodizationEditor'
+import { MAX_ROUTINES } from '@/services/storage/routineStore'
 
 const WEEK_LABELS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
 
@@ -34,6 +35,17 @@ type RutinaData = {
   rotationDays: number
   cycle: CycleConfig
   dayExercises: Record<number, {id:string; exId:string; sets:number; reps:number; weight:number; gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string}[]>
+  version?: number
+  archived?: boolean
+}
+
+// Texto de diferencia entre versiones para comparar sin modificar nada.
+function diffText(d: { added: { day: number; name: string }[]; removed: { day: number; name: string }[]; changed: { day: number; name: string; from: string; to: string }[] }): string {
+  const parts: string[] = []
+  for (const a of d.added) { parts.push(`+ día ${a.day}: ${a.name}`) }
+  for (const r of d.removed) { parts.push(`− día ${r.day}: ${r.name}`) }
+  for (const c of d.changed) { parts.push(`~ día ${c.day}: ${c.name} (${c.from} → ${c.to})`) }
+  return parts.length ? parts.join(' · ') : 'Sin diferencias.'
 }
 
 // Migración no destructiva: si existe viejo formato, convertir a lista
@@ -76,13 +88,26 @@ export default function RutinaPage(){
   const [aiPreview,setAiPreview]=useState<GeneratedRoutine|null>(null)
   const [showQuestionnaire,setShowQuestionnaire]=useState(false)
   const [showPeriodization,setShowPeriodization]=useState(false)
+  const [versions,setVersions]=useState<RutinaData[]>([])
+  const [versionNotice,setVersionNotice]=useState<string|null>(null)
+  const [compareId,setCompareId]=useState<string|null>(null)
+
+  const loadVersions = (id: string | null) => {
+    if (!id) { setVersions([]); return }
+    import('@/services/storage/routineStore').then(({ listRoutineVersions }) =>
+      listRoutineVersions(id).then(v => {
+        setVersions(v as unknown as RutinaData[])
+        setCompareId(prev => prev ?? null)
+      }).catch(() => {})
+    ).catch(() => {})
+  }
 
   useEffect(()=>{
     ensureSeeded().then(async()=>{
       const ex = await db.exercises.toArray(); setExercises(ex)
       // Load routines from Dexie (with migration from localStorage)
       const { list, activeId: aid } = await loadRoutines()
-      setRoutines(list); setActiveId(aid); setRoutinesLoaded(true)
+      setRoutines(list); setActiveId(aid); setRoutinesLoaded(true); loadVersions(aid)
       // si active no tiene cycle, intenta cargar de userProfile
       const p = await db.userProfile.get('me')
       if(p?.cycle && list.length===1 && JSON.stringify(list[0].cycle)===JSON.stringify(DEFAULT_CYCLE)){
@@ -104,16 +129,34 @@ export default function RutinaPage(){
     const days = Math.floor((Date.now() - new Date(active.createdAt).getTime())/86400000)
     if(days >= active.rotationDays){
       const hist = Object.values(active.dayExercises).flat().slice(0,3).map(x=> x.name || x.exId).join(', ')
-      setRotationRec(`Tu rutina "${active.name}" lleva ${days} días (límite ${active.rotationDays}). Ejercicios: ${hist || '—'}. Sugerencia: cambiar Press inclinado con barra por Press inclinado con mancuernas (mismo grupo pecho).`)
+      setRotationRec(`Tu rutina "${active.name}" lleva ${days} días (límite ${active.rotationDays}). Ejercicios: ${hist || '—'}. Sugerencia: revisá si algún ejercicio se estancó o molesta y considerá una variante del mismo grupo. Nada cambia sin tu decisión.`)
     } else {setRotationRec(null)}
   },[activeId, active?.cycle, active?.createdAt])
 
   const updateActive = (fn:(r:RutinaData)=>RutinaData)=>{
-    const next = routines.map(r=> r.id===activeId ? {...fn(r), updatedAt: new Date().toISOString()} : r)
-    setRoutines(next); saveRoutines(next, activeId)
+    const changed = {...fn(routines.find(r=>r.id===activeId) as RutinaData), updatedAt: new Date().toISOString()}
+    const next = routines.map(r=> r.id===activeId ? changed : r)
+    setRoutines(next)
+    // Versionado (ET13): si la rutina ya fue usada y cambió, se archiva vN.
+    import('@/services/storage/routineStore').then(async ({ saveRoutineVersioned }) => {
+      try {
+        const { saved } = await saveRoutineVersioned(changed as never)
+        const version = (saved as unknown as { version?: number }).version
+        if (version) {
+          const withV = next.map(r=> r.id===activeId ? {...r, version} : r)
+          setRoutines(withV)
+          saveRoutines(withV, activeId)
+          setVersionNotice(`Versión v${version} guardada (anterior preservada).`)
+          loadVersions(activeId)
+          return
+        }
+      } catch { /* noop */ }
+      saveRoutines(next, activeId)
+    }).catch(()=> saveRoutines(next, activeId))
   }
   const setActive = (id:string)=>{
     setActiveId(id)
+    loadVersions(id)
     import('@/services/storage/routineStore').then(({ setActiveRoutineId }) => setActiveRoutineId(id))
     // sync cycle
     const r = routines.find(x=>x.id===id)
@@ -123,8 +166,8 @@ export default function RutinaPage(){
     })}
   }
   const createNew = ()=>{
-    if(routines.length>=4){
-      alert('Tenés 4 rutinas guardadas.\nPara crear otra rutina, modificá o eliminá una de las existentes.')
+    if(routines.length>=MAX_ROUTINES){
+      alert(`Tenés ${MAX_ROUTINES} rutinas guardadas.\nPara crear otra rutina, modificá o eliminá una de las existentes.`)
       return
     }
     if(!newName.trim()){ alert('Ingresá un nombre'); return }
@@ -134,6 +177,23 @@ export default function RutinaPage(){
     }
     const next = [...routines, data]
     setRoutines(next); setActiveId(data.id); saveRoutines(next, data.id); setNewName(''); setShowNew(false)
+  }
+  const duplicateRoutine = (id:string)=>{
+    const src = routines.find(r=>r.id===id)
+    if(!src) {return}
+    import('@/services/storage/routineStore').then(async ({ MAX_ROUTINES }) => {
+      if(routines.length>=MAX_ROUTINES){
+        alert(`Tenés ${MAX_ROUTINES} rutinas guardadas.\nPara crear otra rutina, modificá o eliminá una de las existentes.`)
+        return
+      }
+      const copy: RutinaData = {
+        ...JSON.parse(JSON.stringify(src)),
+        id: uuid(), name: `${src.name} (copia)`,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      }
+      const next = [...routines, copy]
+      setRoutines(next); setActiveId(copy.id); saveRoutines(next, copy.id)
+    }).catch(()=>{})
   }
   const deleteRoutine = (id:string)=>{
     if(!confirm('¿Eliminar esta rutina?\nEsta acción eliminará la rutina guardada y su configuración.')) {return}
@@ -213,7 +273,11 @@ export default function RutinaPage(){
         <div className="flex gap-2 items-center">
           <input value={active.name} onChange={e=> updateActive(r=> ({...r, name: e.target.value}))} className="flex-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface font-medium" />
           <button onClick={()=>deleteRoutine(active.id)} className="px-3 py-2 rounded bg-surface/60 border border-outline-variant font-body-md text-sm text-on-surface flex items-center gap-1"><Trash2 size={14}/> Eliminar</button>
+          <button onClick={()=>duplicateRoutine(active.id)} className="px-3 py-2 rounded bg-surface/60 border border-outline-variant font-body-md text-sm text-on-surface flex items-center gap-1">Duplicar</button>
         </div>
+        {versionNotice && (
+          <p className="font-body-sm text-[12px] text-secondary">{versionNotice}</p>
+        )}
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Clock size={12}/> Creada {new Date(active.createdAt).toLocaleDateString('es')} · {daysElapsed} días</div>
         <div className="flex gap-2 items-center">
           <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Período para revisar</span>
@@ -312,6 +376,33 @@ export default function RutinaPage(){
         <div className="mt-2 flex gap-1 flex-wrap">
           {routines.map(r=> <span key={r.id} className={`px-2 py-1 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${r.id===activeId?'bg-primary text-on-surface border-primary':'bg-surface/60 border-outline-variant'}`}>{r.name}</span>)}
         </div>
+      </div>
+
+      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+          Versiones{active.version ? ` · actual v${active.version}` : ''}{versions.length > 0 ? ` · ${versions.length} histórica(s)` : ' · sin versiones previas'}
+        </div>
+        {versions.length > 0 && (
+          <div className="mt-2 space-y-2">
+            <div className="flex gap-1 flex-wrap">
+              {versions.map(v=> <span key={v.id} className="px-2 py-1 rounded-full border bg-surface/60 border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">v{v.version ?? '?'} · {new Date(v.updatedAt).toLocaleDateString('es')}</span>)}
+            </div>
+            <label className="block font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Comparar con actual
+              <select value={compareId ?? ''} onChange={async e=>{
+                const id = e.target.value || null
+                setCompareId(id)
+                if(id){
+                  const { diffRoutines } = await import('@/services/storage/routineStore')
+                  const old = versions.find(v=>v.id===id)
+                  if(old){ setVersionNotice(diffText(diffRoutines(old as never, active as never))) }
+                } else { setVersionNotice(null) }
+              }} className="w-full mt-1 bg-surface/60 border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface">
+                <option value="">Sin comparar</option>
+                {versions.map(v=> <option key={v.id} value={v.id}>v{v.version ?? '?'} · {new Date(v.updatedAt).toLocaleDateString('es')}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">

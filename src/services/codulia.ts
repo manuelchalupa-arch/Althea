@@ -65,9 +65,10 @@ type BarcodeResponse = { food: CoduliaFoodDetail }
 type DetailResponse = { food: CoduliaFoodDetail }
 
 function getKey(): string {
-  // Prioridad: env de build (Vite) > localStorage (compatibilidad)
-  const envKey = (import.meta as any).env?.VITE_CODULIA_API_KEY || ''
-  return envKey || localStorage.getItem('codulia_api_key') || ''
+  // Solo clave explícita del usuario en este dispositivo (nunca embebida en
+  // el bundle: VITE_* se inlina en build y expondría cualquier secreto).
+  // Sin clave → servicio deshabilitado con mensaje honesto (sin bloquear la app).
+  try { return localStorage.getItem('codulia_api_key') || '' } catch { return '' }
 }
 export function setCoduliaKey(k:string){ localStorage.setItem('codulia_api_key', k.trim()) }
 export function getCoduliaKey(){ return getKey() }

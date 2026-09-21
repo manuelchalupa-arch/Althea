@@ -1,5 +1,6 @@
 // PROGRESS ANALYZER — Tendencia, plateau, correlación, predicción
 import { db } from '@/services/storage/db'
+import { unifiedCompletedSets } from '@/services/history'
 
 export interface ProgressResult {
   trend: 'improving' | 'plateau' | 'declining'
@@ -7,7 +8,11 @@ export interface ProgressResult {
   confidence: number // 0-1
   plateauWeeks: number // semanas en plateau
   volumeTrend: number[] // volúmenes semanales recientes
+  sufficientData: boolean // evidencia mínima para afirmar tendencia/estancamiento
 }
+
+export const MIN_EXERCISE_LOGS = 8
+export const MIN_GLOBAL_SESSIONS = 6
 
 /** Analizar tendencia de un ejercicio específico */
 export async function analyzeExercise(
@@ -18,29 +23,21 @@ export async function analyzeExercise(
   since.setDate(since.getDate() - weeks * 7)
   const sinceStr = since.toISOString()
 
-  // Unificar legacy + oficial
-  const [legacy, official] = await Promise.all([
-    db.setLogs.where('exerciseId').equals(exerciseId).toArray().catch(() => []),
-    db.setRecords.where('exerciseId').equals(exerciseId).toArray().catch(() => []),
-  ])
+  // Historial unificado y deduplicado (capa lógica única de lectura).
+  const unified = await unifiedCompletedSets(exerciseId)
 
-  const allLogs = [
-    ...legacy.filter((l: any) => l.completed && l.createdAt >= sinceStr).map((l: any) => ({
+  const allLogs = unified
+    .filter(l => l.createdAt >= sinceStr)
+    .map(l => ({
       date: String(l.createdAt).slice(0, 10),
       weight: l.weight,
       reps: l.reps,
       volume: l.weight * l.reps,
-    })),
-    ...official.filter((r: any) => r.status === 'COMPLETED' && (r.completedAt || r.createdAt) >= sinceStr).map((r: any) => ({
-      date: String(r.completedAt || r.createdAt).slice(0, 10),
-      weight: r.actualWeight,
-      reps: r.actualReps,
-      volume: r.actualWeight * r.actualReps,
-    })),
-  ].sort((a, b) => a.date.localeCompare(b.date))
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date))
 
   if (allLogs.length < 4) {
-    return { trend: 'plateau', rate: 0, confidence: 0.3, plateauWeeks: 0, volumeTrend: [] }
+    return { trend: 'plateau', rate: 0, confidence: 0.3, plateauWeeks: 0, volumeTrend: [], sufficientData: false }
   }
 
   // Agrupar por semana
@@ -76,6 +73,7 @@ export async function analyzeExercise(
     confidence: Math.min(1, allLogs.length / 20),
     plateauWeeks,
     volumeTrend: volumes.slice(-6),
+    sufficientData: allLogs.length >= MIN_EXERCISE_LOGS,
   }
 }
 
@@ -89,7 +87,7 @@ export async function analyzeGlobal(weeks = 4): Promise<ProgressResult> {
   const finals = sessions.filter(s => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus) && s.calendarDate >= sinceStr.slice(0, 10))
 
   if (finals.length < 3) {
-    return { trend: 'plateau', rate: 0, confidence: 0.2, plateauWeeks: 0, volumeTrend: [] }
+    return { trend: 'plateau', rate: 0, confidence: 0.2, plateauWeeks: 0, volumeTrend: [], sufficientData: false }
   }
 
   const weeklyVols: Record<string, number> = {}
@@ -99,7 +97,7 @@ export async function analyzeGlobal(weeks = 4): Promise<ProgressResult> {
   }
   const volumes = Object.values(weeklyVols)
   if (volumes.length < 2) {
-    return { trend: 'plateau', rate: 0, confidence: 0.3, plateauWeeks: 0, volumeTrend: volumes }
+    return { trend: 'plateau', rate: 0, confidence: 0.3, plateauWeeks: 0, volumeTrend: volumes, sufficientData: false }
   }
 
   const first = volumes[0]
@@ -116,6 +114,7 @@ export async function analyzeGlobal(weeks = 4): Promise<ProgressResult> {
     confidence: Math.min(1, finals.length / 12),
     plateauWeeks: 0,
     volumeTrend: volumes.slice(-6),
+    sufficientData: finals.length >= MIN_GLOBAL_SESSIONS,
   }
 }
 

@@ -201,6 +201,11 @@ async function applyTransition(
   });
   if (FINAL_STATES.includes(target)) {setActiveSessionId(null);}
   else {setActiveSessionId(s.sessionId);}
+  // Cola de sync (FASE 8): la sesión finalizada queda pendiente de respaldo.
+  // Best-effort: lo local ya está guardado.
+  if (FINAL_STATES.includes(target)) {
+    import('@/services/sync/opQueue').then(({ enqueueOp }) => enqueueOp('trainingSessions', s.sessionId)).catch(() => {})
+  }
   return nx;
 }
 
@@ -457,11 +462,20 @@ export async function createReadySession(input: {
   dayChangeReason?: string; dayChangeComment?: string;
   cycleId?: string; weekNumber?: number;
 }): Promise<ActiveSession> {
+  // Estampa la versión de planificación vigente (FASE 3). Si el llamante ya
+  // trae cycleId o no hay versión activa, se conserva el comportamiento previo.
+  let cycleId = input.cycleId
+  if (!cycleId) {
+    try {
+      const { getActiveVersion, PROFILE_SCOPE } = await import('@/services/planning/cycleVersions')
+      cycleId = (await getActiveVersion(PROFILE_SCOPE))?.id
+    } catch { /* noop */ }
+  }
   const created = await createSession({
     routineId: input.routineId, routineName: input.routineName,
     plannedDay: input.plannedDay, plannedDayName: input.plannedDayName,
     actualDay: input.actualDay, actualDayName: input.actualDayName,
-    calendarDate: input.calendarDate, cycleId: input.cycleId, weekNumber: input.weekNumber,
+    calendarDate: input.calendarDate, cycleId, weekNumber: input.weekNumber,
     dayChange: input.dayChangeReason ? { reason: input.dayChangeReason, comment: input.dayChangeComment } : undefined,
     plannedExercises: input.exercises,
   });

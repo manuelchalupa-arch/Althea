@@ -40,7 +40,7 @@ export interface SetLog {
   id: string; sessionId: string; exerciseId: string; setNumber: number
   weight: number; reps: number; rpe?: number; rir?: number; completed: boolean; notes?: string; createdAt: string
 }
-export interface RecoveryCheck { id: string; localDate: string; energy: number; fatigue: number; stress: number; sleepHours?: number; sleepQuality?: number; soreness?: number; motivation: number; digestion?: number; hydration?: number; score: number; color: 'green'|'yellow'|'red'; perceivedExertion?: number; painArea?: string; painObservation?: string; isDemo?: boolean }
+export interface RecoveryCheck { id: string; localDate: string; energy: number; fatigue: number; stress: number; sleepHours?: number; sleepQuality?: number; soreness?: number; motivation: number; digestion?: number; hydration?: number; score: number; color: 'green'|'yellow'|'red'; perceivedExertion?: number; painArea?: string; painObservation?: string; notes?: string; isDemo?: boolean }
 export interface HydrationLog { id: string; localDate: string; amountMl: number; time: string; isDemo?: boolean }
 export interface PainLog {
   id: string
@@ -56,6 +56,7 @@ export interface UserProfile {
   id: string; goal: Goal; level: Level; availableDays: number[]; trainingTime: string
   equipment: Equipment[]; units: { weight: 'kg'|'lb'; liquid: 'ml'|'oz' }; lang: string
   coachIntensity: CoachIntensity; onboardingDone: boolean; hydrationGoalMl: number
+  coachMethodView?: string; coachTone?: string
   createdAt: string; updatedAt: string
   cycle?: { startDate: string; trainingDays: { n:number; name:string }[]; weekMap: (number|null)[]; methodId?: string; methodJustification?: string }
   // Perfil onboarding Coach IA

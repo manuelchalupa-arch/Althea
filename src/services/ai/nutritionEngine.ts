@@ -216,3 +216,102 @@ function buildTrainingNutritionAdvice(
 
   return { caloricState, deficitAggressive, proteinAdequate, message }
 }
+
+// ---- Sugerencias del día (FASE 6) ----
+// Solo lectura: combinan objetivo, diario, entrenamiento, recuperación e
+// hidratación. Nunca registran consumo; la UI las muestra como sugerencias.
+// Sin base mínima (metas + alguna señal del día) → mensaje de insuficiencia.
+export interface NutritionSuggestion {
+  title: string
+  detail: string
+  kind: 'protein' | 'calories' | 'training' | 'recovery' | 'hydration' | 'method'
+  origin: 'dato' | 'cálculo'
+}
+
+export interface SuggestionInput {
+  goals: { calories: number; protein: number; carbs: number; fat: number } | null
+  dayTotals: { calories: number; protein: number; carbs: number; fat: number }
+  mealsLogged: number
+  trainingTodayName: string | null
+  todayVolumeKg: number
+  lastRecoveryScore: number | null
+  hydrationMl: number | null
+  hydrationGoalMl: number | null
+  allergies: string[]
+  dislikedFoods: string[]
+  methodName: string | null
+}
+
+const PROTEIN_FOODS = [
+  'Pechuga de pollo', 'Huevos', 'Skyr / yogur griego', 'Atún al natural',
+  'Lentejas', 'Carne magra', 'Tofu', 'Leche descremada',
+]
+
+function passesRestrictions(food: string, allergies: string[], disliked: string[]): boolean {
+  const f = food.toLowerCase()
+  const blocked = [...allergies, ...disliked].map(s => s.toLowerCase()).filter(Boolean)
+  return !blocked.some(b => b && (f.includes(b) || b.includes(f)))
+}
+
+export function buildNutritionSuggestions(input: SuggestionInput): NutritionSuggestion[] | null {
+  const {
+    goals, dayTotals, mealsLogged, trainingTodayName, todayVolumeKg,
+    lastRecoveryScore, hydrationMl, hydrationGoalMl,
+    allergies, dislikedFoods, methodName,
+  } = input
+  if (!goals) { return null }
+  const out: NutritionSuggestion[] = []
+
+  if (dayTotals.protein < goals.protein * 0.5) {
+    const options = PROTEIN_FOODS.filter(f => passesRestrictions(f, allergies, dislikedFoods)).slice(0, 3)
+    if (options.length > 0) {
+      out.push({
+        title: 'Refuerzo proteico',
+        detail: `Llevás ${Math.round(dayTotals.protein)}g de ${goals.protein}g. Opciones: ${options.join(', ')}.`,
+        kind: 'protein',
+        origin: 'cálculo',
+      })
+    }
+  }
+  if (dayTotals.calories < goals.calories * 0.4 && mealsLogged <= 1) {
+    out.push({
+      title: 'Completá tus comidas',
+      detail: `Registraste ${mealsLogged} comida(s) y ${Math.round(dayTotals.calories)} de ${goals.calories} kcal. Sumá la próxima comida del día.`,
+      kind: 'calories',
+      origin: 'cálculo',
+    })
+  }
+  if (trainingTodayName && dayTotals.protein < goals.protein * 0.7) {
+    out.push({
+      title: `Post-entreno (${trainingTodayName})`,
+      detail: `Hoy entrenás${todayVolumeKg > 0 ? ` (volumen reciente ${Math.round(todayVolumeKg)} kg)` : ''}. Incluí 30-40g de proteína en la hora posterior.`,
+      kind: 'training',
+      origin: 'dato',
+    })
+  }
+  if (lastRecoveryScore !== null && lastRecoveryScore < 45) {
+    out.push({
+      title: 'Recuperación baja: comidas livianas',
+      detail: `Tu recuperación es ${lastRecoveryScore}/100. Priorizá comidas fáciles de digerir e hidratación antes de entrenar intenso.`,
+      kind: 'recovery',
+      origin: 'dato',
+    })
+  }
+  if (hydrationMl !== null && hydrationGoalMl !== null && hydrationMl < hydrationGoalMl * 0.5) {
+    out.push({
+      title: 'Hidratación',
+      detail: `Llevás ${hydrationMl} de ${hydrationGoalMl} ml. Tomá un vaso grande ahora.`,
+      kind: 'hydration',
+      origin: 'dato',
+    })
+  }
+  if (methodName) {
+    out.push({
+      title: `Método: ${methodName}`,
+      detail: 'Mantené la estructura del método y registrá cada comida para medir adherencia real.',
+      kind: 'method',
+      origin: 'dato',
+    })
+  }
+  return out
+}

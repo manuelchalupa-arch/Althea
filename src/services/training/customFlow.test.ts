@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/services/storage/db'
-import { createCustomExercise, overlayCustomParts } from './customExercises'
+import { createCustomExercise, overlayCustomParts, deleteCustomExercise, getCustomExercise } from './customExercises'
 import { createSession, transitionSession, confirmSetRecord, getSessionExercises } from './sessionStore'
 import { getLastSerieWithSource } from '@/services/history'
 import { rankReplacements } from './similarity'
@@ -52,5 +52,36 @@ describe('flujo custom extremo a extremo (Casos 5–8)', () => {
     const ranked = rankReplacements(orig, [custom])
     expect(ranked.map((r) => r.exercise.id)).toContain(custom.id)
     expect(ranked[0].score).toBeGreaterThan(0)
+  })
+
+  it('eliminar con historial archiva (no borra); sin historial elimina', async () => {
+    const withHist = await createCustomExercise({
+      name: 'Remo polea', bodyPart: 'back', muscle: 'lats',
+      secondaryMuscles: [], primaryPct: 100, secondaryPcts: [],
+      category: 'strength', equipment: 'cable',
+    })
+    const s = await createSession({
+      routineId: 'r1', plannedDay: 1, actualDay: 1, calendarDate: '2026-09-10',
+      plannedExercises: [{ exId: withHist.id, name: withHist.name, sets: 1, reps: 10, weight: 40 }],
+    })
+    await transitionSession(s.sessionId, 'IN_PROGRESS')
+    const [se] = await getSessionExercises(s.sessionId)
+    await confirmSetRecord({
+      sessionId: s.sessionId, sessionExerciseId: se.sessionExerciseId,
+      exerciseId: withHist.id, order: 1, actualReps: 10, actualWeight: 40,
+    })
+    expect(await deleteCustomExercise(withHist.id)).toBe('archived')
+    // Histórico intacto y recuperable por exerciseId
+    const last = await getLastSerieWithSource(withHist.id, 1)
+    expect(last.isSeed).toBe(false)
+    expect(last.weight).toBe(40)
+    // Sin historial → borrado físico
+    const fresh = await createCustomExercise({
+      name: 'Temporal', bodyPart: 'chest', muscle: 'pectorals',
+      secondaryMuscles: [], primaryPct: 100, secondaryPcts: [],
+      category: 'strength', equipment: 'cable',
+    })
+    expect(await deleteCustomExercise(fresh.id)).toBe('deleted')
+    expect(await getCustomExercise(fresh.id)).toBeNull()
   })
 })

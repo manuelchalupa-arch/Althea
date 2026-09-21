@@ -6,6 +6,7 @@ import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type Not
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import BrandIcon from '@/components/brand/BrandIcon'
+import { SyncStatusCard } from '@/components/sync/SyncStatusCard'
 import { IconDumbbell, IconFire, IconBody, IconHeart, IconWater, IconUtensils, IconSleep, IconClipboard, IconLightning, IconTarget, IconUser, IconShield, IconChart } from '@/components/brand/FitnessIcons'
 
 const GOAL_MAP: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -23,6 +24,7 @@ const NOTIF_TYPES: { kind: NotifKind | 'custom'; label: string; icon: React.Reac
   { kind: 'recuperacion', label: 'Recuperación', icon: <IconSleep className="w-5 h-5" /> },
   { kind: 'cuestionario', label: 'Check-in', icon: <IconClipboard className="w-5 h-5" /> },
   { kind: 'comoEstas', label: '¿Cómo estás?', icon: <IconHeart className="w-5 h-5" /> },
+  { kind: 'coach', label: 'Coach', icon: <IconLightning className="w-5 h-5" /> },
   { kind: 'custom', label: 'Personalizada', icon: <IconTarget className="w-5 h-5" /> },
 ]
 
@@ -177,7 +179,7 @@ export default function Perfil() {
         })
       }
     })
-    setNotifCfgs(loadConfigs())
+    loadConfigs().then(setNotifCfgs).catch(() => {})
     permissionStatus().then(setNotifPerm).catch(() => setNotifPerm('unknown'))
 
     import('@/services/firebase/config').then(({ isFirebaseConfigured }) => {
@@ -226,19 +228,24 @@ export default function Perfil() {
     setProfile({ ...profile, trainingGoal: goal })
   }
 
+  const persistNotifs = (nx: NotifConfig[]) => {
+    setNotifCfgs(nx)
+    saveConfigs(nx).catch(() => {})
+  }
+
   const toggleNotif = (id: string) => {
     const nx = notifCfgs.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c)
-    setNotifCfgs(nx); saveConfigs(nx)
+    persistNotifs(nx)
   }
 
   const addNotif = (cfg: NotifConfig) => {
     const nx = [...notifCfgs, cfg]
-    setNotifCfgs(nx); saveConfigs(nx)
+    persistNotifs(nx)
   }
 
   const removeNotif = (id: string) => {
     const nx = notifCfgs.filter(c => c.id !== id)
-    setNotifCfgs(nx); saveConfigs(nx)
+    persistNotifs(nx)
   }
 
   const updateTime = (id: string, oldTime: string, newTime: string) => {
@@ -247,17 +254,17 @@ export default function Perfil() {
       const times = c.times.map(t => t === oldTime ? newTime : t).sort()
       return { ...c, times }
     })
-    setNotifCfgs(nx); saveConfigs(nx)
+    persistNotifs(nx)
   }
 
   const addTime = (id: string, time: string) => {
     const nx = notifCfgs.map(c => c.id === id && !c.times.includes(time) ? { ...c, times: [...c.times, time].sort() } : c)
-    setNotifCfgs(nx); saveConfigs(nx)
+    persistNotifs(nx)
   }
 
   const removeTime = (id: string, time: string) => {
     const nx = notifCfgs.map(c => c.id === id ? { ...c, times: c.times.filter(t => t !== time) } : c)
-    setNotifCfgs(nx); saveConfigs(nx)
+    persistNotifs(nx)
   }
 
   const handleLogout = async () => {
@@ -434,6 +441,12 @@ export default function Perfil() {
             </button>
           )}
 
+          <p className="text-[11px] text-on-surface-variant">
+            {typeof Notification === 'undefined'
+              ? 'Plataforma sin API de notificaciones: los recordatorios solo se muestran con la app abierta.'
+              : `Permiso: ${notifPerm} · Las notificaciones disparan con la app abierta; en segundo plano dependen de la plataforma.`}
+          </p>
+
           {notifCfgs.length === 0 && (
             <p className="text-center text-on-surface-variant text-sm py-4">Sin notificaciones configuradas</p>
           )}
@@ -468,7 +481,7 @@ export default function Perfil() {
                   <button key={d} onClick={() => {
                     const days = [...c.days]; days[i] = !days[i]
                     const nx = notifCfgs.map(x => x.id === c.id ? { ...x, days } : x)
-                    setNotifCfgs(nx); saveConfigs(nx)
+                    persistNotifs(nx)
                   }}
                     className={`flex-1 py-1 rounded text-[10px] font-bold ${c.days[i] ? 'bg-primary/20 text-primary' : 'bg-surface-container-high text-on-surface-variant/40'}`}>
                     {d}
@@ -512,6 +525,9 @@ export default function Perfil() {
           </div>
         </div>
       </Section>
+
+      {/* ═══ SINCRONIZACIÓN ═══ */}
+      <SyncStatusCard />
 
       {/* ═══ CUENTA ═══ */}
       <div className="space-y-2">

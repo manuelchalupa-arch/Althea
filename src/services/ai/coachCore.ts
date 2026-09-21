@@ -40,7 +40,7 @@ export async function processRequest(request: CoachRequest): Promise<CoachRespon
   const profile = (await db.userProfile.get('me')) as UserProfile | undefined
   const goal: TrainingGoal = (profile?.trainingGoal as TrainingGoal) || 'hypertrophy'
   const level: ExperienceLevel = (profile?.experienceLevel as ExperienceLevel) || 'intermediate'
-  const tone = (profile?.coachIntensity || 'ABUELITOS') as CoachTone
+  const tone = (profile?.coachTone || profile?.coachIntensity || 'ABUELITOS') as CoachTone
 
   // 2. Safety check primero
   const recovery = await analyzeRecovery()

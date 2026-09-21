@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db } from '@/services/storage/db'
+import { updateRecoveryCheck } from '@/services/recovery/recoveryService'
 import { Moon, Sun, Save, CheckCircle } from 'lucide-react'
 import { AltheaButton, AltheaCard } from '@/components/althea'
 
@@ -20,30 +21,17 @@ export function SleepForm() {
         if (recovery.sleepQuality !== undefined) {
           setQuality(recovery.sleepQuality)
         }
+        if (recovery.notes !== undefined) {
+          setNotes(recovery.notes)
+        }
       }
     }
     loadSleep()
   }, [today])
 
   const save = async () => {
-    const data = {
-      id: today,
-      localDate: today,
-      energy: 7,
-      fatigue: 3,
-      stress: 3,
-      sleepHours: hours,
-      sleepQuality: quality,
-      soreness: 3,
-      motivation: 7,
-      digestion: 7,
-      hydration: 7,
-      score: 75,
-      color: 'green' as const,
-      notes,
-      isDemo: false,
-    }
-    await db.recoveryChecks.put(data)
+    // Solo sueño: el resto del registro se conserva intacto (merge).
+    await updateRecoveryCheck({ sleepHours: hours, sleepQuality: quality, notes })
     setSaved(true)
     setTimeout(() => setSaved(false), 1500)
   }

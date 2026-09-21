@@ -30,6 +30,7 @@ export async function getDiaryEntries(date?: string): Promise<DiaryEntry[]> {
 
 export async function addDiaryEntry(entry: DiaryEntry): Promise<void> {
   await db.nutritionDiary.put(entry)
+  import('@/services/sync/opQueue').then(({ enqueueOp }) => enqueueOp('nutritionDiary', entry.id)).catch(() => {})
 }
 
 export async function removeDiaryEntry(id: string): Promise<void> {

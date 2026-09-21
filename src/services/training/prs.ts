@@ -175,9 +175,9 @@ export function calculateExercisePRs(
   }
 }
 
-/** Agregados semanales/mensuales de volumen desde sets unificados */
+/** Agregados semanales/mensuales de volumen desde sets unificados (deduplicados) */
 export function aggregateVolumeLandmarks(
-  unifiedSets: Array<{ weight: number; reps: number; date: string }>,
+  unifiedSets: Array<{ weight: number; reps: number; date: string; exerciseId?: string }>,
   period: 'weekly' | 'monthly'
 ): VolumeLandmark[] {
   const buckets: Record<string, { volume: number; sets: number; reps: number; exercises: Set<string> }> = {}
@@ -200,6 +200,7 @@ export function aggregateVolumeLandmarks(
     buckets[key].volume += vol
     buckets[key].sets += 1
     buckets[key].reps += s.reps
+    if (s.exerciseId) { buckets[key].exercises.add(s.exerciseId) }
   }
 
   return Object.entries(buckets)
@@ -231,13 +232,13 @@ export interface ExerciseHistoryEntry {
 
 /** Construir historial cronológico de un ejercicio desde sets unificados */
 export function buildExerciseHistory(
-  unifiedSets: Array<{ weight: number; reps: number; date: string; setRecordId: string; order?: number }>
+  unifiedSets: Array<{ weight: number; reps: number; date: string; setRecordId: string; order?: number; sessionId?: string }>
 ): ExerciseHistoryEntry[] {
   return unifiedSets
     .map((s, i) => ({
       exerciseId: '', // se llena al llamar
       date: s.date,
-      sessionId: '', // requeriría join con sessionExercises
+      sessionId: s.sessionId ?? '',
       order: s.order ?? i + 1,
       reps: s.reps,
       weight: s.weight,

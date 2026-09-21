@@ -170,7 +170,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                         type="number"
                         value={r}
                         onChange={e=>setReps({...reps, [si]: Number(e.target.value)})}
-                        className="w-full px-2 py-1.5 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[14px] text-on-surface text-center"
+                        className="w-full px-2 py-2.5 min-h-[44px] bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[14px] text-on-surface text-center"
                         placeholder="reps"
                         inputMode="numeric"
                         aria-label={`reps serie ${si+1}`}
@@ -186,7 +186,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                         step="0.1"
                         value={w}
                         onChange={e=>setWeights({...weights, [si]: parseKg(e.target.value)})}
-                        className="w-full px-2 py-1.5 bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[14px] text-on-surface text-center"
+                        className="w-full px-2 py-2.5 min-h-[44px] bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[14px] text-on-surface text-center"
                         placeholder="kg"
                         inputMode="decimal"
                         aria-label={`kilogramos serie ${si+1}`}

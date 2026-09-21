@@ -11,7 +11,12 @@ export type RoutineData = {
   cycle: CycleConfig
   dayExercises: Record<number, { id:string; exId:string; sets:number; reps:number; weight:number; gifUrl?:string; name?:string; muscle?:string; restSec?:number; seriesType?:string; routineExerciseId?:string }[]>
   isDemo?: boolean
+  version?: number
+  archived?: boolean
+  supersedes?: string
 }
+
+export const MAX_ROUTINES = 5
 
 const ACTIVE_ID_KEY = 'meta:activeId'
 
@@ -19,7 +24,83 @@ const ACTIVE_ID_KEY = 'meta:activeId'
 
 export async function getAllRoutines(): Promise<RoutineData[]> {
   const all = await db.routineStore.toArray()
-  return all.filter((r): r is RoutineData => 'dayExercises' in r)
+  return all.filter((r): r is RoutineData => 'dayExercises' in r && !(r as RoutineData).archived)
+}
+
+// Versiones históricas archivadas de una rutina (solo lectura).
+export async function listRoutineVersions(routineId: string): Promise<RoutineData[]> {
+  const all = await db.routineStore.toArray()
+  return (all.filter((r): r is RoutineData =>
+    'dayExercises' in r && (r as RoutineData).archived === true &&
+    ((r as RoutineData).id === routineId || (r as RoutineData).id.startsWith(`${routineId}-v`))
+  ) as RoutineData[]).sort((a, b) => (a.version ?? 0) - (b.version ?? 0))
+}
+
+function routineContentOf(r: RoutineData): string {
+  return JSON.stringify({ cycle: r.cycle, dayExercises: r.dayExercises, rotationDays: r.rotationDays })
+}
+
+// Guarda con versionado: si la rutina ya fue utilizada en sesiones reales y
+// el contenido cambió, archiva la versión anterior (vN) y guarda vN+1.
+// Nunca utilizada o sin cambios → guardado directo sin versión nueva.
+export async function saveRoutineVersioned(routine: RoutineData): Promise<{ saved: RoutineData; versioned: boolean }> {
+  const stored = await db.routineStore.get(routine.id) as RoutineData | undefined
+  const sessions = await db.trainingSessions.where('routineId').equals(routine.id).count().catch(() => 0)
+  const now = new Date().toISOString()
+  if (!stored || !('dayExercises' in stored) || sessions === 0 || routineContentOf(stored) === routineContentOf(routine)) {
+    const saved = { ...routine, version: stored && 'version' in stored ? (stored as RoutineData).version ?? 1 : 1, updatedAt: now }
+    await db.routineStore.put(saved)
+    return { saved, versioned: false }
+  }
+  const prevVersion = stored.version ?? 1
+  const snapshot: RoutineData = {
+    ...stored,
+    id: `${routine.id}-v${prevVersion}`,
+    archived: true,
+    supersedes: undefined,
+    updatedAt: now,
+  }
+  await db.routineStore.put(snapshot)
+  const saved: RoutineData = { ...routine, version: prevVersion + 1, updatedAt: now }
+  await db.routineStore.put(saved)
+  return { saved, versioned: true }
+}
+
+// Diferencia real entre dos versiones (por día): agregados, quitados, modificados.
+export interface RoutineDiff {
+  added: { day: number; exId: string; name: string }[]
+  removed: { day: number; exId: string; name: string }[]
+  changed: { day: number; exId: string; name: string; from: string; to: string }[]
+}
+
+export function diffRoutines(a: RoutineData, b: RoutineData): RoutineDiff {
+  const key = (day: number, exId: string) => `${day}|${exId}`
+  const flat = (r: RoutineData) => {
+    const m = new Map<string, { day: number; exId: string; name: string; sig: string }>()
+    for (const [dayStr, arr] of Object.entries(r.dayExercises || {})) {
+      for (const e of arr || []) {
+        m.set(key(Number(dayStr), e.exId), {
+          day: Number(dayStr), exId: e.exId, name: e.name || e.exId,
+          sig: `${e.sets}x${e.reps}@${e.weight}`,
+        })
+      }
+    }
+    return m
+  }
+  const ma = flat(a)
+  const mb = flat(b)
+  const added: RoutineDiff['added'] = []
+  const removed: RoutineDiff['removed'] = []
+  const changed: RoutineDiff['changed'] = []
+  for (const [k, v] of mb) {
+    const prev = ma.get(k)
+    if (!prev) { added.push({ day: v.day, exId: v.exId, name: v.name }) }
+    else if (prev.sig !== v.sig) { changed.push({ day: v.day, exId: v.exId, name: v.name, from: prev.sig, to: v.sig }) }
+  }
+  for (const [k, v] of ma) {
+    if (!mb.has(k)) { removed.push({ day: v.day, exId: v.exId, name: v.name }) }
+  }
+  return { added, removed, changed }
 }
 
 export async function getActiveRoutineId(): Promise<string | null> {

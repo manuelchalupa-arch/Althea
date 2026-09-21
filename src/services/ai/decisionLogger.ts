@@ -17,6 +17,7 @@ export interface DecisionRecord {
   outcome?: {
     accepted: boolean
     feedback?: string
+    modification?: string
   }
   safetyFlags?: string[]
 }

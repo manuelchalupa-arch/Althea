@@ -63,7 +63,7 @@ async function collectContext(wants: UserWants): Promise<{
   profile: any; history: string; style: any; methodName: string; exercises: Record<string, CompactEx[]>
 }> {
   const profile = await db.userProfile.get('me').catch(() => null) as any || {}
-  const coachingMethod = (localStorage.getItem('coachTrainingMethod') || 'hypertrophy') as TrainingMethodId
+  const coachingMethod = (profile?.cycle?.methodId || 'hypertrophy') as TrainingMethodId
   const style = METHOD_COACHING_STYLES[coachingMethod]
   const method = getMethod(coachingMethod)
 

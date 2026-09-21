@@ -468,7 +468,7 @@ setSessionStatus(active.sessionStatus)
     try{
       const profile = await db.userProfile.get('me')
       const today2 = new Date().toISOString().slice(0,10)
-      const rec: any = await db.recoveryChecks.get(today2) || JSON.parse(localStorage.getItem('recovery:'+today2)||'null')
+      const rec: any = await db.recoveryChecks.get(today2) || null
       const { check } = await import('@/services/ai/safetyLayer')
       const result = await check({
         recovery: rec ? { pain: rec.pain ?? 0, fatigue: rec.fatigue ?? 5, energy: rec.energy ?? 5 } : undefined,
@@ -1604,14 +1604,15 @@ setSessionStatus(nx.sessionStatus)
         <AddExtraModal show={showAddEx} onClose={()=>setShowAddEx(false)} options={addExOptions} reason={addExReason} setReason={setAddExReason} comment={addExComment} setComment={setAddExComment} onAdd={confirmAddExtra} />
         <FinishModal show={showFinishModal} onClose={()=>setShowFinishModal(false)} summary={computeSummary()} rutinaName={rutinaName} weekNumber={weekNumber} plannedDayN={plannedDayN} plannedName={plannedName} actualDayN={actualDayN} dayName={dayName} exs={exs} logs={logs} pendingReasons={pendingReasons} setPendingReasons={setPendingReasons} skipReasons={skipReasons} musclePct={musclePct} volumeAlerts={volumeAlerts} progressLines={progressLines} finishSurvey={finishSurvey} setFinishSurvey={setFinishSurvey} finishError={finishError} isSaving={isSaving} onConfirm={confirmFinish} session={session} sessionId={sessionId} setSession={setSession} setSessionStatus={setSessionStatus} />
 
-        {/* Variant Picker Modal */}
-        <VariantPicker
-          context={variantContext}
-          userProfile={null}
-          onSelectVariant={handleVariantSelect}
-          onClose={() => { setShowVariantPicker(false); setVariantContext(null) }}
-          isLoading={showVariantPicker}
-        />
+        {/* Variant Picker Modal: solo ante sustitución explícita con contexto válido */}
+        {showVariantPicker && variantContext && (
+          <VariantPicker
+            context={variantContext}
+            userProfile={null}
+            onSelectVariant={handleVariantSelect}
+            onClose={() => { setShowVariantPicker(false); setVariantContext(null) }}
+          />
+        )}
       </div>
     </div>
   )

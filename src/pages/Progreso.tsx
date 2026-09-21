@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { db } from '@/services/storage/db'
 import { BODY_PARTS, fetchPartMap } from '@/services/exerciseGym'
-import { combinedIndexOf } from '@/services/training/metrics'
-import { resetTrainingHistory } from '@/services/history'
+import { combinedIndexOf, muscleLoadOf, partVolumeOf, forgottenParts, isDateInPeriod, projectProgress } from '@/services/training/metrics'
+import { resetTrainingHistory, unifiedAllCompletedSets } from '@/services/history'
+import { buildMuscleResolver, type MuscleResolver } from '@/services/training/muscleAttribution'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { AltheaCard, AltheaBadge } from '@/components/althea'
-import type { SetRecord } from '@/services/training/domain'
 import type { RecoveryCheck } from '@/types'
 
-type Period = '14'|'30'|'90'|'all'|'custom'
+type Period = '7'|'30'|'90'|'365'|'all'|'custom'
 type Metric = 'peso'|'reps'|'series'|'volumen'|'mejor'|'indice'
 
 const METRICS: [Metric,string,string][] = [
@@ -36,6 +36,7 @@ export default function Progresos(){
   const [showReset,setShowReset]=useState(false)
   const [resetConfirm,setResetConfirm]=useState('')
   const [resetting,setResetting]=useState(false)
+  const [resolver,setResolver]=useState<MuscleResolver | null>(null)
 
   const doResetHistory = async ()=>{
     if(resetConfirm!=='REINICIAR' || resetting) {return}
@@ -50,25 +51,22 @@ export default function Progresos(){
 
   useEffect(()=>{
     Promise.all([
-      db.setLogs.toArray().catch(()=>[]),
-      db.table('setRecords').toArray().catch(()=>[]),
+      unifiedAllCompletedSets(),
       db.sessions.toArray().catch(()=>[]),
       db.table('trainingSessions').toArray().catch(()=>[]),
       db.table('bodyMeasurements').toArray().catch(()=>[]),
       db.recoveryChecks.toArray().catch(()=>[]),
       fetchPartMap().catch(()=>({} as Record<string,string>)),
-    ]).then(async ([legacyLogs, officialRecs, legacySessions, officialSessions, bodyRows, recRows, baseMap])=>{
+    ]).then(async ([unifiedLogs, legacySessions, officialSessions, bodyRows, recRows, baseMap])=>{
       const { overlayCustomParts, listCustomExercises } = await import('@/services/training/customExercises')
       const partMap = await overlayCustomParts({ ...(baseMap as Record<string,string>) })
       const customs = await listCustomExercises().catch(()=>[])
       const names: Record<string,string> = {}
       for(const c of customs){ if(c?.id) {names[c.id] = c.name} }
       setCustomNames(names)
-      const seen = new Set<string>()
-      const logs = [
-        ...legacyLogs.map((l)=> ({ exerciseId: l.exerciseId, weight: l.weight, reps: l.reps, createdAt: l.createdAt })),
-        ...officialRecs.filter((r: SetRecord)=> r.status==='COMPLETED').map((r: SetRecord)=> ({ exerciseId: r.exerciseId, weight: r.actualWeight, reps: r.actualReps, createdAt: r.completedAt || r.createdAt })),
-      ].filter((l)=>{ const k = `${l.exerciseId}|${l.createdAt}|${l.weight}|${l.reps}`; if(seen.has(k) || !l.createdAt || !l.exerciseId) {return false;} seen.add(k); return true })
+      setResolver(await buildMuscleResolver(partMap as Record<string,string>).catch(()=>null))
+      // Historial unificado y deduplicado (capa lógica única de lectura).
+      const logs = unifiedLogs
       let unm = 0
       setAllLogs(logs.map((l)=>{ const p = (partMap as Record<string,string>)[l.exerciseId] || null; if(!p) {unm++;} return { ...l, part: p } }))
       setUnmapped(unm)
@@ -83,16 +81,8 @@ export default function Progresos(){
   },[])
 
   const inPeriod = (dateStr:string)=>{
-    if(period==='all') {return true}
     const today = new Date().toISOString().slice(0,10)
-    if(period==='custom'){
-      if(customStart && dateStr < customStart) {return false}
-      if(customEnd && dateStr > customEnd) {return false}
-      return true
-    }
-    const cut = new Date(); cut.setDate(cut.getDate()-Number(period)+1)
-    const cutStr = cut.toISOString().slice(0,10)
-    return dateStr >= cutStr && dateStr <= today
+    return isDateInPeriod(dateStr, period, { customStart, customEnd, today })
   }
 
   const periodLogs = useMemo(()=> allLogs.filter(l=> inPeriod(String(l.createdAt||'').slice(0,10))), [allLogs, period, customStart, customEnd])
@@ -196,7 +186,7 @@ export default function Progresos(){
           <div className="px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg flex items-center gap-2">
             <span className="font-label-caps text-[10px] text-outline uppercase">Período:</span>
             <span className="font-label-md text-[14px] text-primary font-semibold">
-              {{'14':'Últimos 14 días','30':'Últimos 30 días','90':'Últimos 90 días','all':'Todo el historial','custom':'Rango personalizado'}[period]}
+              {{'7':'Últimos 7 días','30':'Últimos 30 días','90':'Últimos 90 días','365':'Último año','all':'Todo el historial','custom':'Rango personalizado'}[period]}
             </span>
           </div>
           <div className="px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg flex items-center gap-2">
@@ -208,7 +198,7 @@ export default function Progresos(){
 
       {/* ─── Period Selector ─── */}
       <div className="flex gap-1.5 flex-wrap">
-        {([['14','14 días'],['30','30 días'],['90','90 días'],['all','Todo'],['custom','Personalizado']] as [Period,string][]).map(([v,label])=>(
+        {([['7','7 días'],['30','30 días'],['90','90 días'],['365','Año'],['all','Todo'],['custom','Personalizado']] as [Period,string][]).map(([v,label])=>(
           <button key={v} onClick={()=>setPeriod(v)} className={`px-3 py-1.5 rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${period===v ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}>{label}</button>
         ))}
       </div>
@@ -441,9 +431,10 @@ export default function Progresos(){
             {/* Global Metric Chart */}
             <div>
               <div className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Global de {partSel.toUpperCase()} — todos los ejercicios</div>
+              {globalData.length > 0 ? (
               <div className="h-44 mt-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={globalData.length?globalData:[{date:'—',valor:0}]}>
+                  <LineChart data={globalData}>
                     <XAxis dataKey="date" tick={{fontSize:9, fill:'#A8B2B0'}} />
                     <YAxis tick={{fontSize:9, fill:'#A8B2B0'}} />
                     <Tooltip contentStyle={{background:'#1F272A', border:'1px solid #263034'}}/>
@@ -451,7 +442,9 @@ export default function Progresos(){
                   </LineChart>
                 </ResponsiveContainer>
               </div>
-              {globalData.length===0 && <p className="font-body-sm text-on-surface-variant mt-1">Sin datos suficientes para esta parte en el período.</p>}
+              ) : (
+                <p className="font-body-sm text-on-surface-variant mt-2">Sin datos suficientes para mostrar evolución.</p>
+              )}
             </div>
           </AltheaCard>
 
@@ -502,12 +495,15 @@ export default function Progresos(){
               <span className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">MAPA ANATÓMICO</span>
             </div>
             {(() => {
+              // Carga real por parte: volumen ejecutado (kg×reps), no conteo de filas.
+              const items = periodLogs.map(l => ({ exerciseId: l.exerciseId, volume: l.weight * l.reps }))
+              const partOf = resolver ? resolver.partOf : ((id: string) => (periodLogs.find(l => l.exerciseId === id)?.part || null))
+              const { volumes: partVolumes, unmappedVolume } = partVolumeOf(items, partOf)
+              const maxVol = Math.max(1, ...Object.values(partVolumes));
               const partScores: Record<string, number> = {};
-              const partCounts: Record<string, number> = {};
-              for(const p of BODY_PARTS) { partCounts[p] = 0; }
-              for(const l of periodLogs) { if(l.part && partCounts[l.part] !== undefined) {partCounts[l.part]++;} }
-              const maxCount = Math.max(1, ...Object.values(partCounts));
-              for(const p of BODY_PARTS) { partScores[p] = Math.round((partCounts[p] / maxCount) * 100); }
+              for(const p of BODY_PARTS) { partScores[p] = Math.round(((partVolumes[p] || 0) / maxVol) * 100); }
+              const forgotten = forgottenParts(partVolumes, BODY_PARTS);
+              const muscle = resolver ? muscleLoadOf(items, resolver.muscleOf) : null;
               const colorFor = (s: number) => s >= 80 ? '#e9c176' : s >= 60 ? '#b6d088' : '#45483c';
               const regions: Array<{part:string; x:number; y:number; w:number; h:number}> = [
                 {part:'traps',x:80,y:38,w:40,h:18},
@@ -544,6 +540,9 @@ export default function Progresos(){
                       return <rect key={r.part} x={r.x} y={r.y} width={r.w} height={r.h} rx="4" fill={colorFor(score)} opacity={0.2 + (score/100)*0.5} stroke={colorFor(score)} strokeWidth="0.6" strokeOpacity="0.5"/>;
                     })}
                   </svg>
+                  {Object.keys(partVolumes).length === 0 ? (
+                    <p className="font-body-sm text-on-surface-variant text-center mt-3 text-[11px]">Sin datos suficientes para el mapa en este período.</p>
+                  ) : (
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-3">
                     {BODY_PARTS.filter(p=>(partScores[p]||0)>0).sort((a,b)=>(partScores[b]||0)-(partScores[a]||0)).map(p=>{
                       const s = partScores[p]||0;
@@ -551,11 +550,34 @@ export default function Progresos(){
                         <div key={p} className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{background: colorFor(s)}} />
                           <span className="font-body-sm text-[11px] text-on-surface-variant truncate flex-1">{p}</span>
-                          <span className="font-label-caps text-[10px] font-semibold text-on-surface">{s}</span>
+                          <span className="font-label-caps text-[10px] font-semibold text-on-surface">{Math.round(partVolumes[p] || 0)} kg</span>
                         </div>
                       );
                     })}
                   </div>
+                  )}
+                  {forgotten.length > 0 && (
+                    <p className="font-body-sm text-on-surface-variant mt-2 text-[11px]">Zonas sin exposición en el período: {forgotten.join(', ')}.</p>
+                  )}
+                  {muscle && muscle.loads.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-outline-variant/30">
+                      <span className="font-label-caps text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">CARGA MUSCULAR (PRIMARIO + SECUNDARIOS)</span>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2">
+                        {muscle.loads.slice(0, 6).map(m => (
+                          <div key={m.muscle} className="flex items-center gap-2">
+                            <span className="font-body-sm text-[11px] text-on-surface-variant truncate flex-1">{m.muscle}</span>
+                            <span className="font-label-caps text-[10px] font-semibold text-on-surface">{m.pct}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {muscle && muscle.unmappedSets > 0 && (
+                    <p className="font-body-sm text-on-surface-variant mt-2 text-[11px]">{muscle.unmappedSets} series sin atribución muscular (sin porcentaje inventado).</p>
+                  )}
+                  {unmappedVolume > 0 && Object.keys(partVolumes).length === 0 && (
+                    <p className="font-body-sm text-on-surface-variant mt-2 text-[11px]">Volumen sin parte atribuible: {Math.round(unmappedVolume)} kg.</p>
+                  )}
                 </>
               );
             })()}
@@ -645,6 +667,16 @@ export default function Progresos(){
                 <span className="font-body-sm text-on-surface-variant">Registros en período</span>
                 <span className="font-label-md text-on-surface font-semibold">{periodLogs.length} · {periodBodies.length} mediciones</span>
               </div>
+              {(() => {
+                const proj = projectProgress(globalData.map(p => ({ value: p.valor })));
+                if (!proj) { return null }
+                return (
+                  <div className="flex items-center justify-between py-1.5">
+                    <span className="font-body-sm text-on-surface-variant">Proyección (estimación)</span>
+                    <span className="font-label-md text-on-surface font-semibold" title={proj.basis}>{proj.estimate}</span>
+                  </div>
+                );
+              })()}
             </div>
           </AltheaCard>
 

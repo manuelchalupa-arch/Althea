@@ -7,6 +7,7 @@ import { getNutritionMethod } from '@/services/ai/nutritionMethodsDB'
 import type { NutritionMethodId } from '@/services/ai/nutritionMethods'
 import type { UserProfile, BodyMeasurement } from '@/types'
 import { checkNutritionSafety, type NutritionSafetyAlert } from '@/services/ai/nutritionSafety'
+import { buildNutritionSuggestions } from '@/services/ai/nutritionEngine'
 import { recordAdherence, calculateAutomaticAdherence, getAdherenceTrend, type AdherenceRecord } from '@/services/ai/adherenceTracker'
 import { Search, Plus, Droplets, ChevronDown, ChevronUp, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, Minus, Target, Utensils, X } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts'
@@ -64,6 +65,9 @@ export default function Nutricion() {
   const [selectedServing, setSelectedServing] = useState<number>(0)
   const [customAmount, setCustomAmount] = useState<string>('')
   const [todayTraining, setTodayTraining] = useState<{ name: string; exercises: string[] } | null>(null)
+  const [suggHydration, setSuggHydration] = useState<number | null>(null)
+  const [suggRecovery, setSuggRecovery] = useState<number | null>(null)
+  const [todayVolume, setTodayVolume] = useState(0)
 
   useEffect(() => { loadData() }, [])
 
@@ -79,6 +83,13 @@ export default function Nutricion() {
       const today = new Date().toISOString().slice(0, 10)
       const diaryData: DiaryEntry[] = await getDiaryEntries(today)
       setDiaryEntries(diaryData)
+      // Señales para sugerencias (solo lectura; nunca se registran como consumo)
+      const hydLogs = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(() => [])
+      setSuggHydration(hydLogs.length ? hydLogs.reduce((a, b) => a + Number(b.amountMl || 0), 0) : null)
+      const rec = await db.recoveryChecks.get(today).catch(() => null)
+      setSuggRecovery(typeof rec?.score === 'number' ? rec.score : null)
+      const daySessions = await db.trainingSessions.where('calendarDate').equals(today).toArray().catch(() => [])
+      setTodayVolume(daySessions.reduce((a, s) => a + Number(s.totalVolume || 0), 0))
       if (p) {
         const w = p.weightKg, h = p.heightCm, age = p.age, sex = p.sex
         const act = p.activityLevel || 'moderado'
@@ -194,10 +205,24 @@ export default function Nutricion() {
 
   const activeMethod = perfil?.activeNutritionMethod ? getNutritionMethod(perfil.activeNutritionMethod as NutritionMethodId) : null
   const weightData = pesoEvo.map(m => ({ date: m.localDate.slice(5), weight: m.weightKg })).filter(d => d.weight)
+  const goalsPersonalized = Boolean(perfil?.weightKg && perfil?.heightCm)
   const imcResult = perfil?.weightKg && perfil?.heightCm ? calcIMC(perfil.weightKg, perfil.heightCm) : null
   const tmbVal = perfil?.weightKg && perfil?.heightCm ? calcTMB(perfil.weightKg, perfil.heightCm, perfil.age, perfil.sex) : null
   const tdeeVal = tmbVal ? calcTDEE(tmbVal, perfil?.activityLevel || 'moderado', perfil?.schedule?.availableDays?.length || 3) : null
   const remainingCalories = Math.max(0, goals.calories - dayTotals.calories)
+  const suggestions = buildNutritionSuggestions({
+    goals: goalsPersonalized ? goals : null,
+    dayTotals,
+    mealsLogged: diaryEntries.length,
+    trainingTodayName: todayTraining?.name ?? null,
+    todayVolumeKg: todayVolume,
+    lastRecoveryScore: suggRecovery,
+    hydrationMl: suggHydration,
+    hydrationGoalMl: perfil?.hydrationGoalMl ?? null,
+    allergies: perfil?.nutritionPrefs?.allergies ?? [],
+    dislikedFoods: perfil?.nutritionPrefs?.dislikedFoods ?? [],
+    methodName: activeMethod?.nameEs ?? null,
+  })
 
   return (
     <div className="w-full max-w-[1260px] mx-auto px-8 py-6 space-y-6">
@@ -267,6 +292,9 @@ export default function Nutricion() {
               <span className="material-symbols-outlined text-[12px]">trending_up</span>
               {remainingCalories > 0 ? `Faltan ${remainingCalories} kcal` : 'Meta alcanzada'}
             </p>
+            {!goalsPersonalized && (
+              <p className="text-[10px] text-on-surface-variant mt-0.5">Metas de referencia — completá peso y altura en Perfil para cálculo personalizado</p>
+            )}
           </div>
           <div className="w-full bg-surface-container h-1.5 rounded-full overflow-hidden flex">
             <div className="bg-primary h-full" style={{ width: `${calPct}%` }} />
@@ -335,6 +363,57 @@ export default function Nutricion() {
           </div>
           <HydrationWidget />
         </div>
+      </div>
+
+      {/* Peso y objetivo — datos reales del perfil; sin objetivo → Sin datos */}
+      <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-3.5 stone-plate flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-secondary text-[18px]">monitor_weight</span>
+          <span className="font-label-caps text-label-caps uppercase text-secondary">Peso y objetivo</span>
+        </div>
+        <div className="font-body-sm text-on-surface">
+          {perfil?.weightKg !== undefined ? (
+            <>Actual: <span className="font-semibold font-mono">{perfil.weightKg} kg</span>{' '}
+              {perfil?.targetWeightKg !== undefined ? (
+                <>→ Objetivo: <span className="font-semibold font-mono">{perfil.targetWeightKg} kg</span>{' '}
+                  <span className="text-on-surface-variant">({(perfil.targetWeightKg - perfil.weightKg) > 0 ? '+' : ''}{(perfil.targetWeightKg - perfil.weightKg).toFixed(1)} kg)</span></>
+              ) : (
+                <span className="text-on-surface-variant">· Sin peso objetivo (definilo en Perfil)</span>
+              )}</>
+          ) : (
+            <span className="text-on-surface-variant">Sin datos — registrá tu peso en Perfil</span>
+          )}
+        </div>
+        {weightData.length > 1 && (
+          <div className="font-body-sm text-on-surface-variant sm:ml-auto">
+            Últimas: {weightData.slice(-4).map(d => `${d.weight}kg`).join(' → ')}
+          </div>
+        )}
+      </div>
+
+      {/* Sugerencias del día — solo lectura, nunca se registran como consumo */}
+      <div className="bg-surface-container-low border border-outline-variant/50 rounded-lg p-5 stone-plate space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-secondary text-[18px]">lightbulb</span>
+          <h4 className="font-title-md text-title-md text-on-surface font-semibold">Sugerencias del día</h4>
+        </div>
+        {suggestions === null ? (
+          <p className="font-body-sm text-on-surface-variant">No hay datos suficientes para generar una recomendación personalizada.</p>
+        ) : suggestions.length === 0 ? (
+          <p className="font-body-sm text-on-surface-variant">Vas bien: sin brechas importantes hoy. Mantené la constancia.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {suggestions.map((s, i) => (
+              <div key={i} className="bg-surface-container border border-outline-variant/40 rounded-lg p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-body-sm font-semibold text-on-surface">{s.title}</span>
+                  <span className="text-[9px] font-mono text-outline uppercase">{s.origin === 'dato' ? 'dato' : 'cálculo'}</span>
+                </div>
+                <p className="text-[12px] text-on-surface-variant mt-1">{s.detail}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Main Bento Grid */}

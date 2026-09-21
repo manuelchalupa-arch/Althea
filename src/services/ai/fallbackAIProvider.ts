@@ -66,6 +66,11 @@ export class FallbackAIProvider implements AIProvider {
       reason = 'Todavía no tengo suficientes datos tuyos para determinarlo. ' + rec.reason
       factors.push('sin datos suficientes')
     }
+    const learnedRec = (ctx.patterns||[]).find(p=> p.kind==='recomendacion')
+    if(learnedRec){
+      reason += ` Dato: patrón observado — ${learnedRec.statement}`
+      factors.push(`patrón: ${learnedRec.statement.slice(0, 80)}`)
+    }
     if(ctx.score && ctx.score.score < 45){
       reason += ` Tu estado global está en ${ctx.score.score}/100: priorizá recuperación hoy.`
       factors.push(`score ${ctx.score.score}/100`)

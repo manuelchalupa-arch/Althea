@@ -72,6 +72,10 @@ function LazyPage({ children }: { children: React.ReactNode }) {
 
 async function isTrainingDayLocal(dateStr:string): Promise<boolean> {
   try{
+    // Los cambios manuales de día (override) mandan sobre la planificación.
+    const { getOverrideDay } = await import('@/services/storage/sessionOverrideStore')
+    const override = await getOverrideDay(dateStr).catch(()=>null)
+    if(override !== null && override !== undefined) {return true}
     const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
     const raw = await getAllRoutines()
     const activeId = await getActiveRoutineId()
@@ -159,7 +163,23 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
     const id = setInterval(() => { if (alive) { run() } }, 60000)
     const onVis = () => { if (document.visibilityState === 'visible') { run() } }
     document.addEventListener('visibilitychange', onVis)
-    return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', onVis) }
+    // ET21: al recuperar conexión, subir operaciones pendientes (idempotente, sin duplicar).
+    const onOnline = async () => {
+      try {
+        const { isFirebaseConfigured } = await import('@/services/firebase/config')
+        if (!isFirebaseConfigured()) { return }
+        const { currentUser } = await import('@/services/firebase/auth')
+        const u = currentUser()
+        if (!u) { return }
+        const { pendingCount } = await import('@/services/sync/opQueue')
+        if ((await pendingCount()) === 0) { return }
+        const { processQueue } = await import('@/services/sync/engine')
+        const { firestoreRemote } = await import('@/services/firebase/sync')
+        await processQueue(u.uid, firestoreRemote(u.uid))
+      } catch { /* noop: lo pendiente se conserva */ }
+    }
+    window.addEventListener('online', onOnline)
+    return () => { alive = false; clearInterval(id); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('online', onOnline) }
   }, [navigate])
 
   useEffect(() => {

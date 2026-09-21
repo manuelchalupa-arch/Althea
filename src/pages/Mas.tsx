@@ -3,13 +3,126 @@ import { MAS_GROUPS } from '@/components/brand/icons'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { useState, useEffect } from 'react'
 import { db } from '@/services/storage/db'
+import { unifiedAllCompletedSets } from '@/services/history'
+import { calculateExercisePRs } from '@/services/training/prs'
+import { calcTMB, calcTDEE, calorieGoal, proteinRange, calcIMC } from '@/utils/nutrition'
+
+interface MasStats {
+  sessions90d: number
+  tonnage90d: number
+  sets7d: number
+  top: { name: string; orm: number }[]
+  routineName?: string
+  daysPerWeek?: number
+  chatCount: number
+  weightKg?: number
+  heightCm?: number
+  tdee?: number
+  protein?: number
+  carbs?: number
+  fat?: number
+  imc?: string
+  weightDiff?: number
+  weekNumber?: number
+  exerciseCount: number
+}
+
+function prettyExId(id: string): string {
+  return id.split('/').pop()?.replace(/-/g, ' ') || id
+}
 
 export default function Mas(){
   const [routineCount, setRoutineCount] = useState(0)
+  const [stats, setStats] = useState<MasStats | null>(null)
   useEffect(() => {
     import('@/services/storage/routineStore').then(({ getAllRoutines }) =>
       getAllRoutines().then(list => setRoutineCount(list.length))
     )
+  }, [])
+
+  // Métricas reales desde Dexie; sin datos → "Sin datos" (nunca ficticios).
+  useEffect(() => {
+    (async () => {
+      try {
+        const p = await db.userProfile.get('me').catch(() => null)
+        const sets = await unifiedAllCompletedSets().catch(() => [])
+        const cut90 = new Date(); cut90.setDate(cut90.getDate() - 90)
+        const cut90Str = cut90.toISOString().slice(0, 10)
+        const cut7 = new Date(); cut7.setDate(cut7.getDate() - 7)
+        const cut7Str = cut7.toISOString().slice(0, 10)
+        const recent = sets.filter(s => s.createdAt.slice(0, 10) >= cut90Str)
+        const tonnage90d = recent.reduce((a, s) => a + s.weight * s.reps, 0)
+        const sets7d = sets.filter(s => s.createdAt.slice(0, 10) >= cut7Str).length
+        const sessions90d = await db.trainingSessions.where('calendarDate').aboveOrEqual(cut90Str).count().catch(() => 0)
+
+        // Top-2 1RM por ejercicio (solo grupos con peso > 0)
+        const byEx = new Map<string, { weight: number; reps: number; date: string; setRecordId: string }[]>()
+        for (const s of sets) {
+          if (s.weight <= 0 || s.reps <= 0) { continue }
+          const arr = byEx.get(s.exerciseId) || []
+          arr.push({ weight: s.weight, reps: s.reps, date: s.createdAt.slice(0, 10), setRecordId: '' })
+          byEx.set(s.exerciseId, arr)
+        }
+        const scored: { id: string; orm: number }[] = []
+        for (const [id, arr] of byEx) {
+          const pr = calculateExercisePRs(arr)
+          if (pr.maxEstimated1RM) { scored.push({ id, orm: pr.maxEstimated1RM.estimated1RM }) }
+        }
+        scored.sort((a, b) => b.orm - a.orm)
+        const [exRows, customs] = await Promise.all([
+          db.exercises.toArray().catch(() => [] as { id: string; name: string }[]),
+          import('@/services/training/customExercises').then(m => m.listCustomExercises().catch(() => [] as { id: string; name: string }[])),
+        ])
+        const nameOf = (id: string) =>
+          exRows.find(e => e.id === id)?.name || customs.find(c => c.id === id)?.name || prettyExId(id)
+        const top = scored.slice(0, 2).map(s => ({ name: nameOf(s.id), orm: Math.round(s.orm) }))
+
+        const prof = p
+        const w = prof?.weightKg, h = prof?.heightCm
+        let tdee: number | undefined, protein: number | undefined, carbs: number | undefined, fat: number | undefined, imc: string | undefined
+        if (w && h && prof) {
+          const tmb = calcTMB(w, h, prof.age, prof.sex)
+          const tdeeRaw = tmb !== null ? calcTDEE(tmb, prof.activityLevel || 'moderado', prof.schedule?.availableDays?.length || 3) : null
+          if (tdeeRaw !== null) {
+            tdee = Math.round(tdeeRaw)
+            const calGoal = calorieGoal(tdee, prof.goalPrimary) || tdee
+            const prot = proteinRange(w, prof.goalPrimary)
+            protein = prot?.low || Math.round(w * 1.8)
+            fat = Math.round(calGoal * 0.25 / 9)
+            carbs = Math.round((calGoal - protein * 4 - fat * 9) / 4)
+          }
+          imc = calcIMC(w, h).bmi
+        }
+        const bodies = await db.bodyMeasurements.toArray().catch(() => [])
+        const ws = bodies.map(b => Number(b.weightKg)).filter(n => !isNaN(n))
+        const weightDiff = ws.length >= 2 ? Math.round((ws[ws.length - 1] - ws[0]) * 10) / 10 : undefined
+
+        let weekNumber: number | undefined
+        try {
+          const start = (p?.cycle as { startDate?: string } | undefined)?.startDate
+          if (start) {
+            weekNumber = Math.max(1, Math.floor((Date.now() - new Date(start + 'T12:00:00').getTime()) / (7 * 86400000)) + 1)
+          }
+        } catch { /* noop */ }
+        const exerciseCount = exRows.length + customs.length
+        const chatCount = await db.chatMessages.where('role').equals('user').count().catch(() => 0)
+        const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
+        const [rawRoutines, activeRoutineId] = await Promise.all([
+          getAllRoutines().catch(() => []),
+          getActiveRoutineId().catch(() => null),
+        ])
+        const activeRoutine = rawRoutines.find(r => r.id === activeRoutineId) || rawRoutines[0]
+        const weekMap = (p?.cycle as { weekMap?: (number | null)[] } | undefined)?.weekMap
+        const daysPerWeek = weekMap ? weekMap.filter(d => d !== null).length : undefined
+
+        setStats({
+          sessions90d, tonnage90d: Math.round(tonnage90d * 10) / 10, sets7d, top,
+          routineName: activeRoutine?.name, daysPerWeek, chatCount,
+          weightKg: w, heightCm: h, tdee, protein, carbs, fat, imc, weightDiff,
+          weekNumber, exerciseCount,
+        })
+      } catch { /* noop: las tarjetas muestran "Sin datos" */ }
+    })()
   }, [])
 
   return (
@@ -46,8 +159,8 @@ export default function Mas(){
             <span className="text-[11px] font-mono text-secondary">CANON I</span>
           </div>
           <div className="mt-2.5">
-            <p className="font-headline-md text-[24px] text-on-surface leading-none font-semibold">148</p>
-            <p className="text-xs text-on-surface-variant mt-1">Ejercicios Canónicos Registrados</p>
+            <p className="font-headline-md text-[24px] text-on-surface leading-none font-semibold">{stats ? stats.exerciseCount : '—'}</p>
+            <p className="text-xs text-on-surface-variant mt-1">Ejercicios Registrados</p>
           </div>
           <div className="mt-3 w-full bg-outline-variant/30 h-1 rounded-full overflow-hidden">
             <div className="bg-primary-container h-full w-[82%]" />
@@ -63,8 +176,8 @@ export default function Mas(){
             <span className="text-[11px] font-mono text-secondary">CANON II</span>
           </div>
           <div className="mt-2.5">
-            <p className="font-headline-md text-[24px] text-on-surface leading-none font-semibold">12</p>
-            <p className="text-xs text-on-surface-variant mt-1">Microciclos Programados Activos</p>
+            <p className="font-headline-md text-[24px] text-on-surface leading-none font-semibold">{routineCount}</p>
+            <p className="text-xs text-on-surface-variant mt-1">Rutinas Registradas</p>
           </div>
           <div className="mt-3 w-full bg-outline-variant/30 h-1 rounded-full overflow-hidden">
             <div className="bg-secondary h-full w-[65%]" />
@@ -80,11 +193,11 @@ export default function Mas(){
             <span className="text-[11px] font-mono text-secondary">CANON III</span>
           </div>
           <div className="mt-2.5">
-            <p className="font-headline-md text-[24px] text-primary leading-none font-semibold">94.2%</p>
-            <p className="text-xs text-on-surface-variant mt-1">Adherencia de Arete en 90 Días</p>
+            <p className="font-headline-md text-[24px] text-primary leading-none font-semibold">{stats ? stats.sessions90d : '—'}</p>
+            <p className="text-xs text-on-surface-variant mt-1">Sesiones en 90 Días</p>
           </div>
           <div className="mt-3 w-full bg-outline-variant/30 h-1 rounded-full overflow-hidden">
-            <div className="bg-primary h-full w-[94%]" />
+            <div className="bg-primary h-full" style={{ width: stats ? `${Math.min(100, stats.sessions90d * 5)}%` : '0%' }} />
           </div>
         </div>
 
@@ -140,9 +253,9 @@ export default function Mas(){
                   </div>
                   <span className="bg-primary-container/40 text-primary px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold">MÍO</span>
                 </div>
-                <div className="mt-2 text-[11px] text-outline">148 variantes biomecánicas analizadas, ángulos de palanca y guías en vídeo.</div>
+                <div className="mt-2 text-[11px] text-outline">{stats ? `${stats.exerciseCount} variantes en biblioteca.` : 'Variantes biomecánicas, ángulos de palanca y guías.'}</div>
                 <div className="mt-3 pt-2 border-t border-outline-variant/20 flex items-center justify-between text-[11px]">
-                  <span className="text-secondary font-mono">148 Activos</span>
+                  <span className="text-secondary font-mono">{stats ? `${stats.exerciseCount} Activos` : '—'}</span>
                   <span className="text-on-surface-variant flex items-center gap-1 hover:text-primary">Abrir <span className="material-symbols-outlined text-[14px]">arrow_forward</span></span>
                 </div>
               </Link>
@@ -212,8 +325,8 @@ export default function Mas(){
                   <span className="text-[9px] font-mono text-secondary">RUTINAS</span>
                 </div>
                 <div className="my-2">
-                  <p className="text-xs font-semibold text-on-surface">Fuerza Dórica</p>
-                  <p className="text-[10px] text-outline mt-0.5">Hipertrofia Olímpica 4x</p>
+                  <p className="text-xs font-semibold text-on-surface">{stats?.routineName ?? 'Sin rutina activa'}</p>
+                  <p className="text-[10px] text-outline mt-0.5">{stats?.daysPerWeek !== undefined ? `${stats.daysPerWeek}x por semana` : 'Sin datos'}</p>
                 </div>
                 <div className="w-full bg-outline-variant/30 h-1 rounded overflow-hidden">
                   <div className="bg-primary-container h-full w-[70%]" />
@@ -225,8 +338,8 @@ export default function Mas(){
                   <span className="text-[9px] font-mono text-outline">HISTORIAL</span>
                 </div>
                 <div className="my-2">
-                  <p className="text-xs font-semibold text-on-surface">Greca 3x3</p>
-                  <p className="text-[10px] text-outline mt-0.5">Frecuencia semanal: 5 d</p>
+                  <p className="text-xs font-semibold text-on-surface">{stats ? `${stats.sessions90d} sesiones (90d)` : 'Historial'}</p>
+                  <p className="text-[10px] text-outline mt-0.5">Frecuencia semanal: {stats?.daysPerWeek != null ? `${stats.daysPerWeek} d` : '—'}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-primary" />
@@ -241,28 +354,26 @@ export default function Mas(){
                   <span className="text-[9px] font-mono text-primary">SNA</span>
                 </div>
                 <div className="my-2">
-                  <p className="text-xs font-semibold text-on-surface">Índice VFC: 78</p>
-                  <p className="text-[10px] text-outline mt-0.5">Descanso Reparador</p>
-                  <span className="text-[9px] font-mono text-secondary">ÓPTIMO PARA CARGA</span>
+                  <p className="text-xs font-semibold text-on-surface">Índice VFC: Sin datos</p>
+                  <p className="text-[10px] text-outline mt-0.5">Sin sensor conectado</p>
                 </div>
               </Link>
             </div>
             <div className="p-3 bg-surface border outline-variant rounded flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-[18px]">repeat</span>
-                <span className="text-xs text-on-surface">Sobrecarga Semanal Ejecutada</span>
+                <span className="text-xs text-on-surface">Series registradas (7 días)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs text-primary font-semibold">18 / 22 Series</span>
+                <span className="font-mono text-xs text-primary font-semibold">{stats ? `${stats.sets7d} series` : 'Sin datos'}</span>
                 <div className="w-24 bg-outline-variant/30 h-2 rounded overflow-hidden flex">
-                  <div className="bg-primary-container h-full w-[70%]" />
-                  <div className="bg-secondary h-full w-[15%]" />
+                  <div className="bg-primary-container h-full" style={{ width: stats ? `${Math.min(100, stats.sets7d * 2)}%` : '0%' }} />
                 </div>
               </div>
             </div>
           </div>
           <div className="p-5 border-t border-outline-variant/30 bg-surface-container-low/50 flex items-center justify-between">
-            <span className="font-label-caps text-[11px] text-outline">CRONOGRAMA ACTIVO: SEMANA 3</span>
+            <span className="font-label-caps text-[11px] text-outline">CRONOGRAMA ACTIVO: {stats?.weekNumber ? `SEMANA ${stats.weekNumber}` : 'SIN DATOS'}</span>
             <Link to="/rutina" className="bg-primary-container border outline-primary/30 text-on-primary-container px-4 py-2 rounded text-xs font-semibold hover:bg-primary-container/80 transition-all flex items-center gap-2 active:scale-[0.98]">
               <span>Gestionar Rutinas Activas</span>
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -295,12 +406,12 @@ export default function Mas(){
                     <span className="material-symbols-outlined text-secondary text-[18px]">nutrition</span>
                     <h3 className="font-title-md text-[14px] font-semibold text-on-surface">Néctar & Macros</h3>
                   </div>
-                  <span className="text-[10px] font-mono text-primary">TDEE 2,850</span>
+                  <span className="text-[10px] font-mono text-primary">TDEE {stats?.tdee ? stats.tdee.toLocaleString() : '—'}</span>
                 </div>
                 <div className="my-2.5 flex items-center justify-between text-[11px]">
-                  <div><span className="text-outline block">Proteína</span><span className="text-on-surface font-semibold font-mono">195g</span></div>
-                  <div><span className="text-outline block">Carbos</span><span className="text-on-surface font-semibold font-mono">310g</span></div>
-                  <div><span className="text-outline block">Lípidos</span><span className="text-on-surface font-semibold font-mono">75g</span></div>
+                  <div><span className="text-outline block">Proteína</span><span className="text-on-surface font-semibold font-mono">{stats?.protein !== undefined ? `${stats.protein}g` : '—'}</span></div>
+                  <div><span className="text-outline block">Carbos</span><span className="text-on-surface font-semibold font-mono">{stats?.carbs !== undefined ? `${stats.carbs}g` : '—'}</span></div>
+                  <div><span className="text-outline block">Lípidos</span><span className="text-on-surface font-semibold font-mono">{stats?.fat !== undefined ? `${stats.fat}g` : '—'}</span></div>
                 </div>
                 <div className="pt-2 border-t border-outline-variant/20 flex items-center justify-between text-[10px]">
                   <span className="text-outline flex items-center gap-1"><span className="material-symbols-outlined text-secondary text-[14px]">water_drop</span>Ánforas (3.5L):</span>
@@ -321,18 +432,18 @@ export default function Mas(){
                   <span className="text-[10px] font-mono text-secondary">TOP 1RM</span>
                 </div>
                 <div className="my-2 text-[11px] text-outline">
-                  <div className="flex justify-between py-0.5">
-                    <span>Sentadilla Olímpica:</span>
-                    <span className="text-on-surface font-mono font-semibold">185 kg</span>
-                  </div>
-                  <div className="flex justify-between py-0.5">
-                    <span>Press Militar Dórico:</span>
-                    <span className="text-on-surface font-mono font-semibold">92 kg</span>
-                  </div>
+                  {stats && stats.top.length > 0 ? stats.top.map(t => (
+                    <div key={t.name} className="flex justify-between py-0.5">
+                      <span className="capitalize">{t.name}:</span>
+                      <span className="text-on-surface font-mono font-semibold">{t.orm} kg</span>
+                    </div>
+                  )) : (
+                    <div className="py-0.5">Sin datos suficientes</div>
+                  )}
                 </div>
                 <div className="pt-2 border-t border-outline-variant/20 flex items-center justify-between text-[10px]">
                   <span className="text-outline">Carga 90d:</span>
-                  <span className="text-primary font-mono font-semibold">42.8 Toneladas</span>
+                  <span className="text-primary font-mono font-semibold">{stats ? (stats.tonnage90d > 0 ? `${(stats.tonnage90d / 1000).toFixed(1)} Toneladas` : 'Sin datos') : '…'}</span>
                 </div>
               </Link>
             </div>
@@ -342,8 +453,8 @@ export default function Mas(){
                 <span className="text-xs text-on-surface">Evolución Somática (90 días)</span>
               </div>
               <div className="flex items-center gap-3 text-xs">
-                <span className="text-outline">IMC Áureo: <span className="text-on-surface font-mono font-semibold">23.4</span></span>
-                <span className="text-primary font-mono font-semibold">+1.8 kg Masa Magra</span>
+                <span className="text-outline">IMC: <span className="text-on-surface font-mono font-semibold">{stats?.imc ?? '—'}</span></span>
+                <span className="text-primary font-mono font-semibold">{stats?.weightDiff !== undefined ? `${stats.weightDiff > 0 ? '+' : ''}${stats.weightDiff} kg (90d)` : 'Sin datos de peso'}</span>
               </div>
             </div>
           </div>
@@ -386,7 +497,7 @@ export default function Mas(){
                 <div className="my-2 text-[11px] text-on-surface-variant italic">"Conócete a ti mismo a través del esfuerzo bajo la barra de hierro."</div>
                 <div className="pt-2 border-t border-outline-variant/20 flex items-center justify-between text-[11px]">
                   <span className="text-outline">Modos: Arnold / Sócrates</span>
-                  <span className="text-secondary font-mono">3 Consultas</span>
+                  <span className="text-secondary font-mono">{stats ? `${stats.chatCount} Consultas` : '—'}</span>
                 </div>
               </Link>
               <Link to="/perfil" className="bg-surface border outline-variant rounded p-3.5 flex flex-col justify-between hover:border-primary/40 transition-colors">
@@ -400,7 +511,7 @@ export default function Mas(){
                 <div className="my-2 text-[11px] text-outline">
                   <div className="flex justify-between py-0.5">
                     <span>Estatura / Masa:</span>
-                    <span className="text-on-surface font-mono font-semibold">182 cm / 84 kg</span>
+                    <span className="text-on-surface font-mono font-semibold">{stats?.heightCm !== undefined || stats?.weightKg !== undefined ? `${stats?.heightCm ?? '—'} cm / ${stats?.weightKg ?? '—'} kg` : 'Sin datos'}</span>
                   </div>
                   <div className="flex justify-between py-0.5">
                     <span>Gong de Bronce:</span>

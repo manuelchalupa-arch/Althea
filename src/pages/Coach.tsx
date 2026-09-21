@@ -81,10 +81,7 @@ function generatePostWorkoutTips(surveys: any[], lastSession: any): PostWorkoutT
 }
 
 export default function Coach() {
-  const [coachingMethod, setCoachingMethod] = useState<TrainingMethodId>(() => {
-    const stored = localStorage.getItem('coachTrainingMethod')
-    return (stored as TrainingMethodId) || 'hypertrophy'
-  })
+  const [coachingMethod, setCoachingMethod] = useState<TrainingMethodId>('hypertrophy')
   const [routineTips, setRoutineTips] = useState<RoutineTip[]>([])
   const [coachingTips, setCoachingTips] = useState<RoutineTip[]>([])
   const [postWorkoutTips, setPostWorkoutTips] = useState<PostWorkoutTip[]>([])
@@ -93,7 +90,8 @@ export default function Coach() {
   useEffect(() => {
     const load = async () => {
       const profile = (await db.userProfile.get('me').catch(() => null)) as UserProfile | null
-      const methodId = profile?.cycle?.methodId ?? coachingMethod
+      if (profile?.coachMethodView) { setCoachingMethod(profile.coachMethodView as TrainingMethodId) }
+      const methodId = profile?.coachMethodView ?? profile?.cycle?.methodId ?? coachingMethod
       setRoutineTips(generateRoutineTips(methodId, profile))
       setCoachingTips(generateCoachingTips(coachingMethod))
 
@@ -108,9 +106,16 @@ export default function Coach() {
 
   const handleMethodChange = (id: TrainingMethodId) => {
     setCoachingMethod(id)
-    localStorage.setItem('coachTrainingMethod', id)
     const style = METHOD_COACHING_STYLES[id]
-    if (style) {localStorage.setItem('coachIntensity', style.tone)}
+    // Preferencia persistida en perfil Dexie (sin localStorage como fuente)
+    db.userProfile.get('me').then(p => {
+      if (p) {
+        db.userProfile.update('me', {
+          coachMethodView: id,
+          ...(style ? { coachTone: style.tone } : {}),
+        } as Partial<UserProfile>).catch(() => {})
+      }
+    }).catch(() => {})
     setCoachingTips(generateCoachingTips(id))
     setShowMethodPicker(false)
   }

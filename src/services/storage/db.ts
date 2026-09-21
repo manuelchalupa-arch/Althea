@@ -10,8 +10,9 @@ import type { CoachDecision, CoachQA } from '@/services/ai/coachMemory'
 import type { DecisionRecord } from '@/services/ai/decisionLogger'
 import type { KnowledgeDocument } from '@/services/ai/knowledgeBase'
 import type { ExerciseKnowledgeEntry } from '@/services/ai/exerciseKnowledge'
+import type { CycleVersion } from '@/services/planning/cycleVersions'
 
-export type CoachMemoryEntry = CoachDecision | (CoachQA & { type: 'qa' }) | { id: string; type: 'score'; date: string; score: number; factors: any; createdAt: string } | { id: string; type: 'observation'; date: string; sessionId: string; sessionStatus: string; routineName: string;[k: string]: any }
+export type CoachMemoryEntry = CoachDecision | (CoachQA & { type: 'qa' }) | { id: string; type: 'prefs'; date: string; prefs: Record<string, unknown>; createdAt: string } | { id: string; type: 'score'; date: string; score: number; factors: any; createdAt: string } | { id: string; type: 'observation'; date: string; sessionId: string; sessionStatus: string; routineName: string;[k: string]: any }
 
 export type OnboardingDraft = {
   id: string
@@ -60,6 +61,9 @@ export class TrainDB extends Dexie {
   migrationStatus!: Table<any>
   onboardingDrafts!: Table<OnboardingDraft>
   painLogs!: Table<PainLog>
+  cycleVersions!: Table<CycleVersion>
+  notifConfigs!: Table<{ id: string;[k: string]: unknown }>
+  notifLog!: Table<{ id: string; date: string;[k: string]: unknown }>
   constructor() {
     super('trainPWA')
     this.version(1).stores({
@@ -154,6 +158,17 @@ export class TrainDB extends Dexie {
     this.version(16).stores({
       routineStore: 'id, createdAt, updatedAt',
       trainingSessions: 'id, calendarDate, routineId, sessionId',
+    })
+    // v17: Versionado de planificación — historial de ciclos (solo aditiva, sin migración de datos).
+    // Las instalaciones existentes generan v1 de forma perezosa al guardar planificación.
+    this.version(17).stores({
+      cycleVersions: 'id, scope, status, effectiveFrom',
+    })
+    // v18: Notificaciones — configs y registro de disparos en Dexie (solo aditivo).
+    // Migración perezosa desde localStorage una sola vez.
+    this.version(18).stores({
+      notifConfigs: 'id',
+      notifLog: 'id, date',
     })
   }
 }

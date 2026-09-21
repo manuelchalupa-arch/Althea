@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { db } from '@/services/storage/db'
 import * as Gym from '@/services/exerciseGym'
 import { effectiveBreakdown, listCustomExercises } from '@/services/training/customExercises'
 import BibliotecaCustomForm from './BibliotecaCustomForm'
@@ -22,7 +23,24 @@ export default function Biblioteca(){
   const [detail,setDetail]=useState<Gym.Exercise|null>(null)
   const [showForm,setShowForm]=useState(false)
   const [editing,setEditing]=useState<CustomExercise|null>(null)
+  const [favs,setFavs]=useState<string[]>([])
+  const [onlyFavs,setOnlyFavs]=useState(false)
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true
+
+  useEffect(()=>{
+    db.userProfile.get('me')
+      .then(p => setFavs((p as { favoriteExercises?: string[] } | null)?.favoriteExercises || []))
+      .catch(()=>{})
+  },[])
+
+  const toggleFav = async (id: string) => {
+    const next = favs.includes(id) ? favs.filter(f => f !== id) : [...favs, id]
+    setFavs(next)
+    try {
+      const p = await db.userProfile.get('me')
+      if (p) { await db.userProfile.update('me', { favoriteExercises: next } as never) }
+    } catch { /* noop */ }
+  }
 
   const musclePct = (ex: Gym.Exercise)=> effectiveBreakdown(ex)
 
@@ -62,7 +80,12 @@ export default function Biblioteca(){
 
   useEffect(()=>{ load('muscle','__all__') },[])
 
-  const filtered = exercises.filter(ex=>{ if(!q) {return true;} const s=q.toLowerCase(); return ex.name.toLowerCase().includes(s) || String(ex.muscle||'').toLowerCase().includes(s) || String(ex.bodyPart||'').toLowerCase().includes(s) || String(ex.equipment||'').toLowerCase().includes(s) || String(ex.category||'').toLowerCase().includes(s) })
+  const filtered = exercises.filter(ex=>{
+    if(onlyFavs && !favs.includes(ex.id)) {return false}
+    if(!q) {return true;}
+    const s=q.toLowerCase();
+    return ex.name.toLowerCase().includes(s) || String(ex.muscle||'').toLowerCase().includes(s) || String(ex.bodyPart||'').toLowerCase().includes(s) || String(ex.equipment||'').toLowerCase().includes(s) || String(ex.category||'').toLowerCase().includes(s)
+  })
 
   const Chip = ({active, children, onClick}:{active:boolean; children:string; onClick:()=>void})=>(
     <button onClick={onClick} className={`px-3 py-1.5 rounded-full font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant whitespace-nowrap border ${active?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{children}</button>
@@ -119,6 +142,13 @@ export default function Biblioteca(){
           {(muscles.length===0 && tab==='muscle') && <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cargando...</span>}
         </div>
       </AltheaCard>
+
+      {/* Favoritos */}
+      <div className="flex gap-2">
+        <button onClick={()=>setOnlyFavs(v=>!v)} aria-pressed={onlyFavs} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-1 min-h-[44px] ${onlyFavs ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant'}`}>
+          <Heart size={12}/> Favoritos ({favs.length})
+        </button>
+      </div>
 
       {/* Buscador + filtros avanzados */}
       <div className="relative">
@@ -197,7 +227,12 @@ export default function Biblioteca(){
               {(detail.gifUrl || detail.imageDataUrl) ? <img src={detail.gifUrl || detail.imageDataUrl} alt={detail.name} onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="relative max-w-full w-auto h-auto max-h-[55vh] object-contain" /> : null}
             </div>
             <div className="p-4 space-y-3">
-              <h2 className="font-headline-lg text-base font-semibold text-on-surface">{detail.name}</h2>
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="font-headline-lg text-base font-semibold text-on-surface flex-1">{detail.name}</h2>
+                <button onClick={()=>toggleFav(detail.id)} aria-pressed={favs.includes(detail.id)} aria-label="Marcar favorito" className={`p-2.5 rounded-lg border min-w-[44px] min-h-[44px] flex items-center justify-center ${favs.includes(detail.id) ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant text-on-surface-variant'}`}>
+                  <Heart size={18} fill={favs.includes(detail.id) ? 'currentColor' : 'none'} />
+                </button>
+              </div>
               <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">{detail.muscle} · {detail.bodyPart} · {detail.equipment} · {detail.category}</p>
               <AltheaCard className="p-3">
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Músculos trabajados</div>

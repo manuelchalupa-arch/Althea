@@ -3,6 +3,7 @@ import {
   detectPerformanceDelta, detectAdherence, detectGap, detectSkipPatterns,
   detectPainZones, painMatchesMuscle, detectOvertraining, detectUnderTraining,
   detectRoutineStale, detectProteinGap, detectRestDayTraining,
+  detectWeeklyGoal, detectFourWeekGoal, detectDayChangePattern,
 } from './coachInsights'
 
 // §30: cada escenario con fixtures puras.
@@ -102,6 +103,42 @@ describe('escenarios Coach (§30)', () => {
     expect(detectProteinGap(40, 140, 3)?.level).toBe('warn')
     expect(detectProteinGap(130, 140, 3)).toBeNull()
     expect(detectProteinGap(10, null, 3)).toBeNull()
+  })
+
+  it('ET18. objetivo semanal y mensual 4 semanas', () => {
+    const mk = (date: string) => ({ date, status: 'COMPLETED', plannedDay: 1, actualDay: 1, volume: 1000 })
+    // Semana del lunes 2026-09-14 con 3/3 → cumplido
+    const week = [mk('2026-09-14'), mk('2026-09-16'), mk('2026-09-18')]
+    const goal = detectWeeklyGoal(week, 3, '2026-09-20')!
+    expect(goal.id).toBe('goal-week')
+    expect(goal.level).toBe('info')
+    // 2/3 → sin insight (no se inventa cumplimiento ni falta)
+    expect(detectWeeklyGoal(week.slice(0, 2), 3, '2026-09-20')).toBeNull()
+    expect(detectWeeklyGoal(week, 0, '2026-09-20')).toBeNull()
+    // Mes: 12/12 → info; 6/12 → warn; vacío → null
+    const month = Array.from({ length: 12 }, (_, i) =>
+      mk(`2026-09-${String(i + 1).padStart(2, '0')}`))
+    const m4 = detectFourWeekGoal(month, 3, '2026-09-30')!
+    expect(m4.id).toBe('goal-4w')
+    expect(m4.level).toBe('info')
+    const low = detectFourWeekGoal(month.slice(0, 6), 3, '2026-09-30')!
+    expect(low.level).toBe('warn')
+    expect(detectFourWeekGoal([], 3, '2026-09-30')).toBeNull()
+  })
+
+  it('ET18. cambios de día recurrentes con motivos', () => {
+    expect(detectDayChangePattern([
+      { date: '2026-09-01', from: 'día 1', to: 'día 2', reason: 'dolor' },
+    ])).toBeNull()
+    const rep = detectDayChangePattern([
+      { date: '2026-09-01', from: 'día 1', to: 'día 2', reason: 'dolor' },
+      { date: '2026-09-08', from: 'día 1', to: 'día 3', reason: 'viaje' },
+    ])!
+    expect(rep.id).toBe('daychange-pattern')
+    expect(rep.detail).toContain('dolor')
+    expect(rep.detail).toContain('viaje')
+    expect(rep.evidence).toContain('2026-09-01')
+    expect(rep.question?.key).toBe('daychange:why')
   })
 
   it('adherencia: umbral 70% con plan medible', () => {

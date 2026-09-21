@@ -12,7 +12,7 @@ export default function Calendario(){
   const now = new Date()
   const [y,m] = [now.getFullYear(), now.getMonth()]
   const [map,setMap]=useState<Record<string,number>>({})
-  const [detail,setDetail]=useState<{date:string; scheduled:string; actual:string; changed:boolean; sessions:any[]; hydration:number; recovery:any} | null>(null)
+  const [detail,setDetail]=useState<{date:string; scheduled:string; actual:string; changed:boolean; sessions:any[]; hydration:number; recovery:any; meals?:number; calories?:number} | null>(null)
   const [cycle,setCycle]=useState<CycleConfig | null>(null)
   const [monthOverrides,setMonthOverrides]=useState<Record<string,boolean>>({})
   const [showCheckin,setShowCheckin]=useState(false)
@@ -87,9 +87,37 @@ export default function Calendario(){
       ...legacySessions.map((s)=> ({ id: s.id, localDate: s.localDate, status: s.finishedAt ? 'COMPLETED' : 'ABANDONED' })),
       ...officialSessions.map((s)=> ({ id: s.sessionId || s.id, localDate: s.calendarDate, status: s.sessionStatus, routineName: s.routineName })),
     ]
+    // Detalle por sesión: ejercicios, series, volumen y cumplimiento (solo lectura).
+    const prettyId = (id: string) => String(id).split('/').pop()?.replace(/-/g, ' ') || String(id)
+    const detailed = await Promise.all(sessions.map(async (s) => {
+      const [ses, recs, logs] = await Promise.all([
+        db.sessionExercises.where('sessionId').equals(s.id).toArray().catch(() => []),
+        db.setRecords.where('sessionId').equals(s.id).toArray().catch(() => []),
+        db.setLogs.where('sessionId').equals(s.id).toArray().catch(() => []),
+      ])
+      const done = recs.filter(r => (r as { status?: string }).status === 'COMPLETED')
+      const vol = done.reduce((a, r) => a + Number((r as { actualWeight?: number }).actualWeight || 0) * Number((r as { actualReps?: number }).actualReps || 0), 0)
+        + logs.filter(l => (l as { completed?: boolean }).completed).reduce((a, l) => a + Number((l as { weight?: number }).weight || 0) * Number((l as { reps?: number }).reps || 0), 0)
+      const exNames = ses.length > 0
+        ? ses.map(e => prettyId(String((e as { exerciseId?: string }).exerciseId || '')))
+        : [...new Set(logs.map(l => prettyId(String((l as { exerciseId?: string }).exerciseId || ''))))]
+      const planned = ses.reduce((a, e) => a + Number((e as { plannedSetCount?: number }).plannedSetCount || 0), 0)
+      const doneCount = done.length + logs.filter(l => (l as { completed?: boolean }).completed).length
+      return {
+        ...s,
+        exercises: exNames.filter(Boolean),
+        volume: Math.round(vol * 10) / 10,
+        setsDone: doneCount,
+        setsPlanned: planned || undefined,
+        compliance: planned > 0 ? Math.round((doneCount / planned) * 100) : undefined,
+      }
+    }))
     const hyd = await db.hydrationLogs.where('localDate').equals(key).toArray().then(a=> a.reduce((s,b)=>s+b.amountMl,0)).catch(()=>0)
-    const rec = await db.recoveryChecks.get(key).catch(()=>null) || JSON.parse(localStorage.getItem(`recovery:${key}`)||'null')
-    setDetail({date:key, scheduled, actual, changed, sessions, hydration: hyd, recovery: rec})
+    // Solo Dexie: sin dato → Sin datos (sin fallback a localStorage).
+    const rec = await db.recoveryChecks.get(key).catch(()=>null)
+    const diary = await db.nutritionDiary.where('date').equals(key).toArray().catch(() => [])
+    const dayCalories = diary.reduce((a, e) => a + Number((e as { macros?: { calories?: number } }).macros?.calories || 0), 0)
+    setDetail({date:key, scheduled, actual, changed, sessions: detailed, hydration: hyd, recovery: rec, meals: diary.length, calories: Math.round(dayCalories)})
   }
 
   const dim = daysInMonth(y,m)
@@ -168,11 +196,22 @@ export default function Calendario(){
           <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[75vh] overflow-auto p-4 space-y-3">
             <h3 className="font-headline-lg text-base font-semibold text-on-surface">{detail.date} — {detail.actual}</h3>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Programado: {detail.scheduled} {detail.changed && `→ Realizado: ${detail.actual} (cambiado)`}</p>
-            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sesiones: {detail.sessions.length} · Hidratación: {detail.hydration} ml · Recuperación: {detail.recovery ? `${detail.recovery.score||'?'} /100` : '—'}</p>
+            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sesiones: {detail.sessions.length} · Hidratación: {detail.hydration} ml · Recuperación: {typeof detail.recovery?.score === 'number' ? `${detail.recovery.score}/100` : 'Sin datos'}</p>
+            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Comidas: {detail.meals ?? 0}{detail.calories ? ` · ${detail.calories} kcal` : ''} · Sueño: {typeof detail.recovery?.sleepHours === 'number' ? `${detail.recovery.sleepHours}h (calidad ${detail.recovery.sleepQuality ?? '—'}/10)` : 'Sin datos'}</p>
             {detail.sessions.length>0 && (
-              <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+              <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Ejercicios registrados</div>
-                {detail.sessions.map((s:any)=>{ const st = String(s.status || ''); const cls = st==='COMPLETED' ? 'st-completed' : st==='PARTIAL' ? 'st-partial' : st==='CANCELLED' ? 'st-cancelled' : st==='ABANDONED' ? 'st-abandoned' : 'st-pending'; return <div key={s.id} className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-2"><span className={`px-2 py-0.5 rounded-lg border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${cls}`}>{st || '—'}</span><span>{s.localDate}{s.routineName ? ` · ${s.routineName}` : ''}</span></div> })}
+                {detail.sessions.map((s:any)=>{ const st = String(s.status || ''); const cls = st==='COMPLETED' ? 'st-completed' : st==='PARTIAL' ? 'st-partial' : st==='CANCELLED' ? 'st-cancelled' : st==='ABANDONED' ? 'st-abandoned' : 'st-pending'; return (
+                  <div key={s.id} className="space-y-1">
+                    <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-2"><span className={`px-2 py-0.5 rounded-lg border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${cls}`}>{st || '—'}</span><span>{s.localDate}{s.routineName ? ` · ${s.routineName}` : ''}</span></div>
+                    <div className="font-body-sm text-[12px] text-on-surface-variant pl-1">
+                      {(s.exercises || []).join(' · ') || 'Sin detalle de ejercicios'}
+                      {s.volume > 0 && <span> · {s.volume} kg</span>}
+                      {s.setsDone > 0 && <span> · {s.setsDone}{s.setsPlanned ? `/${s.setsPlanned}` : ''} series</span>}
+                      {typeof s.compliance === 'number' && <span> · {s.compliance}%</span>}
+                    </div>
+                  </div>
+                ) })}
               </div>
             )}
             <button onClick={()=>setDetail(null)} className="w-full py-3 rounded bg-primary text-on-surface">Cerrar</button>

@@ -55,4 +55,28 @@ describe('accountWipe — borrado selectivo al eliminar cuenta', () => {
     await db.open()
     expect(await db.recoveryChecks.count()).toBe(0)
   })
+
+  it('tras el borrado la app rearranca: sync/memoria limpios y perfil reutilizable', async () => {
+    await db.syncQueue.put({ id: 'trainingSessions:x', table: 'trainingSessions', key: 'x', status: 'pending', attempts: 0, createdAt: '2026-01-01T10:00:00Z', updatedAt: '2026-01-01T10:00:00Z' } as never)
+    await db.coachMemory.put({ id: 'dec-1', date: '2026-01-01', type: 'reject', contextSnapshot: {}, createdAt: '2026-01-01T10:00:00Z' } as never)
+    await db.userProfile.put({ id: 'me', favoriteExercises: ['press'] } as never)
+    localStorage.setItem('althea:theme', 'dark')
+
+    await clearUserDataOnAccountDelete()
+    await db.open()
+
+    expect(await db.syncQueue.count()).toBe(0)
+    expect(await db.coachMemory.count()).toBe(0)
+    expect(await db.userProfile.count()).toBe(0)
+    // Estructuras técnicas intactas: se puede guardar perfil y operar de nuevo
+    await db.userProfile.put({ id: 'me', onboardingDone: true } as never)
+    expect(await db.userProfile.get('me')).toBeDefined()
+    await db.trainingSessions.put({
+      id: 'nueva', sessionId: 'nueva', userId: 'me', routineId: 'r1',
+      plannedDay: 1, actualDay: 1, calendarDate: '2026-02-01',
+      sessionStatus: 'COMPLETED', createdAt: '2026-02-01T10:00:00Z', updatedAt: '2026-02-01T10:00:00Z',
+    } as never)
+    expect(await db.trainingSessions.count()).toBe(1)
+    expect(localStorage.getItem('althea:theme')).toBe('dark')
+  })
 })

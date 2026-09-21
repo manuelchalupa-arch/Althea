@@ -1,4 +1,5 @@
 // Global type declarations for testing utilities
+/// <reference types="vite/client" />
 import '@testing-library/jest-dom'
 
 declare module 'vitest' {

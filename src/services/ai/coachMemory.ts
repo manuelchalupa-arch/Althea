@@ -1,16 +1,28 @@
 import { db } from '@/services/storage/db'
 
 // Memoria estructurada — no conversaciones completas, solo datos útiles.
-// Decisiones + preguntas/respuestas del Coach. Dexie es fuente primaria;
-// localStorage es espejo de lectura rápida (ambos se fusionan al leer).
+// Decisiones + preguntas/respuestas del Coach. Fuente única: Dexie.
+// Clasificación obligatoria: hecho / preferencia / decisión / patrón /
+// hipótesis / recomendación. Una recomendación o hipótesis NUNCA se guarda
+// como hecho.
+export type MemoryKind =
+  | 'hecho'
+  | 'preferencia'
+  | 'decision'
+  | 'patron'
+  | 'hipotesis'
+  | 'recomendacion'
+
 export type CoachDecision = {
   id: string
   date: string // YYYY-MM-DD
-  type: 'accept'|'modify'|'reject'|'swap'|'skip'|'complete'|'partial'|'note'
+  type: 'accept' | 'modify' | 'reject' | 'swap' | 'skip' | 'complete' | 'partial' | 'note'
+  kind?: MemoryKind
   exercise?: string
   reason?: string
   motive?: string // por qué rechazó/omitió/cambió
-  contextSnapshot: any
+  modification?: string // qué cambió el usuario (solo type 'modify')
+  contextSnapshot: unknown
   createdAt: string
 }
 
@@ -23,53 +35,38 @@ export type CoachQA = {
   createdAt: string
 }
 
-const KEY = 'coachMemory'
-const PREFS_KEY = 'coachPrefs'
-const QA_KEY = 'coachQA'
+const DECISION_TYPES = new Set(['accept', 'modify', 'reject', 'swap', 'skip', 'complete', 'partial', 'note'])
+const PREFS_ID = 'coach-prefs'
 
-const DECISION_TYPES = new Set(['accept','modify','reject','swap','skip','complete','partial','note'])
+export function defaultKindFor(type: CoachDecision['type']): MemoryKind {
+  if (type === 'complete' || type === 'partial' || type === 'note') { return 'hecho' }
+  return 'decision'
+}
 
-export async function saveDecision(d: Omit<CoachDecision,'id'|'createdAt'>): Promise<CoachDecision> {
-  const entry: CoachDecision = { ...d, id: `dec-${Date.now()}`, createdAt: new Date().toISOString() }
-  // Dexie es primario
-  try { await db.coachMemory.put(entry) } catch { /* noop */ }
-  // Espejo en localStorage
-  try {
-    const all: CoachDecision[] = JSON.parse(localStorage.getItem(KEY)||'[]')
-    all.push(entry)
-    localStorage.setItem(KEY, JSON.stringify(all.slice(-200)))
-  } catch { /* noop */ }
-  // Aprender de historial (lee de localStorage para prefs)
-  try {
-    const all: CoachDecision[] = JSON.parse(localStorage.getItem(KEY)||'[]')
-    learnFromHistory(all)
-  } catch { /* noop */ }
+export async function saveDecision(d: Omit<CoachDecision, 'id' | 'createdAt'>): Promise<CoachDecision> {
+  const entry: CoachDecision = {
+    ...d,
+    kind: d.kind ?? defaultKindFor(d.type),
+    id: `dec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date().toISOString(),
+  }
+  await db.coachMemory.put(entry)
+  await learnFromHistory(await getAllDecisions())
   return entry
 }
 
-export function getDecisions(): CoachDecision[] {
-  try { return JSON.parse(localStorage.getItem(KEY)||'[]') } catch { return [] }
-}
-
-/** Fusiona Dexie + espejo local (dedupe por id). La memoria sobrevive al borrado de caché. */
+/** Solo Dexie (dedupe por id). Sin espejos. */
 export async function getAllDecisions(): Promise<CoachDecision[]> {
   let stored: CoachDecision[] = []
   try {
     const rows = await db.coachMemory.toArray().catch(() => [])
     stored = rows.filter((r) => {
-      if (!r || !r.date) {return false}
-      if (r.type === 'qa' || r.type === 'score' || r.type === 'observation') {return false}
+      if (!r || !r.date) { return false }
+      if (r.type === 'qa' || r.type === 'score' || r.type === 'observation' || r.type === 'prefs') { return false }
       return DECISION_TYPES.has(r.type)
     }) as CoachDecision[]
   } catch { /* noop */ }
-  // Merge con localStorage (dedupe)
-  const local = getDecisions()
-  const seen = new Set(stored.map(d => d.id))
-  const merged = [...stored]
-  for (const l of local) {
-    if (!seen.has(l.id)) {merged.push(l)}
-  }
-  return merged.sort((a, b) => (a.date < b.date ? -1 : 1))
+  return stored.sort((a, b) => (a.date < b.date ? -1 : 1))
 }
 
 export async function saveAnswer(key: string, question: string, answer: string): Promise<CoachQA> {
@@ -79,81 +76,96 @@ export async function saveAnswer(key: string, question: string, answer: string):
     key, question, answer: answer.slice(0, 500),
     createdAt: new Date().toISOString(),
   }
-  // Dexie es primario
-  try { await db.coachMemory.put({ ...entry, type: 'qa' }) } catch { /* noop */ }
-  // Espejo en localStorage
-  try {
-    const all = JSON.parse(localStorage.getItem(QA_KEY) || '{}')
-    all[key] = entry
-    localStorage.setItem(QA_KEY, JSON.stringify(all))
-  } catch { /* noop */ }
+  await db.coachMemory.put({ ...entry, type: 'qa' })
   return entry
 }
 
 export async function getAnswer(key: string): Promise<CoachQA | null> {
-  // Dexie es primario
   try {
     const today = new Date().toISOString().slice(0, 10)
     const rows = await db.coachMemory.where('id').equals(`qa-${key}-${today}`).toArray().catch(() => [])
     const match = rows.find(r => r && r.type === 'qa') as CoachQA | undefined
-    if (match) {return match}
-    // Buscar en todo el historial
+    if (match) { return match }
     const all = await db.coachMemory.toArray().catch(() => [])
     const mine = all.filter(r => r && r.type === 'qa' && (r as CoachQA).key === key)
       .sort((a, b) => String((a as CoachQA).date) < String((b as CoachQA).date) ? -1 : 1)
-    if (mine.length > 0) {return mine[mine.length - 1] as CoachQA}
+    if (mine.length > 0) { return mine[mine.length - 1] as CoachQA }
   } catch { /* noop */ }
-  // Fallback a localStorage
-  try {
-    const all = JSON.parse(localStorage.getItem(QA_KEY) || '{}')
-    return all[key] || null
-  } catch { return null }
+  return null
 }
 
 export async function getAllAnswers(): Promise<Record<string, CoachQA>> {
   const out: Record<string, CoachQA> = {}
-  // Dexie es primario
   try {
     const rows = await db.coachMemory.toArray().catch(() => [])
     for (const r of rows) {
       if (r && r.type === 'qa' && (r as CoachQA).key) {
         const qa = r as CoachQA
         const prev = out[qa.key]
-        if (!prev || String(qa.date) >= String(prev.date)) {out[qa.key] = qa}
+        if (!prev || String(qa.date) >= String(prev.date)) { out[qa.key] = qa }
       }
-    }
-  } catch { /* noop */ }
-  // Merge con localStorage
-  try {
-    const local = JSON.parse(localStorage.getItem(QA_KEY) || '{}')
-    for (const k of Object.keys(local)) {
-      if (!out[k]) {out[k] = local[k]}
     }
   } catch { /* noop */ }
   return out
 }
 
-export function getPrefs(): Record<string, unknown> {
-  try { return JSON.parse(localStorage.getItem(PREFS_KEY)||'{}') } catch { return {} }
+export async function getPrefs(): Promise<Record<string, unknown>> {
+  try {
+    const row = await db.coachMemory.get(PREFS_ID).catch(() => null) as ({ prefs?: Record<string, unknown> } | null)
+    return { ...(row?.prefs || {}) }
+  } catch { return {} }
 }
 
-function learnFromHistory(all: CoachDecision[]) {
-  const prefs: Record<string, unknown> = getPrefs()
+async function savePrefs(prefs: Record<string, unknown>): Promise<void> {
+  await db.coachMemory.put({
+    id: PREFS_ID, type: 'prefs', date: new Date().toISOString().slice(0, 10),
+    prefs, createdAt: new Date().toISOString(),
+  })
+}
+
+async function learnFromHistory(all: CoachDecision[]): Promise<void> {
+  const prefs: Record<string, unknown> = await getPrefs()
   const lunesRechazos = all.filter(d => d.motive?.includes('tiempo') && new Date(d.date).getDay() === 1).length
-  if (lunesRechazos >= 2) {prefs.disponibilidadLunes = 'reducida'}
+  if (lunesRechazos >= 2) { prefs.disponibilidadLunes = 'reducida' }
   const byEx: Record<string, number> = {}
-  all.filter(d => d.type === 'reject').forEach(d => { if (d.exercise) {byEx[d.exercise] = (byEx[d.exercise] || 0) + 1} })
+  all.filter(d => d.type === 'reject').forEach(d => { if (d.exercise) { byEx[d.exercise] = (byEx[d.exercise] || 0) + 1 } })
   const frecuente = Object.entries(byEx).find(([, c]) => c >= 2)
-  if (frecuente) {prefs.ejercicioEvitado = frecuente[0]}
+  if (frecuente) { prefs.ejercicioEvitado = frecuente[0] }
+  const swaps: Record<string, number> = {}
+  all.filter(d => d.type === 'swap').forEach(d => { if (d.exercise) { swaps[d.exercise] = (swaps[d.exercise] || 0) + 1 } })
+  const swapFrec = Object.entries(swaps).find(([, c]) => c >= 2)
+  if (swapFrec) { prefs.sustitucionRepetida = swapFrec[0] }
   const mods30 = all.filter(d => d.motive?.includes('30')).length
-  if (mods30 >= 2) {prefs.duracionPreferida = 30}
-  localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
+  if (mods30 >= 2) { prefs.duracionPreferida = 30 }
+  await savePrefs(prefs)
 }
 
-export function getLearningInsight(): string | null {
-  const prefs = getPrefs()
-  if (prefs.disponibilidadLunes) {return 'Noté que los lunes tenés menos tiempo — adapto próximas rutinas.'}
-  if (prefs.ejercicioEvitado) {return `Veo que evitás ${prefs.ejercicioEvitado} — te propongo variantes equivalentes.`}
-  if (prefs.duracionPreferida) {return 'Veo que preferís sesiones de 30 min — priorizo lo esencial.'}
+export async function getLearningInsight(): Promise<string | null> {
+  const prefs = await getPrefs()
+  if (prefs.disponibilidadLunes) { return 'Noté que los lunes tenés menos tiempo — adapto próximas rutinas.' }
+  if (prefs.ejercicioEvitado) { return `Veo que evitás ${prefs.ejercicioEvitado} — te propongo variantes equivalentes.` }
+  if (prefs.sustitucionRepetida) { return `Sustituís ${prefs.sustitucionRepetida} seguido — lo tengo en cuenta, sin cambiar tu rutina.` }
+  if (prefs.duracionPreferida) { return 'Veo que preferís sesiones de 30 min — priorizo lo esencial.' }
   return null
+}
+
+export interface RepeatedDecision { exercise: string; type: string; count: number; lastDate: string }
+
+// Repetición de decisiones (rechazos/sustituciones reiterados): alimenta
+// contexto futuro, nunca modifica la rutina automáticamente.
+export async function getRepeatedDecisions(minCount = 2): Promise<RepeatedDecision[]> {
+  const all = await getAllDecisions()
+  const acc = new Map<string, RepeatedDecision>()
+  for (const d of all) {
+    if (!d.exercise) { continue }
+    if (d.type !== 'reject' && d.type !== 'swap' && d.type !== 'skip') { continue }
+    const key = `${d.type}:${d.exercise}`
+    const cur = acc.get(key) || { exercise: d.exercise, type: d.type, count: 0, lastDate: d.date }
+    cur.count += 1
+    if (d.date > cur.lastDate) { cur.lastDate = d.date }
+    acc.set(key, cur)
+  }
+  return [...acc.values()]
+    .filter(r => r.count >= minCount)
+    .sort((a, b) => b.count - a.count || (a.lastDate < b.lastDate ? 1 : -1))
 }

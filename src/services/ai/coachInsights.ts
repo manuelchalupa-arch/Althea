@@ -21,6 +21,7 @@ export interface CoachInsight {
 
 export interface PerfSample { date: string; weight: number; reps: number }
 export interface SessionRow { date: string; status: string; plannedDay: number | null; actualDay: number | null; volume: number }
+export interface DayChangeRow { date: string; from: string; to: string; reason: string }
 export interface PainRow { date: string; zone: string; detail: string; pain: number; exercise?: string }
 export interface SkipRow { date: string; exerciseId: string; exerciseName: string; muscle: string; reason: string }
 
@@ -87,6 +88,54 @@ export function detectGap(sessions: SessionRow[], today: string): CoachInsight |
     }
   }
   return null
+}
+
+// 3b. Objetivo semanal y racha de 4 semanas (ET18): planificado vs realizado.
+export function detectWeeklyGoal(sessions: SessionRow[], plannedPerWeek: number, today: string): CoachInsight | null {
+  if (!(plannedPerWeek > 0)) { return null }
+  const monday = weekKey(today)
+  const done = sessions.filter(s => s.date >= monday && ['COMPLETED', 'PARTIAL'].includes(s.status)).length
+  if (done >= plannedPerWeek) {
+    return {
+      id: 'goal-week', kind: 'goal', level: 'info',
+      title: `Objetivo semanal cumplido (${done}/${plannedPerWeek})`,
+      detail: 'Completaste las sesiones planificadas de esta semana.',
+      evidence: `${done} sesiones finalizadas desde el lunes.`,
+    }
+  }
+  return null
+}
+
+export function detectFourWeekGoal(sessions: SessionRow[], plannedPerWeek: number, today: string): CoachInsight | null {
+  if (!(plannedPerWeek > 0)) { return null }
+  const since = (days: number) => {
+    const d = new Date(today + 'T12:00:00')
+    d.setDate(d.getDate() - days)
+    return d.toISOString().slice(0, 10)
+  }
+  const done = sessions.filter(s => s.date >= since(28) && ['COMPLETED', 'PARTIAL'].includes(s.status)).length
+  const expected = plannedPerWeek * 4
+  if (done === 0) { return null }
+  const pct = Math.round((done / expected) * 100)
+  return {
+    id: 'goal-4w', kind: 'goal', level: pct >= 80 ? 'info' : 'warn',
+    title: `Mes (4 sem): ${done}/${expected} sesiones (${pct}%)`,
+    detail: pct >= 80 ? 'Ritmo sostenido en el mes.' : 'Por debajo del plan mensual. Revisá qué semanas fallaron.',
+    evidence: `${done} sesiones en los últimos 28 días.`,
+  }
+}
+
+// 3c. Cambio recurrente de día (ET18): motivos registrados, sin juzgar causa.
+export function detectDayChangePattern(changes: DayChangeRow[]): CoachInsight | null {
+  if (changes.length < 2) { return null }
+  const reasons = [...new Set(changes.map(c => c.reason).filter(Boolean))]
+  return {
+    id: 'daychange-pattern', kind: 'daychange', level: 'info',
+    title: `Cambios de día recurrentes (${changes.length} en 30 días)`,
+    detail: `Motivos registrados: ${reasons.join(', ') || 'sin motivo'}. Si un motivo se repite, conviene ajustar la planificación.`,
+    evidence: changes.map(c => `${c.date}: ${c.from} → ${c.to}`).join(' · '),
+    question: { key: 'daychange:why', text: 'Venís moviendo sesiones seguido. ¿Querés reordenar los días de la semana?' },
+  }
 }
 
 // 4. Omisión repetida de ejercicios (§12-13)
@@ -227,16 +276,23 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       d.setDate(d.getDate() - days)
       return d.toISOString().slice(0, 10)
     }
-    // sesiones finales 30d
+    // sesiones finales 60d (oficial manda por fecha; legacy solo rellena días sin oficial)
     const official: TrainingSession[] = await db.trainingSessions.toArray().catch((): TrainingSession[] => [])
     const legacy: Session[] = await db.sessions.toArray().catch((): Session[] => [])
+    const officialDates = new Set(
+      official.filter((s) => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus)).map((s) => s.calendarDate),
+    )
     const finals = [
       ...official.filter((s) => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus)).map((s) => ({
         date: s.calendarDate, status: s.sessionStatus,
         plannedDay: s.plannedDay ?? null, actualDay: s.actualDay ?? null,
         volume: Number(s.totalVolume ?? 0),
+        dayChangeReason: s.dayChange?.reason ?? null as string | null,
       })),
-      ...legacy.filter((s) => s.finishedAt).map((s) => ({ date: s.localDate, status: 'COMPLETED', plannedDay: null, actualDay: null, volume: 0 })),
+      ...legacy.filter((s) => s.finishedAt && !officialDates.has(s.localDate)).map((s) => ({
+        date: s.localDate, status: 'COMPLETED', plannedDay: null, actualDay: null, volume: 0,
+        dayChangeReason: null as string | null,
+      })),
     ].filter((s) => s.date && s.date >= since(60))
     // adherencia 14d (días planificados según ciclo)
     let planned14: string[] = []
@@ -256,6 +312,52 @@ export async function buildInsights(): Promise<CoachInsight[]> {
     push(detectAdherence(finals.filter((s) => s.date >= since(14)), planned14))
     push(detectGap(finals, today))
     push(detectRestDayTraining(finals.filter((s) => s.date >= since(30))))
+    // ET18: objetivo semanal + mes de 4 semanas (planificado vs realizado)
+    try {
+      const p: UserProfile = await db.userProfile.get('me') as UserProfile
+      const perWeek = p?.cycle?.weekMap ? p.cycle.weekMap.filter(d => d !== null && d !== undefined).length : 0
+      push(detectWeeklyGoal(finals, perWeek, today))
+      push(detectFourWeekGoal(finals, perWeek, today))
+    } catch { /* noop */ }
+    // ET18: cambios de día recurrentes (motivos registrados)
+    try {
+      const changes = finals
+        .filter(s => s.dayChangeReason && s.date >= since(30))
+        .map(s => ({
+          date: s.date,
+          from: s.plannedDay !== null && s.plannedDay !== undefined ? `día ${s.plannedDay}` : 'descanso',
+          to: s.actualDay !== null && s.actualDay !== undefined ? `día ${s.actualDay}` : 'descanso',
+          reason: s.dayChangeReason as string,
+        }))
+      push(detectDayChangePattern(changes))
+    } catch { /* noop */ }
+    // ET18: músculos poco trabajados 30d (volumen real por parte)
+    try {
+      const { unifiedAllCompletedSets } = await import('@/services/history')
+      const { fetchPartMap } = await import('@/services/exerciseGym')
+      const { BODY_PARTS } = await import('@/services/exerciseGym')
+      const sets = await unifiedAllCompletedSets().catch(() => [])
+      const partMap = await fetchPartMap().catch(() => ({} as Record<string, string>))
+      const vols: Record<string, number> = {}
+      for (const s of sets) {
+        if (s.createdAt.slice(0, 10) < since(30)) { continue }
+        const part = partMap[s.exerciseId]
+        if (!part) { continue }
+        vols[part] = (vols[part] || 0) + s.weight * s.reps
+      }
+      const total = Object.values(vols).reduce((a, b) => a + b, 0)
+      if (total > 0) {
+        const missing = BODY_PARTS.filter(p => !(vols[p] > 0)).slice(0, 3)
+        if (missing.length > 0) {
+          out.push({
+            id: 'undertrained', kind: 'undertrained', level: 'info',
+            title: `Zonas poco trabajadas (30d): ${missing.join(', ')}`,
+            detail: 'Sin volumen registrado en esas zonas. Sugerencia, no obligación.',
+            evidence: `Volumen 30d: ${Math.round(total)} kg en ${Object.keys(vols).length} zonas.`,
+          })
+        }
+      }
+    } catch { /* noop: sin mapa no hay insight, nunca inventar */ }
     // skips 30d (store)
     try {
       const ses = await db.sessionExercises.toArray().catch(() => [])
@@ -319,11 +421,11 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       const active = rawList?.find((r) => r.id === activeId) || rawList?.[0]
       if (active?.createdAt) {
         const age = Math.round((Date.now() - new Date(active.createdAt).getTime()) / 86400000)
-      const off = await db.setRecords.toArray().catch((): any[] => [])
-      const leg = await db.setLogs.toArray().catch((): any[] => [])
-        const maxRecent = Math.max(0, ...off.filter((r) => r.status === 'COMPLETED' && String(r.completedAt || r.createdAt || '') >= since(14)).map((r) => Number(r.actualWeight || 0)), ...leg.filter((l) => l.completed && String(l.createdAt || '') >= since(14)).map((l) => Number(l.weight || 0)))
-        const maxPrev = Math.max(0, ...off.filter((r) => r.status === 'COMPLETED' && String(r.completedAt || r.createdAt || '') < since(14) && String(r.completedAt || r.createdAt || '') >= since(60)).map((r) => Number(r.actualWeight || 0)), ...leg.filter((l) => l.completed && String(l.createdAt || '') < since(14) && String(l.createdAt || '') >= since(60)).map((l) => Number(l.weight || 0)))
-        push(detectRoutineStale(age, maxRecent > maxPrev, off.length + leg.length))
+      const { unifiedAllCompletedSets } = await import('@/services/history')
+      const unified = await unifiedAllCompletedSets().catch((): { weight: number; createdAt: string }[] => [])
+        const maxRecent = Math.max(0, ...unified.filter((r) => r.createdAt >= since(14)).map((r) => Number(r.weight || 0)))
+        const maxPrev = Math.max(0, ...unified.filter((r) => r.createdAt < since(14) && r.createdAt >= since(60)).map((r) => Number(r.weight || 0)))
+        push(detectRoutineStale(age, maxRecent > maxPrev, unified.length))
       }
     } catch { /* noop */ }
     // proteína hoy (estimado honesto)
@@ -342,7 +444,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
     try {
       const { analyzeGlobal, analyzeExercise } = await import('./progressAnalyzer')
       const global = await analyzeGlobal()
-      if (global.trend === 'plateau' && global.plateauWeeks >= 3) {
+      if (global.trend === 'plateau' && global.plateauWeeks >= 3 && global.sufficientData) {
         out.push({
           id: 'progress-plateau', kind: 'progress', level: 'warn',
           title: `Estancamiento detectado (${global.plateauWeeks} semanas)`,

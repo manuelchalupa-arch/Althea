@@ -35,7 +35,7 @@ export default function Inicio(){
   const { dayName, dayNum, month } = formatAgendaDate(todayStr)
   const [cycle, setCycle] = useState(getCycleFromProfile(null))
   const [exNames, setExNames] = useState<{id:string; name:string; sets:number; reps:number; weight:number; restSec?:number; muscle?:string}[]>([])
-  const [hydration, setHydration] = useState(1900)
+  const [hydration, setHydration] = useState<number | null>(null)
   const [hasActiveSession, setHasActiveSession] = useState(false)
   const [briefScore, setBriefScore] = useState<number|null>(null)
   const [briefWarn, setBriefWarn] = useState<string|null>(null)
@@ -172,8 +172,8 @@ export default function Inicio(){
     import('@/services/storage/db').then(({ db })=>{
       db.hydrationLogs.where('localDate').equals(todayStr).toArray().then((rows)=>{
         const total = rows.reduce((sum:number, r:any)=> sum + (r.amountMl || 0), 0)
-        setHydration(total || 0)
-      }).catch(()=> setHydration(0))
+        setHydration(total)
+      }).catch(()=> setHydration(null))
     }).catch(()=>{})
     import('@/services/training/sessionStore').then(({ getActiveSession })=> getActiveSession().then((s)=> setHasActiveSession(!!s && s.calendarDate===todayStr)).catch(()=>{})).catch(()=>{})
   },[])
@@ -382,7 +382,7 @@ exercises: list.map((x)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, r
                 </div>
                 <div className="p-3 rounded bg-surface-container border border-outline-variant/20">
                   <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">Hidratación Hoy</span>
-                  <p className="font-headline-sm text-headline-sm text-on-surface font-semibold mt-0.5">{hydration} / 2500 <span className="text-[12px] text-secondary font-normal">ml</span></p>
+                  <p className="font-headline-sm text-headline-sm text-on-surface font-semibold mt-0.5">{hydration !== null ? <>{hydration} / 2500 <span className="text-[12px] text-secondary font-normal">ml</span></> : 'Sin datos'}</p>
                 </div>
               </div>
               <p className="text-[11px] text-on-surface-variant italic border-t border-surface-bright pt-3">
@@ -502,13 +502,13 @@ exercises: list.map((x)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, r
                 <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">RECUPERACIÓN ARETE</span>
               </div>
               <span className="px-2 py-0.5 rounded bg-secondary-container/50 border border-secondary/40 text-secondary font-label-caps text-[9px] font-bold">
-                {briefV2?.recovery?.lastScore != null ? (briefV2.recovery.lastScore >= 70 ? 'NIVEL ÁUREO' : briefV2.recovery.lastScore >= 40 ? 'EN PROCESO' : 'NECESITA DESCANSO') : 'NIVEL ÁUREO'}
+                {briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'NIVEL ÁUREO' : briefV2.recovery.lastScore >= 40 ? 'EN PROCESO' : 'NECESITA DESCANSO') : 'SIN DATOS'}
               </span>
             </div>
             <div className="flex items-center gap-3 py-1">
               <div className="relative w-16 h-16 rounded-full border-4 border-surface-bright flex items-center justify-center bg-surface-container flex-shrink-0">
                 <div className="text-center">
-                  <span className="font-headline-md text-headline-sm font-bold text-white">{briefV2?.recovery?.lastScore ?? 88}</span>
+                  <span className="font-headline-md text-headline-sm font-bold text-white">{briefV2?.recovery?.lastScore ?? '—'}</span>
                   <span className="block text-[9px] font-label-caps text-secondary">/100</span>
                 </div>
               </div>
@@ -516,25 +516,25 @@ exercises: list.map((x)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, r
                 <div>
                   <div className="flex justify-between text-[11px] mb-0.5">
                     <span className="text-on-surface-variant">Variabilidad Cardíaca (HRV)</span>
-                    <span className="text-primary font-semibold">68 ms</span>
+                    <span className="text-primary font-semibold">Sin datos</span>
                   </div>
                   <div className="w-full bg-surface-bright h-1 rounded-full overflow-hidden">
-                    <div className="bg-primary h-full w-[85%]"></div>
+                    <div className="bg-primary h-full w-[0%]"></div>
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-[11px] mb-0.5">
                     <span className="text-on-surface-variant">Sueño Profundo (REM)</span>
-                    <span className="text-secondary font-semibold">2h 14m</span>
+                    <span className="text-secondary font-semibold">Sin datos</span>
                   </div>
                   <div className="w-full bg-surface-bright h-1 rounded-full overflow-hidden">
-                    <div className="bg-secondary h-full w-[78%]"></div>
+                    <div className="bg-secondary h-full w-[0%]"></div>
                   </div>
                 </div>
               </div>
             </div>
             <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-2.5 italic">
-              «Sistema nervioso óptimo. Capacidad muscular lista para sobrecarga.»
+              Completá el check-in de recuperación para una lectura real.
             </p>
           </div>
 
@@ -545,19 +545,19 @@ exercises: list.map((x)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, r
                 <span className="material-symbols-outlined text-secondary" style={{ fontSize: 20 }}>water_drop</span>
                 <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">HIDRATACIÓN & NÉCTAR</span>
               </div>
-              <span className="text-[11px] text-secondary font-medium">{Math.round(hydration/25)}% Objetivo</span>
+              <span className="text-[11px] text-secondary font-medium">{hydration !== null ? `${Math.round(hydration/25)}% Objetivo` : 'Sin datos'}</span>
             </div>
             <div className="flex items-baseline justify-between">
               <div className="flex items-baseline gap-1">
-                <span className="font-headline-md text-headline-sm font-bold text-on-surface">{(hydration/1000).toFixed(1)}</span>
+                <span className="font-headline-md text-headline-sm font-bold text-on-surface">{hydration !== null ? (hydration/1000).toFixed(1) : '—'}</span>
                 <span className="text-body-sm text-on-surface-variant">/ 2.5 L</span>
               </div>
               <span className="font-label-caps text-[10px] text-primary uppercase font-semibold">+Electrolitos</span>
             </div>
             <div className="grid grid-cols-5 gap-1.5">
               {Array.from({length:5}).map((_,i)=>{
-                const filled = hydration >= (i+1)*500
-                const partial = !filled && hydration > i*500
+                const filled = (hydration ?? 0) >= (i+1)*500
+                const partial = !filled && (hydration ?? 0) > i*500
                 return (
                   <div key={i} className={`p-1.5 rounded border flex flex-col items-center ${filled ? 'bg-primary-container/30 border-primary/40' : partial ? 'bg-primary-container/20 border-primary/20' : 'bg-surface-container border-outline-variant/30 opacity-60'}`}>
                     <span className={`material-symbols-outlined ${filled ? 'text-primary' : partial ? 'text-primary-fixed-dim' : 'text-outline'}`} style={{ fontSize: 15 }}>water_drop</span>
@@ -569,11 +569,11 @@ exercises: list.map((x)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, r
             <button
               onClick={()=>{
                 const addMl = 250
-                const newTotal = hydration + addMl
-                setHydration(newTotal)
-                // Guardar en Dexie
-                import('@/services/storage/db').then(({ db })=>{
-                  db.hydrationLogs.add({ id: `h:${todayStr}:${Date.now()}`, localDate: todayStr, amountMl: addMl, time: new Date().toISOString().slice(11,16) }).catch(()=>{})
+                import('@/services/recovery/recoveryService').then(({ addHydration, getTodayHydration })=>{
+                  addHydration(addMl)
+                    .then(()=> getTodayHydration())
+                    .then(setHydration)
+                    .catch(()=>{})
                 }).catch(()=>{})
               }}
               className="w-full py-2 rounded-lg bg-primary-container/30 border border-primary/40 text-primary font-label-caps text-[10px] uppercase font-bold hover:bg-primary-container/50 transition-colors active:scale-[0.98]"
@@ -656,18 +656,18 @@ exercises: list.map((x)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, r
           <div className="p-3 rounded bg-surface-container border border-outline-variant/20 space-y-1">
             <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">SOBRECARGA PROGRESIVA</span>
             <div className="flex items-baseline gap-2">
-              <span className="font-headline-md text-headline-sm font-bold text-primary">{briefV2?.progress?.trend === 'improving' ? '+3.8%' : briefV2?.progress?.trend === 'declining' ? '-1.2%' : '0%'}</span>
+              <span className="font-headline-md text-headline-sm font-bold text-primary">{briefV2?.progress?.rate !== undefined ? `${briefV2.progress.rate >= 0 ? '+' : ''}${briefV2.progress.rate.toFixed(1)}%` : 'Sin datos'}</span>
               <span className="text-[11px] text-on-surface-variant">vs sem. ant.</span>
             </div>
             <div className="w-full bg-surface-bright h-1 rounded-full overflow-hidden mt-1.5">
-              <div className="bg-primary h-full" style={{ width: briefV2?.progress?.trend === 'improving' ? '72%' : briefV2?.progress?.trend === 'declining' ? '35%' : '50%' }}></div>
+              <div className="bg-primary h-full" style={{ width: briefV2?.progress?.trend === 'improving' ? '72%' : briefV2?.progress?.trend === 'declining' ? '35%' : '0%' }}></div>
             </div>
           </div>
           <div className="p-3 rounded bg-surface-container border border-outline-variant/20 space-y-1">
-            <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">SERIES COMPLETADAS</span>
+            <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">DÍAS COMPLETADOS</span>
             <div className="flex items-baseline gap-2">
-              <span className="font-headline-md text-headline-sm font-bold text-on-surface">{completedCount * 14 || '—'}</span>
-              <span className="text-[11px] text-secondary font-medium">Series</span>
+              <span className="font-headline-md text-headline-sm font-bold text-on-surface">{completedCount > 0 ? completedCount : '—'}</span>
+              <span className="text-[11px] text-secondary font-medium">Días</span>
             </div>
             <div className="w-full bg-surface-bright h-1 rounded-full overflow-hidden mt-1.5">
               <div className="bg-secondary h-full" style={{ width: `${Math.min(100, completedCount * 20)}%` }}></div>
@@ -686,11 +686,11 @@ exercises: list.map((x)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, r
           <div className="p-3 rounded bg-surface-container border border-outline-variant/20 space-y-1">
             <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">CALIDAD DE RECUPERACIÓN</span>
             <div className="flex items-baseline gap-2">
-              <span className="font-headline-md text-headline-sm font-bold text-secondary">{briefV2?.recovery?.lastScore != null ? (briefV2.recovery.lastScore >= 70 ? 'Áurea A+' : briefV2.recovery.lastScore >= 40 ? 'B+ Estable' : 'C Debe Descansar') : 'Áurea A+'}</span>
+              <span className="font-headline-md text-headline-sm font-bold text-secondary">{briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Áurea A+' : briefV2.recovery.lastScore >= 40 ? 'B+ Estable' : 'C Debe Descansar') : 'Sin datos'}</span>
               <span className="text-[11px] text-on-surface-variant">Sueño / HRV</span>
             </div>
             <div className="w-full bg-surface-bright h-1 rounded-full overflow-hidden mt-1.5">
-              <div className="bg-secondary h-full" style={{ width: `${briefV2?.recovery?.lastScore ?? 95}%` }}></div>
+              <div className="bg-secondary h-full" style={{ width: `${briefV2?.recovery?.lastScore ?? 0}%` }}></div>
             </div>
           </div>
         </div>

@@ -6,12 +6,13 @@ import {
   HelpCircle, XCircle, Lightbulb, Brain, Zap, Target, TrendingUp, TrendingDown
 } from 'lucide-react'
 import { AltheaButton, AltheaCard, AltheaInput, AltheaSelect } from '@/components/althea'
-import { 
-  getCycleFromProfile, 
-  getTrainingDayForDate, 
+import {
+  getCycleFromProfile,
+  getTrainingDayForDate,
   buildCycleFromProfile,
-  type CycleConfig 
+  type CycleConfig
 } from '@/utils/cycle'
+import { savePlanning, getActiveVersion, PROFILE_SCOPE, type CycleVersion } from '@/services/planning/cycleVersions'
 import type { WeeklySequence } from '@/types'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 
@@ -37,6 +38,8 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
   const [showMethodSelector, setShowMethodSelector] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState<TrainingMethodId | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [activeVersion, setActiveVersion] = useState<CycleVersion | null>(null)
+  const [versionNotice, setVersionNotice] = useState<string | null>(null)
 
   const loadCycle = useCallback(async () => {
     try {
@@ -44,6 +47,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
       const profile = await db.userProfile.get('me')
       const cycle = getCycleFromProfile(profile ?? null)
       setCycle(cycle)
+      setActiveVersion(await getActiveVersion(PROFILE_SCOPE).catch(() => null))
       setError(null)
     } catch (e) {
       setError('Error al cargar la periodización')
@@ -59,17 +63,31 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
   const saveCycle = useCallback(async (newCycle: CycleConfig) => {
     try {
       setError(null)
+      setVersionNotice(null)
       const profile = await db.userProfile.get('me')
       if (!profile) {
         throw new Error('Perfil no encontrado')
       }
-      
-      await db.userProfile.update(profile.id, { 
+
+      // Versionado (FASE 3): si la planificación ya fue utilizada por
+      // sesiones, se congela como histórica y nace una nueva versión.
+      // El historial de sesiones queda intacto.
+      const { version, created } = await savePlanning({
+        scope: PROFILE_SCOPE,
+        cycle: newCycle,
+        methodId: newCycle.methodId,
+      })
+
+      await db.userProfile.update(profile.id, {
         cycle: newCycle,
         updatedAt: new Date().toISOString()
       })
-      
+
       setCycle({ ...newCycle })
+      setActiveVersion(version)
+      setVersionNotice(created
+        ? `Nueva versión v${version.version} (la anterior queda como histórica; tus sesiones no cambian).`
+        : `Planificación actualizada (v${version.version}, aún sin sesiones asociadas).`)
       setError(null)
     } catch (e) {
       setError('Error al guardar la periodización')
@@ -79,12 +97,15 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
   const generateWeekSequence = useCallback((startDate: string, weeks: number) => {
     const sequences: any[] = []
     const start = new Date(startDate)
-    
+    // Semanas vinculadas a la versión activa: ids deterministas por versión
+    // (regenerar no duplica ni toca semanas de otras versiones).
+    const versionTag = activeVersion ? activeVersion.id : (cycle?.methodId || 'unknown')
+
     for (let w = 0; w < weeks; w++) {
       const weekStart = new Date(start)
       weekStart.setDate(start.getDate() + w * 7)
       const weekStartStr = weekStart.toISOString().slice(0, 10)
-      
+
       const plannedDays: number[] = []
       for (let d = 0; d < 7; d++) {
         const day = new Date(weekStart)
@@ -95,10 +116,10 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
           plannedDays.push(dayInfo.n!)
         }
       }
-      
+
       sequences.push({
-        id: crypto.randomUUID(),
-        cycleId: cycle?.methodId || 'unknown',
+        id: `seq-${versionTag}-w${w + 1}`,
+        cycleId: versionTag,
         weekNumber: w + 1,
         startDate: weekStartStr,
         plannedDays,
@@ -108,7 +129,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
       })
     }
     return sequences
-  }, [cycle])
+  }, [cycle, activeVersion])
 
   const saveWeekSequences = useCallback(async (sequences: any[]) => {
     try {
@@ -216,7 +237,15 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
               <span className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-primary">
                 Ciclo actual
               </span>
+              {activeVersion && (
+                <span className="ml-auto px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant font-label-caps text-[10px] text-on-surface-variant">
+                  v{activeVersion.version} · vigente desde {activeVersion.effectiveFrom}
+                </span>
+              )}
             </div>
+            {versionNotice && (
+              <p className="font-body-sm text-[12px] text-on-surface-variant mb-3">{versionNotice}</p>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="p-3 bg-surface-container-highest/50 rounded-lg">
                 <span className="font-label-caps text-[10px] text-on-surface-variant">Método</span>

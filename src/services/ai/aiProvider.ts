@@ -37,6 +37,14 @@ export type AIContext = {
   nutritionAnalysis?: { tdee?: number; calorieGoal?: number; proteinPerKg?: number; gap?: string | null }
   sessionPain?: number
   painZone?: string
+  /** Patrones observacionales (ET16): hechos/patrones/hipótesis/recomendaciones con evidencia. */
+  patterns?: { kind: string; statement: string; evidence: string[] }[]
+  /** Rutina activa + versión de planificación vigente (ET17). */
+  rutina?: { name?: string; version?: number; planVersion?: number }
+  /** Sustituciones recientes (original → reemplazo): solo lectura. */
+  sustituciones?: string[]
+  /** Top músculos por volumen 30d (ET17). */
+  mapaMuscular?: string
   // ─── Campos contextuales del builder ───
   cambiosRecientes?: string[]
   nutriDaily?: { diarioCount: number; calendario: string; objetivo: string; ultimoAlimento: string } | null
