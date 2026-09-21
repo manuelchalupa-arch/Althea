@@ -157,7 +157,7 @@ export default function ChatWidget() {
       {/* Chat overlay */}
       {open && (
         <div className="fixed inset-0 z-40 flex items-end justify-end p-4 pb-24 md:p-8 md:pb-24 pointer-events-none">
-          <div className="pointer-events-auto w-full max-w-md h-[75vh] md:h-[70vh] flex flex-col bg-bg border border-border rounded-2xl shadow-2xl overflow-hidden fade-in">
+          <div className="pointer-events-auto w-full max-w-md h-[75vh] md:h-[70vh] flex flex-col bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden fade-in">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface">
               <div className="flex items-center gap-2">
@@ -176,11 +176,11 @@ export default function ChatWidget() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={handleClear} className="p-1.5 rounded-lg text-textMuted hover:bg-bg transition" title="Borrar historial">
-                  <Trash2 size={14} />
+                <button onClick={handleClear} aria-label="Borrar historial" className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-textMuted hover:bg-bg transition" title="Borrar historial">
+                  <Trash2 size={16} />
                 </button>
-                <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg text-textMuted hover:bg-bg transition">
-                  <X size={16} />
+                <button onClick={() => setOpen(false)} aria-label="Cerrar" className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-textMain hover:bg-bg transition">
+                  <X size={18} />
                 </button>
               </div>
             </div>
@@ -188,15 +188,14 @@ export default function ChatWidget() {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {!available && (
-                <div className="rounded-xl bg-amber-900/20 border border-amber-800 p-3 text-aux text-sm">
-                  Configurá <code className="text-info">VITE_GROQ_API_KEY</code> en <code className="text-info">.env.local</code> para activar el chat.
+                <div className="rounded-xl bg-surface border border-border p-3 text-textMain text-sm">
+                  El Coach IA no está disponible en este momento.
                 </div>
               )}
-              {messages.length === 0 && (
+              {messages.length === 0 && available && (
                 <div className="text-center py-8">
                   <Bot size={32} className="mx-auto text-textMuted mb-2" />
-                  <p className="text-aux text-sm">¿En qué puedo ayudarte?</p>
-                  <p className="text-aux text-xs mt-1">Entrenamiento · Nutrición · Recuperación</p>
+                  <p className="text-textMain text-sm">¿En qué puedo ayudarte?</p>
                 </div>
               )}
               {messages.map((msg) => (
@@ -206,10 +205,10 @@ export default function ChatWidget() {
                       <Bot size={14} className="text-info" />
                     </div>
                   )}
-                  <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
+                  <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm font-medium ${
                     msg.role === 'user'
                       ? 'bg-action text-textMain'
-                      : 'bg-surface border border-border text-textMain'
+                      : 'bg-bg border border-border text-textMain'
                   }`}>
                     {msg.content.split('\n').map((line, i) => (
                       <span key={i}>{line}{i < msg.content.split('\n').length - 1 && <br />}</span>
@@ -246,17 +245,19 @@ export default function ChatWidget() {
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Preguntale a Althea..."
+                  placeholder={available ? 'Escribí tu mensaje…' : 'Chat no disponible'}
                   disabled={streaming || !available}
                   maxLength={500}
-                  className="flex-1 bg-bg border border-border rounded-xl px-3 py-2.5 text-sm text-textMain placeholder:text-textMuted focus:outline-none focus:border-info/50 disabled:opacity-50"
+                  aria-label="Mensaje para el Coach"
+                  className="flex-1 bg-bg border border-border rounded-xl px-3 py-3 min-h-[48px] text-sm text-textMain placeholder:text-textMuted focus:outline-none focus:border-info/50 disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   disabled={!input.trim() || streaming || !available}
-                  className="w-10 h-10 rounded-xl bg-action text-textMain flex items-center justify-center disabled:opacity-40 transition hover:brightness-110"
+                  aria-label="Enviar mensaje"
+                  className="w-12 h-12 rounded-xl bg-action text-textMain flex items-center justify-center disabled:opacity-40 transition hover:brightness-110"
                 >
-                  <Send size={16} />
+                  <Send size={18} />
                 </button>
               </form>
             </div>

@@ -37,7 +37,11 @@ export interface StreamCallbacks {
 }
 
 function isAvailable(): boolean {
-  return !!getGroqUrl()
+  // Honesto: disponible solo si hay proxy o clave configurados (nunca asumir red/modelo).
+  try {
+    const env = (import.meta as { env?: Record<string, string | undefined> }).env || {}
+    return !!(env.VITE_GROQ_PROXY_URL || env.VITE_GROQ_API_KEY)
+  } catch { return false }
 }
 
 export async function streamChat(

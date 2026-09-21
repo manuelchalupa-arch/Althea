@@ -11,29 +11,23 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
   const [negReps,setNegReps]=useState('')
   const [negWeight,setNegWeight]=useState('')
   const [obs,setObs]=useState('')
+  const [editing,setEditing]=useState<Record<number,boolean>>({})
   const [exInfo,setExInfo]=useState<any>(null)
   const [loaded,setLoaded]=useState(false)
   const [lastSession,setLastSession]=useState<{date:string; sets:{setNumber:number;weight:number;reps:number}[]} | null>(null)
   const [prevSessions,setPrevSessions]=useState<{date:string; totalVolume:number; setsCount:number}[]>([])
 
-  const loadPersisted = useCallback(()=>{
+  // Migración única del espejo legacy exstate:* → estado en memoria.
+  // Dexie (SetRecord COMPLETED vía initialCompleted) siempre manda: solo se
+  // recuperan borradores de peso/reps no confirmados. La clave se elimina y
+  // nunca se vuelve a escribir (sin persistencia paralela).
+  const migrateDraftOnce = useCallback(()=>{
     try{
       const raw = localStorage.getItem(EX_STATE_KEY(today, exerciseId))
-      if(raw){
-        const s = JSON.parse(raw)
-        if(s.weights) {setWeights(s.weights)}
-        if(s.reps) {setReps(s.reps)}
-        if(s.checks) {setChecks(s.checks)}
-        if(typeof s.negEnabled==='boolean') {setNegEnabled(s.negEnabled)}
-        if(s.negReps) {setNegReps(s.negReps)}
-        if(s.negWeight) {setNegWeight(s.negWeight)}
-        if(s.obs) {setObs(s.obs)}
-      }
-    }catch{}
-  }, [today, exerciseId])
-
-  const savePersisted = useCallback((state:any)=>{
-    try{ localStorage.setItem(EX_STATE_KEY(today, exerciseId), JSON.stringify(state)) }catch{}
+      if(!raw) {return null}
+      localStorage.removeItem(EX_STATE_KEY(today, exerciseId))
+      return JSON.parse(raw)
+    }catch{ return null }
   }, [today, exerciseId])
 
   useEffect(()=>{
@@ -73,29 +67,27 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
       setPrevSessions(sessions)
       const baseW:Record<number,number>={}, baseR:Record<number,number>={}, baseC:Record<number,boolean>={}
       for(let i=0;i<sets;i++){ baseW[i]=plannedWeight; baseR[i]=plannedReps; baseC[i]=false }
-      setWeights(baseW); setReps(baseR); setChecks(baseC)
-      loadPersisted()
       try{
         if(initialCompleted) {for(const k of Object.keys(initialCompleted)){ const i=Number(k); baseW[i]=initialCompleted[i].weight; baseR[i]=initialCompleted[i].reps; baseC[i]=true }}
         if(initialSkipped) {for(const i of initialSkipped){ baseC[i]=false }}
+        // Borradores legacy solo donde Dexie no tenga serie confirmada/omitida.
+        const draft = migrateDraftOnce()
+        if(draft){
+          if(draft.weights) {for(const k of Object.keys(draft.weights)){ const i=Number(k); if(!baseC[i]) {const v=Number(draft.weights[k]); if(!isNaN(v)) {baseW[i]=v}} }}
+          if(draft.reps) {for(const k of Object.keys(draft.reps)){ const i=Number(k); if(!baseC[i]) {const v=Number(draft.reps[k]); if(!isNaN(v)) {baseR[i]=v}} }}
+        }
         setWeights({...baseW}); setReps({...baseR}); setChecks({...baseC})
       }catch{ /* noop */ }
       setLoaded(true)
     }
     load()
-  },[exerciseId, sets, plannedReps, plannedWeight, loadPersisted, initialCompleted, initialSkipped])
+  },[exerciseId, sets, plannedReps, plannedWeight, migrateDraftOnce, initialCompleted, initialSkipped])
 
   const parseKg = (v:string)=>{
     const n = Number(v)
     if(isNaN(n)) {return 0}
     return Math.round(n*10)/10
   }
-
-  const persistAll = useCallback(()=>{
-    savePersisted({ weights, reps, checks, negEnabled, negReps, negWeight, obs })
-  }, [weights, reps, checks, negEnabled, negReps, negWeight, obs, savePersisted])
-
-  useEffect(()=>{ if(loaded) {persistAll()} }, [weights, reps, checks, negEnabled, negReps, negWeight, obs, loaded, persistAll])
 
   if(!loaded) {return <div className="space-y-3"><div className="h-8 bg-surface-container-low/90 border border-outline-variant rounded-lg animate-pulse"/></div>}
 
@@ -124,13 +116,13 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-outline-variant/40 text-outline font-label-caps text-[9px] uppercase tracking-wider">
-              <th className="pb-2 px-1 font-semibold w-8">S</th>
-              <th className="pb-2 px-2 font-semibold">ANTERIOR</th>
-              <th className="pb-2 px-2 font-semibold text-center">REPS</th>
-              <th className="pb-2 px-2 font-semibold text-center">KG</th>
-              <th className="pb-2 px-1 text-center font-semibold w-12"></th>
-            </tr>
+              <tr className="border-b border-outline-variant/40 text-outline font-label-caps text-[9px] uppercase tracking-wider">
+                <th className="pb-2 px-1 font-semibold w-8">N.º</th>
+                <th className="pb-2 px-2 font-semibold">Anterior</th>
+                <th className="pb-2 px-2 font-semibold text-center">Repeticiones</th>
+                <th className="pb-2 px-2 font-semibold text-center">Kg</th>
+                <th className="pb-2 px-1 text-center font-semibold w-12"></th>
+              </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/10">
             {Array.from({length:sets}).map((_,si)=>{
@@ -139,6 +131,8 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
               const w = weights[si] ?? plannedWeight
               const r = reps[si] ?? plannedReps
               const isDone = !!checks[si]
+              const isEditing = !!editing[si]
+              const showInputs = !isDone || isEditing
               const isActive = !isDone && si === nextUncompletedIdx
               const isSkipped = (initialSkipped||[]).includes(si)
               const roman = romanNumerals[si] || `${si+1}`
@@ -163,51 +157,62 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                     )}
                   </td>
                   <td className="py-2.5 px-2">
-                    {isDone ? (
-                      <span className="block text-center font-title-md text-[14px] text-on-surface font-medium">{r}</span>
-                    ) : (
+                    {showInputs ? (
                       <input
                         type="number"
                         value={r}
                         onChange={e=>setReps({...reps, [si]: Number(e.target.value)})}
                         className="w-full px-2 py-2.5 min-h-[44px] bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[14px] text-on-surface text-center"
-                        placeholder="reps"
                         inputMode="numeric"
-                        aria-label={`reps serie ${si+1}`}
+                        aria-label={`repeticiones serie ${si+1}`}
                       />
+                    ) : (
+                      <span className="block text-center font-title-md text-[14px] text-on-surface font-medium">{r}</span>
                     )}
                   </td>
                   <td className="py-2.5 px-2">
-                    {isDone ? (
-                      <span className="block text-center font-title-md text-[14px] text-on-surface font-medium">{w}</span>
-                    ) : (
+                    {showInputs ? (
                       <input
                         type="number"
                         step="0.1"
                         value={w}
                         onChange={e=>setWeights({...weights, [si]: parseKg(e.target.value)})}
                         className="w-full px-2 py-2.5 min-h-[44px] bg-surface-container-highest border border-outline-variant/40 rounded font-title-md text-[14px] text-on-surface text-center"
-                        placeholder="kg"
                         inputMode="decimal"
                         aria-label={`kilogramos serie ${si+1}`}
                       />
+                    ) : (
+                      <span className="block text-center font-title-md text-[14px] text-on-surface font-medium">{w}</span>
                     )}
                   </td>
                   <td className="py-2.5 px-1 text-center">
-                    {isDone ? (
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-primary-container text-on-primary-container border border-primary">
-                        <span className="material-symbols-outlined text-[14px]">done</span>
-                      </span>
-                    ) : isSkipped ? (
-                      <span className="text-[9px] text-outline">skip</span>
+                    {isDone && !isEditing ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-primary-container text-on-primary-container border border-primary">
+                          <span className="material-symbols-outlined text-[14px]">done</span>
+                        </span>
+                        <button onClick={()=>setEditing({...editing, [si]: true})} aria-label={`Editar serie ${si+1}`} className="px-3 py-2 min-h-[44px] rounded font-label-caps text-[10px] uppercase text-secondary underline">
+                          Editar
+                        </button>
+                      </div>
+                    ) : isSkipped && !isEditing ? (
+                      <span className="text-[9px] text-outline">omitida</span>
                     ) : (
-                      <button onClick={(e)=>{
-                        setChecks({...checks, [si]: true})
-                        try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ }
-                        onComplete(si, parseKg(String(w)), r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obs||undefined)
-                      }} className="px-4 py-3 min-h-[44px] min-w-[44px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[11px] uppercase font-bold shadow-sm transition-all active:scale-95">
-                        OK
-                      </button>
+                      <div className="flex flex-col items-center gap-1">
+                        <button onClick={(e)=>{
+                          setChecks({...checks, [si]: true})
+                          setEditing({...editing, [si]: false})
+                          try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ }
+                          onComplete(si, parseKg(String(w)), r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obs||undefined)
+                        }} aria-label={isEditing ? `Guardar serie ${si+1}` : `Confirmar serie ${si+1}`} className="px-4 py-3 min-h-[44px] min-w-[44px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[11px] uppercase font-bold shadow-sm transition-all active:scale-95">
+                          OK
+                        </button>
+                        {isEditing && (
+                          <button onClick={()=>setEditing({...editing, [si]: false})} aria-label={`Cancelar edición serie ${si+1}`} className="px-3 py-2 min-h-[44px] rounded font-label-caps text-[10px] uppercase text-on-surface-variant underline">
+                            Cancelar
+                          </button>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -244,8 +249,8 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
           Negativas
         </label>
         <div className={`grid grid-cols-2 gap-3 mt-3 ${!negEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
-          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">repes
-            <input type="number" placeholder="repes" value={negReps} onChange={e=>setNegReps(e.target.value)} disabled={!negEnabled} className="w-full mt-2 bg-surface-container border border-outline-variant rounded p-3 font-body-md text-[15px] text-on-surface text-center text-lg disabled:opacity-50" inputMode="numeric"/>
+          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">repeticiones
+            <input type="number" value={negReps} onChange={e=>setNegReps(e.target.value)} disabled={!negEnabled} className="w-full mt-2 bg-surface-container border border-outline-variant rounded p-3 font-body-md text-[15px] text-on-surface text-center text-lg disabled:opacity-50" inputMode="numeric"/>
           </label>
           <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">kilogramos
             <input type="number" step="0.1" placeholder="kilogramos" value={negWeight} onChange={e=>setNegWeight(e.target.value)} disabled={!negEnabled} className="w-full mt-2 bg-surface-container border border-outline-variant rounded p-3 font-body-md text-[15px] text-on-surface text-center text-lg disabled:opacity-50" inputMode="decimal"/>

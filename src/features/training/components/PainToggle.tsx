@@ -1,16 +1,16 @@
 import { useState, useCallback, useEffect } from 'react'
-import { AlertTriangle, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertTriangle, X, ChevronDown } from 'lucide-react'
 import { AltheaButton } from '@/components/althea'
 import { db } from '@/services/storage/db'
 import type { PainLog } from '@/types'
 
 type PainLevel = 'none' | 'mild' | 'moderate' | 'severe'
 
-const PAIN_LEVELS: { value: PainLevel; label: string; color: string; icon: string }[] = [
-  { value: 'none', label: 'Sin dolor', color: 'bg-emerald/20 text-emerald border-emerald/30', icon: 'check' },
-  { value: 'mild', label: 'Leve', color: 'bg-primary/20 text-primary border-primary/30', icon: 'heart' },
-  { value: 'moderate', label: 'Moderado', color: 'bg-amber/20 text-amber border-amber/30', icon: 'circle' },
-  { value: 'severe', label: 'Severo', color: 'bg-error/20 text-error border-error/30', icon: 'alert' },
+const PAIN_LEVELS: { value: PainLevel; label: string; color: string }[] = [
+  { value: 'none', label: 'Sin dolor', color: 'bg-emerald/20 text-emerald border-emerald/30' },
+  { value: 'mild', label: 'Leve', color: 'bg-primary/20 text-primary border-primary/30' },
+  { value: 'moderate', label: 'Moderado', color: 'bg-amber/20 text-amber border-amber/30' },
+  { value: 'severe', label: 'Severo', color: 'bg-error/20 text-error border-error/30' },
 ]
 
 const BODY_ZONES = [
@@ -37,10 +37,9 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
   const [zone, setZone] = useState('')
   const [notes, setNotes] = useState('')
   const [showZonePicker, setShowZonePicker] = useState(false)
+  const [showZoneList, setShowZoneList] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  const currentLevel = PAIN_LEVELS.find(l => l.value === level) || PAIN_LEVELS[0]
 
   const handleLevelChange = useCallback((newLevel: PainLevel) => {
     setLevel(newLevel)
@@ -50,6 +49,7 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
       setShowDetails(false)
       setZone('')
       setNotes('')
+      setShowZoneList(false)
     }
   }, [])
 
@@ -109,9 +109,8 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
     <div className={`rounded-xl border p-3 space-y-3 transition-colors ${isSevere ? 'bg-error/5 border-error/30' : 'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg">{currentLevel.icon}</span>
           <div>
-            <div className="font-body-sm text-on-surface font-medium">Dolor / Molestia</div>
+            <div className="font-body-sm text-on-surface font-medium">Dolor</div>
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{exerciseName}</div>
           </div>
         </div>
@@ -120,15 +119,15 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1">
+      <div className="grid grid-cols-4 gap-1">
         {PAIN_LEVELS.map(l => (
           <button
             key={l.value}
             onClick={() => handleLevelChange(l.value)}
-            className={`px-3 py-2 rounded-lg border font-body-sm text-sm font-medium transition-all ${level === l.value ? `${l.color} ring-2 ring-current` : 'bg-surface-container-high/50 border-outline-variant text-on-surface-variant hover:border-primary/50'}`}
+            aria-pressed={level === l.value}
+            className={`px-2 py-3 min-h-[48px] rounded-lg border font-body-sm text-sm font-medium transition-all ${level === l.value ? `${l.color} ring-2 ring-current` : 'bg-surface-container-high/50 border-outline-variant text-on-surface-variant hover:border-primary/50'}`}
           >
-            <span className="text-lg">{l.icon}</span>
-            <span className="ml-1">{l.label}</span>
+            {l.label}
           </button>
         ))}
       </div>
@@ -136,7 +135,15 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
       {showDetails && level !== 'none' && (
         <div className="space-y-3 pt-2 border-t border-outline-variant/30 animate-in slide-in-from-top-2 duration-200">
           <div>
-            <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Dónde sientes el dolor?</label>
+            <button
+              onClick={() => setShowZoneList(v => !v)}
+              aria-expanded={showZoneList}
+              className="w-full flex items-center justify-between py-2 min-h-[44px] font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"
+            >
+              <span>Zona: {zone || 'elegir'}</span>
+              <ChevronDown size={16} className={`transition-transform ${showZoneList ? 'rotate-180' : ''}`} />
+            </button>
+            {showZoneList && (
             <div className="flex flex-wrap gap-1 mt-1">
               {BODY_ZONES.map(z => (
                 <button
@@ -144,19 +151,21 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
                   onClick={() => {
                     setZone(z)
                     setShowZonePicker(false)
+                    setShowZoneList(false)
                   }}
-                  className={`px-3 py-1 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest ${zone === z ? 'bg-primary border-primary text-primary' : 'bg-surface-container-high/50 border-outline-variant text-on-surface-variant hover:border-primary/50'}`}
+                  className={`px-3 py-2 min-h-[44px] rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest ${zone === z ? 'bg-primary border-primary text-primary' : 'bg-surface-container-high/50 border-outline-variant text-on-surface-variant hover:border-primary/50'}`}
                 >
                   {z}
                 </button>
               ))}
               <button
                 onClick={() => setShowZonePicker(!showZonePicker)}
-                className="px-3 py-1 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest bg-surface-container-high/50 border-outline-variant text-on-surface-variant hover:border-primary/50"
+                className="px-3 py-2 min-h-[44px] rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest bg-surface-container-high/50 border-outline-variant text-on-surface-variant hover:border-primary/50"
               >
-                Otra...
+                Otra…
               </button>
             </div>
+            )}
             {showZonePicker && (
               <input
                 value={zone}
@@ -182,10 +191,7 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
           {isSevere && (
             <div className="rounded-lg bg-error/15 border border-error/30 p-3 flex items-start gap-2">
               <AlertTriangle className="text-error mt-0.5" size={18} />
-              <div>
-                <div className="font-body-sm text-error font-medium">Dolor severo detectado</div>
-                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-0.5">Se recomienda detener este ejercicio y consultar a un profesional. ¿Quieres ver variantes de regresión?</div>
-              </div>
+              <div className="font-body-sm text-error font-medium">Detené el ejercicio y consultá a un profesional.</div>
             </div>
           )}
 

@@ -173,13 +173,13 @@ export default function Progresos(){
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="h-2 w-2 rounded-full bg-secondary" />
-            <span className="font-label-caps text-[11px] text-secondary uppercase tracking-widest">ANÁLISIS DE RENDIMIENTO Y CANON CORPOREO</span>
+            <span className="font-label-caps text-[11px] text-secondary uppercase tracking-widest">Evolución de entrenamiento</span>
           </div>
           <h1 className="font-headline-lg text-[36px] font-semibold text-on-surface tracking-tight">
-            Balanza &amp; Virtud Somática
+            Progreso
           </h1>
           <p className="font-body-md text-[13px] text-on-surface-variant mt-0.5">
-            Registro longitudinal de masa magra, hipertrofia equilibrada y volumen de trabajo hercúleo.
+            Fuerza, volumen y recuperación a partir de tus registros.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -190,8 +190,8 @@ export default function Progresos(){
             </span>
           </div>
           <div className="px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg flex items-center gap-2">
-            <span className="font-label-caps text-[10px] text-outline uppercase">Fase Actual:</span>
-            <span className="font-label-md text-[14px] text-primary font-semibold">Definición Dórica</span>
+            <span className="font-label-caps text-[10px] text-outline uppercase">Registros:</span>
+            <span className="font-label-md text-[14px] text-primary font-semibold">{periodLogs.length}</span>
           </div>
         </div>
       </section>
@@ -526,15 +526,17 @@ export default function Progresos(){
                       <radialGradient id="heatGold" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#e9c176" stopOpacity="0.3"/><stop offset="100%" stopColor="#e9c176" stopOpacity="0"/></radialGradient>
                       <radialGradient id="heatOlive" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#b6d088" stopOpacity="0.3"/><stop offset="100%" stopColor="#b6d088" stopOpacity="0"/></radialGradient>
                     </defs>
-                    <ellipse cx="100" cy="20" rx="16" ry="18" fill="#201f1f" stroke="#45483c" strokeWidth="1"/>
-                    <rect x="93" y="38" width="14" height="10" rx="3" fill="#201f1f" stroke="#45483c" strokeWidth="0.8"/>
-                    <path d="M60 50 Q100 44 140 50 Q144 52 144 60 Q144 92 140 100 L140 130 Q140 140 134 144 L66 144 Q60 140 60 130 L60 100 Q56 92 56 60 Q56 52 60 50Z" fill="#201f1f" stroke="#45483c" strokeWidth="1.2"/>
-                    <line x1="56" y1="72" x2="36" y2="140" stroke="#45483c" strokeWidth="8" strokeLinecap="round"/>
-                    <line x1="144" y1="72" x2="164" y2="140" stroke="#45483c" strokeWidth="8" strokeLinecap="round"/>
-                    <line x1="40" y1="140" x2="36" y2="230" stroke="#45483c" strokeWidth="7" strokeLinecap="round"/>
-                    <line x1="160" y1="140" x2="164" y2="230" stroke="#45483c" strokeWidth="7" strokeLinecap="round"/>
-                    <line x1="74" y1="144" x2="72" y2="250" stroke="#45483c" strokeWidth="10" strokeLinecap="round"/>
-                    <line x1="126" y1="144" x2="128" y2="250" stroke="#45483c" strokeWidth="10" strokeLinecap="round"/>
+                    <circle cx="100" cy="17" r="13" fill="#201f1f" stroke="#45483c" strokeWidth="1.1"/>
+                    <path d="M92 29 L88 42 Q100 47 112 42 L108 29 Z" fill="#201f1f" stroke="#45483c" strokeWidth="1"/>
+                    <path d="M62 52 Q78 44 100 44 Q122 44 138 52 L142 58 Q146 66 144 78 L140 108 Q139 128 132 140 L124 140 Q120 128 121 108 L122 84 Q111 90 100 90 Q89 90 78 84 L79 108 Q80 128 76 140 L68 140 Q61 128 60 108 L56 78 Q54 66 58 58 Z" fill="#201f1f" stroke="#45483c" strokeWidth="1.2"/>
+                    <path d="M60 56 Q48 62 42 78 L34 108 Q32 118 36 124 L44 122 Q46 112 50 96 L56 74 Z" fill="#201f1f" stroke="#45483c" strokeWidth="1"/>
+                    <path d="M140 56 Q152 62 158 78 L166 108 Q168 118 164 124 L156 122 Q154 112 150 96 L144 74 Z" fill="#201f1f" stroke="#45483c" strokeWidth="1"/>
+                    <path d="M36 126 Q32 132 33 142 L36 168 Q37 176 43 176 L47 174 Q46 160 45 142 Z" fill="#201f1f" stroke="#45483c" strokeWidth="1"/>
+                    <path d="M164 126 Q168 132 167 142 L164 168 Q163 176 157 176 L153 174 Q154 160 155 142 Z" fill="#201f1f" stroke="#45483c" strokeWidth="1"/>
+                    <path d="M70 142 Q68 170 70 200 Q71 224 68 244 L70 250 L84 250 L86 244 Q84 224 86 200 Q88 170 86 142 Z" fill="#201f1f" stroke="#45483c" strokeWidth="1.1"/>
+                    <path d="M130 142 Q132 170 130 200 Q129 224 132 244 L130 250 L116 250 L114 244 Q116 224 114 200 Q112 170 114 142 Z" fill="#201f1f" stroke="#45483c" strokeWidth="1.1"/>
+                    <ellipse cx="77" cy="222" rx="7" ry="16" fill="#201f1f" stroke="#45483c" strokeWidth="1"/>
+                    <ellipse cx="123" cy="222" rx="7" ry="16" fill="#201f1f" stroke="#45483c" strokeWidth="1"/>
                     {regions.map(r => {
                       const score = partScores[r.part] || 0;
                       return <rect key={r.part} x={r.x} y={r.y} width={r.w} height={r.h} rx="4" fill={colorFor(score)} opacity={0.2 + (score/100)*0.5} stroke={colorFor(score)} strokeWidth="0.6" strokeOpacity="0.5"/>;

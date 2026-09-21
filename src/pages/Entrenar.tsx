@@ -926,7 +926,7 @@ setSessionStatus(active.sessionStatus)
       }catch{ /* noop */ }
       try{ await db.coachMemory.put({ id: `obs-${today}`, type: 'observation', date: today, sessionId: sess.sessionId, sessionStatus: status, routineName: rutinaName }) }catch{ /* noop */ }
       for(const ex of exs){ try{ localStorage.removeItem(`exstate:${today}:${ex.exId}`) }catch{ /* noop */ } }
-      try{ localStorage.setItem(`althea:result:${today}`, JSON.stringify({ date: today, sessionId: sess.sessionId, sessionStatus: status, exPct: s.exPct, setPct: s.setPct, completedEx: s.completedEx, plannedEx: s.plannedEx, completedSets: s.completedSets, plannedSets: s.plannedSets, totalVol: s.totalVol, totalReps: s.totalReps, durMin: s.durMin, survey: { sessionRating: Number(fs.sessionRating??3), pain: Number(fs.pain??0) }, highlights: Object.values(progressLines) })) }catch{ /* noop */ }
+      // Sin espejo althea:result — ResultPanel deriva todo desde Dexie.
       try{ if(navigator.vibrate) {navigator.vibrate([20,40,20])} }catch{ /* noop */ }
       localStorage.removeItem(`session:active:${today}`)
       try{
@@ -1210,7 +1210,7 @@ setSessionStatus(nx.sessionStatus)
   if(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') {return (
     <div className="min-h-screen bg-transparent pb-24">
       <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
-        <ResultPanel today={today} sessionStatus={sessionStatus} />
+        <ResultPanel today={today} sessionStatus={sessionStatus} sessionId={sessionId} />
       </div>
     </div>
   )}
@@ -1420,28 +1420,35 @@ setSessionStatus(nx.sessionStatus)
                 </div>
 
                 {/* Modify + Skip buttons */}
-                {!done[current] ? (
+                {!done[current] && (
                   <div className="px-6 pb-4 flex gap-2">
-                    <button onClick={()=>{ setMod({weight:cur.weight,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
-                    <button onClick={handleSkipWithReason} className="flex-1 py-2 rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
-                  </div>
-                ) : (
-                  <div className="px-6 pb-4 flex flex-col gap-2">
-                    <div className="flex gap-2">
-                      <button onClick={()=>{
-                        if(current < exs.length-1){ setCurrent(current+1); nextCoach(current+1) }
-                      }} className={`flex-1 py-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm ${current < exs.length-1 ? '' : 'hidden'}`}>
-                        <span className="flex items-center justify-center gap-2"><Check size={14}/> Continuar al siguiente</span>
-                      </button>
-                      <button onClick={openFinishModal} className="flex-1 py-3 rounded bg-surface-container border border-primary/40 text-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98]">
-                        <span className="flex items-center justify-center gap-2"><Check size={14}/> Finalizar entrenamiento</span>
-                      </button>
-                    </div>
-                    <button onClick={()=> setDone((p)=>{ const n={...p}; delete n[current]; return n })} className="w-full py-1.5 rounded border border-outline-variant/40 font-label-caps text-[10px] uppercase text-outline hover:text-on-surface-variant hover:border-outline-variant transition-colors">
-                      <span className="flex items-center justify-center gap-1.5"><RotateCcw size={11}/> Desmarcar ejercicio</span>
-                    </button>
+                    <button onClick={()=>{ setMod({weight:cur.weight,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 min-h-[44px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
+                    <button onClick={handleSkipWithReason} className="flex-1 py-2 min-h-[44px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
                   </div>
                 )}
+
+                {/* Navegación entre ejercicios: siempre visible, sin perder datos */}
+                <div className="px-6 pb-4 flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <button onClick={()=>{ if(current>0){ setCurrent(current-1); nextCoach(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 py-3 min-h-[48px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] disabled:opacity-30">
+                      <span className="flex items-center justify-center gap-2">‹ Anterior</span>
+                    </button>
+                    {current < exs.length-1 ? (
+                      <button onClick={()=>{ setCurrent(current+1); nextCoach(current+1) }} aria-label="Ejercicio siguiente" className="flex-1 py-3 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
+                        <span className="flex items-center justify-center gap-2"><Check size={14}/> Siguiente ›</span>
+                      </button>
+                    ) : (
+                      <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex-1 py-3 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
+                        <span className="flex items-center justify-center gap-2"><Check size={14}/> Finalizar</span>
+                      </button>
+                    )}
+                  </div>
+                  {done[current] && (
+                    <button onClick={()=> setDone((p)=>{ const n={...p}; delete n[current]; return n })} className="w-full py-1.5 min-h-[44px] rounded border border-outline-variant/40 font-label-caps text-[10px] uppercase text-outline hover:text-on-surface-variant hover:border-outline-variant transition-colors">
+                      <span className="flex items-center justify-center gap-1.5"><RotateCcw size={11}/> Desmarcar ejercicio</span>
+                    </button>
+                  )}
+                </div>
 
                 <div className="mx-6 mb-6 rounded bg-secondary-container/20 border border-secondary/30 p-2 flex gap-2 font-body-sm text-[13px] text-on-surface-variant">
                   <AlertTriangle size={14} className="text-secondary mt-0.5 shrink-0"/> Si hay dolor importante, detené y consultá profesional. Podés saltar el ejercicio.
