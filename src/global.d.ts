@@ -6,5 +6,6 @@ declare module 'vitest' {
   interface Assertion<T = any> {
     toBeInTheDocument(): this
     toHaveClass(className: string): this
+    toBeDisabled(): this
   }
 }

@@ -32,6 +32,65 @@ type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:nu
 export default function Entrenar(){
   const today = new Date().toISOString().slice(0,10)
 
+  // Guarda anti reinicialización: la carga solo inicializa ante sesión
+  // distinta o ejercicios vacíos. Navegar/editar NO resetea current.
+  // Refs (no estado) para que los callbacks sean estables entre renders.
+  const initSessionRef = useRef<string | null>(null)
+  const exsRef = useRef<SessionEx[]>([])
+  const initializeExercisesRef = useRef<((exercises: SessionEx[], live?: import('@/services/training/domain').SessionExercise[]) => Promise<void>) | null>(null)
+  const setCurrentRef = useRef<React.Dispatch<React.SetStateAction<number>> | null>(null)
+
+  const handleSessionLoaded = useCallback(async (storeS: { sessionId: string; currentExerciseIndex?: number | null }) => {
+    if (initSessionRef.current === storeS.sessionId && exsRef.current.length > 0) { return }
+    const init = initializeExercisesRef.current
+    if (!init) { return }
+    const { getSessionExercises } = await import('@/services/training/sessionStore')
+    const seList = await getSessionExercises(storeS.sessionId)
+    if (seList.length === 0) { return }
+    const { db } = await import('@/services/storage/db')
+    let meta: Record<string, { name: string; muscle?: string; gifUrl?: string; imageDataUrl?: string }> = {}
+    try {
+      const exIds = seList.map((e: { exId?: string; exerciseId?: string }) => e.exId || e.exerciseId).filter((x): x is string => Boolean(x))
+      if (exIds.length) {
+        const [seedExs, customExs] = await Promise.all([
+          db.exercises.where('id').anyOf(exIds).toArray().catch(() => []),
+          db.customExercises.where('id').anyOf(exIds).toArray().catch(() => []),
+        ])
+        for (const e of [...seedExs, ...customExs] as Array<{id:string; name:string; muscle?:string; muscleGroup?:string; gifUrl?:string; imageDataUrl?:string}>) {meta[e.id] = { name: e.name, muscle: e.muscle || e.muscleGroup, gifUrl: e.gifUrl, imageDataUrl: e.imageDataUrl }}
+      }
+    } catch { /* noop */ }
+    const exercises: SessionEx[] = seList.map((se) => {
+      const m = meta[se.exerciseId]
+      const plannedReps = se.plannedSets[0]?.reps ?? 0
+      const plannedWeight = se.plannedSets[0]?.weight ?? 0
+      return {
+        exId: se.exerciseId,
+        name: m?.name || se.exerciseId,
+        sets: Math.max(se.plannedSetCount, se.actualSetCount, 1),
+        reps: plannedReps,
+        weight: plannedWeight,
+        muscle: m?.muscle,
+        gifUrl: m?.gifUrl,
+        imageDataUrl: m?.imageDataUrl,
+        plannedSets: se.plannedSetCount,
+        seId: se.sessionExerciseId,
+        swappedFrom: se.replacement?.originalExerciseId,
+        replaced: se.status === 'REPLACED',
+        extra: se.status === 'EXTRA',
+      }
+    })
+    await init(exercises, seList)
+    initSessionRef.current = storeS.sessionId
+    setSeIdByIndex(Object.fromEntries(seList.map((se, i) => [i, se.sessionExerciseId])) as Record<number, string>)
+    // Recupera el último índice persistido (reload/offline) en vez de volver a 0.
+    if (typeof storeS.currentExerciseIndex === 'number' && setCurrentRef.current) {
+      setCurrentRef.current(storeS.currentExerciseIndex)
+    }
+  }, [])
+
+  const handleResumeBanner = useCallback(() => { /* resume banner callback */ }, [])
+  const handleSessionError = useCallback((e: string) => console.error('Training session error:', e), [])
+
   // Training session lifecycle hook
   const {
     session,
@@ -73,47 +132,9 @@ export default function Entrenar(){
     setDayName,
   } = useTrainingSession({
     today,
-    onSessionLoaded: async (storeS) => {
-      // Fetch session exercises and initialize exercise state
-      const { getSessionExercises, getSetRecords } = await import('@/services/training/sessionStore')
-      const seList = await getSessionExercises(storeS.sessionId)
-      // Build SessionEx array from session exercises
-      const { db } = await import('@/services/storage/db')
-      let meta: Record<string, { name: string; muscle?: string; gifUrl?: string; imageDataUrl?: string }> = {}
-      try {
-        const exIds = seList.map((e: any) => e.exId || e.exerciseId).filter(Boolean)
-        if (exIds.length) {
-          const [seedExs, customExs] = await Promise.all([
-            db.exercises.where('id').anyOf(exIds).toArray().catch(() => []),
-            db.customExercises.where('id').anyOf(exIds).toArray().catch(() => []),
-          ])
-          for (const e of [...seedExs, ...customExs] as Array<{id:string; name:string; muscle?:string; muscleGroup?:string; gifUrl?:string; imageDataUrl?:string}>) {meta[e.id] = { name: e.name, muscle: e.muscle || e.muscleGroup, gifUrl: e.gifUrl, imageDataUrl: e.imageDataUrl }}
-        }
-      } catch { /* noop */ }
-      const exercises: SessionEx[] = seList.map((se, idx) => {
-        const m = meta[se.exerciseId]
-        const plannedReps = se.plannedSets[0]?.reps ?? 0
-        const plannedWeight = se.plannedSets[0]?.weight ?? 0
-        return {
-          exId: se.exerciseId,
-          name: m?.name || se.exerciseId,
-          sets: Math.max(se.plannedSetCount, se.actualSetCount, 1),
-          reps: plannedReps,
-          weight: plannedWeight,
-          muscle: m?.muscle,
-          gifUrl: m?.gifUrl,
-          imageDataUrl: m?.imageDataUrl,
-          plannedSets: se.plannedSetCount,
-          seId: se.sessionExerciseId,
-          swappedFrom: se.replacement?.originalExerciseId,
-          replaced: se.status === 'REPLACED',
-          extra: se.status === 'EXTRA',
-        }
-      })
-      await initializeExercises(exercises)
-    },
-    onResumeBanner: (b) => { /* resume banner callback */ },
-    onError: (e) => console.error('Training session error:', e),
+    onSessionLoaded: handleSessionLoaded,
+    onResumeBanner: handleResumeBanner,
+    onError: handleSessionError,
   })
 
   // Exercise state hook
@@ -149,6 +170,13 @@ export default function Entrenar(){
     sessionExercises: [],
     currentIndex: 0,
   })
+
+  // Espejos estables para los callbacks de carga (evitan reinicializar).
+  useEffect(() => { exsRef.current = exs }, [exs])
+  useEffect(() => {
+    initializeExercisesRef.current = initializeExercises
+    setCurrentRef.current = setCurrent
+  }, [initializeExercises, setCurrent])
 
   const { restSec, restPaused, restFlash, startRest, pauseRest, resumeRest, adjustRest, skipRest, dismissFlash } = useRestTimer()
 
@@ -388,6 +416,21 @@ setSessionStatus(active.sessionStatus)
   const progress = exs.length ? Math.round(Object.keys(done).filter(k=>done[Number(k)]).length / exs.length * 100) : 0
   const completedSets = Object.keys(logs).reduce((sum, k) => sum + (logs[Number(k)]?.length ?? 0), 0)
   const totalSets = exs.reduce((sum, ex) => sum + (ex.plannedSets ?? ex.sets), 0)
+
+  // Navegación entre ejercicios: solo cambia el índice visible, persiste la
+  // posición en la sesión (reload/offline la recupera) y actualiza el coach.
+  // Nunca reconstruye la sesión ni toca series.
+  const goToExercise = (nextIdx:number)=>{
+    if(nextIdx<0 || nextIdx>=exs.length) {return}
+    setCurrent(nextIdx)
+    nextCoach(nextIdx)
+    const sid = sessionId
+    if(sid){
+      import('@/services/training/sessionStore').then(({ updateSession }) =>
+        updateSession(sid, { currentExerciseIndex: nextIdx }).catch(()=>null)
+      ).catch(()=>{})
+    }
+  }
 
   const nextCoach = async (nextIdx:number)=>{
     if(nextIdx>=exs.length) {return}
@@ -703,7 +746,7 @@ setSessionStatus(active.sessionStatus)
     try{ localStorage.removeItem(`exstate:${today}:${cur.exId}`) }catch{ /* noop */ }
     setShowSkipReason(false)
     setSkipReason('')
-    if(current < exs.length-1) { setCurrent(current+1); nextCoach(current+1) }
+    if(current < exs.length-1) { goToExercise(current+1) }
     // si era el ultimo, el usuario finaliza con el boton FINALIZAR ENTRENAMIENTO
   }
 
@@ -1430,11 +1473,11 @@ setSessionStatus(nx.sessionStatus)
                 {/* Navegación entre ejercicios: siempre visible, sin perder datos */}
                 <div className="px-6 pb-4 flex flex-col gap-2">
                   <div className="flex gap-2">
-                    <button onClick={()=>{ if(current>0){ setCurrent(current-1); nextCoach(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 py-3 min-h-[48px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] disabled:opacity-30">
+                      <button onClick={()=>{ if(current>0){ goToExercise(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 py-3 min-h-[48px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] disabled:opacity-30">
                       <span className="flex items-center justify-center gap-2">‹ Anterior</span>
                     </button>
                     {current < exs.length-1 ? (
-                      <button onClick={()=>{ setCurrent(current+1); nextCoach(current+1) }} aria-label="Ejercicio siguiente" className="flex-1 py-3 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
+                      <button onClick={()=>{ goToExercise(current+1) }} aria-label="Ejercicio siguiente" className="flex-1 py-3 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
                         <span className="flex items-center justify-center gap-2"><Check size={14}/> Siguiente ›</span>
                       </button>
                     ) : (
@@ -1464,7 +1507,7 @@ setSessionStatus(nx.sessionStatus)
                   {exs.filter((_,i)=> i > current && !done[i]).map((ex, fi)=>{
                     const origIdx = exs.indexOf(ex)
                     return (
-                      <div key={origIdx} className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-5  hover:border-secondary/40 transition-colors group cursor-pointer" onClick={()=>{ setCurrent(origIdx); nextCoach(origIdx) }}>
+                      <div key={origIdx} className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-5  hover:border-secondary/40 transition-colors group cursor-pointer" onClick={()=>{ goToExercise(origIdx) }}>
                         <div className="flex items-center justify-between mb-2">
                           <span className="px-2 py-0.5 rounded bg-surface-container-high border border-outline-variant font-label-caps text-[10px] text-secondary uppercase">SIGUIENTE · EJERCICIO {fi+2}</span>
                           <span className="font-label-caps text-[10px] text-outline">{ex.sets} Series × {ex.reps} reps</span>

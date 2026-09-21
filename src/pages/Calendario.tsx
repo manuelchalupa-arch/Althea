@@ -126,14 +126,17 @@ export default function Calendario(){
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario y recuperación</h1>
-        <div className="flex items-center gap-2">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario y recuperación</h1>
           {todayScore !== null && (
             <span className="px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Hoy: {todayScore}/100</span>
           )}
-          <button onClick={()=>setShowCheckin(true)} className="px-3 py-2 rounded-lg bg-primary text-on-surface font-medium text-sm min-h-[44px]">Check-in recuperación</button>
         </div>
+        <button onClick={()=>setShowCheckin(true)} className="w-full sm:w-auto sm:min-w-[280px] sm:mx-auto flex items-center justify-center gap-2 px-4 py-3 min-h-[52px] rounded-xl bg-primary text-on-primary font-label-caps text-[12px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98]">
+          <span className="material-symbols-outlined text-[20px]">favorite</span>
+          Recuperación
+        </button>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-8 space-y-3">
@@ -220,11 +223,16 @@ export default function Calendario(){
       )}
 
       {showCheckin && (
-        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setShowCheckin(false)}>
-          <div onClick={e=>e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[85vh] overflow-auto p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-headline-lg text-base font-semibold text-on-surface">Check-in de recuperación</h3>
-              <button onClick={()=>setShowCheckin(false)} className="px-3 py-2 rounded-lg border border-outline-variant text-sm min-h-[44px]">Cerrar</button>
+        <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-6" onClick={()=>setShowCheckin(false)}>
+          <div onClick={e=>e.stopPropagation()} className="bg-surface border border-outline-variant rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-3 pb-safe">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[22px]">favorite</span>
+                <h3 className="font-headline-lg text-base font-semibold text-on-surface">Recuperación de hoy</h3>
+              </div>
+              <button onClick={()=>setShowCheckin(false)} aria-label="Cerrar recuperación" className="p-2 min-w-[44px] min-h-[44px] rounded-lg border border-outline-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center">
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
             </div>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Solo registra tu estado. No modifica tu rutina.</p>
             <RecoveryCheckForm onSaved={()=>setShowCheckin(false)} />

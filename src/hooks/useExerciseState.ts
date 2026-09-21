@@ -47,7 +47,7 @@ interface UseExerciseStateReturn {
   setCoach: React.Dispatch<React.SetStateAction<any>>
   setShowWhy: React.Dispatch<React.SetStateAction<boolean>>
   setViewer: React.Dispatch<React.SetStateAction<any>>
-  initializeExercises: (exercises: SessionEx[]) => Promise<void>
+  initializeExercises: (exercises: SessionEx[], liveSessionExercises?: SessionExercise[]) => Promise<void>
   loadCoachRecommendation: (exerciseId: string, exerciseName: string) => Promise<void>
   completeSet: (setRecord: SetRecord) => Promise<void>
   skipExercise: (index: number, reason: string, comment?: string) => Promise<void>
@@ -71,7 +71,11 @@ export function useExerciseState({
   const [showWhy, setShowWhy] = useState(false)
   const [viewer, setViewer] = useState<any>(null)
 
-  const initializeExercises = useCallback(async (exercises: SessionEx[]) => {
+  const initializeExercises = useCallback(async (exercises: SessionEx[], liveSessionExercises?: SessionExercise[]) => {
+    // Fuente única: la lista real pasada por el llamante (nunca el array
+    // vacío inicial del hook). Sin lista válida no se inicializa nada.
+    const source = liveSessionExercises ?? sessionExercises
+    if (!source || source.length === 0) { return }
     setExs(exercises)
     setCurrent(currentIndex)
     const d: Record<number, boolean> = {}
@@ -79,7 +83,8 @@ export function useExerciseState({
     const lg: Record<number, SetRecord[]> = {}
 
     for (let i = 0; i < exercises.length; i++) {
-      const se = sessionExercises[i]
+      const se = source[i]
+      if (!se) { continue }
       if (se.status === 'COMPLETED') { d[i] = true; sk[i] = true }
       else if (se.status === 'SKIPPED') { d[i] = true; sk[i] = true }
       const recs = await db.setRecords.where('sessionExerciseId').equals(se.sessionExerciseId).toArray().catch(() => [])
