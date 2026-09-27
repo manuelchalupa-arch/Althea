@@ -145,17 +145,27 @@ export function checkTCA(profile: NutritionUserProfile, qaHistory?: Array<{ key:
     })
   }
 
-  // Detect patterns from Q&A that may indicate TCA
-  if (qaHistory) {
-    const tcaIndicators = [
-      'comпульсivo', 'atracon', 'purgar', 'vomitar', 'ayuno forzado',
-      'obsesionado con la comida', 'culpa al comer', 'miedo a engordar',
-      'imagen corporal distorsionada', 'peso ideal obsesivo',
-    ]
+    // Detect patterns from Q&A that may indicate TCA
+    // S9: dos indicadores estaban rotos y la red de seguridad no disparaba nunca:
+    //   - 'com?????ivo' era texto corrupto: `includes()` jamas daba true.
+    //   - 'atracon' solo cubria la forma sin tilde, y la comparacion era sobre
+    //     el texto en minusculas SIN normalizar acentos, asi que la forma con
+    //     tilde nunca coincidia.
+    // Ademas el genero (compulsivo / compulsiva) dejaba fuera la mitad de las
+    // menciones. Se normaliza el texto (minusculas + sin tildes) y se compara
+    // contra tallos sin tilde, que cubren ambas formas.
+    if (qaHistory) {
+      const tcaIndicators = [
+        'compulsi', 'atracon', 'purgar', 'purgacion', 'vomit', 'vomitar',
+        'ayuno forzado', 'obsesionado con la comida', 'culpa al comer',
+        'miedo a engordar', 'imagen corporal distorsionada', 'peso ideal obsesivo',
+      ]
+      const normalizeForMatch = (s: string) =>
+        s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
-    for (const qa of qaHistory) {
-      const answer = (qa.answer || '').toLowerCase()
-      if (tcaIndicators.some(indicator => answer.includes(indicator))) {
+      for (const qa of qaHistory) {
+        const answer = normalizeForMatch(qa.answer || '')
+        if (tcaIndicators.some(indicator => answer.includes(indicator))) {
         alerts.push({
           id: 'tca-indicator-' + qa.key,
           severity: 'critical',

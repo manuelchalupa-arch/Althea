@@ -1,27 +1,49 @@
 import { useEffect, useState } from 'react'
 import { db } from '@/services/storage/db'
-import { Dumbbell, Clock, AlertTriangle } from 'lucide-react'
-import { AltheaCard, AltheaCardHeader, AltheaBadge, StatusTag } from '@/components/althea'
+import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton } from '@/components/althea'
 import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'
 import { getOverrideDay, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
-import type { CycleConfig } from '@/utils/cycle'
+import type { CycleConfig, LoadState } from '@/utils/cycle'
+import { getLoadForDate, LOAD_STATE_LABEL, LOAD_STATE_COLOR } from '@/utils/cycle'
+import { todayKey, weekdayOfKey } from '@/utils/dates'
+import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 
 function daysInMonth(y:number,m:number){ return new Date(y,m+1,0).getDate() }
 
+const LOAD_LABEL_COLOR: Record<LoadState, string> = {
+  NORMAL: 'text-primary/60',
+  SOBRECARGA: 'text-error',
+  CARGA_REDUCIDA: 'text-tertiary',
+  CARGA_CERO: 'text-on-surface-variant/60',
+}
+
+const statusBadgeVariant = (st: string): 'success' | 'warning' | 'danger' | 'outline' => {
+  if (st === 'COMPLETED') { return 'success' }
+  if (st === 'PARTIAL') { return 'warning' }
+  if (st === 'ABANDONED') { return 'danger' }
+  return 'outline'
+}
+
 export default function Calendario(){
   const now = new Date()
-  const [y,m] = [now.getFullYear(), now.getMonth()]
+  const [selectedDate,setSelectedDate]=useState<string | null>(null)
+  const [view,setView]=useState<{y:number; m:number}>(()=>({ y: now.getFullYear(), m: now.getMonth() }))
+  const { y, m } = view
   const [map,setMap]=useState<Record<string,number>>({})
   const [detail,setDetail]=useState<{date:string; scheduled:string; actual:string; changed:boolean; sessions:any[]; hydration:number; recovery:any; meals?:number; calories?:number} | null>(null)
   const [cycle,setCycle]=useState<CycleConfig | null>(null)
   const [monthOverrides,setMonthOverrides]=useState<Record<string,boolean>>({})
   const [showCheckin,setShowCheckin]=useState(false)
   const [todayScore,setTodayScore]=useState<number|null>(null)
+  const [todaySleep,setTodaySleep]=useState<number|null>(null)
+  const [todayHydration,setTodayHydration]=useState(0)
+
+  const todayStr = selectedDate ?? todayKey()
 
   useEffect(()=>{
     migrateSessionOverridesFromLocalStorage()
     Promise.all([db.sessions.toArray().catch(()=>[]), db.trainingSessions.toArray().catch(()=>[])]).then(([legacy, official])=>{
-      const c: Record<string,number> = {}
+      const c: Record<string, number> = {}
       const seen = new Set<string>()
       // Unión oficial + legacy: misma fecha+id cuenta una vez (migración copia sin borrar).
       for(const x of [...legacy.map((s)=> ({ date: s.localDate, id: s.id })), ...official.map((s)=> ({ date: s.calendarDate, id: s.sessionId || s.id }))]){
@@ -34,28 +56,35 @@ export default function Calendario(){
     })
     try{
       import('@/services/storage/routineStore').then(({ getAllRoutines, getActiveRoutineId }) =>
-        Promise.all([getAllRoutines(), getActiveRoutineId()]).then(([raw, activeId]) => {
+        Promise.all([getAllRoutines(), getActiveRoutineId()]).then(async ([raw, activeId]) => {
           const active=raw?.find((r)=>r.id===activeId) || raw?.[0]
-          if(active) {setCycle(active.cycle as CycleConfig)}
+          const pv = await getActiveVersion(PROFILE_SCOPE)
+          if(pv?.cycle) {setCycle(pv.cycle as CycleConfig)}
+          else if(active) {setCycle(active.cycle as CycleConfig)}
           else {
             db.userProfile.get('me').then(p=> setCycle((p?.cycle as CycleConfig) || null))
           }
         })
       ).catch(()=>{})
     }catch{}
-  },[])
+  },[selectedDate])
 
   useEffect(()=>{
-    const loadTodayScore = async () => {
-      const r = await db.recoveryChecks.get(todayStr).catch(()=>null)
+    const loadRecovery = async () => {
+      const targetDate = selectedDate ?? todayStr
+      const r = await db.recoveryChecks.get(targetDate).catch(()=>null)
       setTodayScore(typeof r?.score === 'number' ? r.score : null)
+      setTodaySleep(typeof (r as { sleepHours?: number } | null)?.sleepHours === 'number' ? (r as { sleepHours: number }).sleepHours : null)
+      const hyd = await db.hydrationLogs.where('localDate').equals(targetDate).toArray()
+        .then(a => a.filter(h => (h as { isDemo?: boolean }).isDemo !== true).reduce((s, b) => s + Number(b.amountMl || 0), 0))
+        .catch(()=>0)
+      setTodayHydration(hyd)
     }
-    loadTodayScore()
-    const onRec = () => loadTodayScore()
+    loadRecovery()
+    const onRec = () => loadRecovery()
     window.addEventListener('recoveryChange', onRec)
     return () => window.removeEventListener('recoveryChange', onRec)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[])
+  }, [selectedDate])
 
   useEffect(()=>{
     const daysInM = new Date(y, m + 1, 0).getDate()
@@ -70,11 +99,20 @@ export default function Calendario(){
     })
   }, [y, m])
 
+  const changeMonth = (delta: number) => {
+    setView(v => {
+      const d = new Date(v.y, v.m + delta, 1)
+      return { y: d.getFullYear(), m: d.getMonth() }
+    })
+    setDetail(null)
+    setSelectedDate(null)
+  }
+
   const openDay = async (key:string)=>{
-    const d=new Date(key+'T12:00:00')
-    const dow=d.getDay()
+    const dow=weekdayOfKey(key)
     const scheduledN = cycle?.weekMap?.[dow]
     const scheduled = scheduledN ? cycle.trainingDays.find((x)=>x.n===scheduledN)?.name || `Día N°${scheduledN}` : 'Descanso'
+    const load = cycle ? getLoadForDate(key, cycle) : 'NORMAL' as const
     const overrideVal = await getOverrideDay(key)
     const actualN = overrideVal != null ? overrideVal : scheduledN
     const actual = actualN ? cycle?.trainingDays.find((x)=>x.n===actualN)?.name || `Día N°${actualN}` : 'Descanso'
@@ -117,107 +155,143 @@ export default function Calendario(){
     const rec = await db.recoveryChecks.get(key).catch(()=>null)
     const diary = await db.nutritionDiary.where('date').equals(key).toArray().catch(() => [])
     const dayCalories = diary.reduce((a, e) => a + Number((e as { macros?: { calories?: number } }).macros?.calories || 0), 0)
-    setDetail({date:key, scheduled, actual, changed, sessions: detailed, hydration: hyd, recovery: rec, meals: diary.length, calories: Math.round(dayCalories)})
+    setDetail({date:key, scheduled, actual, changed, sessions: detailed, hydration: hyd, recovery: rec, meals: diary.length, calories: Math.round(dayCalories), load} as never)
   }
 
   const dim = daysInMonth(y,m)
   const first = new Date(y,m,1).getDay()
-  const todayStr = new Date().toISOString().slice(0,10)
+  const monthPrefix = `${y}-${String(m + 1).padStart(2, '0')}`
+  const monthSessions = Object.keys(map).filter(k => k.startsWith(monthPrefix)).length
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+  const monthHeader = cap(new Date(y, m, 1).toLocaleDateString('es', { month: 'long', year: 'numeric' }))
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
-      <div className="space-y-3">
+      <AltheaCard padding="md" className="space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario y recuperación</h1>
-          {todayScore !== null && (
-            <span className="px-2.5 py-1.5 rounded-lg bg-surface-container border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Hoy: {todayScore}/100</span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="material-symbols-outlined text-primary text-[22px] shrink-0">favorite</span>
+            <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario y recuperación</h1>
+          </div>
+          {todayScore !== null ? (
+            <AltheaBadge variant="primary" icon="monitor_heart" size="sm">Score: {todayScore}/100</AltheaBadge>
+          ) : (
+            <AltheaBadge variant="outline" icon="timelapse" size="sm">Sin check-in</AltheaBadge>
           )}
         </div>
-        <button onClick={()=>setShowCheckin(true)} className="w-full sm:w-auto sm:min-w-[280px] sm:mx-auto flex items-center justify-center gap-2 px-4 py-3 min-h-[52px] rounded-xl bg-primary text-on-primary font-label-caps text-[12px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98]">
-          <span className="material-symbols-outlined text-[20px]">favorite</span>
+        <div className="font-body-sm text-[13px] text-on-surface-variant flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px]">water_drop</span>
+          {todayHydration > 0 ? `Agua: ${(todayHydration / 1000).toFixed(1)} L` : 'Agua: Sin datos'}
+        </div>
+        <AltheaButton icon="favorite" fullWidth onClick={()=>setShowCheckin(true)} className="sm:w-auto sm:min-w-[280px] min-h-[52px]">
           Recuperación
-        </button>
-      </div>
+        </AltheaButton>
+      </AltheaCard>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-8 space-y-3">
-      <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
-        <div className="font-body-md text-sm text-on-surface font-medium mb-3">{now.toLocaleDateString('es',{month:'long', year:'numeric'})}</div>
+      <AltheaCard className="space-y-3">
+        <AltheaCardHeader
+          icon="calendar_month"
+          title={monthHeader}
+          action={
+            <div className="flex items-center gap-1.5">
+              <AltheaButton variant="ghost" size="md" icon="chevron_left" aria-label="Mes anterior" onClick={()=>changeMonth(-1)} className="w-12 h-12 shrink-0"><span className="sr-only">Mes anterior</span></AltheaButton>
+              <AltheaButton variant="ghost" size="md" icon="chevron_right" aria-label="Mes siguiente" onClick={()=>changeMonth(1)} className="w-12 h-12 shrink-0"><span className="sr-only">Mes siguiente</span></AltheaButton>
+            </div>
+          }
+        />
         <div className="grid grid-cols-7 gap-1 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">
-          {['D','L','M','M','J','V','S'].map(d=> <div key={d} className="text-on-surface-variant py-1">{d}</div>)}
+          {['D','L','M','M','J','V','S'].map((d,i)=> <div key={'wd'+i} className="text-on-surface-variant py-1">{d}</div>)}
           {Array.from({length:first}).map((_,i)=> <div key={'e'+i}/>)}
           {Array.from({length:dim}).map((_,i)=>{
             const d=i+1; const key=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
             const has=map[key]
             const override=monthOverrides[key]
             const isToday=key===todayStr
+            const load = cycle ? getLoadForDate(key, cycle) : 'NORMAL'
+            const highlight = isToday || override ? `ring-2 ${override ? 'ring-tertiary' : 'ring-on-surface'}` : ''
+            const loadLabelCls = has ? 'text-on-primary/70' : (LOAD_LABEL_COLOR[load] ?? 'text-primary/60')
             return (
-              <button key={d} onClick={()=>openDay(key)} className={`py-2 rounded font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant border ${has?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant font-body-md text-sm text-on-surface'} ${isToday?'ring-2 ring-info':''} ${override?' ring-1 ring-amber-500':''}`}>
-                {d}{has ? <span className="block text-[8px]">✓ {override?'↻':''}</span> : <span className="block text-[8px]">&nbsp;</span>}
+              <button key={d} data-date={key} aria-label={key} onClick={()=>openDay(key)} className={`relative flex flex-col items-center justify-center gap-0.5 min-h-[48px] rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest border transition-colors ${highlight} ${has?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface'}`}>
+                <span>{d}</span>
+                <span className={`block text-[7px] font-label-caps uppercase tracking-wider leading-none ${loadLabelCls}`}>{LOAD_STATE_LABEL[load].slice(0,4)}</span>
+                {has ? <span className="block text-[8px] leading-none">✓{override?'↻':''}</span> : null}
               </button>
             )
           })}
         </div>
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant mt-3 flex gap-2"><span className="w-3 h-3 bg-primary rounded-full inline-block"></span> completado <span className="w-3 h-3 bg-amber-500 rounded-full inline-block ml-2"></span> cambiado</div>
-      </div>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1 mt-1">
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-primary rounded-full inline-block"></span> completado</span>
+          <span className="flex items-center gap-1.5 ml-3"><span className="w-3 h-3 bg-tertiary rounded-full inline-block"></span> cambiado</span>
+        </div>
+        {monthSessions === 0 && (
+          <p className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant text-center py-2">Sin sesiones registradas este mes</p>
+        )}
+      </AltheaCard>
 
       </div>
-      <div className="lg:col-span-4 space-y-3 hidden lg:block">
-        <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Dumbbell size={14}/> Resumen del mes</div>
-          <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Días con sesión</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.keys(map).filter(k=> k.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).length}</span></div>
+      <div className="lg:col-span-4 space-y-3">
+        <AltheaCard className="space-y-2">
+          <AltheaCardHeader icon="summarize" title="Resumen del mes" />
+          <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Días con sesión</span><span className="font-body-md text-sm text-on-surface font-medium">{monthSessions}</span></div>
           <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total sesiones</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(map).reduce((a,b)=>a+b, 0)}</span></div>
-        </div>
-        <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Clock size={14}/> Próximas sesiones</div>
-          {cycle?.trainingDays.length ?? 0 > 0 ? (
+        </AltheaCard>
+        <AltheaCard className="space-y-2">
+          <AltheaCardHeader icon="schedule" title="Próximas sesiones" />
+          {(cycle?.trainingDays.length ?? 0) > 0 ? (
             <div className="space-y-1.5">
               {cycle!.trainingDays.slice(0, 4).map((d) => (
-                <div key={d.n} className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs">
-                  <span>N°{d.n} — {d.name}</span>
-                  <span className="text-primary">Activo</span>
+                <div key={d.n} className="flex justify-between items-center gap-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                  <span className="truncate">N°{d.n} — {d.name}</span>
+                  <span className="text-primary shrink-0">Activo</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs text-on-surface-variant">Sin rutina activa</div>
+            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sin rutina activa</p>
           )}
-        </div>
-        <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><AlertTriangle size={14}/> Tips rápidos</div>
-          <ul className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs space-y-1.5 list-disc list-inside">
-            <li>Registra cada sesión para progresión</li>
+        </AltheaCard>
+        <AltheaCard className="space-y-2">
+          <AltheaCardHeader icon="tips_and_updates" title="Tips rápidos" />
+          <ul className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant space-y-1.5 list-disc list-inside">
+            <li>Registrá cada sesión para progresión</li>
             <li>Los días marcados indican rutina completada</li>
             <li>Usá el override para sesiones movidas</li>
           </ul>
-        </div>
+        </AltheaCard>
       </div>
 
       </div>
 
       {detail && (
         <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setDetail(null)}>
-          <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[75vh] overflow-auto p-4 space-y-3">
+          <div onClick={e=>e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[75vh] overflow-auto p-4 space-y-3 pb-safe">
             <h3 className="font-headline-lg text-base font-semibold text-on-surface">{detail.date} — {detail.actual}</h3>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Programado: {detail.scheduled} {detail.changed && `→ Realizado: ${detail.actual} (cambiado)`}</p>
+            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-2">Carga: <span className={`px-2 py-0.5 rounded-full border text-[9px] font-semibold ${LOAD_STATE_COLOR[(detail as { load?: string }).load as LoadState] ?? LOAD_STATE_COLOR.NORMAL}`}>{LOAD_STATE_LABEL[(detail as { load?: string }).load as LoadState] ?? (detail as { load?: string }).load}</span></p>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sesiones: {detail.sessions.length} · Hidratación: {detail.hydration} ml · Recuperación: {typeof detail.recovery?.score === 'number' ? `${detail.recovery.score}/100` : 'Sin datos'}</p>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Comidas: {detail.meals ?? 0}{detail.calories ? ` · ${detail.calories} kcal` : ''} · Sueño: {typeof detail.recovery?.sleepHours === 'number' ? `${detail.recovery.sleepHours}h (calidad ${detail.recovery.sleepQuality ?? '—'}/10)` : 'Sin datos'}</p>
             {detail.sessions.length>0 && (
-              <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
-                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Ejercicios registrados</div>
-                {detail.sessions.map((s:any)=>{ const st = String(s.status || ''); const cls = st==='COMPLETED' ? 'st-completed' : st==='PARTIAL' ? 'st-partial' : st==='CANCELLED' ? 'st-cancelled' : st==='ABANDONED' ? 'st-abandoned' : 'st-pending'; return (
+              <AltheaCard className="space-y-2">
+                <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Ejercicios registrados</p>
+                {detail.sessions.map((s:any)=>{ const st = String(s.status || ''); return (
                   <div key={s.id} className="space-y-1">
-                    <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-2"><span className={`px-2 py-0.5 rounded-lg border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${cls}`}>{st || '—'}</span><span>{s.localDate}{s.routineName ? ` · ${s.routineName}` : ''}</span></div>
-                    <div className="font-body-sm text-[12px] text-on-surface-variant pl-1">
+                    <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-2 flex-wrap">
+                      <AltheaBadge variant={statusBadgeVariant(st)} size="xs">{st || '—'}</AltheaBadge>
+                      <span>{s.localDate}{s.routineName ? ` · ${s.routineName}` : ''}</span>
+                    </div>
+                    <p className="font-body-sm text-[12px] text-on-surface-variant pl-1">
                       {(s.exercises || []).join(' · ') || 'Sin detalle de ejercicios'}
                       {s.volume > 0 && <span> · {s.volume} kg</span>}
                       {s.setsDone > 0 && <span> · {s.setsDone}{s.setsPlanned ? `/${s.setsPlanned}` : ''} series</span>}
                       {typeof s.compliance === 'number' && <span> · {s.compliance}%</span>}
-                    </div>
+                    </p>
                   </div>
                 ) })}
-              </div>
+              </AltheaCard>
             )}
-            <button onClick={()=>setDetail(null)} className="w-full py-3 rounded bg-primary text-on-surface">Cerrar</button>
+            <AltheaButton fullWidth size="lg" onClick={()=>setDetail(null)} className="min-h-[48px]">Cerrar</AltheaButton>
           </div>
         </div>
       )}
@@ -228,9 +302,9 @@ export default function Calendario(){
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-[22px]">favorite</span>
-                <h3 className="font-headline-lg text-base font-semibold text-on-surface">Recuperación de hoy</h3>
+                <h3 className="font-headline-lg text-base font-semibold text-on-surface">Recuperación</h3>
               </div>
-              <button onClick={()=>setShowCheckin(false)} aria-label="Cerrar recuperación" className="p-2 min-w-[44px] min-h-[44px] rounded-lg border border-outline-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center">
+              <button onClick={()=>setShowCheckin(false)} aria-label="Cerrar recuperación" className="p-2 min-w-[48px] min-h-[48px] rounded-lg border border-outline-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center">
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>

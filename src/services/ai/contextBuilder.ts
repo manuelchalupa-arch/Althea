@@ -1,8 +1,11 @@
 import type { AIContext } from './aiProvider'
 import { db } from '@/services/storage/db'
 import { getDiaryEntries } from '@/services/storage/diaryStore'
-import { getCycleFromProfile, getTrainingDayForDate } from '@/utils/cycle'
-import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, mapTone, TRAINING_GOAL_PROFILES, EXPERIENCE_INSTRUCTIONS, buildMethodContext, buildNutritionMethodContext, buildMethodCoachingPrompt } from './systemPrompt'
+import { getTrainingDayForDate } from '@/utils/cycle'
+import { getCanonicalCycle } from '@/services/planning/cycleVersions'
+import { getTrainingLimitations, getPainAreas, getExcludedExercises, getNutritionRestrictions } from '@/utils/restrictions'
+import { SYSTEM_PROMPT, PERSONALITY_INSTRUCTION, VERACITY_RULES, TRAINING_GOAL_PROFILES, EXPERIENCE_INSTRUCTIONS, buildMethodContext, buildNutritionMethodContext, buildMethodCoachingPrompt } from './systemPrompt'
+import { resolveCoachTone } from './coachPersonality'
 import { unifiedCompletedSets } from '@/services/history'
 import { retrieveRelevant } from './knowledgeBase'
 import { analyzeExercise, analyzeGlobal } from './progressAnalyzer'
@@ -13,16 +16,23 @@ import type { ActivityLevel } from '@/utils/nutrition'
 import type { TrainingMethodId } from './trainingMethods'
 import type { CoachMemoryEntry } from '@/services/storage/db'
 import type { CoachDecision } from '@/services/ai/coachMemory'
+import { todayKey, dayKeyOffset, toDateKey } from '@/utils/dates'
+import { resolveTrainingGoal } from '@/utils/trainingGoal'
 
 // Memoria estructurada reducida — no envía todo el historial
 export async function buildTrainingContext(exerciseId?:string, exerciseName?:string): Promise<AIContext>{
-  const today = new Date().toISOString().slice(0,10)
+  const today = todayKey()
   const profile = await db.userProfile.get('me') as UserProfile | undefined
-  const cycle = getCycleFromProfile(profile ?? null)
+  const cycle = await getCanonicalCycle(profile ?? null)
   const diaInfo = getTrainingDayForDate(today, cycle)
   const dia = diaInfo.isRest ? 'Descanso' : `Día N°${diaInfo.n} ${diaInfo.name}`
+  const trainingGoal = resolveTrainingGoal(profile)
   const objetivo = profile?.goal ?? 'hipertrofia'
-  const personalidad = mapTone(profile?.coachTone || profile?.coachIntensity) as AIContext['personalidad']
+  const personalidad = resolveCoachTone({
+    coachTone: profile?.coachTone,
+    coachIntensity: profile?.coachIntensity,
+    methodId: (cycle.methodId as string | undefined) ?? undefined,
+  })
 
   // últimas 3 sesiones del ejercicio — unión oficial+legacy (no solo setLogs)
   let historial:{peso:number;reps:number;rpe?:number}[] = []
@@ -77,10 +87,12 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     const found = obsRows.find(r => r && (r.motivos || r.comentario || r.dolorDetalle))
     if (found) { ultimaObs = { motivos: found.motivos, dolorDetalle: found.dolorDetalle, comentario: found.comentario } }
   } catch { /* noop */ }
+  // FASE 2 S4 — cada concepto desde su fuente canónica (@/utils/restrictions).
+  // Entrenamiento y nutrición NO se mezclan.
   const needs = profile?.needsDescription || ''
-  const excluded: string[] = profile?.excludedExercises || []
-  const limitations = profile?.limitations || []
-  const painAreas = profile?.painAreas || []
+  const excluded = getExcludedExercises(profile)
+  const limitations = getTrainingLimitations(profile)
+  const painAreas = getPainAreas(profile)
   // NUTRITION_CONTEXT
   let nutritionContext: { weight: number; height: number; bmi: number; bmiCategory: string; activityLevel: string; estimatedBMR: number; estimatedTDEE: number; calorieGoal: number; proteinGoal?: string; proteinRange?: any; weightHistory: { date: string; weight?: number }[]; nutritionPreferences: string[]; foodLogCount: number } | null = null
   try{
@@ -91,8 +103,8 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
       const imc2 = _imc(w,h)
       const tmb2 = _tmb(w,h,age2,sex2)
       const tdee2 = _tdee(tmb2, act2 as ActivityLevel, 4)
-      const cg2 = _cg(tdee2, profile?.goalPrimary || objetivo)
-      const pr2 = _pr(w, profile?.goalPrimary || objetivo)
+      const cg2 = _cg(tdee2, trainingGoal || profile?.goalPrimary || objetivo)
+      const pr2 = _pr(w, trainingGoal || profile?.goalPrimary || objetivo)
       // peso evolución
       const bodies = await db.bodyMeasurements.toArray().catch(()=>[])
       const sortedB = bodies.sort((a,b)=> a.localDate.localeCompare(b.localDate)).slice(-5)
@@ -101,7 +113,9 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
         activityLevel: String(act2), estimatedBMR: Number(tmb2), estimatedTDEE: Number(tdee2),
         calorieGoal: Number(cg2), proteinGoal: pr2?.text, proteinRange: pr2,
         weightHistory: sortedB.map(b=> ({date:b.localDate, weight:b.weightKg})),
-        nutritionPreferences: profile?.restrictions || [],
+        // S4: antes leía profile.restrictions (ENTRENAMIENTO) como si fuera
+        // nutricional. La fuente canónica es profile.nutritionPrefs.restrictions.
+        nutritionPreferences: getNutritionRestrictions(profile),
         foodLogCount: await getDiaryEntries(today).then(e => e.length).catch(() => 0)
       }
     }
@@ -187,11 +201,10 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     const partMap = await fetchPartMap().catch(() => ({} as Record<string, string>))
     const resolver = await buildMuscleResolver(partMap).catch(() => null)
     if (resolver) {
-      const cut = new Date(); cut.setDate(cut.getDate() - 30)
-      const cutStr = cut.toISOString().slice(0, 10)
+      const cutStr = dayKeyOffset(todayKey(), -30)
       const { unifiedAllCompletedSets } = await import('@/services/history')
       const all = await unifiedAllCompletedSets().catch(() => [])
-      const items = all.filter(s => s.createdAt.slice(0, 10) >= cutStr)
+      const items = all.filter(s => toDateKey(s.createdAt) >= cutStr)
         .map(s => ({ exerciseId: s.exerciseId, volume: s.weight * s.reps }))
       const load = muscleLoadOf(items, resolver.muscleOf)
       if (load.loads.length > 0) {
@@ -245,6 +258,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     exigencia: profile?.exigencia || {},
     // ─── Coach IA v2: nuevos campos ───
     userProfile: profile || {},
+    cycleMethodId: (cycle.methodId as string | undefined) ?? undefined,
     knowledgeChunks,
     progress: progressData,
     patterns,
@@ -265,7 +279,7 @@ export function buildPrompt(ctx:AIContext):string{
   const sc = ctx.score ? `Estado global: ${ctx.score.score}/100 (${ctx.score.factors.map(f=> `${f.label} ${f.delta>=0?'+':''}${f.delta}: ${f.estado}`).join(' · ')})` : 'Sin puntuación (sin datos suficientes).'
   const qaLines = Object.entries(ctx.qa||{}).map(([k,v])=> `${k}: preguntó "${v.question}" → respondió "${v.answer}" (${v.date})`).join('\n') || 'Sin respuestas registradas.'
   // ─── Coach IA v2: perfiles de entrenamiento ───
-  const goal = (ctx.userProfile?.trainingGoal as string) || ctx.objetivo || 'hypertrophy'
+  const goal = resolveTrainingGoal(ctx.userProfile) || ctx.objetivo || 'hypertrophy'
   const goalProfile = TRAINING_GOAL_PROFILES[goal] || TRAINING_GOAL_PROFILES.hypertrophy
   const experience = (ctx.userProfile?.experienceLevel as string) || 'intermediate'
   const expInstruction = EXPERIENCE_INSTRUCTIONS[experience] || EXPERIENCE_INSTRUCTIONS.intermediate
@@ -278,10 +292,15 @@ export function buildPrompt(ctx:AIContext):string{
   // nutrition analysis
   const nutAnalysisLine = ctx.nutritionAnalysis ? `\nNUTRICIÓN: TDEE=${ctx.nutritionAnalysis.tdee||'?'}, objetivo calórico=${ctx.nutritionAnalysis.calorieGoal||'?'}, proteína/kg=${ctx.nutritionAnalysis.proteinPerKg||'?'}, gap=${ctx.nutritionAnalysis.gap||'sin gap'}` : ''
   // ─── Coach IA v2: method context ───
-  const methodId = ctx.userProfile?.cycle?.methodId as TrainingMethodId | undefined
+  // canónico-primero: cycleMethodId ya viene resuelto desde cycleVersions en
+  // buildTrainingContext; el snapshot profile.cycle queda como fallback legacy.
+  const methodId = (ctx.cycleMethodId ?? ctx.userProfile?.cycle?.methodId) as TrainingMethodId | undefined
   const methodContext = buildMethodContext(methodId)
   const methodLine = methodContext ? `\n${methodContext}` : ''
   // ─── Coach IA v2: nutrition method context ───
+  // La fuente canónica del método nutricional es profile.activeNutritionMethod
+  // (ya priorizada arriba). CycleConfig no modela nutritionMethodId, así que el
+  // snapshot legacy queda como fallback explícito sin equivalente canónico.
   const nutritionMethodId = (ctx.userProfile?.activeNutritionMethod as string) || ctx.userProfile?.cycle?.nutritionMethodId as string | undefined
   const nutritionMethodContext = buildNutritionMethodContext(nutritionMethodId as unknown as import('./nutritionMethods').NutritionMethodId)
   const nutritionMethodLine = nutritionMethodContext ? `\n${nutritionMethodContext}` : ''

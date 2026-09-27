@@ -111,7 +111,6 @@ export const MAS_GROUPS: MasGroup[] = [
     items: [
       { to: '/rutinas', label: 'Rutinas', icon: 'routines' },
       { to: '/calendario', label: 'Calendario y recuperación', icon: 'calendar' },
-      { to: '/recuperacion', label: 'Recuperación (detalle)', icon: 'recovery' },
     ],
   },
   {

@@ -175,7 +175,7 @@ export default function BibliotecaCustomForm({
             </section>
 
             {errors.length > 0 && (
-              <div className="rounded border border-danger/40 bg-danger/10 p-2">
+              <div className="rounded border border-error/40 bg-error/10 p-2">
                 {errors.map((e) => <p key={e} className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant st-error-text">{e}</p>)}
               </div>
             )}
@@ -193,20 +193,20 @@ export default function BibliotecaCustomForm({
               </div>
               <div className="p-3">
                 <div className="font-body-md text-sm text-on-surface font-medium">{name || 'Sin nombre'}</div>
-                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">{bodyPart} · {muscle || '—'} · {equip || '—'}</div>
+                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{bodyPart} · {muscle || '—'} · {equip || '—'}</div>
                 <div className="mt-2 space-y-1">
                   {previewBreakdown.map((m) => (
                     <div key={m.name} className="flex items-center gap-2">
                       <span className="flex-1 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{m.name} <span className="text-on-surface-variant">· {m.role}</span></span>
                       <span className="font-body-md text-sm text-on-surface font-medium">{m.pct}%</span>
-                      <div className="w-20 h-2 bg-surface/60 border border-outline-variant rounded-full overflow-hidden"><div className={`h-full ${m.role === 'Principal' ? 'bg-primary' : 'bg-info'}`} style={{ width: `${Math.max(0, Math.min(100, m.pct))}%` }} /></div>
+                      <div className="w-20 h-2 bg-surface/60 border border-outline-variant rounded-full overflow-hidden"><div className={`h-full ${m.role === 'Principal' ? 'bg-primary' : 'bg-secondary'}`} style={{ width: `${Math.max(0, Math.min(100, m.pct))}%` }} /></div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
             {errors.length > 0 && (
-              <div className="rounded border border-danger/40 bg-danger/10 p-2">
+              <div className="rounded border border-error/40 bg-error/10 p-2">
                 {errors.map((e) => <p key={e} className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant st-error-text">{e}</p>)}
               </div>
             )}

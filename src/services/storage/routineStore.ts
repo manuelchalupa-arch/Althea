@@ -1,6 +1,28 @@
 import { db } from './db'
 import { DEFAULT_CYCLE, type CycleConfig } from '@/utils/cycle'
 
+export type RoutineSeriesPlan = { reps: number; weight: number | null }
+
+export type RoutineDayExercise = {
+  id: string
+  exId: string
+  sets: number
+  reps: number
+  weight: number | null
+  /**
+   * Plan POR SERIE (reps/weight propios de cada serie). Es la fuente de verdad
+   * cuando existe: `sets/reps/weight` de nivel ejercicio quedan como resumen
+   * para rutinas antiguas y para listados compactos.
+   */
+  series?: RoutineSeriesPlan[]
+  gifUrl?: string
+  name?: string
+  muscle?: string
+  restSec?: number
+  seriesType?: string
+  routineExerciseId?: string
+}
+
 export type RoutineData = {
   id: string
   name: string
@@ -8,8 +30,10 @@ export type RoutineData = {
   createdAt: string
   updatedAt: string
   rotationDays: number
+  /** Fecha en que la rutina debe revisarse (YYYY-MM-DD). Si no existe, se usa createdAt + rotationDays. */
+  reviewDate?: string | null
   cycle: CycleConfig
-  dayExercises: Record<number, { id:string; exId:string; sets:number; reps:number; weight:number; gifUrl?:string; name?:string; muscle?:string; restSec?:number; seriesType?:string; routineExerciseId?:string }[]>
+  dayExercises: Record<number, RoutineDayExercise[]>
   isDemo?: boolean
   version?: number
   archived?: boolean
@@ -81,7 +105,9 @@ export function diffRoutines(a: RoutineData, b: RoutineData): RoutineDiff {
       for (const e of arr || []) {
         m.set(key(Number(dayStr), e.exId), {
           day: Number(dayStr), exId: e.exId, name: e.name || e.exId,
-          sig: `${e.sets}x${e.reps}@${e.weight}`,
+          sig: e.series?.length
+            ? e.series.map((s) => `${s.reps}x${s.weight ?? 's/p'}`).join('/')
+            : `${e.sets}x${e.reps}@${e.weight}`,
         })
       }
     }
@@ -182,22 +208,4 @@ export async function migrateRoutinesFromLocalStorage(): Promise<void> {
   } catch {
     // Migration failed — localStorage data preserved as fallback
   }
-}
-
-// ─── Legacy compat: write-through to localStorage during transition ───
-
-export async function syncToLocalStorage(): Promise<void> {
-  try {
-    const list = await getAllRoutines()
-    const activeId = await getActiveRoutineId()
-    if (list.length > 0) {
-      localStorage.setItem('rutinas:list', JSON.stringify(list))
-      if (activeId) {localStorage.setItem('rutina:activeId', activeId)}
-      const active = list.find(r => r.id === activeId) || list[0]
-      if (active) {
-        localStorage.setItem('rutina:meta', JSON.stringify({ id: active.id, name: active.name, createdAt: active.createdAt, rotationDays: active.rotationDays }))
-        localStorage.setItem('rutina:ex', JSON.stringify(active.dayExercises))
-      }
-    }
-  } catch { /* noop */ }
 }

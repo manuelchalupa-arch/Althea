@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { todayKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
 import { buildTrainingContext, buildPrompt } from './contextBuilder'
 import { DEFAULT_CYCLE } from '@/utils/cycle'
@@ -82,7 +83,7 @@ describe('ET17 — Coach final integrado', () => {
 
   it('flujo D: recovery → sueño → score → Coach lo refleja', async () => {
     await seedAll()
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayKey()
     await db.recoveryChecks.put({
       id: today, localDate: today, energy: 4, fatigue: 8, stress: 6,
       motivation: 5, score: 38, color: 'red', sleepHours: 5.5, sleepQuality: 4,

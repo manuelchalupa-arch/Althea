@@ -62,8 +62,12 @@ export class TrainDB extends Dexie {
   onboardingDrafts!: Table<OnboardingDraft>
   painLogs!: Table<PainLog>
   cycleVersions!: Table<CycleVersion>
+  hydrationBottles!: Table<{ id: string; name?: string; capacityMl: number; active: boolean; order: number; updatedAt: string }>
+  hydrationBottleLogs!: Table<{ id: string; localDate: string; bottleId: string; amountMl: number; time: string }>
   notifConfigs!: Table<{ id: string;[k: string]: unknown }>
   notifLog!: Table<{ id: string; date: string;[k: string]: unknown }>
+  unifiedNotifConfigs!: Table<{ id: string; type: string; title: string; enabled: boolean; time: string; times: string[]; days: boolean[]; recurrence: string; requiredAction: boolean; updatedAt: string }>
+  requiredActionStates!: Table<{ id: string; configId: string; date: string; status: 'pending' | 'completed'; completedAt?: string; createdAt: string }>
   constructor() {
     super('trainPWA')
     this.version(1).stores({
@@ -170,6 +174,18 @@ export class TrainDB extends Dexie {
       notifConfigs: 'id',
       notifLog: 'id, date',
     })
+    // v19: Botellas de hidratación — configuración (2-3 botellas) y logs diarios por botella.
+    // Solo aditivo. Config persiste en Dexie, no en localStorage. Logs por fecha con snapshot de capacidad.
+    this.version(19).stores({
+      hydrationBottles: 'id, active, order',
+      hydrationBottleLogs: 'id, localDate, bottleId, time',
+    })
+    // v20: Notificaciones unificadas + acciones obligatorias (pending/completed) — Dexie, no React state.
+    // Sistema reutilizable requiredAction. RecoveryCheck y futuras acciones usan mismo mecanismo.
+    this.version(20).stores({
+      unifiedNotifConfigs: 'id, type, enabled',
+      requiredActionStates: 'id, configId, date, status',
+    })
   }
 }
 export const db = new TrainDB()
@@ -179,10 +195,6 @@ export async function ensureSeeded() {
   if (count > 0) {return}
   const { exercises } = await import('@/data/exercises.json')
   await db.exercises.bulkPut(exercises as Exercise[])
-}
-
-export async function getTodayLocalDate(): Promise<string> {
-  return new Date().toISOString().slice(0,10)
 }
 
 export async function saveOnboardingDraft(step: number, data: Record<string, any>): Promise<void> {

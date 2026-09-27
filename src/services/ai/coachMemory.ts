@@ -1,4 +1,5 @@
 import { db } from '@/services/storage/db'
+import { todayKey, weekdayOfKey } from '@/utils/dates'
 
 // Memoria estructurada — no conversaciones completas, solo datos útiles.
 // Decisiones + preguntas/respuestas del Coach. Fuente única: Dexie.
@@ -71,8 +72,8 @@ export async function getAllDecisions(): Promise<CoachDecision[]> {
 
 export async function saveAnswer(key: string, question: string, answer: string): Promise<CoachQA> {
   const entry: CoachQA = {
-    id: `qa-${key}-${new Date().toISOString().slice(0, 10)}`,
-    date: new Date().toISOString().slice(0, 10),
+    id: `qa-${key}-${todayKey()}`,
+    date: todayKey(),
     key, question, answer: answer.slice(0, 500),
     createdAt: new Date().toISOString(),
   }
@@ -82,7 +83,7 @@ export async function saveAnswer(key: string, question: string, answer: string):
 
 export async function getAnswer(key: string): Promise<CoachQA | null> {
   try {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayKey()
     const rows = await db.coachMemory.where('id').equals(`qa-${key}-${today}`).toArray().catch(() => [])
     const match = rows.find(r => r && r.type === 'qa') as CoachQA | undefined
     if (match) { return match }
@@ -118,14 +119,14 @@ export async function getPrefs(): Promise<Record<string, unknown>> {
 
 async function savePrefs(prefs: Record<string, unknown>): Promise<void> {
   await db.coachMemory.put({
-    id: PREFS_ID, type: 'prefs', date: new Date().toISOString().slice(0, 10),
+    id: PREFS_ID, type: 'prefs', date: todayKey(),
     prefs, createdAt: new Date().toISOString(),
   })
 }
 
 async function learnFromHistory(all: CoachDecision[]): Promise<void> {
   const prefs: Record<string, unknown> = await getPrefs()
-  const lunesRechazos = all.filter(d => d.motive?.includes('tiempo') && new Date(d.date).getDay() === 1).length
+  const lunesRechazos = all.filter(d => d.motive?.includes('tiempo') && weekdayOfKey(d.date) === 1).length
   if (lunesRechazos >= 2) { prefs.disponibilidadLunes = 'reducida' }
   const byEx: Record<string, number> = {}
   all.filter(d => d.type === 'reject').forEach(d => { if (d.exercise) { byEx[d.exercise] = (byEx[d.exercise] || 0) + 1 } })

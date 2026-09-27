@@ -23,35 +23,17 @@ export function useRestTimer(){
     return ()=> clearInterval(iv)
   }, [])
 
-  const startRest = useCallback((seconds:number)=>{
-    setRestSec(seconds)
-    setRestFlash(false)
-    setRestPaused(false)
-    restPausedRef.current = false
-  }, [])
+  const startRest = useCallback((seconds:number)=>{setRestSec(seconds); setRestFlash(false); setRestPaused(false); restPausedRef.current = false}, [])
 
-  const pauseRest = useCallback(()=>{
-    setRestPaused(true)
-    restPausedRef.current = true
-  }, [])
+  const pauseRest = useCallback(()=>{setRestPaused(true); restPausedRef.current = true}, [])
 
-  const resumeRest = useCallback(()=>{
-    setRestPaused(false)
-    restPausedRef.current = false
-  }, [])
+  const resumeRest = useCallback(()=>{setRestPaused(false); restPausedRef.current = false}, [])
 
-  const adjustRest = useCallback((delta:number)=>{
-    setRestSec(s => Math.max(0, s + delta))
-  }, [])
+  const adjustRest = useCallback((delta:number)=>{setRestSec(s => Math.max(0, s + delta))}, [])
 
-  const skipRest = useCallback(()=>{
-    setRestSec(0)
-    setRestFlash(false)
-  }, [])
+  const skipRest = useCallback(()=>{setRestSec(0); setRestFlash(false)}, [])
 
-  const dismissFlash = useCallback(()=>{
-    setRestFlash(false)
-  }, [])
+  const dismissFlash = useCallback(()=>{setRestFlash(false)}, [])
 
   return { restSec, restPaused, restFlash, startRest, pauseRest, resumeRest, adjustRest, skipRest, dismissFlash }
 }

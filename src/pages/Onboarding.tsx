@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { db, saveOnboardingDraft, getOnboardingDraft, clearOnboardingDraft } from '@/services/storage/db'
 import { z } from 'zod'
 import * as Gym from '@/services/exerciseGym'
-import { CoachIntensity } from '@/types'
+import { CoachIntensity, Goal } from '@/types'
+import { todayKey } from '@/utils/dates'
+import { resolveTrainingGoal } from '@/utils/trainingGoal'
 
 const OBJETIVOS = ['Perder grasa / bajar de peso','Ganar masa muscular','Aumentar fuerza','Mejorar resistencia','Mejorar condición física','Mejorar movilidad','Mantenerme','Recomposición corporal','Otro']
 const NIVELES = ['Principiante','Intermedio','Avanzado']
@@ -44,9 +46,11 @@ export default function Onboarding(){
   // Paso 5: Coach (intensidad/estilo)
   const [coachIntensity,setCoachIntensity]=useState<CoachIntensity>('profesional')
 
-  // Paso 6: Notificaciones + Dolencias + Restricciones + Excluidos + Datos opcionales
+  // Paso 6: Notificaciones + Dolencias + Restricciones + Excluidos + Datos cuantitativos
   const [nombre,setNombre]=useState('')
   const [email,setEmail]=useState('')
+  const [sexo,setSexo]=useState<'masculino'|'femenino'|'otro'>('masculino')
+  const [fechaNacimiento,setFechaNacimiento]=useState('')
   const [altura,setAltura]=useState('')
   const [peso,setPeso]=useState('')
   const [pesoObjetivo,setPesoObjetivo]=useState('')
@@ -60,6 +64,8 @@ export default function Onboarding(){
   const [showBiblio,setShowBiblio]=useState(false)
   const [biblioMuscle,setBiblioMuscle]=useState('pectorals')
   const [biblioItems,setBiblioItems]=useState<Gym.Exercise[]>([])
+
+  const edad = fechaNacimiento ? Math.floor((Date.now() - new Date(fechaNacimiento).getTime()) / (365.25 * 86400000)) : null
 
   const imc = altura && peso ? (Number(peso)/Math.pow(Number(altura)/100,2)).toFixed(1) : null
   const imcCat = imc ? (Number(imc)<18.5?'Bajo peso': Number(imc)<25?'Normopeso': Number(imc)<30?'Sobrepeso':'Obesidad') : null
@@ -138,9 +144,12 @@ export default function Onboarding(){
       if(step===6){
         if(!nombre.trim()) {throw new Error('Ingresá tu nombre')}
         z.string().email('Email inválido').parse(email)
-        // peso y altura son opcionales en onboarding (se completan en Perfil)
-        if(peso) {z.coerce.number().min(30).max(300).parse(Number(peso))}
-        if(altura) {z.coerce.number().min(100).max(250).parse(Number(altura))}
+        if(peso) {
+          z.coerce.number().min(30).max(300).parse(Number(peso))
+        }
+        if(altura) {
+          z.coerce.number().min(100).max(250).parse(Number(altura))
+        }
         if(pesoObjetivo) {z.coerce.number().min(30).max(300).parse(Number(pesoObjetivo))}
       }
       setErr(null); return true
@@ -156,8 +165,31 @@ export default function Onboarding(){
   const back = ()=> { persistDraft(); setStep(s=> Math.max(0,s-1)) }
 
   const crear = async ()=>{
-    const bmi = altura && peso ? (Number(peso)/Math.pow(Number(altura)/100,2)).toFixed(2) : undefined
+    const weightNum = peso ? Number(peso) : undefined
+    const heightNum = altura ? Number(altura) : undefined
+    const bmi = (weightNum && heightNum) ? (weightNum / Math.pow(heightNum/100,2)).toFixed(2) : undefined
     const bmiCat = bmi ? (Number(bmi)<18.5?'Bajo peso': Number(bmi)<25?'Normopeso': Number(bmi)<30?'Sobrepeso':'Obesidad') : undefined
+
+    // D11: Variantes de peso objetivo superior e inferior
+    const weightLowerVariant = weightNum ? Math.round((weightNum * 0.95) * 10) / 10 : undefined
+    const weightUpperVariant = weightNum ? Math.round((weightNum * 1.05) * 10) / 10 : undefined
+    const chosenTargetWeight = pesoObjetivo ? Number(pesoObjetivo) : (weightNum ? (objPrincipal.includes('grasa') ? weightLowerVariant : objPrincipal.includes('masa') ? weightUpperVariant : weightNum) : undefined)
+
+    // D11: Calorías y macronutrientes recomendados
+    const isMale = sexo === 'masculino'
+    let caloriesTarget: number | undefined = undefined
+    let proteinTarget: number | undefined = undefined
+    let fatTarget: number | undefined = undefined
+    let carbsTarget: number | undefined = undefined
+
+    if (weightNum && heightNum) {
+      const bmr = isMale ? (10 * weightNum + 6.25 * heightNum - 5 * (edad || 25) + 5) : (10 * weightNum + 6.25 * heightNum - 5 * (edad || 25) - 161)
+      const tdee = Math.round(bmr * 1.375)
+      caloriesTarget = objPrincipal.includes('grasa') ? tdee - 400 : objPrincipal.includes('masa') ? tdee + 300 : tdee
+      proteinTarget = Math.round(weightNum * (objPrincipal.includes('masa') || objPrincipal.includes('grasa') ? 2.0 : 1.6))
+      fatTarget = Math.round((caloriesTarget * 0.25) / 9)
+      carbsTarget = Math.max(0, Math.round((caloriesTarget - (proteinTarget * 4 + fatTarget * 9)) / 4))
+    }
 
     // Unificar restrictions en limitations para que methodSelector y otros consumidores las usen
     const allLimitations = [
@@ -165,15 +197,29 @@ export default function Onboarding(){
       ...restrictions
     ]
 
+    const selectedGoal: Goal = objPrincipal.includes('masa')?'hipertrofia': objPrincipal.includes('grasa')?'perdida_peso':
+          objPrincipal.includes('fuerza')?'fuerza': objPrincipal.includes('resistencia')?'resistencia':
+          objPrincipal.includes('movilidad')?'movilidad': objPrincipal.includes('recomposición')?'recomposicion':'mantenimiento'
+
     const profile:any = await db.userProfile.get('me') || { id:'me', createdAt: new Date().toISOString() }
     await db.userProfile.put({
       ...profile,
-      displayName: nombre, email,
-      heightCm: altura? Number(altura): undefined, weightKg: peso? Number(peso): undefined, targetWeightKg: pesoObjetivo? Number(pesoObjetivo): undefined,
-      bmi, bmiCategory: bmiCat, bmiCalculatedAt: bmi ? new Date().toISOString() : undefined,
-      goal: objPrincipal.includes('masa')?'hipertrofia': objPrincipal.includes('grasa')?'perdida_peso':
-            objPrincipal.includes('fuerza')?'fuerza': objPrincipal.includes('resistencia')?'resistencia':
-            objPrincipal.includes('movilidad')?'movilidad': objPrincipal.includes('recomposición')?'recomposicion':'mantenimiento',
+      displayName: nombre,
+      name: nombre,
+      email,
+      sex: sexo,
+      birthDate: fechaNacimiento || undefined,
+      age: edad ?? undefined,
+      heightCm: heightNum,
+      weightKg: weightNum,
+      targetWeightKg: chosenTargetWeight,
+      targetWeightVariants: (weightLowerVariant && weightUpperVariant) ? { lower: weightLowerVariant, upper: weightUpperVariant } : undefined,
+      nutritionTargets: (caloriesTarget && proteinTarget) ? { calories: caloriesTarget, protein: proteinTarget, carbs: carbsTarget, fats: fatTarget } : undefined,
+      bmi,
+      bmiCategory: bmiCat,
+      bmiCalculatedAt: bmi ? new Date().toISOString() : undefined,
+      goal: selectedGoal,
+      trainingGoal: resolveTrainingGoal({ goal: selectedGoal, goalPrimary: objPrincipal }),
       goalPrimary: objPrincipal, goalsSecondary: objSec, customGoal: objCustom,
       needsDescription: needs,
       limitations: allLimitations, painAreas, limitationDescription: limDesc,
@@ -188,10 +234,10 @@ export default function Onboarding(){
       coachIntensity,
       onboardingDone: true,
       updatedAt: new Date().toISOString(),
-      cycle: profile.cycle || { startDate: new Date().toISOString().slice(0,10), trainingDays:[{n:1,name:'Pecho + tríceps'},{n:2,name:'Espalda + bíceps'},{n:3,name:'Piernas'},{n:4,name:'Hombros + abdomen'}], weekMap:[null,1,2,null,3,4,null] }
+      cycle: profile.cycle || { startDate: todayKey(), trainingDays:[{n:1,name:'Pecho + tríceps'},{n:2,name:'Espalda + bíceps'},{n:3,name:'Piernas'},{n:4,name:'Hombros + abdomen'}], weekMap:[null,1,2,null,3,4,null] }
     } as any)
-    if(peso && altura){
-      await db.table('bodyMeasurements').put({ id:`init-${Date.now()}`, localDate: new Date().toISOString().slice(0,10), weightKg: Number(peso), heightCm: Number(altura), createdAt: new Date().toISOString() }).catch(()=>{})
+    if (weightNum || heightNum) {
+      await db.table('bodyMeasurements').put({ id:`init-${Date.now()}`, localDate: todayKey(), weightKg: weightNum, heightCm: heightNum, createdAt: new Date().toISOString() }).catch(()=>{})
     }
     await clearOnboardingDraft()
     nav('/')
@@ -308,8 +354,22 @@ export default function Onboarding(){
               <p className="font-body-md text-sm text-on-surface-variant">Se configurarán recordatorios básicos (entreno, hidratación, check-in). Podés ajustarlos después en Perfil.</p>
             </div>
             <div className="grid grid-cols-2 gap-2 pt-3 border-t border-outline-variant/30">
-              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nombre<input value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Manuel" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
-              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Correo electrónico<input value={email} onChange={e=>setEmail(e.target.value)} placeholder="manuel@mail.com" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
+              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nombre (obligatorio)*<input value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Manuel" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
+              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Correo electrónico (obligatorio)*<input value={email} onChange={e=>setEmail(e.target.value)} placeholder="manuel@mail.com" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sexo</label>
+                <div className="flex gap-1 mt-1">
+                  {(['masculino', 'femenino', 'otro'] as const).map(s => (
+                    <button key={s} type="button" onClick={() => setSexo(s)} className={`flex-1 py-2.5 rounded-lg border font-body-sm text-xs capitalize ${sexo === s ? 'bg-primary border-primary text-on-primary font-bold' : 'bg-surface-container-low/90 border-outline-variant text-on-surface'}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
+              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                Fecha de nacimiento {edad !== null && `(${edad} años)`}
+                <input type="date" value={fechaNacimiento} onChange={e=>setFechaNacimiento(e.target.value)} className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-2.5 font-body-md text-sm text-on-surface"/>
+              </label>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Peso kg (opcional)<input value={peso} onChange={e=>setPeso(e.target.value)} type="number" step={0.1} placeholder="80" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
@@ -317,8 +377,8 @@ export default function Onboarding(){
             </div>
             <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Peso objetivo kg (opcional)<input value={pesoObjetivo} onChange={e=>setPesoObjetivo(e.target.value)} type="number" step={0.1} placeholder="75" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
             <div className="rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Tu IMC</div>
-              {imc ? <><div className="font-headline-lg text-base font-semibold text-on-surface">{imc}</div><div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{imcCat}</div><p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">El IMC es un indicador orientativo y no representa por sí solo la composición corporal ni el estado de salud.</p></> : <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Opcional: completa peso y altura para calcular IMC = peso / altura²</span>}
+              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Tu IMC (calculado automáticamente)</div>
+              {imc ? <><div className="font-headline-lg text-base font-semibold text-on-surface">{imc}</div><div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{imcCat}</div><p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">El IMC es un indicador orientativo calculado como peso / (altura en m)².</p></> : <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Opcional: completa peso y altura para calcular IMC = peso / altura²</span>}
               {pesoObjetivo && peso && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">Objetivo: {peso} → {pesoObjetivo} kg ({(Number(pesoObjetivo)-Number(peso)).toFixed(1)} kg)</div>}
             </div>
             <textarea value={needs} onChange={e=>setNeeds(e.target.value)} placeholder="Quiero bajar grasa pero mantener músculo. Tengo poco tiempo..." rows={3} className="w-full bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/>

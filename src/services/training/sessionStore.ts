@@ -6,7 +6,7 @@ import { db } from '@/services/storage/db';
 import {
   assertTransitionSession, setRecordIdFor,
   type SessionStatus, type SessionExerciseStatus, type SetRecordStatus, type SetType,
-  type TrainingSession, type SessionExercise, type SetRecord,
+  type TrainingSession, type SessionExercise, type SetRecord, type PlannedSetSnapshot,
   type NegativeSet, type ExerciseObservation, type ExerciseReplacement,
   type SessionEvent, type SessionEventType, type PostWorkoutSurvey,
 } from './domain';
@@ -24,8 +24,23 @@ function setActiveSessionId(id: string | null) {
   } catch { /* noop */ }
 }
 
-const FINAL_STATES: SessionStatus[] = ['COMPLETED', 'PARTIAL', 'CANCELLED', 'ABANDONED'];
-const ACTIVE_STATES: SessionStatus[] = ['READY', 'IN_PROGRESS', 'PAUSED', 'COMPLETING'];
+// Estados FINALES: la sesión cerró (ya no es "activa" para Entrenar).
+export const FINAL_STATES: SessionStatus[] = ['COMPLETED', 'PARTIAL', 'CANCELLED', 'ABANDONED'];
+// Estados ACTIVOS: hay sesión vigente (se muestra el acceso a Entrenar).
+// READY = creada y aún sin empezar; PAUSED sigue siendo una sesión accesible.
+export const ACTIVE_STATES: SessionStatus[] = ['READY', 'IN_PROGRESS', 'PAUSED', 'COMPLETING'];
+
+export function isActiveSessionStatus(status?: SessionStatus | null): boolean {
+  return !!status && ACTIVE_STATES.includes(status);
+}
+
+// Evento global para que la UI (AppNav, Inicio, Mas) reaccione a cambios de
+// sesión sin re-leer Dexie en cada render.
+export const SESSION_CHANGED_EVENT = 'althea:session-changed';
+
+export function notifySessionChanged(): void {
+  try { if (typeof window !== 'undefined') { window.dispatchEvent(new Event(SESSION_CHANGED_EVENT)); } } catch { /* noop */ }
+}
 
 export async function getSession(sessionId: string): Promise<TrainingSession | null> {
   const s = await db.trainingSessions.get(sessionId).catch(() => null);
@@ -53,6 +68,14 @@ export async function logEvent(
   await db.sessionEvents.put(ev);
 }
 
+// Plan de un ejercicio dentro de la sesión. `plannedSets` es el plan POR SERIE
+// (reps y weight propios de cada serie); si no viene, se expande el escalar.
+export interface PlannedExerciseInput {
+  exId: string; name: string; sets: number; reps: number; weight: number | null;
+  muscle?: string; gifUrl?: string; routineExerciseId?: string;
+  plannedSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
+}
+
 // Crea READY. Si ya hay sesión activa, la recupera (no duplica, §10).
 export async function createSession(input: {
   routineId: string; routineName?: string;
@@ -61,7 +84,7 @@ export async function createSession(input: {
   calendarDate: string; cycleId?: string; weekNumber?: number;
   plannedMuscleGroups?: string[];
   dayChange?: { reason: string; comment?: string };
-  plannedExercises: Array<{ exId: string; name: string; sets: number; reps: number; weight: number; muscle?: string; gifUrl?: string; routineExerciseId?: string }>;
+  plannedExercises: PlannedExerciseInput[];
 }): Promise<TrainingSession> {
   const existing = await getActiveSession();
   if (existing) {return existing;}
@@ -77,7 +100,7 @@ export async function createSession(input: {
     calendarDate: input.calendarDate, routineName: input.routineName,
     sessionStatus: 'READY',
     plannedExerciseCount: input.plannedExercises.length,
-    plannedSets: input.plannedExercises.reduce((a, e) => a + e.sets, 0),
+    plannedSets: input.plannedExercises.reduce((a, e) => a + (e.plannedSets?.length ?? e.sets), 0),
     plannedMuscleGroups: input.plannedMuscleGroups ?? [],
     dayChange: input.dayChange ? { ...input.dayChange, at: now } : undefined,
     resumeCount: 0,
@@ -87,23 +110,30 @@ export async function createSession(input: {
   // Snapshot planificado: un SessionExercise por ejercicio (la rutina original no se toca).
   for (let i = 0; i < input.plannedExercises.length; i++) {
     const p = input.plannedExercises[i];
+    // Plan POR SERIE: cada serie conserva su propio reps/weight. El escalar
+    // (p.reps/p.weight) solo se usa como fallback para rutinas antiguas.
+    const plan: PlannedSetSnapshot[] = (p.plannedSets && p.plannedSets.length > 0)
+      ? p.plannedSets.map((s, k) => ({ order: s.order ?? k + 1, reps: s.reps, weight: s.weight ?? null, setType: s.setType ?? 'NORMAL' }))
+      : Array.from({ length: p.sets }, (_, k) => ({ order: k + 1, reps: p.reps, weight: p.weight ?? null, setType: 'NORMAL' as SetType }));
     const se: SessionExercise = {
       sessionExerciseId: uuid(), sessionId, exerciseId: p.exId,
+      exerciseName: p.name,
       routineExerciseId: p.routineExerciseId, order: i,
       planned: true, completed: false, status: 'PENDING',
-      plannedSetCount: p.sets, actualSetCount: 0,
-      plannedSets: Array.from({ length: p.sets }, (_, k) => ({ order: k + 1, reps: p.reps, weight: p.weight, setType: 'NORMAL' as SetType })),
+      plannedSetCount: plan.length, actualSetCount: 0,
+      plannedSets: plan,
       createdAt: now, updatedAt: now,
     };
     await db.sessionExercises.put(se);
     // SetRecords PENDING pre-creados con id estable (confirma = upsert, nunca duplica).
+    // No hay "peso actual" hasta que el usuario confirma la serie.
     for (const ps of se.plannedSets) {
       const rec: SetRecord = {
         setRecordId: setRecordIdFor(se.sessionExerciseId, ps.order),
         sessionId, sessionExerciseId: se.sessionExerciseId, exerciseId: p.exId,
         order: ps.order, setType: ps.setType ?? 'NORMAL',
-        plannedReps: ps.reps, plannedWeight: ps.weight,
-        actualReps: ps.reps, actualWeight: ps.weight,
+        plannedReps: ps.reps, plannedWeight: ps.weight ?? null,
+        actualReps: ps.reps, actualWeight: null,
         status: 'PENDING', createdAt: now, updatedAt: now,
       };
       await db.setRecords.put(rec);
@@ -111,6 +141,7 @@ export async function createSession(input: {
   }
   await logEvent(sessionId, 'SESSION_CREATED', { toStatus: 'READY', metadata: { plannedDay: input.plannedDay, actualDay: input.actualDay } });
   setActiveSessionId(sessionId);
+  notifySessionChanged();
   return s;
 }
 
@@ -201,6 +232,7 @@ async function applyTransition(
   });
   if (FINAL_STATES.includes(target)) {setActiveSessionId(null);}
   else {setActiveSessionId(s.sessionId);}
+  notifySessionChanged();
   // Cola de sync (FASE 8): la sesión finalizada queda pendiente de respaldo.
   // Best-effort: lo local ya está guardado.
   if (FINAL_STATES.includes(target)) {
@@ -232,9 +264,10 @@ export async function getSetRecords(sessionExerciseId: string): Promise<SetRecor
 }
 
 // Confirma serie: upsert por setRecordId estable (idempotente ante recarga, §18).
+// `actualWeight: null` = el usuario dejó el peso vacío (se persiste null, nunca 0).
 export async function confirmSetRecord(input: {
   sessionId: string; sessionExerciseId: string; exerciseId: string; order: number;
-  actualReps: number; actualWeight: number; setType?: SetType; observation?: string;
+  actualReps: number; actualWeight: number | null; setType?: SetType; observation?: string;
 }): Promise<SetRecord> {
   const now = new Date().toISOString();
   const id = setRecordIdFor(input.sessionExerciseId, input.order);
@@ -242,8 +275,8 @@ export async function confirmSetRecord(input: {
   const rec: SetRecord = {
     setRecordId: id, sessionId: input.sessionId, sessionExerciseId: input.sessionExerciseId,
     exerciseId: input.exerciseId, order: input.order, setType: input.setType ?? prev?.setType ?? 'NORMAL',
-    plannedReps: prev?.plannedReps ?? input.actualReps, plannedWeight: prev?.plannedWeight ?? input.actualWeight,
-    actualReps: input.actualReps, actualWeight: input.actualWeight,
+    plannedReps: prev?.plannedReps ?? input.actualReps, plannedWeight: prev?.plannedWeight ?? input.actualWeight ?? null,
+    actualReps: input.actualReps, actualWeight: input.actualWeight ?? null,
     status: 'COMPLETED', observation: input.observation ?? prev?.observation,
     completedAt: now, createdAt: prev?.createdAt ?? now, updatedAt: now,
   };
@@ -263,7 +296,7 @@ export async function skipSetRecord(sessionExerciseId: string, order: number, ob
 }
 
 // Agrega serie extra (actualSets): crea SetRecord con orden = max+1.
-export async function addExtraSet(sessionExerciseId: string, reps: number, weight: number, setType: SetType = 'NORMAL'): Promise<SetRecord> {
+export async function addExtraSet(sessionExerciseId: string, reps: number, weight: number | null, setType: SetType = 'NORMAL'): Promise<SetRecord> {
   const prev = await db.setRecords.get(setRecordIdFor(sessionExerciseId, 0)).catch(() => null);
   const all = await getSetRecords(sessionExerciseId);
   const se = await db.sessionExercises.get(sessionExerciseId).catch(() => null) as SessionExercise | null;
@@ -274,7 +307,7 @@ export async function addExtraSet(sessionExerciseId: string, reps: number, weigh
   const rec: SetRecord = {
     setRecordId: setRecordIdFor(sessionExerciseId, order), sessionId: se.sessionId,
     sessionExerciseId, exerciseId: se.exerciseId, order, setType,
-    plannedReps: reps, plannedWeight: weight, actualReps: reps, actualWeight: weight,
+    plannedReps: reps, plannedWeight: weight ?? null, actualReps: reps, actualWeight: null,
     status: 'PENDING', createdAt: now, updatedAt: now,
   };
   await db.setRecords.put(rec);
@@ -310,6 +343,7 @@ export async function skipSessionExercise(sessionExerciseId: string, reason: str
 
 export async function replaceSessionExercise(
   sessionExerciseId: string, replacementExerciseId: string, reason: string, comment?: string,
+  replacementExerciseName?: string,
 ): Promise<SessionExercise> {
   const se = await db.sessionExercises.get(sessionExerciseId).catch(() => null) as SessionExercise | null;
   if (!se) {throw new Error('SessionExercise inexistente');}
@@ -322,7 +356,9 @@ export async function replaceSessionExercise(
     originalExerciseId: se.exerciseId, replacementExerciseId, reason, comment, createdAt: now,
   };
   const nx: SessionExercise = {
-    ...se, exerciseId: replacementExerciseId, status: 'REPLACED',
+    ...se, exerciseId: replacementExerciseId,
+    exerciseName: replacementExerciseName ?? se.exerciseName,
+    status: 'REPLACED',
     replacement, updatedAt: now,
   };
   await db.sessionExercises.put(nx);
@@ -330,11 +366,11 @@ export async function replaceSessionExercise(
   return nx;
 }
 
-export async function addExtraExercise(sessionId: string, input: { exId: string; name: string; sets: number; reps: number; weight: number; muscle?: string }): Promise<SessionExercise> {
+export async function addExtraExercise(sessionId: string, input: { exId: string; name: string; sets: number; reps: number; weight: number | null; muscle?: string }): Promise<SessionExercise> {
   const now = new Date().toISOString();
   const existing = await getSessionExercises(sessionId);
   const se: SessionExercise = {
-    sessionExerciseId: uuid(), sessionId, exerciseId: input.exId, order: existing.length,
+    sessionExerciseId: uuid(), sessionId, exerciseId: input.exId, exerciseName: input.name, order: existing.length,
     planned: false, completed: false, status: 'EXTRA',
     plannedSetCount: 0, actualSetCount: 0,
     plannedSets: [],
@@ -345,8 +381,8 @@ export async function addExtraExercise(sessionId: string, input: { exId: string;
     await db.setRecords.put({
       setRecordId: setRecordIdFor(se.sessionExerciseId, k), sessionId,
       sessionExerciseId: se.sessionExerciseId, exerciseId: input.exId, order: k, setType: 'NORMAL',
-      plannedReps: input.reps, plannedWeight: input.weight,
-      actualReps: input.reps, actualWeight: input.weight,
+      plannedReps: input.reps, plannedWeight: input.weight ?? null,
+      actualReps: input.reps, actualWeight: null,
       status: 'PENDING', createdAt: now, updatedAt: now,
     });
   }
@@ -397,7 +433,12 @@ export interface ActiveSession {
   actualDayName: string | null;
   plannedMuscleGroups: string[];
   actualMuscleGroups: string[];
-  exercises: Array<{ exId: string; name: string; sets: number; reps: number; weight: number; muscle?: string; gifUrl?: string; imageDataUrl?: string }>;
+  exercises: Array<{
+    exId: string; name: string; sets: number; reps: number; weight: number | null;
+    muscle?: string; gifUrl?: string; imageDataUrl?: string;
+    /** Plan por serie (reps/weight propios de cada serie) si la rutina lo define. */
+    plannedSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
+  }>;
   sessionStatus: SessionStatus;
   statusHistory: Array<{ status: SessionStatus; at: string }>;
   startedAt?: string;
@@ -428,7 +469,8 @@ async function exercisesOf(sessionId: string): Promise<ActiveSession['exercises'
     .map((r) => ({
       exId: r.exerciseId, name: r.exerciseId,
       sets: r.plannedSets?.length ?? 0,
-      reps: r.plannedSets?.[0]?.reps ?? 0, weight: r.plannedSets?.[0]?.weight ?? 0,
+      reps: r.plannedSets?.[0]?.reps ?? 0, weight: Number(r.plannedSets?.[0]?.weight ?? 0),
+      plannedSets: (r.plannedSets ?? []).map((s) => ({ order: s.order, reps: s.reps, weight: s.weight ?? null })),
     }));
 }
 
@@ -448,10 +490,12 @@ export async function saveActiveSession(s: ActiveSession): Promise<void> {
     const cur = await getSession(s.sessionId);
     if (cur) {await updateSession(s.sessionId, { routineName: s.routineName, actualDayName: s.actualDayName });}
   } catch { /* noop */ }
+  notifySessionChanged();
 }
 
 export async function clearActiveSession(): Promise<void> {
   setActiveSessionId(null);
+  notifySessionChanged();
 }
 
 export async function createReadySession(input: {

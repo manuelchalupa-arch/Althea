@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { todayKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
 import { getTodayHydration, addHydration, getHydrationGoal, setHydrationGoal } from './recoveryService'
 import { getTodayRecovery, saveRecoveryCheck, getRecoveryHistory } from './recoveryService'
@@ -15,7 +16,7 @@ describe('US3 — Hidratación y Sueño', () => {
       const log = await addHydration(250)
       expect(log.id).toBeDefined()
       expect(log.amountMl).toBe(250)
-      expect(log.localDate).toBe(new Date().toISOString().slice(0, 10))
+      expect(log.localDate).toBe(todayKey())
 
       const logs = await db.hydrationLogs.toArray()
       expect(logs.length).toBe(1)
@@ -42,7 +43,7 @@ describe('US3 — Hidratación y Sueño', () => {
       const total = await getTodayHydration()
       expect(total).toBe(1000)
 
-      const logs = await db.hydrationLogs.where('localDate').equals(new Date().toISOString().slice(0, 10)).toArray()
+      const logs = await db.hydrationLogs.where('localDate').equals(todayKey()).toArray()
       expect(logs.length).toBe(3)
     })
 
@@ -73,7 +74,7 @@ describe('US3 — Hidratación y Sueño', () => {
       await addHydration(250)
       await addHydration(250)
 
-      const logs = await db.hydrationLogs.where('localDate').equals(new Date().toISOString().slice(0, 10)).toArray()
+      const logs = await db.hydrationLogs.where('localDate').equals(todayKey()).toArray()
       // Cada llamada crea un registro independiente (acumulación correcta)
       expect(logs.length).toBe(2)
     })
@@ -156,8 +157,8 @@ describe('US3 — Hidratación y Sueño', () => {
     it('3. no sobrescribe campos existentes al guardar sueño', async () => {
       // Primero crear un RecoveryCheck con otros campos
       await db.recoveryChecks.put({
-        id: new Date().toISOString().slice(0, 10),
-        localDate: new Date().toISOString().slice(0, 10),
+        id: todayKey(),
+        localDate: todayKey(),
         energy: 8,
         fatigue: 2,
         stress: 2,
@@ -265,24 +266,22 @@ describe('US3 — Hidratación y Sueño', () => {
     })
   })
 
-  describe('Consistencia Dexie ↔ caché UI', () => {
-    it('caché del store se sincroniza con el total canónico de Dexie', async () => {
-      const { useProfileStore } = await import('@/stores/profile')
+  describe('Consistencia Dexie ↔ fuente canónica de la botella', () => {
+    it('el total canónico sobrevive a cerrar y reabrir la base', async () => {
+      const { getBottleDailySummary } = await import('@/services/recovery/hydrationBottles')
       await addHydration(300)
       await addHydration(200)
 
       const canonical = await getTodayHydration()
       expect(canonical).toBe(500)
-
-      useProfileStore.getState().setHydrationToday(canonical)
-      expect(useProfileStore.getState().hydrationToday).toBe(500)
+      expect((await getBottleDailySummary(todayKey())).totalMl).toBe(500)
 
       await db.close()
       await db.open()
+
       const afterReload = await getTodayHydration()
-      useProfileStore.getState().setHydrationToday(afterReload)
-      expect(useProfileStore.getState().hydrationToday).toBe(afterReload)
       expect(afterReload).toBe(500)
+      expect((await getBottleDailySummary(todayKey())).totalMl).toBe(500)
     })
   })
 })

@@ -9,7 +9,7 @@ const TOKEN_KEY = 'althea:fcmToken'
 
 function vapidKey(): string | null {
   try {
-    return (import.meta as any).env?.VITE_FIREBASE_VAPID_KEY || null
+    return import.meta.env.VITE_FIREBASE_VAPID_KEY || null
   } catch {
     return null
   }

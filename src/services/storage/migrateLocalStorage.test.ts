@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { todayKey } from '@/utils/dates'
 import { migrateAllLocalStorageToDexie } from '@/services/storage/migrateLocalStorage'
 
 function createLocalStorageMock(initialData: Record<string, string> = {}) {
@@ -97,7 +98,7 @@ describe('migrateAllLocalStorageToDexie', () => {
 
   describe('FASE C.2: localStorage con datos válidos', () => {
     it('debe migrar exstate correctamente', async () => {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayKey()
       const exId = 'test-ex-1'
       const mock = createLocalStorageMock({
         [`exstate:${today}:${exId}`]: JSON.stringify({

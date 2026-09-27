@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { todayKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
 import { calcIMC, calcTMB, calcTDEE, calorieGoal, proteinRange } from '@/utils/nutrition'
 import { analyzeNutrition, buildNutritionSuggestions } from './ai/nutritionEngine'
@@ -162,7 +163,7 @@ describe('FASE 6 — Nutrición real y consistente', () => {
 
   it('demo excluido de hidratación real', async () => {
     await db.hydrationLogs.put({
-      id: 'demo-h', localDate: new Date().toISOString().slice(0, 10),
+      id: 'demo-h', localDate: todayKey(),
       amountMl: 5000, time: new Date().toISOString(), isDemo: true,
     } as never)
     await addHydration(250)

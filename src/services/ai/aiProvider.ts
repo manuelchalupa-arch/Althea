@@ -31,6 +31,13 @@ export type AIContext = {
   qa?: Record<string, { question: string; answer: string; date: string }>
   // ─── Coach IA v2: campos extendidos ───
   userProfile?: Record<string, any>
+  /**
+   * Método canónico de la planificación vigente, ya resuelto por
+   * buildTrainingContext() desde cycleVersions. Evita que el prompt builder lea
+   * el snapshot legacy userProfile.cycle. Opcional a propósito: los providers
+   * que no dependen del método siguen funcionando sin cambios.
+   */
+  cycleMethodId?: string
   knowledgeChunks?: string[]
   progress?: { trend?: string; rate?: number; confidence?: number }
   recovery?: { lastScore?: number; trend?: string; consecutiveLow?: number; pain?: number; fatigue?: number; energy?: number }

@@ -3,13 +3,14 @@ import { AlertTriangle, X, ChevronDown } from 'lucide-react'
 import { AltheaButton } from '@/components/althea'
 import { db } from '@/services/storage/db'
 import type { PainLog } from '@/types'
+import { todayKey } from '@/utils/dates'
 
 type PainLevel = 'none' | 'mild' | 'moderate' | 'severe'
 
 const PAIN_LEVELS: { value: PainLevel; label: string; color: string }[] = [
-  { value: 'none', label: 'Sin dolor', color: 'bg-emerald/20 text-emerald border-emerald/30' },
+  { value: 'none', label: 'Sin dolor', color: 'bg-secondary/20 text-secondary border-secondary/30' },
   { value: 'mild', label: 'Leve', color: 'bg-primary/20 text-primary border-primary/30' },
-  { value: 'moderate', label: 'Moderado', color: 'bg-amber/20 text-amber border-amber/30' },
+  { value: 'moderate', label: 'Moderado', color: 'bg-tertiary/20 text-tertiary border-tertiary/30' },
   { value: 'severe', label: 'Severo', color: 'bg-error/20 text-error border-error/30' },
 ]
 
@@ -62,7 +63,7 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
     }
     if (saving) return
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayKey()
     const existing = await db.painLogs
       .where({ exerciseId, localDate: today, level })
       .first()
@@ -115,7 +116,7 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
           </div>
         </div>
         {saved && (
-          <span className="px-2 py-0.5 rounded-full bg-emerald/20 text-emerald text-[10px] font-label-md font-semibold uppercase tracking-widest">Guardado</span>
+            <span className="px-2 py-0.5 rounded-full bg-secondary/20 text-secondary text-[10px] font-label-md font-semibold uppercase tracking-widest">Guardado</span>
         )}
       </div>
 

@@ -12,15 +12,17 @@ const FACTORS: Record<ActivityLevel, number> = {
 export function calcIMC(weightKg:number, heightCm:number){
   const h = heightCm/100
   const bmi = weightKg / (h*h)
-  const cat = bmi < 18.5 ? 'Bajo peso' : bmi < 25 ? 'Peso normal' : bmi < 30 ? 'Sobrepeso' : 'Obesidad'
+  const cat = bmi < 18.5 ? 'Bajo peso' : bmi < 25 ? 'Normopeso' : bmi < 30 ? 'Sobrepeso' : 'Obesidad'
   return { bmi: bmi.toFixed(1), bmiCat: cat }
 }
 
 // Mifflin-St Jeor: 10*W + 6.25*H -5*A + s (s=+5 M, -161 F, -78 X promedio)
+// Normaliza valores de onboarding (masculino/femenino/otro) y perfil (M/F/X).
 export function calcTMB(weightKg:number, heightCm:number, age?:number, sex?:string){
   if(!weightKg || !heightCm) {return null}
   const a = age || 30
-  const s = sex==='M' ? 5 : sex==='F' ? -161 : -78
+  const v = (sex || '').toLowerCase()
+  const s = (v==='m' || v==='masculino') ? 5 : (v==='f' || v==='femenino') ? -161 : -78
   return Math.round(10*weightKg + 6.25*heightCm -5*a + s)
 }
 

@@ -89,10 +89,14 @@ export function mapTone(stored?: string | null): 'PADELERO' | 'ABUELITOS' | 'ARN
 }
 
 export const VERACITY_RULES = `REGLAS DE VERACIDAD (obligatorias):
-- Distinguí siempre DATO (registro real del usuario), CÁLCULO (resultado matemático sobre registros) y RECOMENDACIÓN (sugerencia profesional).
+- Distinguí siempre explícitamente en tu respuesta usando estos prefijos cuando des consejos técnicos o análisis:
+  • Según el dato: [registro fidedigno real del usuario]
+  • El cálculo: [resultado numérico o matemático derivado]
+  • Te recomiendo: [sugerencia de acción concreta]
+  • Mi opinión es: [perspectiva u opinión técnica como entrenador]
 - Nunca afirmes hábitos del usuario sin evidencia en los datos. Si no hay datos suficientes: "Todavía no tengo suficientes datos tuyos para determinarlo."
-- No diagnostiques lesiones ni condiciones médicas. Ante dolor importante: sugerí consultar profesional y ofrecé alternativa.
-- No modifiques rutinas, objetivos ni cargas: detectás, analizás, recomendás y preguntás. El usuario decide.`
+- No diagnostiques lesiones ni condiciones médicas. Si el usuario reporta dolor más de 3 veces, recomendá consultar a un profesional de la salud.
+- No modifiques rutinas, objetivos ni cargas: detectás, analizás, recomendás y preguntás. El usuario decide siempre.`
 
 // ─── Contexto del método de entrenamiento seleccionado ───
 export function buildMethodContext(methodId?: TrainingMethodId | null): string {

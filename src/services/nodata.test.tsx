@@ -49,10 +49,10 @@ describe('FASE 4 — Sin datos ficticios', () => {
   it('1/2. Recovery sin check-in avisa y no presenta score como medición', async () => {
     render(<RecoveryCheckForm date="2026-09-20" />)
     await waitFor(() => {
-      expect(screen.getByText('Guardar check-in')).toBeInTheDocument()
+      expect(screen.getByText('Guardar recuperación')).not.toBeDisabled()
     })
     expect(screen.getByText(/Sin check-in guardado/)).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Guardar check-in'))
+    fireEvent.click(screen.getByText('Guardar recuperación'))
     await waitFor(() => {
       expect(screen.queryByText(/Sin check-in guardado/)).not.toBeInTheDocument()
     })

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { db } from '@/services/storage/db'
 import { updateRecoveryCheck } from '@/services/recovery/recoveryService'
+import { todayKey } from '@/utils/dates'
 import { Moon, Sun, Save, CheckCircle } from 'lucide-react'
 import { AltheaButton, AltheaCard } from '@/components/althea'
 
 export function SleepForm() {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayKey()
   const [hours, setHours] = useState<number>(7)
   const [quality, setQuality] = useState<number>(7)
   const [notes, setNotes] = useState('')
@@ -48,7 +49,7 @@ export function SleepForm() {
             </div>
           </div>
         </div>
-        {saved && <CheckCircle className="text-success text-lg" size={20} />}
+        {saved && <CheckCircle className="text-secondary text-lg" size={20} />}
       </div>
 
       <div className="space-y-3">

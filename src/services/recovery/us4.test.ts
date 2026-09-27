@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { todayKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
 import { saveRecoveryCheck, getTodayRecovery } from './recoveryService'
 import { logDecision, getRecentDecisions } from '@/services/ai/decisionLogger'
@@ -13,7 +14,7 @@ describe('US4 — Recuperación + Recomendaciones + Periodización', () => {
 
   describe('Recovery — actualización no destructiva', () => {
     it('1. actualizar sueño preserva energía/fatiga/estrés existentes', async () => {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayKey()
       await db.recoveryChecks.put({
         id: today,
         localDate: today,

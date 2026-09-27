@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -116,29 +115,16 @@ function SigilPaths({ kind }: { kind: SigilKind }) {
   }
 }
 
-export function SectionSigil({ section, className = '' }: { section: TempleSection; className?: string }) {
-  return (
-    <svg viewBox="0 0 120 120" className={className} aria-hidden="true" focusable="false">
-      <SigilPaths kind={sigilForSection(section)} />
-    </svg>
-  )
+export function SectionSigil({ section: _s, className: _c = '' }: { section: TempleSection; className?: string }) {
+  return null
 }
 
-export function Meander({ className = '' }: { className?: string }) {
-  return (
-    <svg className={className} aria-hidden="true" focusable="false" preserveAspectRatio="none" viewBox="0 0 120 10">
-      <defs>
-        <pattern id="temple-meander" width="20" height="10" patternUnits="userSpaceOnUse">
-          <path d="M1 9 V2 H13 V6 H6 V9 M13 9 V9" fill="none" stroke="currentColor" strokeWidth="1.6" />
-        </pattern>
-      </defs>
-      <rect x="0" y="0" width="120" height="10" fill="url(#temple-meander)" />
-    </svg>
-  )
+export function Meander({ className: _c = '' }: { className?: string }) {
+  return null
 }
 
-export function MarbleVeil({ className = '' }: { className?: string }) {
-  return <div aria-hidden="true" className={`temple-veil ${className}`} />
+export function MarbleVeil({ className: _c = '' }: { className?: string }) {
+  return null
 }
 
 export function TempleBackdrop() {
@@ -150,26 +136,44 @@ export function TempleBackdrop() {
   )
 }
 
+const SECTION_TITLES: Record<TempleSection, string> = {
+  inicio: 'Panel de día',
+  entrenar: 'Entrenamiento',
+  nutricion: 'Nutrición',
+  progreso: 'Progreso',
+  mas: 'Menú',
+  biblioteca: 'Biblioteca',
+  rutina: 'Rutinas',
+  calendario: 'Calendario',
+  recuperacion: 'Recuperación',
+  perfil: 'Perfil y configuración',
+  coach: 'Coach y objetivos',
+  default: 'Althea',
+}
+
 export function AppHeader() {
-  const [logoOk, setLogoOk] = useState(true)
+  const loc = useLocation()
+  const section = sectionForPath(loc.pathname)
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between px-8 h-[56px] w-full backdrop-blur-md bg-surface/90 border-b border-outline-variant/30 shadow-sm transition-colors duration-500">
-      {/* Left: Brand */}
-      <div className="flex items-center gap-3">
-        {logoOk ? (
-          <img
-            src="/assets/icons/navigation/logo.png"
-            alt="Althea"
-            className="w-7 h-7 object-contain"
-            onError={() => setLogoOk(false)}
-          />
-        ) : (
-          <span className="material-symbols-outlined text-primary" style={{ fontSize: 24 }}>temple_hindu</span>
-        )}
-        <span className="font-headline-md text-headline-sm font-semibold tracking-[0.2em] text-primary">ALTHEA</span>
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 h-16 w-full bg-surface/85 backdrop-blur-xl border-b border-outline-variant/50 supports-[backdrop-filter]:bg-surface/75 transition-colors">
+      {/* Izquierda: identidad + contexto */}
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="temple-mark shrink-0" aria-hidden="true">Α</span>
+        <div className="leading-none">
+          <span className="font-headline block text-[15px] font-semibold tracking-[0.22em] text-on-surface">ALTHEA</span>
+          <span className="label-olymp mt-1 block text-on-surface-variant hidden sm:block">{SECTION_TITLES[section]}</span>
+        </div>
       </div>
-      {/* Right: Theme Toggle */}
-      <div className="flex items-center gap-3">
+      {/* Centro: spacer de layout (antes ocupaba un buscador sin functionality) */}
+      <div className="hidden md:flex flex-1 max-w-[420px]">
+        <div className="flex-1" />
+      </div>
+      {/* Derecha: coach → perfil → tema */}
+      <div className="flex items-center gap-2">
+        <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-medium">
+          <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-primary" /> Coach activo
+        </span>
+        <div className="w-9 h-9 rounded-full bg-surface-container-high border border-outline-variant/50 flex items-center justify-center text-on-surface-variant font-serif" aria-label="Perfil">A</div>
         <ThemeToggle />
       </div>
     </header>

@@ -1,9 +1,24 @@
 import { db } from './db'
+import { todayKey, pad2 } from '@/utils/dates'
+
+/** Ingrediente guardado de una comida interpretada. Opcional: los registros
+ *  anteriores a la reestructuración de Nutricion no lo tienen. */
+export interface DiaryIngredientRecord {
+  /** id de la tabla de composicion; ausente en registros muy antiguos */
+  foodId?: string
+  label: string
+  grams: number
+  calories: number
+  proteins: number
+  carbs: number
+  fats: number
+}
 
 export interface DiaryEntry {
   id: string
   date: string
   name: string
+  /** Etiqueta libre de la comida: "Desayuno", "Pre-entrenamiento", "Comida 1"... */
   mealType: string
   servingLabel: string
   amount: number
@@ -14,13 +29,17 @@ export interface DiaryEntry {
     carbs: number
     fats: number
   }
+  /** Hora local del registro en formato HH:MM. Opcional en registros heredados. */
+  time?: string
+  /** Desglose de ingredientes con sus cantidades. Opcional. */
+  ingredients?: DiaryIngredientRecord[]
   addedAt: string
 }
 
 const LS_PREFIX = 'nutri:diario_v2:'
 
 function todayLocalDate(): string {
-  return new Date().toISOString().slice(0, 10)
+  return todayKey()
 }
 
 export async function getDiaryEntries(date?: string): Promise<DiaryEntry[]> {
@@ -33,8 +52,28 @@ export async function addDiaryEntry(entry: DiaryEntry): Promise<void> {
   import('@/services/sync/opQueue').then(({ enqueueOp }) => enqueueOp('nutritionDiary', entry.id)).catch(() => {})
 }
 
+export async function updateDiaryEntry(entry: DiaryEntry): Promise<void> {
+  await db.nutritionDiary.put(entry)
+  import('@/services/sync/opQueue').then(({ enqueueOp }) => enqueueOp('nutritionDiary', entry.id)).catch(() => {})
+}
+
 export async function removeDiaryEntry(id: string): Promise<void> {
   await db.nutritionDiary.delete(id)
+}
+
+/** Hora local HH:MM del registro. Los registros heredados no tienen `time`, asi
+ *  que se deriva de `addedAt` en hora local (nunca UTC, para no desplazar el día). */
+export function diaryEntryTime(entry: DiaryEntry): string {
+  if (entry.time) { return entry.time }
+  const d = new Date(entry.addedAt)
+  if (Number.isNaN(d.getTime())) { return '' }
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+
+/** Sello de hora local actual, para registrar cuando se agrego la comida. */
+export function nowLocalTime(): string {
+  const d = new Date()
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
 }
 
 export async function saveDiaryEntries(entries: DiaryEntry[], date?: string): Promise<void> {

@@ -2,7 +2,7 @@
 import type { UserProfile, TrainingGoal, ExperienceLevel } from '@/types'
 import { db } from '@/services/storage/db'
 import { resolveGoal, getGoalLabel } from './goalEngine'
-import { applyPersonality, type CoachTone } from './coachPersonality'
+import { applyPersonality, resolveCoachTone } from './coachPersonality'
 import { analyzeExercise, analyzeGlobal } from './progressAnalyzer'
 import { analyzeRecovery } from './recoveryAnalyzer'
 import { analyzeNutrition } from './nutritionEngine'
@@ -12,6 +12,8 @@ import { buildUserMemory } from './memoryManager'
 import { logDecision } from './decisionLogger'
 import { buildInsights } from './coachInsights'
 import { buildGlobalScore } from './globalScore'
+import { resolveTrainingGoal } from '@/utils/trainingGoal'
+import { getCanonicalCycle } from '@/services/planning/cycleVersions'
 import { selectMethods } from './methodSelector'
 import type { MethodRecommendation } from './trainingMethods'
 import { selectNutritionMethods } from './nutritionMethodSelector'
@@ -38,9 +40,17 @@ export interface CoachResponse {
 export async function processRequest(request: CoachRequest): Promise<CoachResponse> {
   // 1. Cargar perfil
   const profile = (await db.userProfile.get('me')) as UserProfile | undefined
-  const goal: TrainingGoal = (profile?.trainingGoal as TrainingGoal) || 'hypertrophy'
+  const goal: TrainingGoal = (resolveTrainingGoal(profile) as TrainingGoal) || 'hypertrophy'
   const level: ExperienceLevel = (profile?.experienceLevel as ExperienceLevel) || 'intermediate'
-  const tone = (profile?.coachTone || profile?.coachIntensity || 'ABUELITOS') as CoachTone
+  // FASE 2 S6 · tono canónico: `coachTone` → método canónico → `coachIntensity`
+  // legacy. Antes se resolvía aquí solo con el perfil y sin `mapTone`, con lo
+  // que un valor legacy ('motivacional') llegaba crudo a `applyPersonality`.
+  const canonicalCycle = await getCanonicalCycle(profile ?? null)
+  const tone = resolveCoachTone({
+    coachTone: profile?.coachTone,
+    coachIntensity: profile?.coachIntensity,
+    methodId: (canonicalCycle.methodId as string | undefined) ?? undefined,
+  })
 
   // 2. Safety check primero
   const recovery = await analyzeRecovery()
@@ -122,7 +132,11 @@ export async function processRequest(request: CoachRequest): Promise<CoachRespon
   let nutritionMethodRecommendation: NutritionMethodRecommendation | undefined
   try {
     const userProfile = await db.userProfile.get('me')
-    const trainingMethodId = userProfile?.cycle?.methodId || methodRecommendation?.primary
+    // FASE 2 S3 — método vigente desde la fuente canónica; snapshot profile.cycle
+    // solo como fallback legacy (igual que en el resto del pipeline IA).
+    const { getActiveVersion, PROFILE_SCOPE } = await import('@/services/planning/cycleVersions')
+    const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+    const trainingMethodId = pv?.methodId || pv?.cycle?.methodId || userProfile?.cycle?.methodId || methodRecommendation?.primary
     nutritionMethodRecommendation = selectNutritionMethods(profile || {}, trainingMethodId)
   } catch { /* noop */ }
 

@@ -26,7 +26,7 @@ interface RecommendationCardProps {
 
 const SEVERITY_COLORS = {
   info: 'border-primary/30 bg-primary/10 text-primary',
-  warning: 'border-warning/30 bg-warning/10 text-warning',
+  warning: 'border-tertiary/30 bg-tertiary/10 text-tertiary',
   critical: 'border-error/30 bg-error/10 text-error',
 }
 
@@ -34,6 +34,12 @@ const SEVERITY_ICONS = {
   info: Lightbulb,
   warning: AlertCircle,
   critical: AlertCircle,
+}
+
+const SEVERITY_LABELS: Record<string, string> = {
+  info: 'Informativa',
+  warning: 'Atención',
+  critical: 'Crítica',
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -44,7 +50,9 @@ const TYPE_LABELS: Record<string, string> = {
   hydration: 'Hidratación',
 }
 
-const TYPE_ICONS: Record<string, React.ElementType> = {
+type RecType = Recommendation['type']
+
+const TYPE_ICONS: Record<RecType, React.ElementType> = {
   recovery: Lightbulb,
   training: Lightbulb,
   nutrition: Lightbulb,
@@ -72,13 +80,13 @@ export function RecommendationCard({
           <SeverityIcon className="text-lg" size={20} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <TypeIcon className="text-primary" size={16} />
             <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-primary">
               {TYPE_LABELS[recommendation.type]}
             </span>
             <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
-              {recommendation.severity.toUpperCase()}
+              {SEVERITY_LABELS[recommendation.severity] || recommendation.severity}
             </span>
           </div>
           <h3 className="font-body-md text-lg font-semibold text-on-surface">{recommendation.title}</h3>
@@ -101,11 +109,11 @@ export function RecommendationCard({
             </div>
           )}
 
-          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-outline-variant/30">
+          <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-outline-variant/30 sm:flex-row sm:flex-wrap">
             <AltheaButton
               variant="ghost"
               size="sm"
-              className="flex-1"
+              className="flex-1 min-h-[48px]"
               onClick={() => handleAction('dismiss')}
             >
               <XCircle className="mr-1" size={14} /> Descartar
@@ -114,7 +122,7 @@ export function RecommendationCard({
               <AltheaButton
                 variant="secondary"
                 size="sm"
-                className="flex-1"
+                className="flex-1 min-h-[48px]"
                 onClick={() => handleAction('modify')}
               >
                 Modificar
@@ -122,7 +130,7 @@ export function RecommendationCard({
             )}
             <AltheaButton
               size="sm"
-              className="flex-1"
+              className="flex-1 min-h-[48px]"
               onClick={() => handleAction('accept')}
             >
               <CheckCircle className="mr-1" size={14} /> Aceptar
@@ -132,7 +140,7 @@ export function RecommendationCard({
                 variant="ghost"
                 size="sm"
                 onClick={onToggleWhy}
-                className="w-auto px-3"
+                className="min-h-[48px] px-3"
               >
                 {showWhy ? 'Ocultar' : 'Ver'} <HelpCircle size={14} />
               </AltheaButton>

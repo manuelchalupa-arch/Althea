@@ -101,12 +101,17 @@ export interface TrainingSession {
   isDemo?: boolean;
 }
 
-export interface PlannedSetSnapshot { order: number; reps: number; weight: number; setType?: SetType }
+// Plan POR SERIE: cada serie lleva sus propios reps/weight. `weight: null`
+// significa "sin peso informado" (bodyweight, ejercicio sin carga) y NUNCA 0.
+export interface PlannedSetSnapshot { order: number; reps: number; weight: number | null; setType?: SetType }
 
 export interface SessionExercise {
   sessionExerciseId: string;
   sessionId: string;
   exerciseId: string;
+  // Nombre legible congelado al crear/la sesión. Sin él, la UI depende de
+  // db.exercises (solo semillas locales) y termina mostrando el id crudo.
+  exerciseName?: string;
   routineExerciseId?: string;
   order: number;
   planned: boolean;
@@ -115,7 +120,7 @@ export interface SessionExercise {
   plannedSetCount: number;
   actualSetCount: number;
   plannedSets: PlannedSetSnapshot[];
-  actualSets?: Array<{ order: number; reps: number; weight: number; setType?: SetType }>;
+  actualSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
   replacement?: ExerciseReplacement;
   negatives?: NegativeSet;
   observation?: ExerciseObservation;
@@ -134,9 +139,10 @@ export interface SetRecord {
   order: number;
   setType: SetType;
   plannedReps: number;
-  plannedWeight: number;
+  // null = sin peso informado. Nunca se persiste "" ni 0 por conversión.
+  plannedWeight: number | null;
   actualReps: number;
-  actualWeight: number;
+  actualWeight: number | null;
   status: SetRecordStatus;
   observation?: string;
   obs?: string;
@@ -144,7 +150,7 @@ export interface SetRecord {
   createdAt: string;
   updatedAt: string;
   // Compat: código legacy usa weight/reps/skipped como alias
-  weight?: number;
+  weight?: number | null;
   reps?: number;
   skipped?: boolean;
   isDemo?: boolean;

@@ -17,10 +17,11 @@ describe('RecoveryCheckForm — check-in reutilizable', () => {
     render(<RecoveryCheckForm date="2026-09-20" onSaved={onSaved} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Guardar check-in')).toBeInTheDocument()
+      expect(screen.getByText('Guardar recuperación')).toBeInTheDocument()
     })
+    await waitFor(() => expect((screen.getByText('Guardar recuperación') as HTMLButtonElement).disabled).toBe(false))
 
-    fireEvent.click(screen.getByText('Guardar check-in'))
+    fireEvent.click(screen.getByText('Guardar recuperación'))
 
     await waitFor(() => {
       expect(onSaved).toHaveBeenCalledTimes(1)
@@ -36,9 +37,10 @@ describe('RecoveryCheckForm — check-in reutilizable', () => {
   it('persiste tras recarga (cierre/reapertura de Dexie)', async () => {
     render(<RecoveryCheckForm date="2026-09-21" />)
     await waitFor(() => {
-      expect(screen.getByText('Guardar check-in')).toBeInTheDocument()
+      expect(screen.getByText('Guardar recuperación')).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByText('Guardar check-in'))
+    await waitFor(() => expect((screen.getByText('Guardar recuperación') as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(screen.getByText('Guardar recuperación'))
     await waitFor(async () => {
       expect(await db.recoveryChecks.get('2026-09-21')).toBeDefined()
     })
@@ -53,14 +55,14 @@ describe('RecoveryCheckForm — check-in reutilizable', () => {
   it('cambiar un slider actualiza el score mostrado', async () => {
     render(<RecoveryCheckForm date="2026-09-22" />)
     await waitFor(() => {
-      expect(screen.getByText('Guardar check-in')).toBeInTheDocument()
+      expect(screen.getByText('Guardar recuperación')).toBeInTheDocument()
     })
     const sliders = screen.getAllByRole('slider') as HTMLInputElement[]
     expect(sliders.length).toBeGreaterThan(0)
     fireEvent.change(sliders[0], { target: { value: '1' } })
     // El score debe recalcularse (energía mínima baja el índice)
     await waitFor(() => {
-      expect(screen.getByText('Guardar check-in')).toBeInTheDocument()
+      expect(screen.getByText('Guardar recuperación')).toBeInTheDocument()
     })
   })
 })

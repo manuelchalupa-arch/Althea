@@ -4,6 +4,8 @@ import { loadActiveSession, saveActiveSession, clearActiveSession, getActiveSess
 import type { SessionStatus, TrainingSession } from '@/services/training/domain'
 import { getOverrideDay, getChangedData } from '@/services/storage/sessionOverrideStore'
 import { getCycleFromProfile, type CycleConfig } from '@/utils/cycle'
+import { getActiveVersion, getVersionForSession, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
+import { daysBetween, weekdayOfKey } from '@/utils/dates'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 
@@ -96,10 +98,12 @@ export function useTrainingSession({
       }
       const sess = activeSession as unknown as TrainingSession
       const prof = await db.userProfile.get('me')
-      const cycle = getCycleFromProfile(prof ?? null)
+      const sv = await getVersionForSession(sess).catch(() => null)
+      const cycle = sv?.cycle ?? getCycleFromProfile(prof ?? null)
       const override = await getOverrideDay(today)
-      const n = override != null ? override : (cycle.weekMap[new Date().getDay()] ?? null)
-      const schedN = cycle.weekMap[new Date().getDay()] ?? null
+      const dow = weekdayOfKey(today)
+      const n = override != null ? override : (cycle.weekMap[dow] ?? null)
+      const schedN = cycle.weekMap[dow] ?? null
       const schedName = schedN ? cycle.trainingDays.find(d => d.n === schedN)?.name || `Día N°${schedN}` : null
       const dname = n ? cycle.trainingDays.find(d => d.n === n)?.name ?? `Día N°${n}` : 'Descanso'
       const changed = await getChangedData(today) as { changeReason?: string; changeComment?: string } | null
@@ -145,7 +149,8 @@ export function useTrainingSession({
       const activeR = rawList?.find(r => r.id === activeId) || rawList?.[0]
       const prof = await db.userProfile.get('me')
       const routine = activeR || { cycle: prof?.cycle, name: 'Rutina' }
-      const cycle = routine.cycle || getCycleFromProfile(prof ?? null)
+      const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+      const cycle = (pv?.cycle ?? routine.cycle ?? getCycleFromProfile(prof ?? null)) as CycleConfig
       methodIdRef.current = (cycle as CycleConfig)?.methodId as TrainingMethodId || null
 
       const n = actualDayN
@@ -155,9 +160,8 @@ export function useTrainingSession({
       const changed = await getChangedData(today)
       const weekNumber = (() => {
         try {
-          const start = new Date((cycle as CycleConfig).startDate || today)
-          const now = new Date(today)
-          return Math.max(1, Math.floor((now.getTime() - start.getTime()) / (7 * 86400000)) + 1)
+          const start = (cycle as CycleConfig).startDate || today
+          return Math.max(1, Math.floor(daysBetween(start, today) / 7) + 1)
         } catch { return 1 }
       })()
       await createReadySession({

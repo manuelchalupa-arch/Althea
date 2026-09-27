@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'icons/*.png'],
+      includeAssets: ['favicon.svg', 'icons/*.png', 'icons/*.svg', 'assets/icons/**/*.png'],
       manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
@@ -37,9 +37,9 @@ export default defineConfig({
             options: { cacheName: 'wasm-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60*60*24*30 }, cacheableResponse: { statuses:[0,200] } }
           },
           {
-            urlPattern: /^https:\/\/api\.groq\.com\/.*/i,
+            urlPattern: /^https:\/\/[a-z0-9-]+\.workers\.dev\/.*/i,
             handler: 'NetworkOnly',
-            options: { cacheName: 'groq-api' }
+            options: { cacheName: 'groq-proxy' }
           }
         ]
       }

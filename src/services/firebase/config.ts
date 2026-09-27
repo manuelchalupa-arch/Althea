@@ -4,16 +4,25 @@ import { getFirestore, type Firestore } from 'firebase/firestore'
 
 // Configuración vía variables VITE_FIREBASE_* (ver .env.example).
 // Si faltan, Firebase queda deshabilitado y la app funciona 100% offline.
-const env = (import.meta as any).env || {}
+// Lectura por miembro (nunca el objeto import.meta.env completo): evita que Vite
+// inline TODAS las variables VITE_* (incluidas secretos no referenciados) en el bundle.
+const env = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
+}
 
 function readConfig() {
   const cfg = {
-    apiKey: env.VITE_FIREBASE_API_KEY || '',
-    authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || '',
-    projectId: env.VITE_FIREBASE_PROJECT_ID || '',
-    storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || '',
-    messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-    appId: env.VITE_FIREBASE_APP_ID || '',
+    apiKey: env.apiKey,
+    authDomain: env.authDomain,
+    projectId: env.projectId,
+    storageBucket: env.storageBucket,
+    messagingSenderId: env.messagingSenderId,
+    appId: env.appId,
   }
   return cfg.apiKey && cfg.projectId ? cfg : null
 }

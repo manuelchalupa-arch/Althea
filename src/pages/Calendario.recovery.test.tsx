@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { todayKey } from '@/utils/dates'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 import Calendario from './Calendario'
 
-const today = new Date().toISOString().slice(0, 10)
+const today = todayKey()
 const todayDay = String(new Date().getDate())
 
 async function openToday() {
@@ -17,11 +18,19 @@ async function openToday() {
   await waitFor(() => {
     expect(screen.getByText('Calendario y recuperación')).toBeInTheDocument()
   })
-  const btns = screen.getAllByRole('button')
-  const todayBtn = btns.find(b => {
-    const t = (b.textContent || '').trim()
-    return t === todayDay || t.startsWith(todayDay + '✓') || t.startsWith(todayDay + ' ')
-  })
+  // Buscar por data-date (estable tras añadir carga visual) o fallback por texto
+  let todayBtn = screen.queryByRole('button', { name: today }) as HTMLButtonElement | null
+  if (!todayBtn) {
+    const btns = screen.getAllByRole('button')
+    todayBtn = (btns.find(b => b.getAttribute('data-date') === today) as HTMLButtonElement | null) || null
+  }
+  if (!todayBtn) {
+    const btns = screen.getAllByRole('button')
+    todayBtn = btns.find(b => {
+      const t = (b.textContent || '').trim()
+      return t === todayDay || t.startsWith(todayDay + '✓') || t.startsWith(todayDay + ' ') || t.startsWith(todayDay + ' ') || t.startsWith(todayDay)
+    }) as HTMLButtonElement | undefined || null
+  }
   expect(todayBtn).toBeDefined()
   fireEvent.click(todayBtn!)
 }

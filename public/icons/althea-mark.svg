@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Althea">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#215a43"/>
+      <stop offset="1" stop-color="#0f2c21"/>
+    </linearGradient>
+    <linearGradient id="vein" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef1ed" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#eef1ed" stop-opacity="0.02"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <path d="M-20 120 C 140 60, 300 190, 540 90 L540 -20 L-20 -20 Z" fill="url(#vein)"/>
+  <path d="M-20 400 C 160 330, 320 470, 540 360 L540 540 L-20 540 Z" fill="url(#vein)"/>
+  <g fill="none" stroke="#eef1ed" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" opacity="0.94">
+    <path d="M150 366V196c0-16 9-24 24-24 13 0 21 7 25 17"/>
+    <path d="M256 366V148c0-11 8-17 17-17s17 6 17 17v218"/>
+    <path d="M362 366V228c0-13 8-20 20-20s20 7 20 20v138"/>
+  </g>
+  <path d="M120 366h272" fill="none" stroke="#eef1ed" stroke-width="17" stroke-linecap="round" opacity="0.94"/>
+  <circle cx="150" cy="128" r="13" fill="#8fd0b4"/>
+</svg>

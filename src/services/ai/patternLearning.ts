@@ -1,6 +1,7 @@
 import { db } from '@/services/storage/db'
 import { unifiedAllCompletedSets } from '@/services/history'
 import { consensus1RM } from '@/services/training/prs'
+import { toDateKey } from '@/utils/dates'
 
 // Aprendizaje observacional (ET16): patrones a partir de datos reales.
 // Niveles de afirmación estrictos — nunca causalidad:
@@ -29,7 +30,7 @@ function exposuresByExercise(
 ): Map<string, ExerciseExposure[]> {
   const byDay = new Map<string, ExerciseExposure>()
   for (const s of sets) {
-    const date = String(s.createdAt).slice(0, 10)
+    const date = toDateKey(s.createdAt)
     const key = `${s.exerciseId}|${date}`
     const cur = byDay.get(key) || { exerciseId: s.exerciseId, date, bestWeight: 0, bestReps: 0, volume: 0 }
     if (s.weight > cur.bestWeight) { cur.bestWeight = s.weight; cur.bestReps = s.reps }
@@ -59,27 +60,31 @@ function trendOf(values: number[]): 'sube' | 'baja' | 'estable' {
 }
 
 // Puro y testeable: aprende de exposiciones ya agregadas.
+// `names` permite mostrar el nombre humano del ejercicio en los statements;
+// sin mapa se conserva el id (comportamiento de siempre y de los tests).
 export function learnFromExposures(
   byExercise: Map<string, ExerciseExposure[]>,
   sleepByDate: Map<string, number> = new Map(),
+  names: Map<string, string> = new Map(),
 ): LearnedPattern[] {
   const out: LearnedPattern[] = []
   for (const [exerciseId, expos] of byExercise) {
     if (expos.length < MIN_EXPOSURES) { continue }
+    const label = names.get(exerciseId) || exerciseId
     const eorm = expos.map(e => consensus1RM(e.bestWeight, e.bestReps))
     const t = trendOf(eorm)
     const first = expos[0].date
     const last = expos[expos.length - 1].date
     out.push({
       kind: 'hecho',
-      statement: `${exerciseId}: ${expos.length} exposiciones entre ${first} y ${last}.`,
+      statement: `${label}: ${expos.length} exposiciones entre ${first} y ${last}.`,
       evidence: [`Dato: ${expos.length} exposiciones`, `Dato: 1RM ${eorm[0]} → ${eorm[eorm.length - 1]}`],
     })
     if (t === 'sube') {
       const avgVol = Math.round(expos.reduce((a, e) => a + e.volume, 0) / expos.length)
       out.push({
         kind: 'patron',
-        statement: `${exerciseId} muestra mejora sostenida con volumen medio de ${avgVol} kg por exposición.`,
+        statement: `${label} muestra mejora sostenida con volumen medio de ${avgVol} kg por exposición.`,
         evidence: [`Cálculo: tendencia al alza en ${expos.length} exposiciones`],
       })
       const sleeps = expos.map(e => sleepByDate.get(e.date)).filter((v): v is number => typeof v === 'number')
@@ -87,28 +92,61 @@ export function learnFromExposures(
         const avgSleep = sleeps.reduce((a, b) => a + b, 0) / sleeps.length
         out.push({
           kind: 'hipotesis',
-          statement: `${exerciseId} progresa con sueño medio de ${avgSleep.toFixed(1)}h; podría existir relación (no demostrada).`,
+          statement: `${label} progresa con sueño medio de ${avgSleep.toFixed(1)}h; podría existir relación (no demostrada).`,
           evidence: [`Dato: ${sleeps.length} noches registradas`, 'Correlación no es causalidad'],
         })
       }
       out.push({
         kind: 'recomendacion',
-        statement: `Mantener el esquema actual en ${exerciseId} y reevaluar en 2 semanas.`,
+        statement: `Mantener el esquema actual en ${label} y reevaluar en 2 semanas.`,
         evidence: [`Patrón: mejora sostenida en ${expos.length} exposiciones`],
       })
     } else if (t === 'baja') {
       out.push({
         kind: 'patron',
-        statement: `${exerciseId} muestra regresión en las últimas exposiciones.`,
+        statement: `${label} muestra regresión en las últimas exposiciones.`,
         evidence: [`Cálculo: tendencia a la baja en ${expos.length} exposiciones`],
       })
       out.push({
         kind: 'recomendacion',
-        statement: `Revisar recuperación, volumen y técnica en ${exerciseId} antes de subir carga.`,
+        statement: `Revisar recuperación, volumen y técnica en ${label} antes de subir carga.`,
         evidence: ['Patrón: regresión observada'],
       })
     }
   }
+  return out
+}
+
+// Resuelve el nombre visible de cada ejercicio: sesión (exerciseName) →
+// catálogo/custom → definición de la rutina. Fallback: el id.
+async function exerciseLabels(ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  if (ids.length === 0) { return out }
+  const wanted = new Set(ids)
+  try {
+    const rows = await db.sessionExercises.where('exerciseId').anyOf(ids).toArray().catch(() => [])
+    for (const s of rows) { if (s.exerciseName && wanted.has(s.exerciseId)) { out.set(s.exerciseId, s.exerciseName) } }
+  } catch { /* noop */ }
+  try {
+    const rows = await db.exercises.where('id').anyOf(ids).toArray().catch(() => [])
+    for (const r of rows) { if (r.name && !out.has(r.id)) { out.set(r.id, r.name) } }
+  } catch { /* noop */ }
+  try {
+    const rows = await db.customExercises.where('id').anyOf(ids).toArray().catch(() => [])
+    for (const r of rows) { if (r.name && !out.has(r.id)) { out.set(r.id, r.name) } }
+  } catch { /* noop */ }
+  try {
+    const routines = await db.routineStore.toArray().catch(() => [])
+    for (const r of routines) {
+      const dayEx = (r as { dayExercises?: Record<string, Array<{ exId: string; name?: string }>> }).dayExercises
+      if (!dayEx) { continue }
+      for (const arr of Object.values(dayEx)) {
+        for (const it of arr || []) {
+          if (it?.exId && it.name && wanted.has(it.exId) && !out.has(it.exId)) { out.set(it.exId, it.name) }
+        }
+      }
+    }
+  } catch { /* noop */ }
   return out
 }
 
@@ -128,5 +166,6 @@ export async function learnPatterns(): Promise<LearnedPattern[]> {
         .map(c => [String(c.localDate), Number(c.sleepHours)]),
     )
   } catch { /* noop */ }
-  return learnFromExposures(byExercise, sleepByDate)
+  const names = await exerciseLabels([...byExercise.keys()])
+  return learnFromExposures(byExercise, sleepByDate, names)
 }

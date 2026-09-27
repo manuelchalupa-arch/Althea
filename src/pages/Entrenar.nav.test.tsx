@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { todayKey } from '@/utils/dates'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter } from 'react-router-dom'
@@ -30,7 +31,7 @@ describe('Entrenar — navegación estable 0→1→2→1→0→1 sin resets', ()
 
   it('Siguiente/Anterior conservan índice, series y sesión única', async () => {
     const { createReadySession, transitionSession } = await import('@/services/training/sessionStore')
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayKey()
     // Flujo real: Inicio crea la sesión; Entrenar la muestra en curso
     const created = await createReadySession({
       calendarDate: today, routineId: 'r1', routineName: 'Rutina',

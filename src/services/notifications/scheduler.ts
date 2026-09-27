@@ -2,6 +2,7 @@
 // Limitación honesta: disparan mientras la app (o su contexto) está viva; en background
 // dependen de la plataforma. Fuente canónica: Dexie (notifConfigs + notifLog).
 import { sendNotification } from './push'
+import { toLocalDateKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
 
 export type NotifKind = 'agua' | 'cuestionario' | 'recuperacion' | 'comoEstas' | 'proteina' | 'entrenamiento' | 'coach'
@@ -126,7 +127,7 @@ async function markFired(id: string, date: string, time: string): Promise<void> 
 }
 
 export function localDateStr(d: Date = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return toLocalDateKey(d)
 }
 export function localTimeStr(d: Date = new Date()): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`

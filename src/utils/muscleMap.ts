@@ -1,6 +1,6 @@
 // Normalización grupos musculares → API ExerciseGymGifsDB
 // UI (es) → muscle API (en)
-// No asumir nombres iguales, capa de traducción
+// Grupo Piernas = familia completa (quads, hamstrings, glutes, calves, abductors, adductors) — no solo quads
 export const GROUP_MAP: Record<string,string> = {
   'pecho':'pectorals',
   'pectorales':'pectorals',
@@ -17,8 +17,8 @@ export const GROUP_MAP: Record<string,string> = {
   'hombro':'delts',
   'deltoides':'delts',
   'delts':'delts',
-  'piernas':'quads',
-  'pierna':'quads',
+  'piernas':'__piernas__', // marcador familia (ver parseDayMuscles)
+  'pierna':'__piernas__',
   'cuadriceps':'quads',
   'cuádriceps':'quads',
   'quadriceps':'quads',
@@ -45,6 +45,7 @@ export const GROUP_MAP: Record<string,string> = {
   'cardio':'cardio',
   'movilidad':'cardio',
 }
+export const PIERNA_FAMILY = ['quads','hamstrings','glutes','calves','abductors','adductors']
 
 // Sinónimos extra para búsqueda libre
 const SEPARATORS = /[\s,+\/]+|y|con|e|&/i
@@ -64,27 +65,24 @@ export function normalizeToken(tok:string): string | null {
 
 export function parseDayMuscles(text:string): string[] {
   if(!text) {return []}
-  // extrae tokens por separadores y palabras clave
   const lower = text.toLowerCase()
-  // reemplaza "día de" etc
   const cleaned = lower.replace(/día de|dia de|día|dia|entrenamiento|musculo|músculo/g,' ')
-  const parts = cleaned.split(/[\s,+\/;]+/)
   const found = new Set<string>()
-  // también busca frases multi-palabra
   const rawTokens = cleaned.split(/[,+\/;]+/)
   rawTokens.forEach(chunk=>{
     chunk.split(/\s+y\s+|\s+e\s+|\s*\+\s*|\s+/).forEach(tok=>{
       const n = normalizeToken(tok)
-      if(n) {found.add(n)}
+      if(n) {
+        if(n==='__piernas__'){ PIERNA_FAMILY.forEach(m=>found.add(m)) } else {found.add(n)}
+      }
     })
   })
-  // fallback: busca subcadenas
   const lowerNoAccent = lower.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   for(const [k,v] of Object.entries(GROUP_MAP)){
     const nk = k.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    if(lowerNoAccent.includes(nk) && !found.has(v)){
-      // evita falsos por "pecho" dentro de "pechos"? ya manejado
-      found.add(v)
+    if(lowerNoAccent.includes(nk)){
+      if(v==='__piernas__'){ PIERNA_FAMILY.forEach(m=>found.add(m)) }
+      else if(!found.has(v)) {found.add(v)}
     }
   }
   return Array.from(found)

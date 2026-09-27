@@ -5,7 +5,7 @@ import { effectiveBreakdown, listCustomExercises } from '@/services/training/cus
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Dumbbell, Layers, Box, Heart, Globe, WifiOff } from 'lucide-react'
-import { AltheaCard, AltheaBadge, AltheaInput } from '@/components/althea'
+import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading } from '@/components/althea'
 
 type Tab = 'muscle'|'equipment'|'bodypart'|'category'
 
@@ -25,6 +25,9 @@ export default function Biblioteca(){
   const [editing,setEditing]=useState<CustomExercise|null>(null)
   const [favs,setFavs]=useState<string[]>([])
   const [onlyFavs,setOnlyFavs]=useState(false)
+  const [totalCount,setTotalCount]=useState<number|null>(null)
+  const [movement,setMovement]=useState('')
+  const [difficulty,setDifficulty]=useState('')
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true
 
   useEffect(()=>{
@@ -58,18 +61,40 @@ export default function Biblioteca(){
     try{
       let res:any
       if(key==='__all__'){
-        // Todos: union completa del nivel (una sola request, cacheada). Sin duplicados por id.
         const all = await Gym.fetchAll()
         const seen = new Set<string>()
         res = { exercises: (all.exercises || []).filter((e:any)=>{ if(!e || seen.has(e.id)) {return false;} seen.add(e.id); return true }) }
       }
-      else if(t==='muscle') {res = await Gym.fetchByMuscle(key)}
+      else if(t==='muscle') {
+        // Grupo Piernas = familia completa (quads, hamstrings, glutes, calves, abductors, adductors) — usar filter no find
+        const { GROUP_MUSCLES } = await import('@/services/training/exerciseFilter')
+        const fam = GROUP_MUSCLES[key.toLowerCase()]
+        if(fam){
+          const results = await Promise.all(fam.map(m=> Gym.fetchByMuscle(m).catch(()=>({ exercises: [] as Gym.Exercise[] }))))
+          const seen = new Set<string>()
+          const mergedGym: Gym.Exercise[] = []
+          results.forEach(r=> r.exercises?.forEach((ex:Gym.Exercise)=>{ if(!seen.has(ex.id)){ seen.add(ex.id); mergedGym.push(ex) } }))
+          res = { exercises: mergedGym }
+        } else {res = await Gym.fetchByMuscle(key)}
+      }
       else if(t==='equipment') {res = await Gym.fetchByEquipment(key)}
       else if(t==='bodypart') {res = await Gym.fetchByBodyPart(key)}
       else if(t==='category') {res = await Gym.fetchByCategory(key)}
-      const customs = await listCustomExercises(key==='__all__' ? undefined : t, key==='__all__' ? undefined : key).catch(()=>[])
+      // Ejercicios personalizados: incluir todos los de la familia si es grupo
+      let customs: import('@/services/training/customExercises').CustomExercise[] = []
+      if(key==='__all__') {customs = await listCustomExercises(undefined, undefined).catch(()=>[])}
+      else if(t==='muscle'){
+        const { GROUP_MUSCLES } = await import('@/services/training/exerciseFilter')
+        const fam = GROUP_MUSCLES[key.toLowerCase()]
+        if(fam){
+          const allCustom = await listCustomExercises().catch(()=>[])
+          const { filterExercises } = await import('@/services/training/exerciseFilter')
+          customs = filterExercises(allCustom as unknown as import('@/services/exerciseGym').Exercise[], { group: key }) as unknown as typeof customs
+        } else {customs = await listCustomExercises(t, key).catch(()=>[])}
+      } else {customs = await listCustomExercises(key==='__all__' ? undefined : t, key==='__all__' ? undefined : key).catch(()=>[])}
       const merged = [...(res.exercises || []), ...customs].sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
       setExercises(merged)
+      if(key==='__all__') { setTotalCount(merged.length) }
       Gym.cacheSet(cacheKey, res.exercises)
     }catch(e:any){
       const cached = Gym.cacheGet(cacheKey)
@@ -82,13 +107,15 @@ export default function Biblioteca(){
 
   const filtered = exercises.filter(ex=>{
     if(onlyFavs && !favs.includes(ex.id)) {return false}
+    if(movement && !String(ex.movementPattern||'').toLowerCase().includes(movement.toLowerCase())) {return false}
+    if(difficulty && String(ex.exerciseDifficulty||'').toLowerCase() !== difficulty.toLowerCase()) {return false}
     if(!q) {return true;}
     const s=q.toLowerCase();
     return ex.name.toLowerCase().includes(s) || String(ex.muscle||'').toLowerCase().includes(s) || String(ex.bodyPart||'').toLowerCase().includes(s) || String(ex.equipment||'').toLowerCase().includes(s) || String(ex.category||'').toLowerCase().includes(s)
   })
 
   const Chip = ({active, children, onClick}:{active:boolean; children:string; onClick:()=>void})=>(
-    <button onClick={onClick} className={`px-3 py-1.5 rounded-full font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant whitespace-nowrap border ${active?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{children}</button>
+    <button onClick={onClick} className={`px-3 py-2 rounded-full font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant whitespace-nowrap border min-h-[48px] ${active?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{children}</button>
   )
 
   const handleDeleteCustom = async (ex: Gym.Exercise)=>{
@@ -108,9 +135,9 @@ export default function Biblioteca(){
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Biblioteca</h1>
-        <AltheaBadge variant="outline"><Globe size={12}/> 1323 ejercicios</AltheaBadge>
+        <AltheaBadge variant="outline"><Globe size={12}/> {totalCount ?? `…`} ejercicios</AltheaBadge>
       </div>
-      <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">Consulta técnica y % muscular — sin copiar.</p>
+      <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Consulta técnica y % muscular — sin copiar.</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-8 space-y-3">
@@ -119,10 +146,10 @@ export default function Biblioteca(){
 
       {/* Tabs (al entrar a cada filtro: selectedFilter = Todos) */}
       <div className="flex gap-1 p-1 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-x-auto">
-        <button onClick={()=>{ setTab('muscle'); load('muscle','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 ${tab==='muscle'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Heart size={12}/> Músculo</button>
-        <button onClick={()=>{ setTab('equipment'); load('equipment','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 ${tab==='equipment'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Dumbbell size={12}/> Equipo</button>
-        <button onClick={()=>{ setTab('bodypart'); load('bodypart','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 ${tab==='bodypart'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Layers size={12}/> Parte</button>
-        <button onClick={()=>{ setTab('category'); load('category','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 ${tab==='category'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Box size={12}/> Categoría</button>
+        <button onClick={()=>{ setTab('muscle'); load('muscle','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 min-h-[48px] ${tab==='muscle'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Heart size={12}/> Músculo</button>
+        <button onClick={()=>{ setTab('equipment'); load('equipment','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 min-h-[48px] ${tab==='equipment'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Dumbbell size={12}/> Equipo</button>
+        <button onClick={()=>{ setTab('bodypart'); load('bodypart','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 min-h-[48px] ${tab==='bodypart'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Layers size={12}/> Parte</button>
+        <button onClick={()=>{ setTab('category'); load('category','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 min-h-[48px] ${tab==='category'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Box size={12}/> Categoría</button>
       </div>
 
       {/* Listado índices */}
@@ -145,7 +172,7 @@ export default function Biblioteca(){
 
       {/* Favoritos */}
       <div className="flex gap-2">
-        <button onClick={()=>setOnlyFavs(v=>!v)} aria-pressed={onlyFavs} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-1 min-h-[44px] ${onlyFavs ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant'}`}>
+        <button onClick={()=>setOnlyFavs(v=>!v)} aria-pressed={onlyFavs} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-1 min-h-[48px] ${onlyFavs ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant'}`}>
           <Heart size={12}/> Favoritos ({favs.length})
         </button>
       </div>
@@ -158,23 +185,21 @@ export default function Biblioteca(){
       <AltheaCard className="p-3">
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Filtros avanzados · dificultad / patrón movimiento</div>
         <div className="flex gap-2 mt-2">
-          <select onChange={e=>{
-            const v=e.target.value; const el=document.getElementById('list-ex'); if(!el) {return;}
-            // patrón simple: filtra por nombre
-          }} className="flex-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
-            <option value="">Patrón: todos</option><option>push</option><option>pull</option><option>squat</option><option>hinge</option><option>core</option>
+          <select value={movement} onChange={e=>setMovement(e.target.value)} aria-label="Patrón de movimiento" className="flex-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded p-3 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+            <option value="">Patrón: todos</option><option value="push">push</option><option value="pull">pull</option><option value="squat">squat</option><option value="hinge">hinge</option><option value="core">core</option>
           </select>
-          <select className="flex-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
-            <option>Dificultad: todos</option><option>principiante</option><option>intermedio</option><option>avanzado</option>
+          <select value={difficulty} onChange={e=>setDifficulty(e.target.value)} aria-label="Dificultad" className="flex-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded p-3 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+            <option value="">Dificultad: todos</option><option value="principiante">principiante</option><option value="intermedio">intermedio</option><option value="avanzado">avanzado</option>
           </select>
         </div>
-        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant mt-1">Usa ExerciseGym + filtro local. Variantes: al ver detalle, sugiere mismo músculo/equipo.</p>
+        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">Usa ExerciseGym + filtro local. Variantes: al ver detalle, sugiere mismo músculo/equipo.</p>
       </AltheaCard>
 
       {/* Resultados — solo consulta */}
-      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">{loading ? 'Cargando ejercicios...' : `${filtered.length} ejercicios para consultar`}</div>
+      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{loading ? 'Cargando ejercicios...' : `${filtered.length} ejercicios para consultar`}</div>
 
       <div className="grid gap-3">
+        {loading && exercises.length===0 && <AltheaLoading lines={4} />}
         {filtered.map(ex=>(
           <div key={ex.id} onClick={()=>setDetail(ex)} className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden cursor-pointer active:bg-surface-container-low/90">
             <div className="flex gap-3 p-3">
@@ -183,7 +208,7 @@ export default function Biblioteca(){
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-body-md text-sm text-on-surface font-medium text-sm flex items-center gap-2"><span className="truncate">{ex.name}</span>{ex.origin==='USER_CREATED' ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[10px]">Mío</AltheaBadge> : null}</div>
-                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant text-xs">{ex.muscle} · {ex.equipment}</div>
+                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle} · {ex.equipment}</div>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {musclePct(ex).slice(0,3).map(m=> (
                     <span key={m.name} className={`px-1.5 py-0.5 rounded border text-[10px] ${m.role==='Principal'?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{m.name} {m.pct}%</span>
@@ -193,16 +218,16 @@ export default function Biblioteca(){
             </div>
           </div>
         ))}
-        {filtered.length===0 && !loading && <p className="font-body-md text-xs text-on-surface-variant text-center py-6">Sin resultados</p>}
+        {filtered.length===0 && !loading && <AltheaEmpty icon="search_off" title="Sin resultados" description="Probá otro músculo, equipamiento o término de búsqueda." />}
       </div>
       </div>
 
       <div className="lg:col-span-4 space-y-3 hidden lg:block">
-      <button onClick={()=>{ setEditing(null); setShowForm(true) }} className="w-full py-3 rounded bg-primary text-on-surface font-medium">+ Agregar ejercicio</button>
+      <button onClick={()=>{ setEditing(null); setShowForm(true) }} className="w-full py-3 rounded bg-primary text-on-surface font-medium min-h-[48px]">+ Agregar ejercicio</button>
       <AltheaCard className="p-3">
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Filtros</div>
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant mt-1">{filtered.length} de {exercises.length} ejercicios</div>
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">{tab}: {selectedKey==='__all__' ? 'Todos' : selectedKey}</div>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">{filtered.length} de {exercises.length} ejercicios</div>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{tab}: {selectedKey==='__all__' ? 'Todos' : selectedKey}</div>
       </AltheaCard>
       <AltheaCard className="p-3">
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Índice</div>
@@ -233,19 +258,19 @@ export default function Biblioteca(){
                   <Heart size={18} fill={favs.includes(detail.id) ? 'currentColor' : 'none'} />
                 </button>
               </div>
-              <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">{detail.muscle} · {detail.bodyPart} · {detail.equipment} · {detail.category}</p>
+              <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{detail.muscle} · {detail.bodyPart} · {detail.equipment} · {detail.category}</p>
               <AltheaCard className="p-3">
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Músculos trabajados</div>
                 <div className="mt-2 space-y-2">
                   {musclePct(detail).map(m=>(
                     <div key={m.name} className="flex items-center gap-2">
-                      <span className="flex-1 font-body-md text-sm text-on-surface">{m.name} <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant">· {m.role}</span></span>
+                      <span className="flex-1 font-body-md text-sm text-on-surface">{m.name} <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">· {m.role}</span></span>
                       <span className="font-body-md text-sm text-on-surface font-medium">{m.pct}%</span>
                       <div className="w-20 h-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-full overflow-hidden"><div className={`h-full ${m.role==='Principal'?'bg-primary':'bg-primary'}`} style={{width:`${m.pct}%`}}/></div>
                     </div>
                   ))}
                 </div>
-                <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant mt-2">Principal ~70% · Secundarios comparten ~30% (estimado orientativo).</p>
+                <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-2">Principal ~70% · Secundarios comparten ~30% (estimado orientativo).</p>
               </AltheaCard>
               <AltheaCard className="p-3">
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cómo hacerlo</div>
@@ -254,11 +279,11 @@ export default function Biblioteca(){
               {detail.origin==='USER_CREATED' ? (
                 <div className="flex gap-2">
                   <button onClick={()=>{ setEditing(detail as CustomExercise) }} className="flex-1 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Editar</button>
-                  <button onClick={()=>handleDeleteCustom(detail)} className="flex-1 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-danger/50 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Eliminar</button>
+                  <button onClick={()=>handleDeleteCustom(detail)} className="flex-1 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-error/50 font-label-md text-[10px] font-semibold uppercase tracking-widest text-error">Eliminar</button>
                 </div>
               ) : null}
-              <button onClick={()=>setDetail(null)} className="w-full py-3 rounded bg-primary text-on-surface">Cerrar</button>
-              <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-on-surface-variant text-center">Solo informativo — sin copiar. Usá Rutina para agregar con selector inteligente.</p>
+              <button onClick={()=>setDetail(null)} className="w-full py-3 rounded bg-primary text-on-surface min-h-[48px]">Cerrar</button>
+              <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">Solo informativo — sin copiar. Usá Rutina para agregar con selector inteligente.</p>
             </div>
           </div>
         </div>

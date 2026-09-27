@@ -12,27 +12,27 @@ interface AltheaKPICardProps {
 
 const colorMap = {
   primary: 'text-primary',
-  success: 'text-primary',
-  warning: 'text-secondary',
+  success: 'text-secondary',
+  warning: 'text-tertiary',
   danger: 'text-error',
 };
 
 export function AltheaKPICard({ icon, label, value, subtitle, trend, color = 'primary', className = '' }: AltheaKPICardProps) {
   return (
-    <div className={`rounded p-5 ${className}`}>
+    <div className={`althea-level-2 p-5 ${className}`}>
       <div className="flex items-center gap-2.5 mb-3">
-        <div className="w-8 h-8 rounded bg-primary/15 border border-primary/30 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
           <span className="material-symbols-outlined text-[16px] text-primary">{icon}</span>
         </div>
-        <span className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{label}</span>
+        <span className="text-aux">{label}</span>
       </div>
-      <div className="flex items-end justify-between">
-        <div>
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
           <p className={`font-headline-md text-2xl font-bold leading-none ${colorMap[color]}`}>{value}</p>
-          {subtitle && <p className="font-body-md text-xs text-on-surface-variant mt-1">{subtitle}</p>}
+          {subtitle && <p className="font-body-md text-xs text-on-surface-variant mt-1 truncate">{subtitle}</p>}
         </div>
         {trend && (
-          <span className={`font-label-md text-xs font-bold ${trend.positive ? 'text-primary' : 'text-error'}`}>
+          <span className={`font-label-md text-xs font-bold ${trend.positive ? 'text-secondary' : 'text-error'}`}>
             {trend.positive ? '+' : ''}{trend.value}%
           </span>
         )}
@@ -52,25 +52,30 @@ interface AltheaProgressProps {
 
 const barColors = {
   primary: 'bg-primary',
-  success: 'bg-primary',
-  warning: 'bg-secondary',
+  success: 'bg-secondary',
+  warning: 'bg-tertiary',
   danger: 'bg-error',
 };
 
-const barSizes = { sm: 'h-1', md: 'h-1.5', lg: 'h-2.5' };
-
 export function AltheaProgress({ value, max = 100, color = 'primary', size = 'md', showLabel, className = '' }: AltheaProgressProps) {
-  const pct = Math.min(100, Math.round((value / max) * 100));
+  const pct = Math.min(100, Math.max(0, Math.round((value / max) * 100)));
   return (
     <div className={className}>
       {showLabel && (
         <div className="flex justify-between mb-1">
-          <span className="font-label-caps text-[10px] text-on-surface-variant">{value}/{max}</span>
-          <span className="font-label-caps text-[10px] font-bold text-primary">{pct}%</span>
+          <span className="text-aux">{value}/{max}</span>
+          <span className="text-aux font-bold text-primary">{pct}%</span>
         </div>
       )}
-      <div className="w-full bg-surface-container-high rounded-full overflow-hidden" style={{ height: size === 'sm' ? 4 : size === 'md' ? 6 : 10 }}>
-        <div className={`${barColors[color]} ${barSizes[size]} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+      <div
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="w-full bg-surface-container-high rounded-full overflow-hidden"
+        style={{ height: size === 'sm' ? 4 : size === 'md' ? 6 : 10 }}
+      >
+        <div className={`${barColors[color]} rounded-full transition-all duration-500`} style={{ width: `${pct}%`, height: '100%' }} />
       </div>
     </div>
   );

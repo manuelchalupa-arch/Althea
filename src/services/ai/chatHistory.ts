@@ -1,4 +1,5 @@
 import { db } from '@/services/storage/db'
+import { todayKey, toDateKey } from '@/utils/dates'
 
 export interface ChatMessage {
   id: string
@@ -6,6 +7,13 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   createdAt: string
+  /** Proveedor que generó la respuesta del asistente (solo respuestas). */
+  source?: 'groq' | 'local'
+  /**
+   * IDs de las fuentes de evidencia REALMENTE usadas en esta respuesta
+   * (sourcesUsed[]). No es el listado completo de fuentes de la app.
+   */
+  sources?: string[]
 }
 
 export interface ChatConversation {
@@ -20,12 +28,12 @@ function uid(): string {
 }
 
 export async function getActiveConversation(pageContext: string): Promise<string> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayKey()
   const existing = await db.chatConversations.where('pageContext').equals(pageContext)
     .reverse().sortBy('updatedAt').catch(() => [] as ChatConversation[])
   if (existing.length > 0) {
     const last = existing[0]
-    const lastDate = last.updatedAt.slice(0, 10)
+    const lastDate = toDateKey(last.updatedAt)
     if (lastDate === today) {return last.id}
   }
   const id = uid()

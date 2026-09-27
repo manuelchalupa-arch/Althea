@@ -5,10 +5,11 @@ import type { TrainingGoal, ExperienceLevel } from '@/types'
 import { TRAINING_METHODS, getMethod, getStructureMethods, getTrainingMethods } from './trainingMethodsDB'
 import { checkCompatibility } from './compatibilityEngine'
 import { createMixedMethod } from './mixedMethodBuilder'
+import { resolveTrainingGoal } from '@/utils/trainingGoal'
 
 /** Analizar al usuario y recomendar métodos */
 export function selectMethods(profile: UserProfile, recentVolume?: number, recentFatigue?: number): MethodRecommendation {
-  const goal: TrainingGoal = (profile.trainingGoal as TrainingGoal) ?? 'hypertrophy'
+  const goal: TrainingGoal = (resolveTrainingGoal(profile) as TrainingGoal) ?? 'hypertrophy'
   const level = (profile.experienceLevel || 'intermediate') as ExperienceLevel
   const days = getAvailableDays(profile)
   const sessionMin = profile.sessionDurationMin || 60

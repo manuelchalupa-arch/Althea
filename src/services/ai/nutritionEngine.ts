@@ -1,6 +1,7 @@
 // NUTRITION ENGINE — Macros, meal timing, suplementación, coherencia con entrenamiento
 import type { UserProfile, TrainingGoal } from '@/types'
 import { proteinRange, calcTMB, calcTDEE, calorieGoal, type ActivityLevel } from '@/utils/nutrition'
+import { resolveTrainingGoal } from '@/utils/trainingGoal'
 
 export interface NutritionContext {
   tdee: number | null
@@ -47,7 +48,7 @@ export async function analyzeNutrition(
   const age = userProfile.age
   const sex = userProfile.sex
   const activity = (userProfile.activityLevel || 'moderado') as ActivityLevel
-  const goal = (userProfile.trainingGoal || 'hypertrophy') as TrainingGoal
+  const goal = (resolveTrainingGoal(userProfile) || 'hypertrophy') as TrainingGoal
 
   if (!w || !h) {
     return { tdee: null, calorieGoal: null, macros: null, proteinPerKg: null, isAdequate: false, gap: 'Faltan peso y altura para calcular nutrición.' }

@@ -2,6 +2,7 @@
 // La personalidad ahora se deriva del método de entrenamiento seleccionado
 import type { GoalLogic } from './goalEngine'
 import type { TrainingMethodId } from './trainingMethods'
+import { mapTone } from './systemPrompt'
 
 export type CoachTone = 'PADELERO' | 'ABUELITOS' | 'ARNOLD' | 'PSYCHO'
 
@@ -235,6 +236,40 @@ export function getPersonalityConfig(tone: CoachTone): PersonalityConfig {
 /** Obtener estilo de coaching desde un método de entrenamiento */
 export function getMethodCoachingStyle(methodId: TrainingMethodId): MethodCoachingStyle {
   return METHOD_COACHING_STYLES[methodId] || METHOD_COACHING_STYLES.hypertrophy
+}
+
+/**
+ * FASE 2 S6 · Resolución ÚNICA del tono del Coach.
+ *
+ * Orden canónico (una sola regla para todo el código):
+ *   1. `coachTone` — preferencia explícita del usuario, editada en Perfil.
+ *      Es la fuente canónica: así lo declara la propia UI ("si no elegís, se
+ *      usa el tono de tu método de entrenamiento").
+ *   2. Tono del método de entrenamiento canónico — dato DERIVADO, no
+ *      persistido, coherente con la personality derivada del método.
+ *   3. `coachIntensity` — preferencia legacy del onboarding. Solo se consulta
+ *      cuando la persona no tiene método configurado; nunca pisa una elección
+ *      explícita. Se lee vía `mapTone`, que traduce los valores legacy
+ *      ('profesional'|'motivacional'|'duro'|'extremo').
+ *   4. 'ABUELITOS'.
+ *
+ * Antes de S6 cada consumidor resolvía el tono por su cuenta y con reglas
+ * distintas (`coachTone || coachIntensity`, `coachTone || style.tone`, y uno
+ * sin `mapTone`), de modo que la misma persona recibía un tono distinto según
+ * la pantalla por la que preguntara.
+ */
+export function resolveCoachTone(input: {
+  coachTone?: string | null
+  coachIntensity?: string | null
+  methodId?: string | null
+}): CoachTone {
+  if (input.coachTone) { return mapTone(input.coachTone) }
+  if (input.methodId) {
+    const style = METHOD_COACHING_STYLES[input.methodId as TrainingMethodId]
+    if (style) { return mapTone(style.tone) }
+  }
+  if (input.coachIntensity) { return mapTone(input.coachIntensity) }
+  return 'ABUELITOS'
 }
 
 /** Obtener configuración de personalidad desde un método de entrenamiento */

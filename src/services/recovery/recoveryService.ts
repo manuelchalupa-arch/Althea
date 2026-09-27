@@ -1,8 +1,9 @@
 import { db } from '@/services/storage/db'
+import { todayKey, dayKeyOffset } from '@/utils/dates'
 import type { HydrationLog, RecoveryCheck } from '@/types'
 
 export async function getTodayHydration(): Promise<number> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayKey()
   const logs = await db.hydrationLogs.where('localDate').equals(today).toArray()
   return logs
     .filter(log => (log as HydrationLog & { isDemo?: boolean }).isDemo !== true)
@@ -10,23 +11,16 @@ export async function getTodayHydration(): Promise<number> {
 }
 
 export async function addHydration(amountMl: number): Promise<HydrationLog> {
-  const today = new Date().toISOString().slice(0, 10)
-  const log: HydrationLog = {
-    id: crypto.randomUUID(),
-    localDate: today,
-    amountMl,
-    time: new Date().toISOString(),
-    isDemo: false,
-  }
-  await db.hydrationLogs.put(log)
+  // Delega en la única ruta de escritura de hidratación: la botella es la fuente
+  // canónica y `hydrationLogs` queda como reflejo para los lectores legacy.
+  const { addHydrationMl } = await import('@/services/recovery/hydrationBottles')
+  const log = await addHydrationMl(amountMl)
   import('@/services/sync/opQueue').then(({ enqueueOp }) => enqueueOp('hydrationLogs', log.id)).catch(() => {})
-  return log
+  return { id: log.id, localDate: log.localDate, amountMl: log.amountMl, time: log.time, isDemo: false }
 }
 
 export async function getHydrationHistory(days: number = 7): Promise<HydrationLog[]> {
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - days)
-  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  const cutoffStr = dayKeyOffset(todayKey(), -days)
   const logs = await db.hydrationLogs
     .where('localDate')
     .aboveOrEqual(cutoffStr)
@@ -35,7 +29,7 @@ export async function getHydrationHistory(days: number = 7): Promise<HydrationLo
 }
 
 export async function getTodayRecovery(): Promise<RecoveryCheck | undefined> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayKey()
   return db.recoveryChecks.get(today)
 }
 
@@ -49,7 +43,7 @@ export async function updateRecoveryCheck(
   patch: Partial<Omit<RecoveryCheck, 'id' | 'localDate'>>,
   localDate?: string,
 ): Promise<RecoveryCheck> {
-  const today = localDate ?? new Date().toISOString().slice(0, 10)
+  const today = localDate ?? todayKey()
   const existing = await db.recoveryChecks.get(today)
   const check = {
     id: today,
@@ -65,9 +59,7 @@ export async function updateRecoveryCheck(
 }
 
 export async function getRecoveryHistory(days: number = 30): Promise<RecoveryCheck[]> {
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - days)
-  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  const cutoffStr = dayKeyOffset(todayKey(), -days)
   return db.recoveryChecks
     .where('localDate')
     .aboveOrEqual(cutoffStr)

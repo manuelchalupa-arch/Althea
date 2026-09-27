@@ -1,14 +1,14 @@
 import { useState, useCallback, useEffect } from 'react'
 import { db } from '@/services/storage/db'
 import { getLastExecutionByExercise } from '@/services/history'
-import type { SessionExercise, SetRecord } from '@/services/training/domain'
+import type { SessionExercise, SetRecord, SetType } from '@/services/training/domain'
 
 interface SessionEx {
   exId: string
   name: string
   sets: number
   reps: number
-  weight: number
+  weight: number | null
   muscle?: string
   gifUrl?: string
   imageDataUrl?: string
@@ -16,6 +16,8 @@ interface SessionEx {
   replaced?: boolean
   extra?: boolean
   plannedSets?: number
+  plannedSetsDetail?: { order: number; reps: number; weight: number | null }[]
+  plannedSetValues?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>
   seriesType?: string
   seId?: string
 }
@@ -85,7 +87,9 @@ export function useExerciseState({
     for (let i = 0; i < exercises.length; i++) {
       const se = source[i]
       if (!se) { continue }
-      if (se.status === 'COMPLETED') { d[i] = true; sk[i] = true }
+      // COMPLETED = hecho, pero NO omitido (antes se marcaba sk=true y
+      // computeSummary lo contaba como ejercicio faltante → PARTIAL espurio).
+      if (se.status === 'COMPLETED') { d[i] = true }
       else if (se.status === 'SKIPPED') { d[i] = true; sk[i] = true }
       const recs = await db.setRecords.where('sessionExerciseId').equals(se.sessionExerciseId).toArray().catch(() => [])
       lg[i] = recs

@@ -6,6 +6,7 @@ import type { ExperienceLevel } from '@/types'
 import { applyPersonality, type CoachTone } from './coachPersonality'
 import { check as safetyCheck, type SafetyContext } from './safetyLayer'
 import { logDecision } from './decisionLogger'
+import { resolveTrainingGoal } from '@/utils/trainingGoal'
 
 export class FallbackAIProvider implements AIProvider {
   name = 'Determinístico'
@@ -78,7 +79,7 @@ export class FallbackAIProvider implements AIProvider {
     }
 
     // 4. Goal-driven adjustment
-    const goal = (ctx.userProfile?.trainingGoal as TrainingGoal) || 'hypertrophy'
+    const goal = (resolveTrainingGoal(ctx.userProfile) as TrainingGoal) || 'hypertrophy'
     const tone = (ctx.personalidad || 'ABUELITOS') as CoachTone
     const goalLogic = applyPersonality(resolveGoal(goal, ctx.userProfile?.experienceLevel as ExperienceLevel), tone)
     if (goalLogic.progressionRate === 'conservative' && action === 'increase_weight') {

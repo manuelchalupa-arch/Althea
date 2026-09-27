@@ -7,7 +7,11 @@ import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { SyncStatusCard } from '@/components/sync/SyncStatusCard'
-import { IconDumbbell, IconFire, IconBody, IconHeart, IconWater, IconUtensils, IconSleep, IconClipboard, IconLightning, IconTarget, IconUser, IconShield, IconChart } from '@/components/brand/FitnessIcons'
+import { IconDumbbell, IconFire, IconBody, IconHeart, IconWater, IconUtensils, IconSleep, IconClipboard, IconLightning, IconTarget, IconUser, IconShield } from '@/components/brand/FitnessIcons'
+import { AltheaButton, AltheaBadge, AltheaSelect, AltheaEmpty } from '@/components/althea'
+import * as Gym from '@/services/exerciseGym'
+import { resolveCoachTone } from '@/services/ai/coachPersonality'
+import { todayKey } from '@/utils/dates'
 
 const GOAL_MAP: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   hypertrophy: { label: 'Hipertrofia', icon: <IconDumbbell className="w-5 h-5" />, color: 'bg-primary-container/30 border-primary/40 text-primary' },
@@ -31,6 +35,24 @@ const NOTIF_TYPES: { kind: NotifKind | 'custom'; label: string; icon: React.Reac
 function getInitials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
 }
+
+function prettyExId(id: string): string {
+  return id.split('/').pop()?.replace(/-/g, ' ') || id
+}
+
+const COACH_TONES: { id: string; label: string; desc: string }[] = [
+  { id: 'ABUELITOS', label: 'Equilibrado', desc: 'Amable, te pide constancia' },
+  { id: 'PADELERO', label: 'Motivador', desc: 'Comprensivo, sin presión' },
+  { id: 'ARNOLD', label: 'Directo', desc: 'Firme, foco en el plan' },
+  { id: 'PSYCHO', label: 'Exigente', desc: 'Disciplinado, alta presión' },
+]
+
+const COACH_LEVELS = [1, 2, 3, 4, 5]
+
+const BIBLIO_MUSCLES = [
+  { value: 'pectorals', label: 'Pecho' }, { value: 'biceps', label: 'Bíceps' }, { value: 'triceps', label: 'Tríceps' },
+  { value: 'abs', label: 'Abdominales' }, { value: 'quads', label: 'Piernas' }, { value: 'back', label: 'Espalda' }, { value: 'shoulders', label: 'Hombros' },
+]
 
 function imcCalc(weight: number, height: number) {
   if (!weight || !height) {return null}
@@ -74,8 +96,8 @@ function TimePickerModal({ value, onChange, onClose }: { value: string; onChange
           </select>
         </div>
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
-          <button onClick={() => { onChange(`${h}:${m}`); onClose() }} className="flex-1 py-2.5 rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Guardar</button>
+          <button onClick={onClose} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
+          <button onClick={() => { onChange(`${h}:${m}`); onClose() }} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Guardar</button>
         </div>
       </div>
     </div>
@@ -110,8 +132,8 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
           <h3 className="font-headline-lg text-base font-semibold text-on-surface">¿A qué hora?</h3>
           <TimePickerModal value={time} onChange={setTime} onClose={() => {}} />
           <div className="flex gap-2 mt-2">
-            <button onClick={() => setStep('type')} className="flex-1 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Atrás</button>
-            <button onClick={handleAdd} className="flex-1 py-2.5 rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Agregar</button>
+            <button onClick={() => setStep('type')} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Atrás</button>
+            <button onClick={handleAdd} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Agregar</button>
           </div>
         </div>
       </div>
@@ -135,7 +157,7 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
           <input value={customTitle} onChange={e => setCustomTitle(e.target.value)} placeholder="¿Qué quieres recordar?"
             className="w-full bg-surface-container-high/50 border border-outline-variant rounded-xl p-3 font-body-md text-[15px] text-on-surface" autoFocus />
         )}
-        <button onClick={() => setStep('time')} className="w-full py-2.5 rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Siguiente</button>
+        <button onClick={() => setStep('time')} className="w-full py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Siguiente</button>
       </div>
     </div>
   )
@@ -158,11 +180,21 @@ export default function Perfil() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [email, setEmail] = useState<string | null>(null)
   const [firebaseReady, setFirebaseReady] = useState(false)
+  const [coachTone, setCoachTone] = useState('')
+  const [coachLevel, setCoachLevel] = useState(3)
+  const [excluded, setExcluded] = useState<string[]>([])
+  const [showBiblio, setShowBiblio] = useState(false)
+  const [biblioMuscle, setBiblioMuscle] = useState('back')
+  const [biblioItems, setBiblioItems] = useState<Gym.Exercise[]>([])
+  const [biblioLoading, setBiblioLoading] = useState(false)
 
   useEffect(() => {
     db.userProfile.get('me').then(p => {
       if (p) {
         setProfile(p)
+        setCoachTone(p.coachTone || '')
+        setCoachLevel(p.coachLevel || 3)
+        setExcluded(p.excludedExercises || [])
         setForm({
           name: p.displayName || '',
           age: String(p.age || ''),
@@ -193,6 +225,25 @@ export default function Perfil() {
     }).catch(() => {})
   }, [])
 
+  useEffect(() => {
+    if (!showBiblio) {return}
+    setBiblioLoading(true)
+    const cached = Gym.cacheGet(`muscles/${biblioMuscle}`) as Gym.Exercise[] | null
+    if (cached) {
+      setBiblioItems(cached)
+      setBiblioLoading(false)
+      return
+    }
+    Gym.fetchByMuscle(biblioMuscle)
+      .then(r => {
+        const list = r.exercises.slice(0, 30)
+        setBiblioItems(list)
+        Gym.cacheSet(`muscles/${biblioMuscle}`, list)
+        setBiblioLoading(false)
+      })
+      .catch(() => { setBiblioItems([]); setBiblioLoading(false) })
+  }, [biblioMuscle, showBiblio])
+
   const saveProfile = async () => {
     const data: any = {
       displayName: form.name || undefined,
@@ -204,7 +255,13 @@ export default function Perfil() {
       bodyFatPct: Number(form.bodyFatPct) || undefined,
       muscleMassKg: Number(form.muscleMassKg) || undefined,
       activityLevel: form.activityLevel,
-      restrictions: form.restrictions ? form.restrictions.split(',').map(s => s.trim()).filter(Boolean) : [],
+      // FASE 2 S4 — las restricciones alimentarias van SOLO en nutritionPrefs
+      // (fuente canónica). Antes se escribían también en profile.restrictions,
+      // que es el campo de ENTRENAMIENTO del onboarding: esa escritura
+      // duplicada mezclaba ambos dominios y hacía que los lectores de IA
+      // tomaran una restricción dietética como si fuera de equipamiento.
+      // profile.restrictions conserva sus datos de entrenamiento previos
+      // porque el put sigue extendiendo el perfil existente.
       nutritionPrefs: {
         restrictions: form.restrictions ? form.restrictions.split(',').map(s => s.trim()).filter(Boolean) : [],
         allergies: form.allergies ? form.allergies.split(',').map(s => s.trim()).filter(Boolean) : [],
@@ -214,7 +271,7 @@ export default function Perfil() {
     const base = profile ?? { id: 'me', onboardingDone: true, createdAt: new Date().toISOString() }
     await db.userProfile.put({ ...base, ...data, updatedAt: new Date().toISOString() })
     setProfile({ ...base, ...data })
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayKey()
     await db.table('bodyMeasurements').put({
       id: uuid(), localDate: today, weightKg: data.weightKg, heightCm: data.heightCm,
       bodyFatPct: data.bodyFatPct, muscleMassKg: data.muscleMassKg, createdAt: new Date().toISOString()
@@ -226,6 +283,28 @@ export default function Perfil() {
     if (!profile) {return}
     await db.userProfile.put({ ...profile, trainingGoal: goal, updatedAt: new Date().toISOString() })
     setProfile({ ...profile, trainingGoal: goal })
+  }
+
+  const saveCoachTone = async (tone: string) => {
+    if (!profile) {return}
+    await db.userProfile.put({ ...profile, coachTone: tone, updatedAt: new Date().toISOString() })
+    setProfile({ ...profile, coachTone: tone })
+    setCoachTone(tone)
+  }
+
+  const saveCoachLevel = async (level: number) => {
+    if (!profile) {return}
+    await db.userProfile.put({ ...profile, coachLevel: level, updatedAt: new Date().toISOString() })
+    setProfile({ ...profile, coachLevel: level })
+    setCoachLevel(level)
+  }
+
+  const toggleExcluded = async (id: string) => {
+    if (!profile) {return}
+    const nx = excluded.includes(id) ? excluded.filter(x => x !== id) : [...excluded, id]
+    await db.userProfile.put({ ...profile, excludedExercises: nx, updatedAt: new Date().toISOString() })
+    setProfile({ ...profile, excludedExercises: nx })
+    setExcluded(nx)
   }
 
   const persistNotifs = (nx: NotifConfig[]) => {
@@ -300,24 +379,31 @@ export default function Perfil() {
   }
 
   const imc = imcCalc(Number(form.weightKg), Number(form.heightCm))
-  const goal = GOAL_MAP[profile?.trainingGoal] || GOAL_MAP.hypertrophy
+  const goal = profile?.trainingGoal ? GOAL_MAP[profile.trainingGoal] : undefined
   const cycleMethod = profile?.cycle?.methodId ? getMethod(profile.cycle.methodId as TrainingMethodId) : null
+  const derivedTone = resolveCoachTone({
+    coachTone,
+    coachIntensity: profile?.coachIntensity,
+    methodId: profile?.cycle?.methodId as TrainingMethodId | undefined,
+  })
 
   return (
     <div className="min-h-screen bg-transparent pb-24 max-w-[640px] w-full mx-auto px-4 py-6 space-y-4">
 
       {/* ═══ HEADER ═══ */}
       <div className="bg-surface-container-low/80 backdrop-blur-sm border border-outline-variant/50 rounded-2xl p-5  relative overflow-hidden">
-        <div className="absolute -right-16 -top-16 w-48 h-48 bg-primary-container/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -right-16 -top-16 w-48 h-48 bg-primary-container/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-primary-container/30 border-2 border-primary/30 flex items-center justify-center shrink-0">
             <span className="font-headline-lg text-xl text-primary font-bold">{getInitials(form.name || 'A')}</span>
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="font-headline-lg text-lg text-on-surface font-semibold truncate">{form.name || 'Atleta'}</h1>
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border mt-1 text-xs font-medium ${goal.color}`}>
-              <span>{goal.icon}</span> {goal.label}
-            </div>
+            {goal && (
+              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border mt-1 text-xs font-medium ${goal.color}`}>
+                <span aria-hidden="true">{goal.icon}</span> {goal.label}
+              </div>
+            )}
           </div>
         </div>
         {(form.weightKg || form.heightCm) && (
@@ -377,8 +463,8 @@ export default function Perfil() {
               <input value={form.allergies} onChange={e => setForm({ ...form, allergies: e.target.value })} placeholder="Ej: frutos secos" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
             </label>
             <div className="flex gap-2">
-              <button onClick={() => setEditing(false)} className="flex-1 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
-              <button onClick={saveProfile} className="flex-1 py-2.5 rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Guardar</button>
+              <button onClick={() => setEditing(false)} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
+              <button onClick={saveProfile} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Guardar</button>
             </div>
           </div>
         ) : (
@@ -403,7 +489,7 @@ export default function Perfil() {
                 {form.allergies && <div className="flex justify-between"><span className="text-on-surface-variant">Alergias</span><span className="text-on-surface font-medium text-right max-w-[60%] truncate">{form.allergies}</span></div>}
               </div>
             )}
-            <button onClick={() => setEditing(true)} className="w-full py-2.5 rounded-lg bg-surface-container-high border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-primary/50 transition-colors mt-2">
+            <button onClick={() => setEditing(true)} className="w-full py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-primary/50 transition-colors mt-2">
               Editar datos
             </button>
           </div>
@@ -431,12 +517,84 @@ export default function Perfil() {
         </div>
       </Section>
 
+      {/* ═══ PREFERENCIAS DEL COACH ═══ */}
+      <Section title="Coach" icon={<IconBody className="w-5 h-5" />}>
+        <div className="pt-3 space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Personalidad</span>
+              <AltheaBadge variant="primary">{derivedTone}</AltheaBadge>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {COACH_TONES.map(t => (
+                <button key={t.id} onClick={() => saveCoachTone(t.id)}
+                  className={`min-h-[56px] p-3 rounded-lg border text-left transition ${coachTone === t.id ? 'bg-primary/15 border-primary/50' : 'bg-surface-container/50 border-outline-variant/50 hover:border-outline-variant'}`}>
+                  <div className="font-body-md text-sm text-on-surface font-medium">{t.label}</div>
+                  <div className="font-body-md text-[11px] text-on-surface-variant mt-0.5">{t.desc}</div>
+                </button>
+              ))}
+            </div>
+            <p className="font-body-md text-[11px] text-on-surface-variant mt-2">
+              Define el tono del Coach en el asistente. Si no elegís, se usa el tono de tu método de entrenamiento.
+            </p>
+          </div>
+          <div>
+            <div className="font-label-caps text-[10px] uppercase text-outline tracking-wider mb-2">
+              Intensidad de la exigencia · {coachLevel} de {COACH_LEVELS.length}
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {COACH_LEVELS.map(n => (
+                <button key={n} onClick={() => saveCoachLevel(n)} aria-label={`Exigencia ${n} de 5`}
+                  className={`h-12 rounded-lg border font-headline-md font-bold transition ${coachLevel === n ? 'bg-primary/15 border-primary/50 text-primary' : 'bg-surface-container/50 border-outline-variant/50 text-on-surface-variant'}`}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            {cycleMethod && (
+              <div className="mt-3 flex items-center gap-2 p-3 rounded-xl bg-primary-container/10 border border-primary/20">
+                <span className="material-symbols-outlined text-[18px] text-primary shrink-0">fitness_center</span>
+                <div className="min-w-0">
+                  <div className="font-label-caps text-[9px] uppercase text-primary tracking-wider">Método activo</div>
+                  <div className="font-body-md text-sm text-on-surface font-medium truncate">{cycleMethod.nameEs || profile?.cycle?.methodId}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </Section>
+
+      {/* ═══ EJERCICIOS EXCLUIDOS ═══ */}
+      <Section title="Ejercicios excluidos" icon={<IconDumbbell className="w-5 h-5" />}>
+        <div className="pt-3 space-y-3">
+          <p className="font-body-md text-xs text-on-surface-variant">
+            Se omiten de las recomendaciones y sustituciones del plan y del Coach.
+          </p>
+          {excluded.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {excluded.map(id => (
+                <button key={id} onClick={() => toggleExcluded(id)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[32px] rounded-full bg-surface-container-high border border-outline-variant font-body-md text-xs text-on-surface-variant hover:border-error/50 hover:text-error transition-colors">
+                  <span className="capitalize">{prettyExId(id)}</span>
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <AltheaButton variant="secondary" icon="library_add" fullWidth onClick={() => setShowBiblio(true)}>
+            Seleccionar ejercicios
+          </AltheaButton>
+          {excluded.length === 0 && (
+            <AltheaEmpty icon="block" title="Sin exclusiones" description="Usás todos los ejercicios de tu biblioteca en las recomendaciones." className="py-6" />
+          )}
+        </div>
+      </Section>
+
       {/* ═══ NOTIFICACIONES ═══ */}
       <Section title="Notificaciones" icon={<IconLightning className="w-5 h-5" />}>
         <div className="pt-3 space-y-3">
           {notifPerm !== 'granted' && (
             <button onClick={async () => { const p = await requestPermission(); setNotifPerm(p) }}
-              className="w-full py-2.5 rounded-lg bg-primary/20 border border-primary/30 text-primary font-label-caps text-[10px] uppercase font-bold">
+              className="w-full py-2.5 min-h-[48px] rounded-lg bg-primary/20 border border-primary/30 text-primary font-label-caps text-[10px] uppercase font-bold">
               Permitir notificaciones
             </button>
           )}
@@ -492,7 +650,7 @@ export default function Perfil() {
           ))}
 
           <button onClick={() => setShowAddNotif(true)}
-            className="w-full py-2.5 rounded-xl border border-dashed border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-primary/50 hover:text-primary transition-colors">
+            className="w-full py-2.5 min-h-[48px] rounded-xl border border-dashed border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-primary/50 hover:text-primary transition-colors">
             + Agregar notificación
           </button>
         </div>
@@ -539,18 +697,57 @@ export default function Perfil() {
         )}
 
         <button onClick={() => setShowLogout(true)}
-          className="w-full py-3.5 rounded-xl bg-surface-container-low/80 border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/50 hover:text-secondary transition-colors">
+          className="w-full py-3.5 min-h-[48px] rounded-xl bg-surface-container-low/80 border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/50 hover:text-secondary transition-colors">
           Cerrar sesión
         </button>
 
         <button onClick={() => setShowDelete(true)}
-          className="w-full py-3.5 rounded-xl bg-red-950/30 border border-red-900/40 font-label-caps text-[10px] uppercase text-red-400 hover:bg-red-950/50 transition-colors">
+          className="w-full py-3.5 min-h-[48px] rounded-xl bg-red-950/30 border border-red-900/40 font-label-caps text-[10px] uppercase text-red-400 hover:bg-red-950/50 transition-colors">
           Eliminar cuenta
         </button>
       </div>
 
       {/* ═══ MODALS ═══ */}
       {showAddNotif && <AddNotifModal onAdd={addNotif} onClose={() => setShowAddNotif(false)} />}
+
+      {showBiblio && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowBiblio(false)}>
+          <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-lg max-h-[80vh] overflow-auto p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-headline-lg text-base font-semibold text-on-surface">Ejercicios excluidos</h3>
+              <button onClick={() => setShowBiblio(false)} className="w-11 h-11 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Cerrar">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <AltheaSelect label="Grupo muscular" value={biblioMuscle} options={BIBLIO_MUSCLES} onChange={e => setBiblioMuscle(e.target.value)} />
+            {biblioLoading ? (
+              <div className="space-y-2 py-2" aria-hidden="true">
+                {[1, 2, 3].map(i => <div key={i} className="h-12 rounded-xl bg-surface-container-high animate-pulse" />)}
+              </div>
+            ) : biblioItems.length === 0 ? (
+              <p className="font-body-md text-sm text-on-surface-variant py-4 text-center">No se pudieron cargar los ejercicios de la biblioteca.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-[50vh] overflow-auto">
+                {biblioItems.map(ex => (
+                  <label key={ex.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-surface-container/60 border border-outline-variant/40 cursor-pointer transition hover:border-primary/40">
+                    <input
+                      type="checkbox"
+                      className="w-6 h-6 accent-primary"
+                      checked={excluded.includes(ex.id)}
+                      onChange={() => toggleExcluded(ex.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-body-md text-sm text-on-surface truncate">{ex.name}</div>
+                      <div className="font-label-md text-[10px] uppercase tracking-widest text-on-surface-variant capitalize">{ex.muscle} · {ex.equipment}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+            <AltheaButton variant="primary" fullWidth onClick={() => setShowBiblio(false)}>Listo</AltheaButton>
+          </div>
+        </div>
+      )}
 
       {editTimeId && (
         <TimePickerModal
@@ -569,7 +766,7 @@ export default function Perfil() {
             <h3 className="font-headline-lg text-base font-semibold text-on-surface text-center">¿Cerrar sesión?</h3>
             <p className="text-sm text-on-surface-variant text-center">Tus datos locales se conservan.</p>
             <div className="flex gap-2">
-              <button onClick={() => setShowLogout(false)} className="flex-1 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
+              <button onClick={() => setShowLogout(false)} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
               <button onClick={handleLogout} className="flex-1 py-2.5 rounded-lg bg-secondary text-on-secondary font-label-caps text-[10px] uppercase font-bold">Cerrar sesión</button>
             </div>
           </div>
@@ -584,7 +781,7 @@ export default function Perfil() {
             <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder='Escribí "ELIMINAR"'
               className="w-full bg-surface-container-high/50 border border-red-900/50 rounded-xl p-3 font-body-md text-[15px] text-on-surface text-center" />
             <div className="flex gap-2">
-              <button onClick={() => { setShowDelete(false); setDeleteConfirm('') }} className="flex-1 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
+              <button onClick={() => { setShowDelete(false); setDeleteConfirm('') }} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
               <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'ELIMINAR'} className="flex-1 py-2.5 rounded-lg bg-red-600 text-white font-label-caps text-[10px] uppercase font-bold disabled:opacity-30">Eliminar</button>
             </div>
           </div>

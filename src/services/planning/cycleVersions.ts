@@ -1,5 +1,7 @@
 import { db } from '@/services/storage/db'
-import type { CycleConfig } from '@/utils/cycle'
+import { todayKey } from '@/utils/dates'
+import { getCycleFromProfile, type CycleConfig } from '@/utils/cycle'
+import type { UserProfile } from '@/types'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 
 // Versionado de planificación (FASE 3): el pasado no se modifica cuando
@@ -79,7 +81,7 @@ export async function savePlanning(input: SavePlanningInput): Promise<{ version:
       version: 1,
       status: 'active',
       createdAt: now,
-      effectiveFrom: input.effectiveFrom ?? input.cycle.startDate ?? now.slice(0, 10),
+      effectiveFrom: input.effectiveFrom ?? input.cycle.startDate ?? todayKey(),
       methodId: input.methodId ?? input.cycle.methodId,
       cycle: input.cycle,
       note: input.note,
@@ -99,7 +101,7 @@ export async function savePlanning(input: SavePlanningInput): Promise<{ version:
       previousVersionId: active.id,
       status: 'active',
       createdAt: now,
-      effectiveFrom: input.effectiveFrom ?? now.slice(0, 10),
+      effectiveFrom: input.effectiveFrom ?? todayKey(),
       methodId: input.methodId ?? input.cycle.methodId,
       cycle: input.cycle,
       note: input.note,
@@ -121,6 +123,15 @@ export async function savePlanning(input: SavePlanningInput): Promise<{ version:
 export async function getVersionForSession(session: { cycleId?: string }): Promise<CycleVersion | null> {
   if (!session.cycleId) { return null }
   return getVersion(session.cycleId)
+}
+
+// Lector canónico de ciclo con fallback legacy (snapshot profile.cycle).
+// Regla S3: migrar lectores a esta vía; conservar fallback LEGACY mientras exista
+// un lector funcional que dependa del snapshot. El snapshot NO se elimina aquí.
+export async function getCanonicalCycle(p: UserProfile | null): Promise<CycleConfig> {
+  const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+  if (pv?.cycle) { return pv.cycle }
+  return getCycleFromProfile(p)
 }
 
 // Agrupa sesiones por versión de planificación vigente al ejecutarlas.

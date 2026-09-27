@@ -1,7 +1,8 @@
-// PR / 1RM calculations — recalculables desde setRecords/setLogs (fuente canónica).
+﻿// PR / 1RM calculations — recalculables desde setRecords/setLogs (fuente canónica).
 // NO persistir PRs como hechos si derivan del historial.
 
 import type { SetRecord } from './domain'
+import { monthStartKey, toDateKey, toLocalDateKey, weekStartKey } from '@/utils/dates'
 
 export type OneRMFormula = 'epley' | 'brzycki' | 'lander' | 'lombardi' | 'mayhew' | 'oConner' | 'wathan'
 
@@ -117,11 +118,11 @@ export function consensus1RM(weight: number, reps: number): number {
 /** Unificar SetRecord oficiales + legacy setLogs para un ejercicio */
 export function toUnifiedSets(sets: SetRecord[]): Array<{ weight: number; reps: number; date: string; setRecordId: string }> {
   return sets
-    .filter(s => s.status === 'COMPLETED' && s.actualWeight > 0 && s.actualReps > 0)
+    .filter(s => s.status === 'COMPLETED' && (s.actualWeight ?? 0) > 0 && s.actualReps > 0)
     .map(s => ({
-      weight: s.actualWeight,
+      weight: s.actualWeight ?? 0,
       reps: s.actualReps,
-      date: (s.completedAt || s.createdAt || '').slice(0, 10),
+      date: toDateKey(s.completedAt || s.createdAt || ''),
       setRecordId: s.setRecordId,
     }))
 }
@@ -183,18 +184,7 @@ export function aggregateVolumeLandmarks(
   const buckets: Record<string, { volume: number; sets: number; reps: number; exercises: Set<string> }> = {}
 
   for (const s of unifiedSets) {
-    const d = new Date(s.date + 'T12:00:00')
-    let key: string
-    if (period === 'weekly') {
-      // Week start Monday
-      const diff = (d.getDay() + 6) % 7
-      d.setDate(d.getDate() - diff)
-      key = d.toISOString().slice(0, 10)
-    } else {
-      // Month start
-      d.setDate(1)
-      key = d.toISOString().slice(0, 10)
-    }
+    const key = period === 'weekly' ? weekStartKey(s.date) : monthStartKey(s.date)
     const vol = s.weight * s.reps
     if (!buckets[key]) { buckets[key] = { volume: 0, sets: 0, reps: 0, exercises: new Set() } }
     buckets[key].volume += vol

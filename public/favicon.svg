@@ -1,1 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#4f46e5"/><text x="50" y="68" text-anchor="middle" font-size="52" fill="white">💪</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Althea">
+  <defs>
+    <linearGradient id="altheaMarble" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d4b38"/>
+      <stop offset="1" stop-color="#123626"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="22" fill="url(#altheaMarble)"/>
+  <g fill="none" stroke="#eef1ed" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <path d="M32 71V38c0-3 1.6-4.6 4.6-4.6 2.4 0 4 1.2 4.6 3.2"/>
+    <path d="M50 71V29c0-2 1.4-3.2 3.4-3.2S57 27 57 29v42"/>
+    <path d="M68 71V44c0-2.4 1.4-3.8 3.8-3.8S76 41.6 76 44v27"/>
+  </g>
+  <path d="M24 71h52" fill="none" stroke="#eef1ed" stroke-width="3.2" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="32" cy="24" r="2.4" fill="#8fd0b4"/>
+</svg>

@@ -1,6 +1,7 @@
-// PROGRESS ANALYZER — Tendencia, plateau, correlación, predicción
+﻿// PROGRESS ANALYZER — Tendencia, plateau, correlación, predicción
 import { db } from '@/services/storage/db'
 import { unifiedCompletedSets } from '@/services/history'
+import { todayKey, dayKeyOffset, toDateKey, weekStartKey } from '@/utils/dates'
 
 export interface ProgressResult {
   trend: 'improving' | 'plateau' | 'declining'
@@ -19,17 +20,15 @@ export async function analyzeExercise(
   exerciseId: string,
   weeks = 8,
 ): Promise<ProgressResult> {
-  const since = new Date()
-  since.setDate(since.getDate() - weeks * 7)
-  const sinceStr = since.toISOString()
+  const sinceStr = dayKeyOffset(todayKey(), -weeks * 7)
 
   // Historial unificado y deduplicado (capa lógica única de lectura).
   const unified = await unifiedCompletedSets(exerciseId)
 
   const allLogs = unified
-    .filter(l => l.createdAt >= sinceStr)
+    .filter(l => toDateKey(l.createdAt) >= sinceStr)
     .map(l => ({
-      date: String(l.createdAt).slice(0, 10),
+      date: toDateKey(l.createdAt),
       weight: l.weight,
       reps: l.reps,
       volume: l.weight * l.reps,
@@ -79,12 +78,10 @@ export async function analyzeExercise(
 
 /** Analizar tendencia global (todos los ejercicios) */
 export async function analyzeGlobal(weeks = 4): Promise<ProgressResult> {
-  const since = new Date()
-  since.setDate(since.getDate() - weeks * 7)
-  const sinceStr = since.toISOString()
+  const sinceStr = dayKeyOffset(todayKey(), -weeks * 7)
 
   const sessions: any[] = await db.trainingSessions.toArray().catch(() => [])
-  const finals = sessions.filter(s => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus) && s.calendarDate >= sinceStr.slice(0, 10))
+  const finals = sessions.filter(s => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus) && s.calendarDate >= sinceStr)
 
   if (finals.length < 3) {
     return { trend: 'plateau', rate: 0, confidence: 0.2, plateauWeeks: 0, volumeTrend: [], sufficientData: false }
@@ -119,8 +116,5 @@ export async function analyzeGlobal(weeks = 4): Promise<ProgressResult> {
 }
 
 function getWeekKey(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  const diff = (d.getDay() + 6) % 7
-  d.setDate(d.getDate() - diff)
-  return d.toISOString().slice(0, 10)
+  return weekStartKey(dateStr)
 }

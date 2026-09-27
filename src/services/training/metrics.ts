@@ -1,5 +1,6 @@
 // Métricas recalculables desde SetRecord/SessionExercise (§35-37, §39). Sin doble fuente.
 import type { SetRecord, SessionExercise } from './domain';
+import { todayKey, dayKeyOffset } from '@/utils/dates';
 
 export interface Completion { exPct: number; setPct: number; completedEx: number; plannedEx: number; completedSets: number; plannedSets: number }
 
@@ -20,7 +21,7 @@ export function volumeOf(sets: SetRecord[]): { reps: number; volume: number } {
   for (const s of sets) {
     if (s.status !== 'COMPLETED') {continue;}
     reps += s.actualReps;
-    volume += s.actualReps * s.actualWeight;
+    volume += s.actualReps * (s.actualWeight ?? 0);
   }
   return { reps, volume: Math.round(volume * 10) / 10 };
 }
@@ -34,7 +35,7 @@ export function muscleWorkOf(
   const acc = new Map<string, number>();
   for (const s of sets) {
     if (s.status !== 'COMPLETED') {continue;}
-    const v = s.actualReps * s.actualWeight;
+    const v = s.actualReps * (s.actualWeight ?? 0);
     const m = muscleOf(s.exerciseId);
     acc.set(m.primary, (acc.get(m.primary) ?? 0) + v * weights.primary);
     if (m.secondary[0]) {acc.set(m.secondary[0], (acc.get(m.secondary[0]) ?? 0) + v * weights.secondary1);}
@@ -183,16 +184,14 @@ export function isDateInPeriod(
   period: AnalysisPeriod,
   opts: { customStart?: string; customEnd?: string; today?: string } = {},
 ): boolean {
-  const today = opts.today ?? new Date().toISOString().slice(0, 10)
+  const today = opts.today ?? todayKey()
   if (period === 'all') { return true }
   if (period === 'custom') {
     if (opts.customStart && dateStr < opts.customStart) { return false }
     if (opts.customEnd && dateStr > opts.customEnd) { return false }
     return true
   }
-  const cut = new Date(today + 'T12:00:00')
-  cut.setDate(cut.getDate() - Number(period) + 1)
-  const cutStr = cut.toISOString().slice(0, 10)
+  const cutStr = dayKeyOffset(today, -(Number(period) - 1))
   return dateStr >= cutStr && dateStr <= today
 }
 

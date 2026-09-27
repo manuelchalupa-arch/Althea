@@ -4,6 +4,7 @@ import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import { fetchByMuscle, type Exercise } from '@/services/exerciseGym'
 import { GROUP_MAP } from '@/utils/muscleMap'
+import { todayKey } from '@/utils/dates'
 import { getGroqUrl, getGroqHeaders } from './groqConfig'
 
 const MODEL = 'openai/gpt-oss-20b'
@@ -37,7 +38,78 @@ export interface GeneratedRoutine {
 }
 
 function isAvailable(): boolean {
-  return !!getGroqUrl()
+  try {
+    return !!import.meta.env.VITE_GROQ_PROXY_URL
+  } catch { return false }
+}
+
+function goalToMethodId(goal: string): TrainingMethodId {
+  const g = goal.toLowerCase()
+  if (g.includes('fuerza')) return 'strength'
+  if (g.includes('perdida_grasa') || g.includes('grasa')) return 'hiit'
+  if (g.includes('resistencia')) return 'strength_endurance'
+  if (g.includes('hipertrofia')) return 'hypertrophy'
+  return 'hypertrophy'
+}
+
+// Fallback local 100% offline — usa misma estructura que IA pero sin API, garantiza selección funciona
+async function generateRoutineFallback(wants: UserWants): Promise<GeneratedRoutine> {
+  const methodId = goalToMethodId(wants.goal)
+  const { buildCycleFromMethod } = await import('@/utils/cycle')
+  const cycle = buildCycleFromMethod(methodId, undefined, todayKey())
+  // Ajusta cantidad de días según lo seleccionado
+  const desiredDays = Math.max(2, Math.min(6, wants.daysPerWeek))
+  const { GROUP_MAP, PIERNA_FAMILY } = await import('@/utils/muscleMap')
+  // Mapea focus a split
+  const focusMap: Record<string, string[]> = {
+    general: cycle.trainingDays.map(d => d.name),
+    tren_superior: ['Pecho + Tríceps', 'Espalda + Bíceps', 'Hombros + Abdomen'],
+    tren_inferior: ['Piernas', 'Glúteos + Gemelos', 'Cuádriceps + Isquios'],
+    empuje_tirón: ['Empuje', 'Tirón', 'Piernas'],
+    cuerpo_completo: Array.from({ length: desiredDays }, (_, i) => `Cuerpo completo ${i + 1}`),
+  }
+  const dayNames = focusMap[wants.focus] ?? cycle.trainingDays.map(d => d.name)
+  const trainingDays = Array.from({ length: desiredDays }, (_, i) => ({ n: i + 1, name: dayNames[i % dayNames.length] }))
+  const weekMap: (number | null)[] = [null, null, null, null, null, null, null]
+  const preferred = [1, 2, 3, 4, 5].slice(0, desiredDays)
+  preferred.forEach((dow, i) => { weekMap[dow] = i + 1 })
+  const finalCycle = { ...cycle, trainingDays, weekMap, methodId, methodJustification: `Método ${methodId} seleccionado localmente por objetivo ${wants.goal} y foco ${wants.focus}. Sin IA externa — rutina válida offline.` }
+  // Recolecta ejercicios por día (mínimo 3 por día, respeta lesiones/excluidos)
+  const profile: any = await db.userProfile.get('me').catch(() => null) || {}
+  const excluded: string[] = profile.excludedExercises || []
+  const painAreas: string[] = profile.painAreas || []
+  const shouldExclude = (ex: Exercise) => {
+    if (excluded.includes(ex.id)) return true
+    if (wants.injuryNote && ex.name.toLowerCase().includes(wants.injuryNote.toLowerCase())) return true
+    if (painAreas.some((p: string) => ex.muscle.toLowerCase().includes(p.toLowerCase()))) return false // no bloquea, solo prioriza
+    return false
+  }
+  const dayExercises: GeneratedRoutine['dayExercises'] = {}
+  for (const d of trainingDays) {
+    const { parseDayMuscles } = await import('@/utils/muscleMap')
+    const muscles = parseDayMuscles(d.name)
+    const fetches = await Promise.allSettled((muscles.length ? muscles : ['quads']).map(m => fetchByMuscle(m)))
+    let pool: Exercise[] = []
+    fetches.forEach(r => { if (r.status === 'fulfilled' && r.value?.exercises) pool.push(...r.value.exercises) })
+    // Fallback si familia vacía: trae todo y filtra
+    if (pool.length === 0) {
+      const all = await fetchByMuscle('quads').then(r => r.exercises).catch(() => [])
+      pool = all as Exercise[]
+    }
+    const filtered = pool.filter(e => !shouldExclude(e))
+    const chosen = filtered.slice(0, 4)
+    dayExercises[d.n] = chosen.map(e => ({
+      id: uid(), exId: e.id, name: e.name, muscle: e.muscle, sets: 3, reps: 10, weight: 0, gifUrl: e.gifUrl,
+    }))
+  }
+  return {
+    name: `Rutina ${wants.goal} — ${desiredDays} días (${wants.focus})`,
+    cycle: finalCycle,
+    dayExercises,
+    explanation: {
+      goal: wants.goal, method: methodId, distribution: `${desiredDays} días/semana — foco ${wants.focus}`, intensity: 'Moderada (ajustable en cada serie)', progression: 'Subí 2.5kg cuando completes todas las reps', keyFeatures: ['Generada localmente (sin IA externa)', 'Respeta lesiones/excluidos', 'Ejercicios verificados'],
+    },
+  }
 }
 
 function uid(): string {
@@ -63,7 +135,15 @@ async function collectContext(wants: UserWants): Promise<{
   profile: any; history: string; style: any; methodName: string; exercises: Record<string, CompactEx[]>
 }> {
   const profile = await db.userProfile.get('me').catch(() => null) as any || {}
-  const coachingMethod = (profile?.cycle?.methodId || 'hypertrophy') as TrainingMethodId
+  // Método vigente de la planificación (canónico). Snapshot profile.cycle como
+  // fallback; 'hypertrophy' solo si no hay ninguna fuente (comportamiento previo).
+  let canonicalMethodId: string | null = null
+  try {
+    const { getActiveVersion, PROFILE_SCOPE } = await import('@/services/planning/cycleVersions')
+    const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+    canonicalMethodId = pv?.methodId ?? pv?.cycle?.methodId ?? null
+  } catch { /* noop */ }
+  const coachingMethod = (canonicalMethodId || profile?.cycle?.methodId || 'hypertrophy') as TrainingMethodId
   const style = METHOD_COACHING_STYLES[coachingMethod]
   const method = getMethod(coachingMethod)
 
@@ -91,7 +171,10 @@ async function collectContext(wants: UserWants): Promise<{
   } catch { /* noop */ }
 
   const muscleEx: Record<string, CompactEx[]> = {}
-  const muscles = [...new Set(Object.values(GROUP_MAP))]
+  // Expande familia Piernas (__piernas__ placeholder) a músculos reales — evita fetch 404 que deja sin ejercicios a IA
+  const { PIERNA_FAMILY } = await import('@/utils/muscleMap')
+  const rawMuscles = [...new Set(Object.values(GROUP_MAP))]
+  const muscles: string[] = rawMuscles.flatMap(m => (m === '__piernas__' ? PIERNA_FAMILY : [m])).filter(Boolean)
   const fetches = await Promise.allSettled(muscles.map(m => fetchByMuscle(m)))
   for (let i = 0; i < muscles.length; i++) {
     const r = fetches[i]
@@ -110,7 +193,7 @@ function buildPrompt(ctx: {
 }, wants: UserWants): string {
   const p = ctx.profile || {}
   const s = ctx.style
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayKey()
   const time = p.sessionDurationMin || p.schedule?.sessionDurationMin || 60
 
   const exLines = Object.entries(ctx.exercises)
@@ -243,34 +326,38 @@ async function callGroq(_apiKey: string, prompt: string, attempt = 0): Promise<s
 }
 
 export async function generateRoutineWithAI(wants: UserWants): Promise<GeneratedRoutine> {
-  if (!isAvailable()) {throw new Error('API proxy no configurado. Configurá VITE_GROQ_PROXY_URL en .env')}
+  // Sin proxy/key → fallback local inmediato (seleccionar siempre funciona)
+  if (!isAvailable()) {
+    return generateRoutineFallback(wants)
+  }
 
   const cooldown = canRequestNow()
   if (!cooldown.ok) {
     throw new Error(`Rate limit: esperá ${cooldown.waitSec}s antes de generar otra rutina.`)
   }
 
-  const ctx = await collectContext(wants)
-  const prompt = buildPrompt(ctx, wants)
-
-  markRequested()
-  const content = await callGroq('', prompt)
-
-  if (!content) {throw new Error('Respuesta vacía de Groq.')}
-
-  const jsonStr = extractJSON(content)
-
-  let parsed: any
   try {
-    parsed = JSON.parse(jsonStr)
-  } catch {
-    throw new Error('La IA no devolvió JSON válido. Reintentá.')
-  }
+    const ctx = await collectContext(wants)
+    const prompt = buildPrompt(ctx, wants)
+
+    markRequested()
+    const content = await callGroq('', prompt)
+
+    if (!content) {throw new Error('Respuesta vacía de Groq.')}
+
+    const jsonStr = extractJSON(content)
+
+    let parsed: any
+    try {
+      parsed = JSON.parse(jsonStr)
+    } catch {
+      throw new Error('La IA no devolvió JSON válido. Reintentá.')
+    }
 
   // Normalize methodId
   if (parsed.cycle) {
     parsed.cycle.methodId = (parsed.cycle.methodId || 'hypertrophy') as TrainingMethodId
-    if (!parsed.cycle.startDate) {parsed.cycle.startDate = new Date().toISOString().slice(0, 10)}
+    if (!parsed.cycle.startDate) {parsed.cycle.startDate = todayKey()}
   }
 
   // Validate structure
@@ -309,11 +396,15 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
     }
   }
 
-  return parsed as GeneratedRoutine
+    return parsed as GeneratedRoutine
+  } catch (e) {
+    console.warn('IA Groq falló, usando fallback local:', e)
+    return generateRoutineFallback(wants)
+  }
 }
 
 export function isRoutineAIAvailable(): boolean {
-  return isAvailable()
+  return true // Fallback local garantiza que "Crear con IA" siempre esté disponible, con o sin proxy
 }
 
 export function getRateLimitInfo(): { waitSec: number } {

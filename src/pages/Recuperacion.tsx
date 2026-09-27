@@ -1,87 +1,121 @@
 import { useState, useEffect } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { db } from '@/services/storage/db'
-import { AlertTriangle, Sparkles } from 'lucide-react'
-import { AltheaCard, AltheaCardHeader, AltheaBadge, StatusTag, AltheaProgress, AltheaButton } from '@/components/althea'
-import { HydrationWidget } from '@/components/recovery/HydrationWidget'
-import { SleepForm } from '@/components/recovery/SleepForm'
-import { RecoveryCheckForm, type RecoveryCheckValues } from '@/components/recovery/RecoveryCheckForm'
+import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaLoading, AltheaEmpty } from '@/components/althea'
+import { WaterBottle } from '@/components/recovery/WaterBottle'
+import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
+import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'
 import { RecommendationCard, type Recommendation } from '@/components/recovery/RecommendationCard'
-import { getTodayHydration, getHydrationGoal } from '@/services/recovery/recoveryService'
-import { analyzeRecovery } from '@/services/ai/recoveryAnalyzer'
+import { getRecoveryHistory } from '@/services/recovery/recoveryService'
+import { analyzeRecovery, type RecoveryContext } from '@/services/ai/recoveryAnalyzer'
 import { logDecision } from '@/services/ai/decisionLogger'
+import type { RecoveryCheck } from '@/types'
 
-export default function Recuperacion(){
-  const today = new Date().toISOString().slice(0,10)
-  const [vals,setVals]=useState<RecoveryCheckValues>({ energy:7, fatigue:4, pain:2, mood:7, motivation:7, perceivedExertion:5, stress:3, painArea:'', painObservation:'' })
-  const [score,setScore]=useState(0)
-  const [color,setColor]=useState<'green'|'yellow'|'red'>('green')
-  const [hydration, setHydration] = useState(0)
-  const [goal, setGoal] = useState(2500)
+const TREND_LABEL: Record<RecoveryContext['trend'], string> = {
+  improving: 'En mejora',
+  stable: 'Estable',
+  declining: 'En descenso',
+}
+
+const TREND_VARIANT: Record<RecoveryContext['trend'], 'success' | 'default' | 'danger'> = {
+  improving: 'success',
+  stable: 'default',
+  declining: 'danger',
+}
+
+function scoreTone(score: number): string {
+  if (score >= 70) {return 'bg-secondary'}
+  if (score >= 45) {return 'bg-tertiary'}
+  return 'bg-error'
+}
+
+function shortDate(s: string | undefined): string {
+  if (!s) {return ''}
+  const [, m, d] = s.split('-')
+  return `${d}/${m}`
+}
+
+function buildRecommendations(ctx: RecoveryContext): Recommendation[] {
+  const recs: Recommendation[] = []
+  const ts = new Date().toISOString()
+  if (ctx.lastScore === null) {
+    recs.push({
+      id: 'rec-nodata',
+      type: 'recovery',
+      title: 'Sin datos suficientes',
+      description: 'Todavía no hay suficientes check-ins para generar una recomendación fiable.',
+      reasoning: 'Hipótesis, no hecho: sin historial de recuperación no se puede inferir tendencia.',
+      evidence: ['Dato: 0 check-ins con score en historial'],
+      severity: 'info',
+      timestamp: ts,
+    })
+  } else if (ctx.consecutiveLow >= 2 || ctx.lastScore < 45) {
+    recs.push({
+      id: 'rec-deload',
+      type: 'recovery',
+      title: 'Considerar descarga o descanso activo',
+      description: 'Tu recuperación viene baja. Valorar bajar volumen hoy.',
+      reasoning: 'Cálculo a partir de tus registros: racha de scores bajos y tendencia reciente.',
+      evidence: [
+        `Dato: último score ${ctx.lastScore}/100`,
+        `Dato: ${ctx.consecutiveLow} día(s) consecutivos con score < 60`,
+        `Cálculo: tendencia ${ctx.trend}, fatiga promedio ${ctx.fatigueAvg.toFixed(1)}/10`,
+      ],
+      action: { label: 'Aceptar sugerencia', type: 'accept' },
+      severity: ctx.lastScore < 45 ? 'critical' : 'warning',
+      timestamp: ts,
+    })
+  } else if (ctx.lastScore >= 70) {
+    recs.push({
+      id: 'rec-optimal',
+      type: 'recovery',
+      title: 'Recuperación óptima',
+      description: 'Indicadores en rango. Podés entrenar según lo planificado.',
+      reasoning: 'Cálculo a partir de tus registros recientes.',
+      evidence: [`Dato: último score ${ctx.lastScore}/100`, `Cálculo: tendencia ${ctx.trend}`],
+      severity: 'info',
+      timestamp: ts,
+    })
+  }
+  return recs
+}
+
+export default function Recuperacion() {
+  const [ctx, setCtx] = useState<RecoveryContext | null>(null)
+  const [history, setHistory] = useState<RecoveryCheck[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [showWhyIds, setShowWhyIds] = useState<string[]>([])
+  const [savedScore, setSavedScore] = useState<number | null>(null)
 
   useEffect(() => {
-    const loadHydration = async () => {
-      const h = await getTodayHydration()
-      const g = await getHydrationGoal()
-      setHydration(h)
-      setGoal(g)
-    }
-    loadHydration()
-  }, [])
-
-  useEffect(() => {
-    const loadRecommendations = async () => {
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      setError(false)
       try {
-        const ctx = await analyzeRecovery()
-        const recs: Recommendation[] = []
-        const ts = new Date().toISOString()
-        if (ctx.lastScore === null) {
-          recs.push({
-            id: 'rec-nodata',
-            type: 'recovery',
-            title: 'Sin datos suficientes',
-            description: 'Todavía no hay suficientes check-ins para generar una recomendación fiable.',
-            reasoning: 'Hipótesis, no hecho: sin historial de recuperación no se puede inferir tendencia.',
-            evidence: ['Dato: 0 check-ins con score en historial'],
-            severity: 'info',
-            timestamp: ts,
-          })
-        } else if (ctx.consecutiveLow >= 2 || ctx.lastScore < 45) {
-          recs.push({
-            id: 'rec-deload',
-            type: 'recovery',
-            title: 'Considerar descarga o descanso activo',
-            description: 'Tu recuperación viene baja. Valorar bajar volumen hoy.',
-            reasoning: 'Cálculo a partir de tus registros: racha de scores bajos y tendencia reciente.',
-            evidence: [
-              `Dato: último score ${ctx.lastScore}/100`,
-              `Dato: ${ctx.consecutiveLow} día(s) consecutivos con score < 60`,
-              `Cálculo: tendencia ${ctx.trend}, fatiga promedio ${ctx.fatigueAvg.toFixed(1)}/10`,
-            ],
-            action: { label: 'Aceptar sugerencia', type: 'accept' },
-            severity: ctx.lastScore < 45 ? 'critical' : 'warning',
-            timestamp: ts,
-          })
-        } else if (ctx.lastScore >= 70) {
-          recs.push({
-            id: 'rec-optimal',
-            type: 'recovery',
-            title: 'Recuperación óptima',
-            description: 'Indicadores en rango. Podés entrenar según lo planificado.',
-            reasoning: 'Cálculo a partir de tus registros recientes.',
-            evidence: [`Dato: último score ${ctx.lastScore}/100`, `Cálculo: tendencia ${ctx.trend}`],
-            severity: 'info',
-            timestamp: ts,
-          })
-        }
-        setRecommendations(recs)
+        const [analysis, recent] = await Promise.all([analyzeRecovery(), getRecoveryHistory(7)])
+        if (cancelled) {return}
+        setCtx(analysis)
+        setHistory(recent)
+        setRecommendations(buildRecommendations(analysis))
       } catch {
-        setRecommendations([])
+        if (!cancelled) {setError(true)}
+      } finally {
+        if (!cancelled) {setLoading(false)}
       }
     }
-    loadRecommendations()
-  }, [])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [reloadKey])
+
+  const reload = () => {
+    setReloadKey(k => k + 1)
+  }
 
   const handleRecAction = async (id: string, action: 'accept' | 'modify' | 'dismiss') => {
     const rec = recommendations.find(r => r.id === id)
@@ -110,63 +144,174 @@ export default function Recuperacion(){
     setShowWhyIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  const handleCheckChange = (v: RecoveryCheckValues, s: number, c: 'green' | 'yellow' | 'red') => {
-    setVals(v); setScore(s); setColor(c)
+  const handleCheckSaved = (s: number) => {
+    setSavedScore(s)
+    window.setTimeout(() => setSavedScore(null), 3000)
   }
 
-  const handleCheckSaved = (s: number) => {
-    alert(`Guardado: ${s}/100 — disponible para IA y gráficos`)
-  }
+  const scores = history.filter(c => typeof c.score === 'number').slice(-7)
+  const factors = ctx?.lastCheck ? [
+    { label: 'Energía', value: ctx.lastCheck.energy },
+    { label: 'Fatiga', value: ctx.lastCheck.fatigue },
+    { label: 'Dolor', value: ctx.lastCheck.pain },
+    { label: 'Estado de ánimo', value: ctx.lastCheck.mood },
+    { label: 'Estrés', value: ctx.lastCheck.stress },
+  ] : []
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
       <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Recuperación</h1>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div className="lg:col-span-8 space-y-3">
-      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Check-in de hoy</div>
-      <RecoveryCheckForm onChange={handleCheckChange} onSaved={handleCheckSaved} />
-
-      {recommendations.length > 0 && (
-        <div className="space-y-3">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Recomendaciones (no modifican tu rutina automáticamente)</div>
-          {recommendations.map(r => (
-            <RecommendationCard
-              key={r.id}
-              recommendation={r}
-              onAction={handleRecAction}
-              showWhy={showWhyIds.includes(r.id)}
-              onToggleWhy={() => toggleWhy(r.id)}
+        <div className="lg:col-span-8 space-y-4">
+          <AltheaCard level={2}>
+            <AltheaCardHeader
+              title="Check-in de hoy"
+              subtitle="Tu estado real queda guardado en el dispositivo (Dexie) y alimenta IA y gráficos."
+              icon="monitor_heart"
+              action={savedScore !== null ? (
+                <AltheaBadge variant="success" dot>Guardado {savedScore}/100</AltheaBadge>
+              ) : undefined}
             />
-          ))}
-        </div>
-      )}
+            <RecoveryCheckForm onSaved={handleCheckSaved} />
+          </AltheaCard>
 
-      </div>
-      <div className="lg:col-span-4 space-y-3 hidden lg:block">
-        <div className={`rounded p-4 text-center border ${color==='green'?'bg-emerald-900/30 border-emerald-800':color==='yellow'?'bg-amber-900/30 border-amber-800':'bg-red-900/30 border-red-800'}`}>
-          <div className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">{score}<span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-sm">/100</span></div>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">{color==='green'?'Normal':color==='yellow'?'Moderada':'Baja'}</div>
-        </div>
-        <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><AlertTriangle size={14}/> Último check-in</div>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-sm">Hoy — {new Date().toLocaleDateString('es')}</div>
-          <div className="font-body-md text-sm text-on-surface font-medium">Energía: {vals.energy}/10 · Fatiga: {vals.fatigue}/10</div>
-        </div>
-        <div className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Sparkles size={14}/> Tips de recuperación</div>
-          <ul className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-xs space-y-1.5 list-disc list-inside">
-            <li>Dormí 7–8h para óptima recuperación</li>
-            <li>Mantené hidratación diaria</li>
-            <li>Si el score { '<' } 50, considerá descanso activo</li>
-          </ul>
-        </div>
-        
-        <div className="space-y-3">
-          <HydrationWidget />
-          <SleepForm />
-        </div>
-      </div>
+          <AltheaCard level={2}>
+            <AltheaCardHeader title="Estado y evolución" subtitle="Datos reales de tus últimos check-ins." icon="trending_up" />
+            {loading ? (
+              <AltheaLoading lines={3} />
+            ) : error ? (
+              <div className="rounded-lg bg-error/15 border border-error/40 p-4 space-y-3">
+                <p className="font-body-sm text-sm text-on-surface">No se pudieron cargar tus datos de recuperación.</p>
+                <AltheaButton variant="secondary" size="md" className="min-h-[48px]" onClick={reload}>
+                  <RefreshCw size={16} className="mr-1" /> Reintentar
+                </AltheaButton>
+              </div>
+            ) : (!ctx || ctx.lastScore === null) ? (
+              <AltheaEmpty
+                icon="spa"
+                title="Sin datos de recuperación todavía"
+                description="Completá tu primer check-in para ver tu estado, evolución y factores."
+              />
+            ) : (
+              <div className="space-y-5">
+                <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
+                  <div className="flex items-end gap-1">
+                    <span className="font-headline-lg text-4xl lg:text-5xl font-semibold tracking-tight text-on-surface leading-none">{ctx.lastScore}</span>
+                    <span className="font-label-md text-xs uppercase tracking-widest text-on-surface-variant pb-1">/100</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <AltheaBadge variant={TREND_VARIANT[ctx.trend]} dot>{TREND_LABEL[ctx.trend]}</AltheaBadge>
+                    {ctx.consecutiveLow > 0 && (
+                      <AltheaBadge variant="danger" dot>{ctx.consecutiveLow} día(s) seguidos en baja</AltheaBadge>
+                    )}
+                  </div>
+                </div>
 
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-on-surface-variant">
+                  <span>Energía promedio (3 días): {ctx.energyAvg.toFixed(1)}/10</span>
+                  <span>Fatiga promedio (3 días): {ctx.fatigueAvg.toFixed(1)}/10</span>
+                </div>
+
+                <div>
+                  <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-2">Factores del último check-in</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                    {factors.map(f => (
+                      <div key={f.label} className="rounded-lg bg-surface-container-low/90 border border-outline-variant px-3 py-2">
+                        <div className="font-label-md text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant">{f.label}</div>
+                        <div className="font-body-md text-base font-semibold text-on-surface mt-0.5">{f.value}/10</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-2">Evolución reciente</div>
+                  {scores.length > 0 ? (
+                    <div className="flex items-end gap-2 h-28">
+                      {scores.map(c => (
+                        <div key={c.localDate} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                          <div
+                            className={`w-full rounded-t-md ${scoreTone(c.score ?? 0)}`}
+                            style={{ height: `${Math.max(10, c.score ?? 0)}%` }}
+                            title={`${c.score}/100`}
+                          />
+                          <span className="text-[9px] text-on-surface-variant">{shortDate(c.localDate)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="font-body-sm text-sm text-on-surface-variant">Sin historial de scores todavía.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </AltheaCard>
+
+          <AltheaCard level={2}>
+            <AltheaCardHeader title="Recomendaciones" subtitle="No modifican tu rutina automáticamente." icon="lightbulb" />
+            {loading ? (
+              <AltheaLoading lines={2} />
+            ) : error ? (
+              <div className="rounded-lg bg-error/15 border border-error/40 p-4 space-y-3">
+                <p className="font-body-sm text-sm text-on-surface">No se pudieron generar recomendaciones.</p>
+                <AltheaButton variant="secondary" size="md" className="min-h-[48px]" onClick={reload}>
+                  <RefreshCw size={16} className="mr-1" /> Reintentar
+                </AltheaButton>
+              </div>
+            ) : recommendations.length === 0 ? (
+              <AltheaEmpty
+                icon="task_alt"
+                title="Sin recomendaciones activas"
+                description="No hay alertas pendientes. Tus indicadores están dentro de los rangos esperados."
+              />
+            ) : (
+              <div className="space-y-3">
+                {recommendations.map(r => (
+                  <RecommendationCard
+                    key={r.id}
+                    recommendation={r}
+                    onAction={handleRecAction}
+                    showWhy={showWhyIds.includes(r.id)}
+                    onToggleWhy={() => toggleWhy(r.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </AltheaCard>
+        </div>
+
+        <div className="lg:col-span-4 space-y-4">
+          <AltheaCard level={2} padding="md">
+            <AltheaCardHeader title="Hidratación" subtitle="Consumo real contra objetivo calculado" icon="water_drop" />
+            <WaterBottle />
+            <div className="mt-3 pt-3 border-t border-outline-variant/30">
+              <BottleConfigEditor />
+            </div>
+          </AltheaCard>
+
+          <AltheaCard level={2}>
+            <AltheaCardHeader title="Últimos días" icon="history" />
+            {history.length > 0 ? (
+              <div className="divide-y divide-outline-variant/30">
+                {history.slice(-5).reverse().map(c => (
+                  <div key={c.localDate} className="flex items-center justify-between py-2.5">
+                    <span className="font-body-md text-sm text-on-surface">{shortDate(c.localDate)}</span>
+                    {typeof c.score === 'number' ? (
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${scoreTone(c.score)}`} />
+                        <span className="font-body-md text-sm font-semibold text-on-surface">{c.score}/100</span>
+                      </div>
+                    ) : (
+                      <span className="font-body-sm text-xs text-on-surface-variant">Sin score</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="font-body-sm text-sm text-on-surface-variant">Sin check-ins guardados todavía.</p>
+            )}
+          </AltheaCard>
+        </div>
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 // MEMORY MANAGER — Memoria expandida: preferencias, patrones, historial
 import { db } from '@/services/storage/db'
 import { getAllDecisions, getAllAnswers, getPrefs } from './coachMemory'
+import { weekdayOfKey } from '@/utils/dates'
 
 export interface UserMemory {
   preferences: Record<string, unknown>
@@ -42,7 +43,7 @@ export async function buildUserMemory(): Promise<UserMemory> {
   // Frecuencias de día
   const dayCounts: Record<string, number> = {}
   for (const d of decisions) {
-    const dow = new Date(d.date).getDay()
+    const dow = weekdayOfKey(d.date)
     dayCounts[dow] = (dayCounts[dow] || 0) + 1
   }
 

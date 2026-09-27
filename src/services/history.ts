@@ -1,4 +1,5 @@
 import { db } from '@/services/storage/db'
+import { toDateKey } from '@/utils/dates'
 
 // Esquema NoSQL (Dexie) — agnóstico a rutina
 // setLogs: { id, sessionId, exerciseId (ID_ejercicio PK), setNumber, weight, reps, completed, createdAt, updatedAt }
@@ -77,7 +78,7 @@ async function fetchUnifiedSets(exerciseId?: string, includeDemo = false): Promi
     exerciseId: String(r.exerciseId ?? ''),
     order: Number(r.order ?? 0),
     weight: Number(r.actualWeight ?? 0), reps: Number(r.actualReps ?? 0),
-    date: String(r.completedAt ?? r.createdAt ?? '').slice(0, 10),
+    date: toDateKey(String(r.completedAt ?? r.createdAt ?? '')),
     timestamp: String(r.completedAt ?? r.createdAt ?? ''),
     source: 'official' as const,
   }));
@@ -87,7 +88,7 @@ async function fetchUnifiedSets(exerciseId?: string, includeDemo = false): Promi
     exerciseId: String(l.exerciseId ?? ''),
     order: Number(l.setNumber ?? 0),
     weight: Number(l.weight ?? 0), reps: Number(l.reps ?? 0),
-    date: String(l.createdAt ?? '').slice(0, 10),
+    date: toDateKey(String(l.createdAt ?? '')),
     timestamp: String(l.createdAt ?? ''),
     source: 'legacy' as const,
   }));
@@ -121,7 +122,7 @@ export async function getLastExecutionByExercise(exerciseId: string){
   if(logs.length===0) {return null}
   const bySession = new Map<string, typeof logs>()
   for (const l of logs) {
-    const key = l.sessionId || `date:${l.createdAt.slice(0, 10)}`
+    const key = l.sessionId || `date:${toDateKey(l.createdAt)}`
     const arr = bySession.get(key) || []
     arr.push(l)
     bySession.set(key, arr)
@@ -136,7 +137,7 @@ export async function getLastExecutionByExercise(exerciseId: string){
   const first = lastSets[0]
   const sessionId = first?.sessionId || ''
   return {
-    date: bestTs.slice(0,10),
+    date: toDateKey(bestTs),
     timestamp: bestTs,
     sessionId,
     sets: lastSets.map(s=> ({ setNumber: s.setNumber, weight: s.weight, reps: s.reps, completed: s.completed }))

@@ -17,6 +17,14 @@ async function seedSets(exerciseId: string, days: { date: string; weight: number
   }
 }
 
+// Fixtures relativos a hoy: la ventana de análisis de progressAnalyzer se
+// calcula desde la fecha actual, nunca con fechas fijas (evita drift).
+function daysAgo(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return d.toISOString().slice(0, 10)
+}
+
 describe('ET15 — Analítica avanzada honesta', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -40,15 +48,15 @@ describe('ET15 — Analítica avanzada honesta', () => {
 
   it('meseta: sin evidencia suficiente no se afirma', async () => {
     await seedSets('ex-006', [
-      { date: '2026-09-01', weight: 80, reps: 8 },
-      { date: '2026-09-08', weight: 80, reps: 8 },
+      { date: daysAgo(28), weight: 80, reps: 8 },
+      { date: daysAgo(21), weight: 80, reps: 8 },
     ])
     const r = await analyzeExercise('ex-006')
     expect(r.sufficientData).toBe(false)
   })
 
   it('meseta: con evidencia suficiente se detecta', async () => {
-    const days = ['2026-07-01', '2026-07-08', '2026-07-15', '2026-07-22', '2026-07-29', '2026-08-05', '2026-08-12', '2026-08-19']
+    const days = Array.from({ length: 8 }, (_, i) => daysAgo((7 - i) * 7))
     await seedSets('ex-006', days.map(date => ({ date, weight: 80, reps: 8 })))
     const r = await analyzeExercise('ex-006', 12)
     expect(r.sufficientData).toBe(true)

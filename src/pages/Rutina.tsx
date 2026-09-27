@@ -1,40 +1,56 @@
 import { useEffect, useState } from 'react'
 import { db, ensureSeeded } from '@/services/storage/db'
 import type { Exercise, UserProfile } from '@/types'
-import { DEFAULT_CYCLE, type CycleConfig } from '@/utils/cycle'
+import { DEFAULT_CYCLE, type CycleConfig, type LoadState, LOAD_STATE_LABEL, LOAD_STATE_COLOR, getWeekLoads } from '@/utils/cycle'
 import { v4 as uuid } from 'uuid'
 import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye, Sparkles, X, Check, RefreshCw } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { IconDumbbell, IconFire, IconLightning, IconBody, IconTarget } from '@/components/brand/FitnessIcons'
-import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaSection } from '@/components/althea'
+import { AltheaCard, AltheaBadge, AltheaButton, AltheaEmpty, AltheaLoading, StatusTag } from '@/components/althea'
 import { generateRoutineWithAI, isRoutineAIAvailable, type GeneratedRoutine, type UserWants } from '@/services/ai/routineBuilderIA'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
-import { getCycleFromProfile } from '@/utils/cycle'
+import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import * as Gym from '@/services/exerciseGym'
 import { PeriodizationEditor } from '@/components/recovery/PeriodizationEditor'
 import { MAX_ROUTINES } from '@/services/storage/routineStore'
+import { todayKey, addDaysToKey, toDateKey, daysBetween } from '@/utils/dates'
 
 const WEEK_LABELS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
+
+// (E) Fecha de revisión por defecto al crear: creación + período de rotación.
+const defaultReviewDate = (createdAtISO: string, rotationDays: number) => addDaysToKey(toDateKey(createdAtISO), rotationDays)
 
 function getMethodDefaults(cycle: CycleConfig) {
   const method = cycle?.methodId ? getMethod(cycle.methodId) : undefined
   return {
     sets: method?.defaults.setsPerExercise ?? 3,
     reps: method?.defaults.repsRange?.[1] ?? 10,
-    weight: 0,
+    // Sin peso informado = null (nunca 0 por defecto).
+    weight: null as number | null,
   }
 }
 
+type RutinaSeriesPlan = { reps: number; weight: number | null }
+type RutinaDayExercise = {
+  id:string; exId:string; sets:number; reps:number;
+  /** null = sin peso informado. Nunca se escribe 0 por dejar el campo vacío. */
+  weight:number | null;
+  /** Plan POR SERIE: fuente de verdad cuando existe. */
+  series?: RutinaSeriesPlan[]
+  gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string; restSec?:number; seriesType?:string; routineExerciseId?:string
+}
 type RutinaData = {
   id: string
   name: string
   createdAt: string
   updatedAt: string
   rotationDays: number
+  /** Fecha de revisión/vencimiento configurable (YYYY-MM-DD). */
+  reviewDate?: string | null
   cycle: CycleConfig
-  dayExercises: Record<number, {id:string; exId:string; sets:number; reps:number; weight:number; gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string}[]>
+  dayExercises: Record<number, RutinaDayExercise[]>
   version?: number
   archived?: boolean
 }
@@ -79,6 +95,8 @@ export default function RutinaPage(){
   const active = routines.find(r=>r.id===activeId) || routines[0]
   const [pickerFor,setPickerFor]=useState<number|null>(null)
   const [showNew,setShowNew]=useState(false)
+  // (E) Fecha de revisión al crear la rutina (configurable; vacío = creación + 30 días)
+  const [newReviewDate,setNewReviewDate]=useState(()=>addDaysToKey(todayKey(),30))
   const [newName,setNewName]=useState('')
   const [selectorOpen,setSelectorOpen]=useState(false)
   const [rotationRec,setRotationRec]=useState<string|null>(null)
@@ -110,8 +128,10 @@ export default function RutinaPage(){
       setRoutines(list); setActiveId(aid); setRoutinesLoaded(true); loadVersions(aid)
       // si active no tiene cycle, intenta cargar de userProfile
       const p = await db.userProfile.get('me')
-      if(p?.cycle && list.length===1 && JSON.stringify(list[0].cycle)===JSON.stringify(DEFAULT_CYCLE)){
-        const upd = list.map(r=> r.id===aid ? {...r, cycle: p.cycle! as CycleConfig} : r)
+      const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+      const seedCycle = pv?.cycle ?? p?.cycle
+      if(seedCycle && list.length===1 && JSON.stringify(list[0].cycle)===JSON.stringify(DEFAULT_CYCLE)){
+        const upd = list.map(r=> r.id===aid ? {...r, cycle: seedCycle as CycleConfig} : r)
         setRoutines(upd); saveRoutines(upd, aid)
       }
     })
@@ -120,12 +140,9 @@ export default function RutinaPage(){
   // sync active cycle a userProfile para que Inicio/Entrenar/Coach usen rutina activa
   useEffect(()=>{
     if(!active) {return}
-    db.userProfile.get('me').then(async p=>{
-      const base: UserProfile = p ?? { id:'me', goal:'hipertrofia', level:'intermedio', availableDays:[1,3,5], trainingTime:'18:00', equipment:['barra'], units:{weight:'kg',liquid:'ml'}, lang:'es', coachIntensity:'profesional', onboardingDone:true, hydrationGoalMl:2500, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
-      if(JSON.stringify(base.cycle) !== JSON.stringify(active.cycle)){
-        await db.userProfile.put({ ...base, cycle: active.cycle, updatedAt: new Date().toISOString() })
-      }
-    })
+    // FASE 1M-B — eliminada la sincronizacion legacy de cycle a userProfile.
+    // El ciclo canonico vive en cycleVersions (saveRoutineVersioned/savePlanning);
+    // profile.cycle queda como snapshot heredado de SOLO LECTURA (fallback).
     const days = Math.floor((Date.now() - new Date(active.createdAt).getTime())/86400000)
     if(days >= active.rotationDays){
       const hist = Object.values(active.dayExercises).flat().slice(0,3).map(x=> x.name || x.exId).join(', ')
@@ -154,6 +171,40 @@ export default function RutinaPage(){
       saveRoutines(next, activeId)
     }).catch(()=> saveRoutines(next, activeId))
   }
+  // ---- Plan POR SERIE: cada serie guarda sus propias reps/weight (C) -------
+  const seriesRowsOf = (it: RutinaDayExercise): RutinaSeriesPlan[] =>
+    Array.isArray(it.series) && it.series.length > 0
+      ? it.series
+      : Array.from({ length: Math.max(1, it.sets || 1) }, () => ({ reps: it.reps, weight: it.weight ?? null }))
+
+  const writeSeries = (dayN:number, idx:number, rows: RutinaSeriesPlan[])=>{
+    updateActive(r=>{
+      const a=[...(r.dayExercises[dayN]||[])]
+      const cur=a[idx]
+      if(!cur) {return r}
+      const clean = rows.length>0 ? rows : [{reps: cur.reps, weight: cur.weight ?? null}]
+      a[idx]={...cur, sets: clean.length, reps: clean[0].reps, weight: clean[0].weight, series: clean}
+      return {...r, dayExercises:{...r.dayExercises, [dayN]:a}}
+    })
+  }
+  const patchSeriesRow = (dayN:number, idx:number, row:number, patch:Partial<RutinaSeriesPlan>)=>{
+    const ex = (routines.find(r=>r.id===activeId) as RutinaData | undefined)?.dayExercises[dayN]?.[idx]
+    if(!ex) {return}
+    const rows = seriesRowsOf(ex).map((s,i)=> i===row ? {...s, ...patch} : s)
+    writeSeries(dayN, idx, rows)
+  }
+  const addSeriesRow = (dayN:number, idx:number)=>{
+    const ex = (routines.find(r=>r.id===activeId) as RutinaData | undefined)?.dayExercises[dayN]?.[idx]
+    if(!ex) {return}
+    const rows = seriesRowsOf(ex)
+    writeSeries(dayN, idx, [...rows, {reps: rows[rows.length-1]?.reps ?? ex.reps, weight: rows[rows.length-1]?.weight ?? ex.weight ?? null}])
+  }
+  const removeSeriesRow = (dayN:number, idx:number, row:number)=>{
+    const ex = (routines.find(r=>r.id===activeId) as RutinaData | undefined)?.dayExercises[dayN]?.[idx]
+    if(!ex) {return}
+    writeSeries(dayN, idx, seriesRowsOf(ex).filter((_,i)=> i!==row))
+  }
+
   const setActive = (id:string)=>{
     setActiveId(id)
     loadVersions(id)
@@ -161,7 +212,7 @@ export default function RutinaPage(){
     // sync cycle
     const r = routines.find(x=>x.id===id)
     if(r) {db.userProfile.get('me').then(async p=>{
-      const base: UserProfile = p ?? { id:'me', goal:'hipertrofia', level:'intermedio', availableDays:[1,3,5], trainingTime:'18:00', equipment:['barra'], units:{weight:'kg',liquid:'ml'}, lang:'es', coachIntensity:'profesional', onboardingDone:true, hydrationGoalMl:2500, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
+      const base: UserProfile = p ?? { id:'me', goal:'hipertrofia', trainingGoal:'hypertrophy', level:'intermedio', availableDays:[1,3,5], trainingTime:'18:00', equipment:['barra'], units:{weight:'kg',liquid:'ml'}, lang:'es', coachIntensity:'profesional', onboardingDone:true, hydrationGoalMl:2500, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
       await db.userProfile.put({ ...base, cycle: r.cycle, updatedAt: new Date().toISOString() })
     })}
   }
@@ -171,12 +222,13 @@ export default function RutinaPage(){
       return
     }
     if(!newName.trim()){ alert('Ingresá un nombre'); return }
+    const createdISO = new Date().toISOString()
     const data: RutinaData = {
-      id: uuid(), name: newName.trim(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-      rotationDays: 30, cycle: DEFAULT_CYCLE, dayExercises: {}
+      id: uuid(), name: newName.trim(), createdAt: createdISO, updatedAt: createdISO,
+      rotationDays: 30, reviewDate: newReviewDate || defaultReviewDate(createdISO, 30), cycle: DEFAULT_CYCLE, dayExercises: {}
     }
     const next = [...routines, data]
-    setRoutines(next); setActiveId(data.id); saveRoutines(next, data.id); setNewName(''); setShowNew(false)
+    setRoutines(next); setActiveId(data.id); saveRoutines(next, data.id); setNewName(''); setShowNew(false); setNewReviewDate(addDaysToKey(todayKey(),30))
   }
   const duplicateRoutine = (id:string)=>{
     const src = routines.find(r=>r.id===id)
@@ -186,17 +238,24 @@ export default function RutinaPage(){
         alert(`Tenés ${MAX_ROUTINES} rutinas guardadas.\nPara crear otra rutina, modificá o eliminá una de las existentes.`)
         return
       }
+      const copyISO = new Date().toISOString()
       const copy: RutinaData = {
         ...JSON.parse(JSON.stringify(src)),
         id: uuid(), name: `${src.name} (copia)`,
-        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        createdAt: copyISO, updatedAt: copyISO,
+        // La copia es una rutina nueva: su revisión vuelve a crear + período.
+        reviewDate: defaultReviewDate(copyISO, Number(src.rotationDays) || 30),
       }
       const next = [...routines, copy]
       setRoutines(next); setActiveId(copy.id); saveRoutines(next, copy.id)
     }).catch(()=>{})
   }
-  const deleteRoutine = (id:string)=>{
+  const deleteRoutine = async (id:string)=>{
     if(!confirm('¿Eliminar esta rutina?\nEsta acción eliminará la rutina guardada y su configuración.')) {return}
+    try {
+      const { deleteRoutine: removeRoutine } = await import('@/services/storage/routineStore')
+      await removeRoutine(id)
+    } catch { /* noop */ }
     const next = routines.filter(r=>r.id!==id)
     let nextActive = activeId
     if(id===activeId){
@@ -212,17 +271,29 @@ export default function RutinaPage(){
   if(!active){
     return (
       <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto">
-        <h1 className="font-headline-lg text-lg font-semibold text-on-surface flex items-center gap-2"><Dumbbell size={20} className="text-primary"/> Rutina</h1>
-        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-2">No hay rutinas guardadas.</p>
-        <button onClick={()=>setShowNew(true)} className="mt-4 w-full py-3 rounded bg-primary text-on-surface">+ Nueva rutina</button>
+        <div className="flex items-center gap-2">
+          <h1 className="font-headline-lg text-lg font-semibold text-on-surface flex items-center gap-2"><Dumbbell size={20} className="text-primary"/> Rutina</h1>
+        </div>
+        <AltheaEmpty
+          icon="fitness_center"
+          title="No hay rutinas guardadas"
+          description="Creá tu primera rutina para organizar tus días de entrenamiento."
+          action={<AltheaButton onClick={()=>setShowNew(true)} fullWidth size="lg"><Plus size={16}/> Nueva rutina</AltheaButton>}
+          className="mt-6"
+        />
         {showNew && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowNew(false)}>
             <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md p-4 space-y-3">
               <h3 className="font-headline-lg text-base font-semibold text-on-surface">Crear nueva rutina</h3>
-              <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nombre: Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface"/>
+              <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nombre: Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
+              <label className="block space-y-1">
+                <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fecha de revisión</span>
+                <input type="date" aria-label="Fecha de revisión al crear" value={newReviewDate} onChange={e=>setNewReviewDate(e.target.value)} className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]" />
+                <span className="block font-body-sm text-[12px] text-on-surface-variant">El aviso se muestra en Inicio; nunca bloquea el entrenamiento.</span>
+              </label>
               <div className="flex gap-2">
-                <button onClick={()=>setShowNew(false)} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
-                <button onClick={createNew} className="flex-1 py-3 rounded bg-primary text-on-surface">Crear rutina</button>
+                <AltheaButton variant="secondary" fullWidth onClick={()=>setShowNew(false)}>Cancelar</AltheaButton>
+                <AltheaButton fullWidth onClick={createNew}>Crear rutina</AltheaButton>
               </div>
             </div>
           </div>
@@ -237,9 +308,9 @@ export default function RutinaPage(){
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
       {/* Selector superior */}
-      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+      <AltheaCard className="p-3">
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rutina:</div>
-        <button onClick={()=>setSelectorOpen(!selectorOpen)} className="mt-1 w-full flex items-center justify-between bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface">
+        <button onClick={()=>setSelectorOpen(!selectorOpen)} aria-expanded={selectorOpen} className="mt-1 w-full flex items-center justify-between bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]">
           <span className="font-medium">{active.name}</span>
           <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">▼</span>
         </button>
@@ -247,33 +318,33 @@ export default function RutinaPage(){
           <div className="mt-2 rounded bg-surface/60 border border-outline-variant p-2 space-y-1">
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Seleccionar rutina</div>
             {routines.map(r=>(
-              <label key={r.id} className="flex items-center gap-2 p-2 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant cursor-pointer">
+              <label key={r.id} className="flex items-center gap-2 p-2 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant cursor-pointer min-h-[48px]">
                 <input type="radio" name="rutina" checked={r.id===activeId} onChange={()=>{ setActive(r.id); setSelectorOpen(false)}} />
                 <span className="font-body-md text-sm text-on-surface flex-1">{r.name} {r.id===activeId && '●'}</span>
                 <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{r.id===activeId ? 'activa' : ''}</span>
               </label>
             ))}
-            <button onClick={()=>{ setSelectorOpen(false); setShowNew(true)}} className="w-full py-2 rounded bg-primary text-on-surface flex items-center justify-center gap-1"><Plus size={14}/> Nueva rutina</button>
+            <AltheaButton fullWidth variant="primary" size="sm" onClick={()=>{ setSelectorOpen(false); setShowNew(true)}}><Plus size={14}/> Nueva rutina</AltheaButton>
             {isRoutineAIAvailable() && routines.length < 4 && (
-              <button onClick={()=>{ setSelectorOpen(false); setShowQuestionnaire(true) }} className="w-full py-2 rounded bg-gradient-to-r from-amber-600 to-orange-500 text-white flex items-center justify-center gap-1 font-medium">
+              <AltheaButton fullWidth variant="secondary" size="sm" onClick={()=>{ setSelectorOpen(false); setShowQuestionnaire(true) }}>
                 <Sparkles size={14}/> Crear con IA
-              </button>
+              </AltheaButton>
             )}
           </div>
         )}
-      </div>
+      </AltheaCard>
 
       <div className="flex items-center gap-2">
         <h1 className="font-headline-lg text-lg font-semibold text-on-surface flex items-center gap-2"><Dumbbell size={20} className="text-primary"/> {active.name}</h1>
-        <span className={`ml-auto font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant px-2 py-1 rounded-full border ${estado==='Revisar'?'bg-amber-900/30 border-amber-800 text-amber-300':'bg-primary border-outline-variant text-primary'}`}>{estado} · {daysElapsed}d</span>
+        <AltheaBadge className="ml-auto" variant={estado==='Revisar' ? 'warning' : 'primary'}>{estado} · {daysElapsed}d</AltheaBadge>
       </div>
 
       {/* Rutina actual */}
-      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+      <AltheaCard className="space-y-2">
         <div className="flex gap-2 items-center">
-          <input value={active.name} onChange={e=> updateActive(r=> ({...r, name: e.target.value}))} className="flex-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface font-medium" />
-          <button onClick={()=>deleteRoutine(active.id)} className="px-3 py-2 rounded bg-surface/60 border border-outline-variant font-body-md text-sm text-on-surface flex items-center gap-1"><Trash2 size={14}/> Eliminar</button>
-          <button onClick={()=>duplicateRoutine(active.id)} className="px-3 py-2 rounded bg-surface/60 border border-outline-variant font-body-md text-sm text-on-surface flex items-center gap-1">Duplicar</button>
+          <input value={active.name} onChange={e=> updateActive(r=> ({...r, name: e.target.value}))} aria-label="Nombre de la rutina" className="flex-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface font-medium min-h-[48px]" />
+          <AltheaButton variant="danger" onClick={()=>deleteRoutine(active.id)}><Trash2 size={14}/> Eliminar</AltheaButton>
+          <AltheaButton variant="secondary" onClick={()=>duplicateRoutine(active.id)}>Duplicar</AltheaButton>
         </div>
         {versionNotice && (
           <p className="font-body-sm text-[12px] text-secondary">{versionNotice}</p>
@@ -281,22 +352,36 @@ export default function RutinaPage(){
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Clock size={12}/> Creada {new Date(active.createdAt).toLocaleDateString('es')} · {daysElapsed} días</div>
         <div className="flex gap-2 items-center">
           <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Período para revisar</span>
-          <select value={active.rotationDays} onChange={e=> updateActive(r=> ({...r, rotationDays: Number(e.target.value)}))} className="ml-auto bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface">
+          <select value={active.rotationDays} onChange={e=> updateActive(r=> ({...r, rotationDays: Number(e.target.value)}))} aria-label="Período para revisar" className="ml-auto bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]">
             <option value={20}>20 días</option><option value={30}>30 días</option><option value={45}>45 días</option><option value={60}>60 días</option>
           </select>
         </div>
+        <div className="flex gap-2 items-center">
+          <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fecha de revisión</span>
+          <input type="date" aria-label="Fecha de revisión" value={active.reviewDate ?? ''}
+            onChange={e=> updateActive(r=> ({...r, reviewDate: e.target.value || null}))}
+            className="ml-auto bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]" />
+        </div>
+        <p className="font-body-sm text-[12px] text-on-surface-variant">
+          {(() => {
+            const reviewKey = active.reviewDate || defaultReviewDate(active.createdAt, active.rotationDays)
+            const left = daysBetween(todayKey(), reviewKey)
+            return <span data-testid="routine-review-info">Vence el <strong>{reviewKey}</strong> ({left > 0 ? `en ${left} días` : `hace ${Math.abs(left)} días`}) · </span>
+          })()}
+          el aviso aparece en Inicio y nunca bloquea el entrenamiento.
+        </p>
         {rotationRec && (
-          <div className="rounded bg-amber-900/20 border border-amber-800 p-3">
-            <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-amber-300 flex items-center gap-1"><AlertTriangle size={12}/> Revisión inteligente</div>
+          <div className="rounded bg-tertiary/10 border border-tertiary/40 p-3">
+            <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-tertiary flex items-center gap-1"><AlertTriangle size={12}/> Revisión inteligente</div>
             <p className="font-body-md text-sm text-on-surface mt-1">{rotationRec}</p>
             <div className="flex gap-1 mt-2">
-              <button onClick={()=>{ alert('Recomendación aceptada — editá los ejercicios'); setRotationRec(null)}} className="flex-1 py-2 rounded-lg bg-primary text-on-surface">Aceptar</button>
-              <button onClick={()=>setRotationRec(null)} className="flex-1 py-2 rounded-lg bg-surface border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rechazar</button>
-              <button onClick={()=>{ const n=prompt('Modificar días para revisar?'); if(n) {updateActive(r=> ({...r, rotationDays: Number(n)}))}}} className="flex-1 py-2 rounded-lg bg-surface/60 border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Modificar</button>
+              <AltheaButton size="sm" fullWidth onClick={()=>{ alert('Recomendación aceptada — editá los ejercicios'); setRotationRec(null)}}>Aceptar</AltheaButton>
+              <AltheaButton size="sm" variant="secondary" fullWidth onClick={()=>setRotationRec(null)}>Rechazar</AltheaButton>
+              <AltheaButton size="sm" variant="ghost" fullWidth onClick={()=>{ const n=prompt('Modificar días para revisar?'); if(n) {updateActive(r=> ({...r, rotationDays: Number(n)}))}}}>Modificar</AltheaButton>
             </div>
           </div>
         )}
-      </div>
+      </AltheaCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-8 space-y-3">
@@ -306,15 +391,19 @@ export default function RutinaPage(){
         {active.cycle.trainingDays.map(d=>{
           const exs = active.dayExercises[d.n] || []
           return (
-            <div key={d.n} className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
-              <div className="flex justify-between items-center">
+            <AltheaCard key={d.n} className="space-y-3">
+              <div className="flex justify-between items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-surface font-bold font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface">N°{d.n}</div>
                   <input value={d.name} onChange={e=>{
                     updateActive(r=> ({...r, cycle: {...r.cycle, trainingDays: r.cycle.trainingDays.map(x=> x.n===d.n? {...x, name:e.target.value}:x)}}))
-                  }} className="bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface" />
+                  }} aria-label={`Nombre del día N°${d.n}`} className="bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
                 </div>
-                <button onClick={()=>setPickerFor(d.n)} className="px-3 py-1 rounded bg-primary text-on-surface flex items-center gap-1"><Plus size={12}/> Ejercicio</button>
+                <AltheaButton size="sm" onClick={()=>setPickerFor(d.n)}><Plus size={14}/> Ejercicio</AltheaButton>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusTag status="planned" />
+                <span className="font-body-md text-xs text-on-surface-variant">{exs.length} ejercicio{exs.length===1?'':'s'} planificado{exs.length===1?'':'s'} · objetivo {exs.reduce((a,e)=>a+(e.sets||0),0)} series</span>
               </div>
               <div className="space-y-2">
                 {exs.map((it,idx)=>{
@@ -325,60 +414,122 @@ export default function RutinaPage(){
                         <span className="font-body-md text-sm text-on-surface font-medium">{ex?.name || it.name || it.exId}</span>
                         <button onClick={()=>{
                           updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [d.n]: (r.dayExercises[d.n]||[]).filter((_,i)=>i!==idx)}}))
-                        }} className="text-on-surface-variant"><Trash2 size={14}/></button>
+                        }} aria-label={`Quitar ${ex?.name || it.name || it.exId}`} className="text-on-surface-variant min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 size={14}/></button>
                       </div>
-                      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex?.groupMain || it.muscle || 'grupo'} · {ex?.equipment || ''} · objetivo {it.sets}×{it.reps} · {it.weight}kg</div>
+                      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex?.groupMain || it.muscle || 'grupo'} · {ex?.equipment || ''} · objetivo {it.sets}×{it.reps} · {(it.weight ?? 0) > 0 ? `${it.weight}kg` : 'sin peso'}</div>
                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 mt-2">
                         <input type="number" value={it.sets} onChange={e=>{
-                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], sets:Number(e.target.value)}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
-                        }} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant" placeholder="Series"/>
+                          updateActive(r=>{
+                            const a=[...(r.dayExercises[d.n]||[])]
+                            const cur={...a[idx]}
+                            const n=Math.max(1, Number(e.target.value)||1)
+                            // Cambiar la cantidad de series ajusta el plan por serie
+                            // (conserva las existentes y agrega/quit del final).
+                            const prev = Array.isArray(cur.series) && cur.series.length
+                              ? cur.series
+                              : Array.from({length: cur.sets||1}, ()=>({reps: cur.reps, weight: cur.weight ?? null}))
+                            const next = Array.from({length: n}, (_,k)=> prev[k] ?? {reps: cur.reps, weight: cur.weight ?? null})
+                            a[idx]={...cur, sets:n, series: next}
+                            return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}
+                          })
+                        }} aria-label={`Series de ${ex?.name || it.name || it.exId}`} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Series"/>
                         <input type="number" value={it.reps} onChange={e=>{
-                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], reps:Number(e.target.value)}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
-                        }} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant" placeholder="Reps"/>
-                        <input type="number" value={it.weight} onChange={e=>{
-                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], weight:Number(e.target.value)}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
-                        }} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant" placeholder="Peso"/>
+                          updateActive(r=>{
+                            const a=[...(r.dayExercises[d.n]||[])]
+                            const cur={...a[idx]}
+                            const reps=Number(e.target.value)
+                            a[idx]={...cur, reps, series: Array.isArray(cur.series) ? cur.series.map(s=>({...s, reps})) : cur.series}
+                            return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}
+                          })
+                        }} aria-label={`Repeticiones de ${ex?.name || it.name || it.exId}`} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Reps"/>
+                        <input type="number" value={it.weight ?? ''} onChange={e=>{
+                          const v = e.target.value === '' ? null : Number(e.target.value)
+                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], weight:v, series: Array.isArray(a[idx].series) ? a[idx].series!.map(s=>({...s, weight:v})) : a[idx].series }; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
+                        }} aria-label={`Peso de ${ex?.name || it.name || it.exId}`} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Peso"/>
+                      </div>
+                      {/* Plan POR SERIE: reps y peso propios de cada serie (C) */}
+                      <div className="mt-3 border-t border-outline-variant/40 pt-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-label-caps text-[10px] uppercase tracking-wider text-outline">Plan por serie</span>
+                          <button onClick={()=>addSeriesRow(d.n, idx)} aria-label={`Agregar serie a ${ex?.name || it.name || it.exId}`} className="rounded border border-outline-variant/60 px-2 py-1 min-h-[32px] font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/50 hover:text-on-surface">+ Serie</button>
+                        </div>
+                        <div className="mt-2 space-y-1.5">
+                          {seriesRowsOf(it).map((s, si)=>{
+                            const label = ex?.name || it.name || it.exId
+                            return (
+                              <div key={si} className="flex items-center gap-1.5">
+                                <span className="w-12 shrink-0 font-label-caps text-[9px] uppercase text-outline">S{si+1}</span>
+                                <input type="number" value={s.reps} onChange={e=>patchSeriesRow(d.n, idx, si, {reps: Number(e.target.value)})} aria-label={`Reps serie ${si+1} de ${label}`} placeholder="Reps" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[40px] font-label-md text-[11px] font-semibold text-on-surface-variant"/>
+                                <input type="number" step="0.5" value={s.weight ?? ''} onChange={e=>patchSeriesRow(d.n, idx, si, {weight: e.target.value === '' ? null : Number(e.target.value)})} aria-label={`Peso serie ${si+1} de ${label}`} placeholder="Peso" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[40px] font-label-md text-[11px] font-semibold text-on-surface-variant"/>
+                                <button onClick={()=>removeSeriesRow(d.n, idx, si)} aria-label={`Quitar serie ${si+1} de ${label}`} className="shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center text-on-surface-variant hover:text-error" title="Quitar serie"><Trash2 size={13}/></button>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
                   )
                 })}
-                {exs.length===0 && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center py-2">Sin ejercicios. Agregá desde selector inteligente.</p>}
+                {exs.length===0 && <AltheaEmpty icon="exercise" title={`Día N°${d.n} sin ejercicios`} description="Agregá ejercicios desde el selector inteligente según el grupo muscular del día." className="py-6" />}
+              </div>
+            </AltheaCard>
+          )
+        })}
+        <AltheaButton
+          fullWidth
+          size="lg"
+          variant="secondary"
+          onClick={()=>{
+          const n = Math.max(0,...active.cycle.trainingDays.map(d=>d.n))+1
+          updateActive(r=> ({...r, cycle: {...r.cycle, trainingDays:[...r.cycle.trainingDays,{n, name:`Día N°${n}`} ]}}))
+        }}><Plus size={16}/> Agregar Día N°</AltheaButton>
+      </div>
+
+      {/* Asignación calendario — estado de carga por día (NORMAL/SOBRECARGA/CARGA_REDUCIDA/CARGA_CERO) */}
+      <AltheaCard>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Asignación calendario — carga semanal</div>
+        <p className="font-body-sm text-[11px] text-on-surface-variant mt-1">Representa la planificación, no modifica pesos/repeticiones. Carga cero = día sin carga planificada.</p>
+        {WEEK_LABELS.map((w,i)=>{
+          const load = getWeekLoads(active.cycle)[i]
+          return (
+            <div key={i} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded-lg p-2 mt-2">
+              <div className="flex items-center gap-2">
+                <span className="font-body-md text-sm text-on-surface w-10">{w}</span>
+                <span className={`px-2 py-0.5 rounded-full border text-[9px] font-label-caps uppercase font-semibold tracking-wider ${LOAD_STATE_COLOR[load]}`}>{LOAD_STATE_LABEL[load]}</span>
+              </div>
+              <div className="flex gap-2">
+                <select value={active.cycle.weekMap[i] ?? ''} onChange={e=>{
+                  const wm=[...active.cycle.weekMap]; wm[i]= e.target.value ? Number(e.target.value):null
+                  updateActive(r=> ({...r, cycle: {...r.cycle, weekMap: wm}}))
+                }} aria-label={`Día de la semana ${w}`} className="flex-1 bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface min-h-[48px]">
+                  <option value="">Descanso</option>
+                  {active.cycle.trainingDays.map(d=> <option key={d.n} value={d.n}>N°{d.n} — {d.name}</option>)}
+                </select>
+                <select value={load} onChange={e=>{
+                  const loads = getWeekLoads(active.cycle).slice() as LoadState[]
+                  loads[i] = e.target.value as LoadState
+                  updateActive(r=> ({...r, cycle: {...r.cycle, weekLoads: loads}}))
+                }} aria-label={`Nivel de carga del ${w}`} className="w-36 bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase text-on-surface min-h-[48px]">
+                  <option value="NORMAL">Normal</option>
+                  <option value="SOBRECARGA">Sobrecarga</option>
+                  <option value="CARGA_REDUCIDA">Carga reducida</option>
+                  <option value="CARGA_CERO">Carga cero</option>
+                </select>
               </div>
             </div>
           )
         })}
-        <button onClick={()=>{
-          const n = Math.max(0,...active.cycle.trainingDays.map(d=>d.n))+1
-          updateActive(r=> ({...r, cycle: {...r.cycle, trainingDays:[...r.cycle.trainingDays,{n, name:`Día N°${n}`} ]}}))
-        }} className="w-full py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface flex items-center justify-center gap-2"><Plus size={16}/> Agregar Día N°</button>
-      </div>
+      </AltheaCard>
 
-      {/* Asignación calendario */}
-      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Asignación calendario</div>
-        {WEEK_LABELS.map((w,i)=>(
-          <div key={i} className="flex justify-between items-center bg-surface/60 backdrop-blur-sm border border-outline-variant rounded-lg p-2 mt-1">
-            <span className="font-body-md text-sm text-on-surface">{w}</span>
-            <select value={active.cycle.weekMap[i] ?? ''} onChange={e=>{
-              const wm=[...active.cycle.weekMap]; wm[i]= e.target.value ? Number(e.target.value):null
-              updateActive(r=> ({...r, cycle: {...r.cycle, weekMap: wm}}))
-            }} className="bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface">
-              <option value="">Descanso</option>
-              {active.cycle.trainingDays.map(d=> <option key={d.n} value={d.n}>N°{d.n} — {d.name}</option>)}
-            </select>
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+      <AltheaCard>
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><History size={14}/> Historial de rutinas</div>
         <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rutina activa {active.name} · {daysElapsed} días. Otras {routines.length-1} guardadas intactas. Historial sesiones/setLogs conservado por rutina.</p>
         <div className="mt-2 flex gap-1 flex-wrap">
           {routines.map(r=> <span key={r.id} className={`px-2 py-1 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${r.id===activeId?'bg-primary text-on-surface border-primary':'bg-surface/60 border-outline-variant'}`}>{r.name}</span>)}
         </div>
-      </div>
+      </AltheaCard>
 
-      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+      <AltheaCard>
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
           Versiones{active.version ? ` · actual v${active.version}` : ''}{versions.length > 0 ? ` · ${versions.length} histórica(s)` : ' · sin versiones previas'}
         </div>
@@ -396,17 +547,17 @@ export default function RutinaPage(){
                   const old = versions.find(v=>v.id===id)
                   if(old){ setVersionNotice(diffText(diffRoutines(old as never, active as never))) }
                 } else { setVersionNotice(null) }
-              }} className="w-full mt-1 bg-surface/60 border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface">
+              }} aria-label="Comparar con versión" className="w-full mt-1 bg-surface/60 border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]">
                 <option value="">Sin comparar</option>
                 {versions.map(v=> <option key={v.id} value={v.id}>v{v.version ?? '?'} · {new Date(v.updatedAt).toLocaleDateString('es')}</option>)}
               </select>
             </label>
           </div>
         )}
-      </div>
+      </AltheaCard>
 
-      <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
-        <button onClick={()=>setShowPeriodization(v=>!v)} className="w-full flex items-center justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+      <AltheaCard>
+        <button onClick={()=>setShowPeriodization(v=>!v)} aria-expanded={showPeriodization} className="w-full flex items-center justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
           <span>Periodización avanzada (solo planificación futura)</span>
           <span>{showPeriodization ? 'Ocultar' : 'Ver'}</span>
         </button>
@@ -415,35 +566,35 @@ export default function RutinaPage(){
             <PeriodizationEditor onClose={()=>setShowPeriodization(false)} />
           </div>
         )}
-      </div>
+      </AltheaCard>
 
       </div>
 
       <div className="lg:col-span-4 space-y-3 hidden lg:block">
-        <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+        <AltheaCard className="space-y-2">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Dumbbell size={14}/> Stats de la rutina</div>
           <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Días de entrenamiento</span><span className="font-body-md text-sm text-on-surface font-medium">{active.cycle.trainingDays.length}/semana</span></div>
           <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total ejercicios</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(active.dayExercises).flat().length}</span></div>
           <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total series</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(active.dayExercises).flat().reduce((a, e) => a + (e.sets || 0), 0)}</span></div>
-        </div>
+        </AltheaCard>
         {active.cycle.methodId && (() => {
           const m = getMethod(active.cycle.methodId)
           return m ? (
-            <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+            <AltheaCard className="space-y-2">
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-primary flex items-center gap-1"><Sparkles size={14}/> Método activo</div>
               <div className="font-body-md text-sm text-on-surface font-medium">{m.nameEs}</div>
               <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant leading-relaxed">{m.description.slice(0, 120)}…</div>
-            </div>
+            </AltheaCard>
           ) : null
         })()}
-        <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+        <AltheaCard className="space-y-2">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><AlertTriangle size={14}/> Tips rápidos</div>
           <ul className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant space-y-1.5 list-disc list-inside">
             <li>Mantené hidratación durante la sesión</li>
             <li>Respetá los descansos entre series</li>
             <li>Registrá cada ejercicio para progresión</li>
           </ul>
-        </div>
+        </AltheaCard>
       </div>
 
       </div>
@@ -453,17 +604,23 @@ export default function RutinaPage(){
           <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md p-4 space-y-3">
             <h3 className="font-headline-lg text-base font-semibold text-on-surface">Crear nueva rutina</h3>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nombre:</p>
-            <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface"/>
+            <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
+            <label className="block space-y-1">
+              <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fecha de revisión</span>
+              <input type="date" aria-label="Fecha de revisión al crear" value={newReviewDate} onChange={e=>setNewReviewDate(e.target.value)} className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]" />
+              <span className="block font-body-sm text-[12px] text-on-surface-variant">El aviso se muestra en Inicio; nunca bloquea el entrenamiento.</span>
+            </label>
             <div className="flex gap-2">
-              <button onClick={()=>setShowNew(false)} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
-              <button onClick={()=>{
-                if(routines.length>=4){ alert('Tenés 4 rutinas guardadas.\nPara crear otra rutina, modificá o eliminá una de las existentes.'); return}
+              <AltheaButton variant="secondary" fullWidth onClick={()=>setShowNew(false)}>Cancelar</AltheaButton>
+              <AltheaButton fullWidth onClick={()=>{
+                if(routines.length>=MAX_ROUTINES){ alert(`Tenés ${MAX_ROUTINES} rutinas guardadas.\nPara crear otra rutina, modificá o eliminá una de las existentes.`); return}
                 if(!newName.trim()){ alert('Ingresá un nombre'); return}
-                const data: RutinaData = { id: uuid(), name: newName.trim(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), rotationDays:30, cycle: DEFAULT_CYCLE, dayExercises:{}}
-                const next=[...routines,data]; setRoutines(next); setActiveId(data.id); saveRoutines(next,data.id); setNewName(''); setShowNew(false)
-              }} className="flex-1 py-3 rounded bg-primary text-on-surface">Crear rutina</button>
+                const createdISO2 = new Date().toISOString()
+                const data: RutinaData = { id: uuid(), name: newName.trim(), createdAt: createdISO2, updatedAt: createdISO2, rotationDays:30, reviewDate: newReviewDate || defaultReviewDate(createdISO2, 30), cycle: DEFAULT_CYCLE, dayExercises:{}}
+                const next=[...routines,data]; setRoutines(next); setActiveId(data.id); saveRoutines(next,data.id); setNewName(''); setShowNew(false); setNewReviewDate(addDaysToKey(todayKey(),30))
+              }}>Crear rutina</AltheaButton>
             </div>
-            {routines.length>=4 && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-amber-300">Tenés 4 rutinas guardadas. Para crear otra, eliminá una.</p>}
+            {routines.length>=MAX_ROUTINES && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-amber-300">Tenés {MAX_ROUTINES} rutinas guardadas. Para crear otra, eliminá una.</p>}
           </div>
         </div>
       )}
@@ -472,9 +629,19 @@ export default function RutinaPage(){
         <IntelligentPicker
           dayN={pickerFor}
           dayName={active.cycle.trainingDays.find(d=>d.n===pickerFor)?.name || ''}
+          existingIds={(active.dayExercises[pickerFor]||[]).map(e=>e.exId)}
           onAdd={(exId,gifUrl,name,muscle,imageDataUrl)=>{
             const d = getMethodDefaults(active.cycle)
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl, name, muscle, imageDataUrl }]}}))
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl, name, muscle, imageDataUrl, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }]}}))
+            setPickerFor(null)
+          }}
+          onAddMany={(items)=>{
+            const d = getMethodDefaults(active.cycle)
+            updateActive(r=> {
+              const already = new Set((r.dayExercises[pickerFor!]||[]).map(e=>e.exId))
+              const toAdd = items.filter(i=> !already.has(i.exId)).map(i=> ({ id: uuid(), exId: i.exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: i.gifUrl, name: i.name, muscle: i.muscle, imageDataUrl: i.imageDataUrl, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }))
+              return {...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), ...toAdd]}}
+            })
             setPickerFor(null)
           }}
           onClose={()=>setPickerFor(null)}
@@ -486,7 +653,7 @@ export default function RutinaPage(){
         <ExerciseViewer exercise={viewer} onClose={()=>setViewer(null)} onAdd={()=>{
           if(pickerFor!==null){
             const d = getMethodDefaults(active.cycle)
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId: viewer.id, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: viewer.gifUrl, name: viewer.name, muscle: viewer.muscle, imageDataUrl: viewer.imageDataUrl }]}}))
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId: viewer.id, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: viewer.gifUrl, name: viewer.name, muscle: viewer.muscle, imageDataUrl: viewer.imageDataUrl, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }]}}))
           }
           setViewer(null); setPickerFor(null)
         }} />
@@ -512,11 +679,11 @@ export default function RutinaPage(){
       {aiError && !aiLoading && !aiPreview && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setAiError(null)}>
           <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md p-4 space-y-3">
-            <h3 className="font-headline-lg text-base font-semibold text-on-surface text-red-400">Error al generar</h3>
+            <h3 className="font-headline-lg text-base font-semibold text-on-surface text-error">Error al generar</h3>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{aiError}</p>
             <div className="flex gap-2">
-              <button onClick={()=>setAiError(null)} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cerrar</button>
-              <button onClick={()=>{ setAiError(null); setShowQuestionnaire(true) }} className="flex-1 py-3 rounded bg-primary text-on-surface">Reintentar</button>
+              <AltheaButton variant="secondary" fullWidth onClick={()=>setAiError(null)}>Cerrar</AltheaButton>
+              <AltheaButton fullWidth onClick={()=>{ setAiError(null); setShowQuestionnaire(true) }}>Reintentar</AltheaButton>
             </div>
           </div>
         </div>
@@ -527,12 +694,14 @@ export default function RutinaPage(){
         <RoutineAIPreview
           routine={aiPreview}
           onConfirm={(name)=>{
-            if(routines.length>=4){ alert('Tenés 4 rutinas guardadas.'); return }
+            if(routines.length>=MAX_ROUTINES){ alert(`Tenés ${MAX_ROUTINES} rutinas guardadas.`); return }
+            const createdISO3 = new Date().toISOString()
             const data: RutinaData = {
               id: uuid(), name: name || aiPreview.name,
-              createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+              createdAt: createdISO3, updatedAt: createdISO3,
               rotationDays: 30,
-              cycle: { ...aiPreview.cycle, startDate: new Date().toISOString().slice(0, 10) },
+              reviewDate: defaultReviewDate(createdISO3, 30),
+              cycle: { ...aiPreview.cycle, startDate: todayKey() },
               dayExercises: aiPreview.dayExercises
             }
             const next = [...routines, data]
@@ -561,14 +730,18 @@ export default function RutinaPage(){
   )
 }
 
-function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number; dayName:string; onAdd:(exId:string,gifUrl:string,name:string,muscle:string,imageDataUrl?:string)=>void; onClose:()=>void; onView:(ex:Gym.Exercise)=>void}){
+function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClose, onView}:{dayN:number; dayName:string; existingIds:string[]; onAdd:(exId:string,gifUrl:string,name:string,muscle:string,imageDataUrl?:string)=>void; onAddMany:(items:{exId:string;gifUrl:string;name:string;muscle:string;imageDataUrl?:string}[])=>void; onClose:()=>void; onView:(ex:Gym.Exercise)=>void}){
   const muscles = parseDayMuscles(dayName)
   const [q,setQ]=useState('')
   const [equipFilter,setEquipFilter]=useState('todos')
+  const [muscleFilter,setMuscleFilter]=useState('todos')
+  const [difficultyFilter,setDifficultyFilter]=useState('todos')
+  const [selected,setSelected]=useState<string[]>([])
   const [items,setItems]=useState<Gym.Exercise[]>([])
   const [loading,setLoading]=useState(false)
   const [err,setErr]=useState<string|null>(null)
   const [methodHint,setMethodHint]=useState<{types:string[];avoid:string[]}|null>(null)
+  const existingSet = new Set(existingIds)
   useEffect(()=>{
     if(muscles.length===0) {return}
     let cancelled=false
@@ -585,14 +758,14 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
       }
     }).catch(()=>{})
     const load = async ()=>{
-      setLoading(true); setErr(null)
+      setLoading(true); setErr(null); setSelected([])
       try{
         const results = await Promise.all(muscles.map(m=> Gym.fetchByMuscle(m).catch((): {exercises:Gym.Exercise[]}=> ({exercises:[]})) ))
         let merged:Gym.Exercise[] = []
         const seen=new Set<string>()
         results.forEach(r=>{
           r.exercises?.forEach((ex:Gym.Exercise)=>{
-            if(!seen.has(ex.id) && ex.muscle && muscles.includes(ex.muscle)){
+            if(!seen.has(ex.id)){
               seen.add(ex.id); merged.push(ex)
             }
           })
@@ -613,9 +786,22 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
     return ()=>{ cancelled=true }
   },[dayName])
 
+  const availableMuscles = Array.from(new Set(items.map(ex=>ex.muscle))).sort((a,b)=> displayMuscle(a).localeCompare(displayMuscle(b), 'es'))
+
   const filtered = items.filter(ex=>{
+    if(muscleFilter!=='todos' && ex.muscle !== muscleFilter && !(ex.secondaryMuscles||[]).includes(muscleFilter)) {return false}
     if(equipFilter!=='todos' && ex.equipment !== equipFilter) {return false}
-    if(q && !ex.name.toLowerCase().includes(q.toLowerCase())) {return false}
+    if(difficultyFilter!=='todos' && String(ex.exerciseDifficulty||'').toLowerCase() !== difficultyFilter.toLowerCase()) {return false}
+    if(q){
+      const s=q.toLowerCase()
+      const inName = (ex.name||'').toLowerCase().includes(s)
+      const inMuscle = (ex.muscle||'').toLowerCase().includes(s)
+      const inSecondary = (ex.secondaryMuscles||[]).some(m=> m.toLowerCase().includes(s))
+      const inEquip = (ex.equipment||'').toLowerCase().includes(s)
+      const inBody = (ex.bodyPart||'').toLowerCase().includes(s)
+      const inCat = (ex.category||'').toLowerCase().includes(s)
+      if(!(inName||inMuscle||inSecondary||inEquip||inBody||inCat)) {return false}
+    }
     if(methodHint?.avoid?.length && methodHint.avoid.some(a => ex.name.toLowerCase().includes(a.toLowerCase()))) {return false}
     return true
   })
@@ -627,6 +813,9 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
     return aMatch - bMatch
   }) : filtered
 
+  const toggleSelect = (ex:Gym.Exercise)=>{ setSelected(prev=> prev.includes(ex.id) ? prev.filter(id=>id!==ex.id) : [...prev, ex.id]) }
+  const addAllSelected = ()=>{ onAddMany(selected.filter(id=>!existingSet.has(id)).map(id=>{ const ex = items.find(e=>e.id===id)!; return { exId: ex.id, gifUrl: ex.gifUrl, name: ex.name, muscle: ex.muscle, imageDataUrl: ex.imageDataUrl } })) }
+
   if(muscles.length===0){
     return (
       <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={onClose}>
@@ -634,7 +823,7 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
           <h3 className="font-body-md text-sm text-on-surface font-medium">Agregar a N°{dayN}</h3>
           <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Día: <b>{dayName || 'Sin nombre'}</b> — no detectamos grupo muscular.</p>
           <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Escribí el grupo en el nombre del día, ej: <b>Pecho + Tríceps</b>, <b>Espalda</b>, <b>Piernas</b>.</p>
-          <button onClick={onClose} className="w-full py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant">Cerrar</button>
+          <AltheaButton fullWidth variant="secondary" onClick={onClose}>Cerrar</AltheaButton>
         </div>
       </div>
     )
@@ -648,44 +837,81 @@ function IntelligentPicker({dayN, dayName, onAdd, onClose, onView}:{dayN:number;
         <div className="flex gap-1 flex-wrap">
           {muscles.map(m=> <span key={m} className="px-2 py-1 rounded-full bg-primary border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface">{displayMuscle(m)}</span>)}
         </div>
+        {existingSet.size > 0 && (
+          <div className="rounded-lg bg-secondary/10 border border-secondary/30 p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-secondary">
+            {existingSet.size} ejercicio{existingSet.size===1?'':'s'} ya presente{existingSet.size===1?'':'s'} en este día (marcad{existingSet.size===1?'o':'os'} en la lista).
+          </div>
+        )}
         <div className="relative">
           <Search size={14} className="absolute left-3 top-3 text-on-surface-variant"/>
-          <input placeholder="Buscar dentro del grupo (ej: press)..." value={q} onChange={e=>setQ(e.target.value)} className="w-full bg-surface border border-outline-variant rounded pl-9 p-2 font-body-md text-sm text-on-surface"/>
+          <input placeholder="Buscar por nombre, músculo, equipo..." value={q} onChange={e=>setQ(e.target.value)} className="w-full bg-surface border border-outline-variant rounded pl-9 p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
         </div>
-        <div className="flex gap-2">
-          <select value={equipFilter} onChange={e=>setEquipFilter(e.target.value)} className="flex-1 bg-surface border border-outline-variant rounded p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <select value={muscleFilter} onChange={e=>setMuscleFilter(e.target.value)} aria-label="Filtrar por músculo" className="bg-surface border border-outline-variant rounded p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]">
+            <option value="todos">Músculo: todos</option>
+            {availableMuscles.map(m=> <option key={m} value={m}>{displayMuscle(m)}</option>)}
+          </select>
+          <select value={equipFilter} onChange={e=>setEquipFilter(e.target.value)} aria-label="Filtrar por equipamiento" className="bg-surface border border-outline-variant rounded p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]">
             <option value="todos">Equipo: todos</option>
             <option value="barbell">Barra</option><option value="dumbbell">Mancuernas</option><option value="cable">Polea</option><option value="bodyweight">Peso corporal</option><option value="machine">Máquina</option><option value="band">Banda</option>
           </select>
-          <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant self-center">{sorted.length} compatibles</span>
+          <select value={difficultyFilter} onChange={e=>setDifficultyFilter(e.target.value)} aria-label="Filtrar por dificultad" className="bg-surface border border-outline-variant rounded p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]">
+            <option value="todos">Dificultad: todas</option>
+            <option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzado">Avanzado</option>
+          </select>
+        </div>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant self-center">{sorted.length} compatibles · {selected.length} seleccionado{selected.length===1?'':'s'}</span>
+          {selected.length>0 && (
+            <AltheaButton size="sm" onClick={addAllSelected}><Check size={14}/> Agregar {selected.length} seleccionado{selected.length===1?'':'s'}</AltheaButton>
+          )}
         </div>
         {methodHint && (
           <div className="rounded-lg bg-surface/60 border border-outline-variant p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
             <span className="text-primary font-medium">Método:</span> priorizando {methodHint.types.join(', ')}
           </div>
         )}
-        {loading && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center py-4">Cargando GIFs desde ExerciseGymGifsDB…</p>}
+        {loading && <AltheaLoading lines={3} />}
         {err && !loading && sorted.length===0 && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-amber-300 text-center py-4 whitespace-pre-line">{err}</p>}
         {!loading && sorted.length===0 && !err && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center py-4">Sin ejercicios para este filtro. Probá otro equipamiento o búsqueda.</p>}
         <div className="grid grid-cols-1 gap-3 max-h-[45vh] overflow-auto pr-1">
-          {sorted.slice(0,60).map(ex=>(
-            <div key={ex.id} className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden">
-              <div className="h-36 bg-surface/60 border-b border-outline-variant flex items-center justify-center overflow-hidden">
-                {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" className="w-full h-full object-cover" onError={e=>{ (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }} /> : null}
-                <div className="hidden p-4 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">Vista alternativa — {ex.name}</div>
-              </div>
-              <div className="p-3">
-                <div className="font-body-md text-sm text-on-surface font-medium flex items-center gap-2"><span className="truncate">{ex.name}</span>{ex.origin==='USER_CREATED' ? <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-primary px-2 py-0.5 rounded-full bg-surface-container-high border border-primary shrink-0">Mío</span> : null}</div>
-                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{displayMuscle(ex.muscle)} · {ex.equipment} · {ex.bodyPart}</div>
-                <div className="flex gap-2 mt-2">
-                  <button onClick={()=> onView(ex)} className="flex-1 py-2 rounded bg-surface/60 border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1"><Eye size={14}/> Ver ejercicio</button>
-                  <button onClick={()=> onAdd(ex.id, ex.gifUrl, ex.name, ex.muscle, ex.imageDataUrl)} className="flex-1 py-2 rounded bg-primary text-on-surface font-medium">AGREGAR</button>
+          {sorted.slice(0,60).map(ex=>{
+            const isExisting = existingSet.has(ex.id)
+            const isSelected = selected.includes(ex.id)
+            const secs = (ex.secondaryMuscles||[]).slice(0,2)
+            return (
+            <div key={ex.id} className={`rounded  bg-surface-container-low/90 backdrop-blur-sm border ${isSelected?'border-primary':'border-outline-variant'} overflow-hidden ${isExisting?'opacity-60':''}`}>
+              <div className="flex items-start">
+                <button onClick={()=>toggleSelect(ex)} disabled={isExisting} className={`shrink-0 m-3 w-6 h-6 rounded-full border flex items-center justify-center ${isExisting?'border-outline-variant':isSelected?'bg-primary border-primary text-on-surface':'border-outline-variant text-on-surface-variant'}`} aria-label={isExisting?`${ex.name} ya está en el día`:`Seleccionar ${ex.name}`} aria-pressed={isSelected}>
+                  {isExisting ? <History size={12}/> : isSelected ? <Check size={12}/> : null}
+                </button>
+                <div className="flex flex-col sm:flex-row flex-1 min-w-0">
+                  <div className="h-24 sm:h-28 sm:w-40 bg-surface/60 border-b sm:border-b-0 sm:border-r border-outline-variant flex items-center justify-center overflow-hidden shrink-0">
+                    {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" className="w-full h-full object-cover" onError={e=>{ (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }} /> : null}
+                    <div className="hidden p-4 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">Vista alternativa — {ex.name}</div>
+                  </div>
+                  <div className="p-3 min-w-0">
+                    <div className="font-body-md text-sm text-on-surface font-medium flex items-center gap-2 flex-wrap">
+                      <span className="truncate">{ex.name}</span>
+                      {ex.origin==='USER_CREATED' ? <AltheaBadge variant="secondary" className="shrink-0 text-[10px]">Mío</AltheaBadge> : null}
+                      {isExisting ? <AltheaBadge variant="outline" className="shrink-0 text-[10px]">En este día</AltheaBadge> : null}
+                    </div>
+                    <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">
+                      <span className="text-primary">{displayMuscle(ex.muscle)}</span>{secs.length>0 ? <> + {secs.map(s=>displayMuscle(s)).join(' · ')}</> : null} · {ex.equipment}
+                    </div>
+                    {String(ex.exerciseDifficulty||'') && <div className="font-label-md text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant mt-0.5">{ex.exerciseDifficulty} · {ex.category}</div>}
+                    <div className="flex gap-2 mt-2">
+                      <AltheaButton size="sm" variant="secondary" fullWidth onClick={()=> onView(ex)}><Eye size={14}/> Ver</AltheaButton>
+                      <AltheaButton size="sm" fullWidth onClick={()=> onAdd(ex.id, ex.gifUrl, ex.name, ex.muscle, ex.imageDataUrl)}>AGREGAR</AltheaButton>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
-        <button onClick={onClose} className="w-full py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant">Cerrar</button>
+        <AltheaButton fullWidth variant="secondary" onClick={onClose}>Cerrar</AltheaButton>
       </div>
     </div>
   )
@@ -730,7 +956,7 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
               </ol>
             </div>
           )}
-          <button onClick={onAdd} className="mt-3 w-full py-3 rounded bg-primary text-on-surface font-medium">AGREGAR A RUTINA</button>
+          <AltheaButton fullWidth size="lg" onClick={onAdd}>AGREGAR A RUTINA</AltheaButton>
         </div>
       </div>
     </div>

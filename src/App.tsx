@@ -2,10 +2,13 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { Suspense } from 'react'
 import AppNav from '@/components/layout/AppNav'
 import ChatWidget from '@/components/chat/ChatWidget'
+import { RequiredActionGate } from '@/components/notifications/RequiredActionGate'
 import { AppHeader, TempleBackdrop } from '@/components/brand/temple'
 import { useEffect, useState, lazy } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db } from '@/services/storage/db'
+import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
+import { weekdayOfKey } from '@/utils/dates'
 
 // Custom hook to safely get offline mode - extracted to avoid calling hook in callback
 function useFirebaseOfflineMode() {
@@ -80,9 +83,10 @@ async function isTrainingDayLocal(dateStr:string): Promise<boolean> {
     const raw = await getAllRoutines()
     const activeId = await getActiveRoutineId()
     const active = raw?.find((r:any)=>r.id===activeId) || raw?.[0]
-    const cyc = active?.cycle
+    const pv = await getActiveVersion(PROFILE_SCOPE).catch(()=>null)
+    const cyc = pv?.cycle ?? active?.cycle
     if(!cyc?.weekMap) {return true}
-    const dow = new Date(dateStr+'T12:00:00').getDay()
+    const dow = weekdayOfKey(dateStr)
     return (cyc.weekMap[dow] ?? null) != null
   }catch{ return true }
 }
@@ -200,9 +204,10 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
   }
   return (
     <>
+    <RequiredActionGate>
       <TempleBackdrop />
       {!hideNav && <AppHeader />}
-      <div className="md:ml-[208px] relative z-10">
+      <div className="md:ml-16 lg:ml-[var(--navw)] relative z-10 max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-6 pt-4 pb-24 md:pb-10 transition-[margin-left] duration-200">
       <Routes>
         <Route path="/login" element={<LazyPage><Login onDone={() => navigate('/', { replace: true })} /></LazyPage>} />
         <Route path="/" element={<LazyPage><Inicio /></LazyPage>} />
@@ -223,8 +228,9 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
       </div>
       {!hideNav && <AppNav/>}
       {!hideNav && <ChatWidget/>}
-      {updateReady && <div className="fixed top-2 left-2 right-2 bg-amber-500 text-black text-sm p-3 rounded-xl text-center">Nueva versión disponible — recargá la app</div>}
+      {updateReady && <div className="fixed top-2 left-2 right-2 z-50 bg-tertiary text-on-tertiary text-sm p-3 rounded-xl text-center shadow-al-md">Nueva versión disponible — recargá la app</div>}
       <OnlineBanner/>
+      </RequiredActionGate>
     </>
   )
 }
@@ -236,7 +242,7 @@ function OnlineBanner(){
     return ()=>{ window.removeEventListener('online',on); window.removeEventListener('offline',off)}
   },[])
   if(online) {return null}
-  return <div className="fixed top-0 left-0 right-0 bg-slate-800 text-xs text-center py-1 border-b border-slate-700">Modo offline — todo funciona localmente</div>
+  return <div className="fixed top-0 left-0 right-0 z-40 bg-surface-container text-on-surface text-xs text-center py-1 border-b border-outline-variant">Modo offline — todo funciona localmente</div>
 }
 
 import { applyAppearance } from '@/utils/appearance'

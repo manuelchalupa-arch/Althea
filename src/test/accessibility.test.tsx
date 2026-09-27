@@ -54,7 +54,10 @@ describe('Accessibility Audit (WCAG AA)', () => {
   describe('Touch targets (44px minimum)', () => {
     it('bottom nav items should have minimum 44px touch target via CSS classes', () => {
       renderWithRouter(<AppNav />)
-      const homeLink = screen.getByRole('link', { name: 'Inicio' })
+      // El rail aparece en 3 renderizados responsivos (desktop/tablet/mobile);
+      // el ítem de la navegación inferior es el que incluye el área táctil 44px.
+      const homeLinks = screen.getAllByRole('link', { name: 'Inicio' })
+      const homeLink = homeLinks.find(l => l.className.includes('min-w-[44px]')) || homeLinks[0]
       // In jsdom, computed styles may not be available, so check for the CSS class
       expect(homeLink).toHaveClass('min-h-[44px]')
       expect(homeLink).toHaveClass('min-w-[44px]')

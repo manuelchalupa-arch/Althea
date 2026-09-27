@@ -12,6 +12,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:release": "node scripts/check-release.mjs",
     "seed:exercises": "echo \"seed exercises via src/data/exercises.json\""
   },
   "lint-staged": {

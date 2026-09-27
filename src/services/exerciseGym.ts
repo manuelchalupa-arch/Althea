@@ -88,3 +88,29 @@ export async function fetchPartMap(): Promise<Record<string,string>> {
   try{ localStorage.setItem('gym:partmap:v1', JSON.stringify(map)) }catch{ /* noop */ }
   return map
 }
+
+// Atribución muscular real por ejercicio (id -> primario + secundarios) desde la
+// misma API que ya alimenta el mapa de partes. Sin porcentajes inventados: la
+// estructura de la biblioteca (muscle / secondaryMuscles) ES el dato.
+export type MuscleMapEntry = { primary: string; secondary: string[] }
+export async function fetchMuscleMap(): Promise<Record<string,MuscleMapEntry>> {
+  try{
+    const cached = localStorage.getItem('gym:musclemap:v1')
+    if(cached) {return JSON.parse(cached)}
+  }catch{ /* noop */ }
+  const map: Record<string,MuscleMapEntry> = {}
+  const lists = await Promise.all(PARTS.map((p)=> fetchByBodyPart(p).catch(()=>null)))
+  for(const res of lists){
+    for(const ex of (res?.exercises || [])){
+      if(!ex?.id || map[ex.id]) {continue}
+      const slash = ex.id.indexOf('/')
+      const fromId = slash > 0 ? ex.id.slice(0, slash).toLowerCase() : ''
+      const primary = (ex.muscle || fromId || '').toLowerCase()
+      if(!primary) {continue}
+      const secondary = (ex.secondaryMuscles || []).map(m => m.toLowerCase()).filter(m => m && m !== primary)
+      map[ex.id] = { primary, secondary }
+    }
+  }
+  try{ localStorage.setItem('gym:musclemap:v1', JSON.stringify(map)) }catch{ /* noop */ }
+  return map
+}

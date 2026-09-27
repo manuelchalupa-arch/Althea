@@ -1,3 +1,5 @@
+import { todayKey } from '@/utils/dates'
+
 const STORAGE_KEY = 'groq:usage'
 const FREE_TIER = { rpm: 30, tpm: 8000, rpd: 1000 }
 
@@ -10,7 +12,7 @@ interface UsageWindow {
 }
 
 function now(): number { return Date.now() }
-function todayStr(): string { return new Date().toISOString().slice(0, 10) }
+function todayStr(): string { return todayKey() }
 
 function load(): UsageWindow {
   try {

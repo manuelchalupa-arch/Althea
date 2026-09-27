@@ -1,22 +1,15 @@
 const PROXY_URL = (() => {
-  try { return (import.meta as any).env?.VITE_GROQ_PROXY_URL || '' } catch { return '' }
+  try { return import.meta.env.VITE_GROQ_PROXY_URL || '' } catch { return '' }
 })()
 
-const DIRECT_URL = 'https://api.groq.com/openai/v1/chat/completions'
-
+// Sin clave en frontend: si no hay proxy, no hay llamada directa a Groq.
 export function getGroqUrl(): string {
-  return PROXY_URL || DIRECT_URL
+  return PROXY_URL
 }
 
+// El Authorization/Bearer lo agrega el proxy del lado servidor, nunca acá.
 export function getGroqHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (!PROXY_URL) {
-    const key = (() => {
-      try { return (import.meta as any).env?.VITE_GROQ_API_KEY || '' } catch { return '' }
-    })()
-    if (key) {headers['Authorization'] = `Bearer ${key}`}
-  }
-  return headers
+  return { 'Content-Type': 'application/json' }
 }
 
 export function isProxyConfigured(): boolean {

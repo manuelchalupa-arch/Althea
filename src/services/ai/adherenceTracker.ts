@@ -40,6 +40,7 @@ export interface AdaptationRecommendation {
 
 // ─── Almacenamiento (Dexie como fuente) ───
 import { getAdherenceRecords, saveAdherenceRecords } from '@/services/storage/diaryStore'
+import { todayKey, dayKeyOffset, daysBetween } from '@/utils/dates'
 
 const MAX_RECORDS = 90 // 3 meses
 let _adherenceIdCounter = 0
@@ -63,7 +64,7 @@ export async function recordAdherence(input: {
   proteinAdherence: number
   notes?: string
 }): Promise<AdherenceRecord> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayKey()
   const records = await getRecords()
 
   // Calcular días consecutivos con este método
@@ -100,10 +101,7 @@ function calculateConsecutiveDays(records: AdherenceRecord[], upToDate: string):
   for (const date of dates) {
     if (date === expectedDate) {
       streak++
-      // Previous day
-      const prev = new Date(expectedDate)
-      prev.setDate(prev.getDate() - 1)
-      expectedDate = prev.toISOString().slice(0, 10)
+      expectedDate = dayKeyOffset(expectedDate, -1)
     } else if (date < expectedDate) {
       break
     }
@@ -151,7 +149,7 @@ export async function getAdherenceTrend(methodId: NutritionMethodId): Promise<Ad
   }
 
   // Streaks
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayKey()
   const currentStreak = calculateConsecutiveDays(records, today)
   const longestStreak = calculateLongestStreak(records)
 
@@ -175,9 +173,7 @@ function calculateLongestStreak(records: AdherenceRecord[]): number {
   let current = 1
 
   for (let i = 1; i < dates.length; i++) {
-    const prev = new Date(dates[i - 1])
-    const curr = new Date(dates[i])
-    const diffDays = (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24)
+    const diffDays = daysBetween(dates[i - 1], dates[i])
 
     if (diffDays === 1) {
       current++
@@ -257,7 +253,7 @@ export async function detectAdherenceProblems(
   // 5. Sin registros recientes (posible abandono)
   const lastDate = trend.lastRecordDate
   if (lastDate) {
-    const daysSinceLastRecord = Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24))
+    const daysSinceLastRecord = daysBetween(lastDate, todayKey())
     if (daysSinceLastRecord > 5) {
       return {
         type: 'simplify',

@@ -4,6 +4,7 @@
 // buildInsights() recolecta de los módulos reales (sin duplicar stores).
 import { db } from '@/services/storage/db'
 import { getDiaryEntries } from '@/services/storage/diaryStore'
+import { todayKey, dayKeyOffset, daysBetween, toDateKey, weekdayOfKey } from '@/utils/dates'
 import type { TrainingSession, PostWorkoutSurvey } from '@/services/training/domain'
 import type { Session, RecoveryCheck, UserProfile } from '@/types'
 
@@ -77,7 +78,7 @@ export function detectGap(sessions: SessionRow[], today: string): CoachInsight |
   const finals = sessions.filter((s) => ['COMPLETED', 'PARTIAL'].includes(s.status)).map((s) => s.date).sort()
   if (finals.length === 0) {return null}
   const last = finals[finals.length - 1]
-  const gap = Math.round((new Date(today).getTime() - new Date(last).getTime()) / 86400000)
+  const gap = daysBetween(last, today)
   if (gap >= 5) {
     return {
       id: 'gap', kind: 'gap', level: 'warn',
@@ -108,11 +109,7 @@ export function detectWeeklyGoal(sessions: SessionRow[], plannedPerWeek: number,
 
 export function detectFourWeekGoal(sessions: SessionRow[], plannedPerWeek: number, today: string): CoachInsight | null {
   if (!(plannedPerWeek > 0)) { return null }
-  const since = (days: number) => {
-    const d = new Date(today + 'T12:00:00')
-    d.setDate(d.getDate() - days)
-    return d.toISOString().slice(0, 10)
-  }
+  const since = (days: number) => dayKeyOffset(today, -days)
   const done = sessions.filter(s => s.date >= since(28) && ['COMPLETED', 'PARTIAL'].includes(s.status)).length
   const expected = plannedPerWeek * 4
   if (done === 0) { return null }
@@ -270,12 +267,8 @@ export function detectRestDayTraining(sessions: SessionRow[]): CoachInsight | nu
 export async function buildInsights(): Promise<CoachInsight[]> {
   const out: CoachInsight[] = []
   try {
-    const today = new Date().toISOString().slice(0, 10)
-    const since = (days: number) => {
-      const d = new Date()
-      d.setDate(d.getDate() - days)
-      return d.toISOString().slice(0, 10)
-    }
+    const today = todayKey()
+    const since = (days: number) => dayKeyOffset(todayKey(), -days)
     // sesiones finales 60d (oficial manda por fecha; legacy solo rellena días sin oficial)
     const official: TrainingSession[] = await db.trainingSessions.toArray().catch((): TrainingSession[] => [])
     const legacy: Session[] = await db.sessions.toArray().catch((): Session[] => [])
@@ -296,15 +289,19 @@ export async function buildInsights(): Promise<CoachInsight[]> {
     ].filter((s) => s.date && s.date >= since(60))
     // adherencia 14d (días planificados según ciclo)
     let planned14: string[] = []
+    let cycleWeekMap: (number | null)[] | null = null
     try {
       const p: UserProfile = await db.userProfile.get('me') as UserProfile
-      const cycle = p?.cycle
+      const { getActiveVersion, PROFILE_SCOPE } = await import('@/services/planning/cycleVersions')
+      const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+      // canónico-primero; snapshot profile.cycle como fallback legacy.
+      // weekMap null si no hay ninguna fuente: no se inventa planificación.
+      const cycle = pv?.cycle ?? p?.cycle
       if (cycle?.weekMap) {
+        cycleWeekMap = cycle.weekMap
         for (let i = 0; i < 14; i++) {
-          const d = new Date()
-          d.setDate(d.getDate() - i)
-          const iso = d.toISOString().slice(0, 10)
-          if (cycle.weekMap[d.getDay()] != null) {planned14.push(iso)}
+          const iso = dayKeyOffset(todayKey(), -i)
+          if (cycle.weekMap[weekdayOfKey(iso)] != null) {planned14.push(iso)}
         }
       }
     } catch { /* noop */ }
@@ -314,8 +311,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
     push(detectRestDayTraining(finals.filter((s) => s.date >= since(30))))
     // ET18: objetivo semanal + mes de 4 semanas (planificado vs realizado)
     try {
-      const p: UserProfile = await db.userProfile.get('me') as UserProfile
-      const perWeek = p?.cycle?.weekMap ? p.cycle.weekMap.filter(d => d !== null && d !== undefined).length : 0
+      const perWeek = cycleWeekMap ? cycleWeekMap.filter(d => d !== null && d !== undefined).length : 0
       push(detectWeeklyGoal(finals, perWeek, today))
       push(detectFourWeekGoal(finals, perWeek, today))
     } catch { /* noop */ }
@@ -340,7 +336,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       const partMap = await fetchPartMap().catch(() => ({} as Record<string, string>))
       const vols: Record<string, number> = {}
       for (const s of sets) {
-        if (s.createdAt.slice(0, 10) < since(30)) { continue }
+        if (toDateKey(s.createdAt) < since(30)) { continue }
         const part = partMap[s.exerciseId]
         if (!part) { continue }
         vols[part] = (vols[part] || 0) + s.weight * s.reps
@@ -375,7 +371,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       } catch {}
       for (const se of ses.filter((s) => s.status === 'SKIPPED')) {
         const meta = nameOf[se.exerciseId] || { name: se.exerciseId, muscle: '' }
-        skips.push({ date: String(se.updatedAt || '').slice(0, 10), exerciseId: se.exerciseId, exerciseName: meta.name, muscle: meta.muscle, reason: se.skipReason || 'sin motivo' })
+        skips.push({ date: toDateKey(String(se.updatedAt || '')), exerciseId: se.exerciseId, exerciseName: meta.name, muscle: meta.muscle, reason: se.skipReason || 'sin motivo' })
       }
       push(detectSkipPatterns(skips.filter((s) => s.date >= since(30))))
     } catch { /* noop */ }
@@ -391,7 +387,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
     try {
       const vols: number[] = [0, 0, 0]
       for (const s of finals) {
-        const age = Math.round((new Date(today).getTime() - new Date(s.date).getTime()) / 86400000)
+        const age = daysBetween(s.date, today)
         const w = age < 7 ? 2 : age < 14 ? 1 : age < 21 ? 0 : -1
         if (w >= 0) {vols[w] += s.volume}
       }
@@ -400,7 +396,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       push(detectOvertraining(vols, scores))
       const thisWeek = finals.filter((s) => s.date >= since(7)).length
       const prev = finals.filter((s) => s.date < since(7) && s.date >= since(28))
-      const weeks = new Set(prev.map((s) => s.date.slice(0, 10))).size
+      const weeks = new Set(prev.map((s) => s.date)).size
       void weeks
       const prevByWeek: Record<string, number> = {}
       for (const s of prev) {
@@ -420,11 +416,12 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       const activeId = await getActiveRoutineId()
       const active = rawList?.find((r) => r.id === activeId) || rawList?.[0]
       if (active?.createdAt) {
-        const age = Math.round((Date.now() - new Date(active.createdAt).getTime()) / 86400000)
+        const createdDay = toDateKey(active.createdAt as string)
+        const age = createdDay ? daysBetween(createdDay, today) : 0
       const { unifiedAllCompletedSets } = await import('@/services/history')
       const unified = await unifiedAllCompletedSets().catch((): { weight: number; createdAt: string }[] => [])
-        const maxRecent = Math.max(0, ...unified.filter((r) => r.createdAt >= since(14)).map((r) => Number(r.weight || 0)))
-        const maxPrev = Math.max(0, ...unified.filter((r) => r.createdAt < since(14) && r.createdAt >= since(60)).map((r) => Number(r.weight || 0)))
+        const maxRecent = Math.max(0, ...unified.filter((r) => toDateKey(r.createdAt) >= since(14)).map((r) => Number(r.weight || 0)))
+        const maxPrev = Math.max(0, ...unified.filter((r) => toDateKey(r.createdAt) < since(14) && toDateKey(r.createdAt) >= since(60)).map((r) => Number(r.weight || 0)))
         push(detectRoutineStale(age, maxRecent > maxPrev, unified.length))
       }
     } catch { /* noop */ }
@@ -434,7 +431,8 @@ export async function buildInsights(): Promise<CoachInsight[]> {
       const w = Number(p?.weightKg)
       if (w > 0) {
         const { proteinRange } = await import('@/utils/nutrition')
-        const range = proteinRange(w, p?.goalPrimary)
+        const { resolveTrainingGoal } = await import('@/utils/trainingGoal')
+        const range = proteinRange(w, resolveTrainingGoal(p) || p?.goalPrimary)
         const diario = await getDiaryEntries(today)
         const est = diario.reduce((a: number, it) => a + Number(it?.macros?.proteins ?? 0), 0)
         push(detectProteinGap(est, range?.low ?? null, diario.length))
@@ -495,8 +493,5 @@ export async function buildInsights(): Promise<CoachInsight[]> {
 }
 
 function weekKey(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  const diff = (d.getDay() + 6) % 7
-  d.setDate(d.getDate() - diff)
-  return d.toISOString().slice(0, 10)
+  return dayKeyOffset(dateStr, -((weekdayOfKey(dateStr) + 6) % 7))
 }

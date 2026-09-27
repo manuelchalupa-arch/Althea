@@ -6,6 +6,7 @@ import { getDiaryEntries } from '@/services/storage/diaryStore'
 import type { CoachMemoryEntry } from '@/services/storage/db'
 import type { TrainingSession, PostWorkoutSurvey } from '@/services/training/domain'
 import type { RecoveryCheck, UserProfile, HydrationLog } from '@/types'
+import { todayKey, dayKeyOffset, daysBetween, weekdayOfKey } from '@/utils/dates'
 
 export interface ScoreFactor { label: string; delta: number; estado: string }
 export interface GlobalScore { score: number; factors: ScoreFactor[]; date: string }
@@ -61,17 +62,13 @@ export function computeGlobalScore(i: ScoreInput): GlobalScore {
   else if (i.gapDays >= 4) {add('Continuidad', -3, `${i.gapDays} días sin entrenar`)}
   else {add('Continuidad', 3, 'ritmo activo')}
 
-  return { score: Math.max(0, Math.min(100, Math.round(score))), factors, date: new Date().toISOString().slice(0, 10) }
+  return { score: Math.max(0, Math.min(100, Math.round(score))), factors, date: todayKey() }
 }
 
 // Recolecta inputs reales y persiste snapshot diario (upsert por fecha).
 export async function buildGlobalScore(): Promise<GlobalScore> {
-  const today = new Date().toISOString().slice(0, 10)
-  const since = (days: number) => {
-    const d = new Date()
-    d.setDate(d.getDate() - days)
-    return d.toISOString().slice(0, 10)
-  }
+  const today = todayKey()
+  const since = (days: number) => dayKeyOffset(todayKey(), -days)
   let adherencePct: number | null = null
   let gapDays: number | null = null
   let improved: boolean | null = null
@@ -80,15 +77,17 @@ export async function buildGlobalScore(): Promise<GlobalScore> {
     const official: TrainingSession[] = await db.trainingSessions.toArray().catch((): TrainingSession[] => [])
     const finals = official.filter((s) => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus))
     const p: UserProfile = await db.userProfile.get('me') as UserProfile
-    const cycle = p?.cycle
+    const { getActiveVersion, PROFILE_SCOPE } = await import('@/services/planning/cycleVersions')
+    const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+    // canónico-primero; snapshot profile.cycle como fallback legacy.
+    // Si no hay ninguna fuente, `cycle` queda undefined y no se calcula adherencia.
+    const cycle = pv?.cycle ?? p?.cycle
     if (cycle?.weekMap) {
       let planned = 0
       let done = 0
       for (let i = 0; i < 14; i++) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
-        const iso = d.toISOString().slice(0, 10)
-        if (cycle.weekMap[d.getDay()] != null) {
+        const iso = dayKeyOffset(todayKey(), -i)
+        if (cycle.weekMap[weekdayOfKey(iso)] != null) {
           planned++
           if (finals.some((s) => s.calendarDate === iso)) {done++}
         }
@@ -96,7 +95,7 @@ export async function buildGlobalScore(): Promise<GlobalScore> {
       if (planned >= 2) {adherencePct = Math.round((done / planned) * 100)}
     }
     const dates = finals.map((s) => s.calendarDate).sort()
-    if (dates.length > 0) {gapDays = Math.round((Date.now() - new Date(dates[dates.length - 1]).getTime()) / 86400000)}
+    if (dates.length > 0) {gapDays = daysBetween(dates[dates.length - 1], today)}
     // progreso: mejor volumen de sesión última vs anterior (14d)
     const vols = finals.filter((s) => s.calendarDate >= since(28)).map((s) => ({ d: s.calendarDate, v: Number(s.totalVolume ?? 0) })).sort((a, b) => (a.d < b.d ? -1 : 1))
     if (vols.length >= 2) {
@@ -132,7 +131,8 @@ export async function buildGlobalScore(): Promise<GlobalScore> {
     const w = Number(p?.weightKg)
     if (w > 0) {
       const { proteinRange } = await import('@/utils/nutrition')
-      const range = proteinRange(w, p?.goalPrimary)
+      const { resolveTrainingGoal } = await import('@/utils/trainingGoal')
+      const range = proteinRange(w, resolveTrainingGoal(p) || p?.goalPrimary)
       const diario = await getDiaryEntries(today)
       if (range && diario.length > 0) {
         const est = diario.reduce((a: number, it) => a + Number(it?.macros?.proteins ?? 0), 0)

@@ -1,6 +1,15 @@
 import { db } from '@/services/storage/db'
 import { getDiaryEntries } from '@/services/storage/diaryStore'
-import type { UserProfile } from '@/types'
+import type { UserProfile, TrainingGoal } from '@/types'
+import { getMethod } from './trainingMethodsDB'
+import type { TrainingMethodId } from './trainingMethods'
+import { METHOD_COACHING_STYLES, resolveCoachTone } from './coachPersonality'
+import { PERSONALITY_INSTRUCTION } from './systemPrompt'
+import { getGoalLabel } from './goalEngine'
+import { getLearningInsight } from './coachMemory'
+import { todayKey } from '@/utils/dates'
+import { resolveTrainingGoal } from '@/utils/trainingGoal'
+import { getPainAreas, getExcludedExercises } from '@/utils/restrictions'
 
 interface PageContextData {
   page: string
@@ -13,7 +22,7 @@ interface PageContextData {
 }
 
 export async function buildChatContext(page: string): Promise<string> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayKey()
   const ctx: PageContextData = {
     page,
     profile: null,
@@ -49,19 +58,53 @@ export async function buildChatContext(page: string): Promise<string> {
     ctx.recovery = sorted.length > 0 ? sorted[sorted.length - 1] : null
   } catch {}
 
-  return formatContext(ctx)
+  let memoryInsight: string | null = null
+  try { memoryInsight = await getLearningInsight() } catch {}
+
+  // Método de la planificación vigente (canónico). El snapshot profile.cycle
+  // queda como fallback en formatContext para instalaciones pre-versionado.
+  let cycleMethodId: string | null = null
+  try {
+    const { getActiveVersion, PROFILE_SCOPE } = await import('@/services/planning/cycleVersions')
+    const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+    cycleMethodId = pv?.methodId ?? pv?.cycle?.methodId ?? null
+  } catch {}
+
+  return formatContext(ctx, memoryInsight, cycleMethodId)
 }
 
-function formatContext(ctx: PageContextData): string {
+function formatContext(ctx: PageContextData, memoryInsight: string | null = null, cycleMethodId: string | null = null): string {
   const parts: string[] = []
   const p = ctx.profile
 
   if (p) {
     parts.push(`USUARIO: ${p.displayName || 'sin nombre'}, ${p.age || '?'} años, ${p.weightKg || '?'}kg, ${p.heightCm || '?'}cm`)
-    if (p.goalPrimary) {parts.push(`Objetivo: ${p.goalPrimary}`)}
+    const tgResolved = resolveTrainingGoal(p)
+    if (tgResolved) {parts.push(`Objetivo: ${getGoalLabel(tgResolved as TrainingGoal)}`)}
+    else if (p.goalPrimary) {parts.push(`Objetivo: ${p.goalPrimary}`)}
     if (p.experienceLevel) {parts.push(`Nivel: ${p.experienceLevel}`)}
-    if (p.painAreas?.length) {parts.push(`Zonas de dolor: ${p.painAreas.join(', ')}`)}
-    if (p.excludedExercises?.length) {parts.push(`Ejercicios excluidos: ${p.excludedExercises.join(', ')}`)}
+    // FASE 2 S4 — dolor y excluidos son conceptos de ENTRENAMIENTO con
+    // semántica propia; se leen desde su fuente canónica, no se fusionan.
+    const painAreas = getPainAreas(p)
+    const excludedEx = getExcludedExercises(p)
+    if (painAreas.length) {parts.push(`Zonas de dolor: ${painAreas.join(', ')}`)}
+    if (excludedEx.length) {parts.push(`Ejercicios excluidos: ${excludedEx.join(', ')}`)}
+    const methodId = (p.coachMethodView || cycleMethodId || p.cycle?.methodId) as TrainingMethodId | undefined
+    if (methodId) {
+      const method = getMethod(methodId)
+      const style = METHOD_COACHING_STYLES[methodId]
+      if (method) {
+        // FASE 2 S6 · mismo resolutor canónico que el resto del Coach.
+        const tone = resolveCoachTone({ coachTone: p.coachTone, methodId })
+        parts.push(`Coach activo: ${method.nameEs} — tono ${tone}. ${style?.motivationStyle ?? ''}`.trim())
+        const personLine = PERSONALITY_INSTRUCTION[tone]
+        if (personLine) { parts.push(`Estilo del Coach: ${personLine}`) }
+      }
+    }
+  }
+
+  if (memoryInsight) {
+    parts.push(`Nota del Coach: ${memoryInsight}`)
   }
 
   if (ctx.activeRoutine?.cycle) {

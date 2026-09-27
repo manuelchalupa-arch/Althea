@@ -15,6 +15,7 @@ import {
 import { savePlanning, getActiveVersion, PROFILE_SCOPE, type CycleVersion } from '@/services/planning/cycleVersions'
 import type { WeeklySequence } from '@/types'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
+import { todayKey, addDaysToKey, parseLocalDateKey } from '@/utils/dates'
 
 interface PeriodizationEditorProps {
   onClose?: () => void
@@ -45,9 +46,12 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
     try {
       setLoading(true)
       const profile = await db.userProfile.get('me')
-      const cycle = getCycleFromProfile(profile ?? null)
-      setCycle(cycle)
-      setActiveVersion(await getActiveVersion(PROFILE_SCOPE).catch(() => null))
+      // FASE 2 S3 — canónico-primero: el editor se siembra con la versión
+      // activa de cycleVersions, no con el snapshot legacy profile.cycle
+      // (que solo queda como fallback si no existe ninguna versión).
+      const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+      setCycle(pv?.cycle ?? getCycleFromProfile(profile ?? null))
+      setActiveVersion(pv)
       setError(null)
     } catch (e) {
       setError('Error al cargar la periodización')
@@ -78,8 +82,10 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
         methodId: newCycle.methodId,
       })
 
+      // FASE 1M-B — el ciclo ya se persiste canonicamente por savePlanning()
+      // (cycleVersions). NO se escribe cycle en userProfile: profile.cycle queda
+      // como snapshot legacy de SOLO LECTURA (fallback para lectores antiguos).
       await db.userProfile.update(profile.id, {
-        cycle: newCycle,
         updatedAt: new Date().toISOString()
       })
 
@@ -96,21 +102,16 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
 
   const generateWeekSequence = useCallback((startDate: string, weeks: number) => {
     const sequences: any[] = []
-    const start = new Date(startDate)
     // Semanas vinculadas a la versión activa: ids deterministas por versión
     // (regenerar no duplica ni toca semanas de otras versiones).
     const versionTag = activeVersion ? activeVersion.id : (cycle?.methodId || 'unknown')
 
     for (let w = 0; w < weeks; w++) {
-      const weekStart = new Date(start)
-      weekStart.setDate(start.getDate() + w * 7)
-      const weekStartStr = weekStart.toISOString().slice(0, 10)
+      const weekStartStr = addDaysToKey(startDate, w * 7)
 
       const plannedDays: number[] = []
       for (let d = 0; d < 7; d++) {
-        const day = new Date(weekStart)
-        day.setDate(weekStart.getDate() + d)
-        const dayStr = day.toISOString().slice(0, 10)
+        const dayStr = addDaysToKey(weekStartStr, d)
         const dayInfo = getTrainingDayForDate(dayStr, cycle as CycleConfig)
         if (!dayInfo.isRest) {
           plannedDays.push(dayInfo.n!)
@@ -179,8 +180,8 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
   if (!cycle) {
     return (
       <AltheaCard className="p-6 text-center">
-        <AlertCircle className="text-warning mx-auto mb-2" size={32} />
-        <h3 className="font-body-lg font-semibold text-warning mb-2">Sin periodización</h3>
+        <AlertCircle className="text-tertiary mx-auto mb-2" size={32} />
+        <h3 className="font-body-lg font-semibold text-tertiary mb-2">Sin periodización</h3>
         <p className="font-body-md text-on-surface-variant mb-4">
           No hay periodización configurada. Completa el onboarding o selecciona un método.
         </p>
@@ -256,7 +257,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
               <div className="p-3 bg-surface-container-highest/50 rounded-lg">
                 <span className="font-label-caps text-[10px] text-on-surface-variant">Inicio</span>
                 <p className="font-body-md font-medium text-on-surface mt-1">
-                  {cycle?.startDate ? new Date(cycle.startDate).toLocaleDateString('es-ES') : '—'}
+                  {cycle?.startDate ? parseLocalDateKey(cycle.startDate).toLocaleDateString('es-ES') : '—'}
                 </p>
               </div>
               <div className="p-3 bg-surface-container-highest/50 rounded-lg">
@@ -343,7 +344,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
               <AltheaInput
                 label="Fecha inicio"
                 type="date"
-                value={new Date().toISOString().slice(0, 10)}
+                value={todayKey()}
                 onChange={(e) => setWeekDraft(d => ({ ...d, startDate: e.target.value }))}
               />
               <AltheaInput
@@ -355,7 +356,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
             </div>
             <AltheaButton 
               onClick={() => {
-                const sequences = generateWeekSequence(new Date().toISOString().slice(0, 10), 4)
+                const sequences = generateWeekSequence(todayKey(), 4)
                 saveWeekSequences(sequences)
               }}
               className="w-full"

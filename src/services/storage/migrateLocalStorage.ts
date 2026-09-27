@@ -1,6 +1,7 @@
 // Migración de localStorage restante → Dexie
 // Ejecutar una vez para migrar datos legacy que aún están en localStorage
 import { db } from '@/services/storage/db'
+import { todayKey } from '@/utils/dates'
 import { logger } from '@/services/logger'
 
 export interface MigrationReport {
@@ -343,7 +344,7 @@ export async function migrateAllLocalStorageToDexie(
     await safePut(db.coachMemory, {
       id: 'prefs:global',
       type: 'observation',
-      date: new Date().toISOString().slice(0, 10),
+      date: todayKey(),
       sessionId: 'prefs',
       sessionStatus: 'prefs',
       routineName: 'prefs',

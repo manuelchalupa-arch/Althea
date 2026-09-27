@@ -118,6 +118,9 @@ export async function loadDemoData(): Promise<{ routineId: string; sessionsCreat
       const dayExercises = routine.dayExercises[dayNumber]!
       for (let ei = 0; ei < dayExercises.length; ei++) {
         const ex = dayExercises[ei]
+        // Plan por serie de la rutina; si no existe se expande el escalar.
+        const seriesPlan = ex.series?.length ? ex.series : Array.from({ length: ex.sets }, () => ({ reps: ex.reps, weight: ex.weight ?? null }))
+        const baseWeight = ex.weight ?? 0
         const sessionExercise: SessionExercise = {
           sessionExerciseId: uuid(),
           sessionId: session.sessionId,
@@ -131,8 +134,8 @@ export async function loadDemoData(): Promise<{ routineId: string; sessionsCreat
           actualSetCount: ex.sets,
           plannedSets: Array.from({ length: ex.sets }, (_, k) => ({
             order: k + 1,
-            reps: ex.reps,
-            weight: ex.weight,
+            reps: seriesPlan[k]?.reps ?? ex.reps,
+            weight: seriesPlan[k]?.weight ?? null,
             setType: 'NORMAL',
           })),
           actualSets: Array.from({ length: ex.sets }, (_, k) => {
@@ -140,8 +143,8 @@ export async function loadDemoData(): Promise<{ routineId: string; sessionsCreat
             const rVariation = Math.floor(Math.random() * 2)
             return {
               order: k + 1,
-              reps: ex.reps - rVariation,
-              weight: Math.round((ex.weight + w * 2.5 + wVariation) / 2.5) * 2.5,
+              reps: (seriesPlan[k]?.reps ?? ex.reps) - rVariation,
+              weight: Math.round((baseWeight + w * 2.5 + wVariation) / 2.5) * 2.5,
               setType: 'NORMAL',
             }
           }),
@@ -150,7 +153,7 @@ export async function loadDemoData(): Promise<{ routineId: string; sessionsCreat
           isDemo: true,
         }
         session.actualMuscleGroups = [...(session.actualMuscleGroups || []), ex.muscle ?? '']
-        session.totalVolume! += sessionExercise.actualSets!.reduce((sum, s) => sum + s.reps * s.weight, 0)
+        session.totalVolume! += sessionExercise.actualSets!.reduce((sum, s) => sum + s.reps * (s.weight ?? 0), 0)
         await db.sessionExercises.put(markDemo(sessionExercise))
 
         for (let s = 1; s <= ex.sets; s++) {
@@ -161,10 +164,10 @@ export async function loadDemoData(): Promise<{ routineId: string; sessionsCreat
             exerciseId: ex.exId,
             order: s,
             setType: 'NORMAL',
-            plannedReps: ex.reps,
-            plannedWeight: ex.weight,
-            actualReps: ex.reps - (Math.random() > 0.5 ? 1 : 0),
-            actualWeight: Math.round((ex.weight + w * 2.5 + (Math.random() * 2 - 1)) / 2.5) * 2.5,
+            plannedReps: seriesPlan[0]?.reps ?? ex.reps,
+            plannedWeight: seriesPlan[0]?.weight ?? null,
+            actualReps: (seriesPlan[0]?.reps ?? ex.reps) - (Math.random() > 0.5 ? 1 : 0),
+            actualWeight: Math.round((baseWeight + w * 2.5 + (Math.random() * 2 - 1)) / 2.5) * 2.5,
             status: 'COMPLETED',
             completedAt: new Date(date).toISOString(),
             createdAt: new Date(date).toISOString(),

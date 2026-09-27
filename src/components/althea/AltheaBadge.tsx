@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'outline';
+type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'outline';
 
 interface AltheaBadgeProps {
   variant?: BadgeVariant;
@@ -14,10 +14,11 @@ interface AltheaBadgeProps {
 
 const variantStyles: Record<BadgeVariant, string> = {
   default: 'bg-surface-container-high border-outline-variant text-secondary',
-  primary: 'bg-primary/15 border-primary/30 text-primary',
-  success: 'bg-primary/14 border-primary/45 text-primary',
-  warning: 'bg-secondary/12 border-secondary/45 text-secondary',
-  danger: 'bg-error/14 border-error/45 text-error',
+  primary: 'bg-primary/10 border-primary/35 text-primary',
+  secondary: 'bg-secondary/10 border-secondary/35 text-secondary',
+  success: 'bg-secondary/10 border-secondary/40 text-secondary',
+  warning: 'bg-tertiary/10 border-tertiary/40 text-tertiary',
+  danger: 'bg-error/15 border-error/40 text-error',
   outline: 'bg-transparent border-outline-variant text-on-surface-variant',
 };
 
@@ -29,7 +30,7 @@ const sizeStyles = {
 
 export function AltheaBadge({ variant = 'default', size = 'sm', icon, dot, dotColor, children, className = '' }: AltheaBadgeProps) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded border font-label-md font-bold uppercase tracking-wider
+    <span className={`inline-flex items-center gap-1.5 rounded-full border font-label-md font-bold uppercase tracking-wider
       ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}>
       {dot && (
         <span className={`w-1.5 h-1.5 rounded-full ${dotColor || 'bg-primary'} ${dot ? 'animate-pulse' : ''}`} />
@@ -46,12 +47,12 @@ interface StatusTagProps {
 }
 
 const statusStyles: Record<string, string> = {
-  completed: 'bg-primary/14 text-primary',
-  rest: 'bg-surface-container text-secondary',
-  planned: 'bg-surface-container text-on-surface-variant',
-  active: 'bg-primary text-on-primary',
-  skipped: 'bg-secondary/12 text-secondary',
-  pending: 'bg-surface-container text-on-surface-variant',
+  completed: 'st-completed',
+  rest: 'status-tag--rest',
+  planned: 'status-tag--planned',
+  active: 'status-tag--active',
+  skipped: 'status-tag--skipped',
+  pending: 'st-pending',
 };
 
 const statusLabels: Record<string, string> = {

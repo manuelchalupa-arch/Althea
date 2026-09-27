@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { todayKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
 import {
   enqueueOp, pendingOps, pendingCount, opIdFor, type RemoteAdapter,
@@ -62,7 +63,7 @@ describe('FASE 8 — Offline-first y sync idempotente', () => {
     expect(await pendingCount()).toBe(3)
     const ops = await pendingOps()
     expect(ops.map(o => o.table).sort()).toEqual(['hydrationLogs', 'nutritionDiary', 'recoveryChecks'])
-    expect(ops.find(o => o.table === 'recoveryChecks')?.key).toBe(new Date().toISOString().slice(0, 10))
+    expect(ops.find(o => o.table === 'recoveryChecks')?.key).toBe(todayKey())
     expect(ops.find(o => o.table === 'nutritionDiary')?.key).toBe('d1')
   })
 
@@ -98,7 +99,7 @@ describe('FASE 8 — Offline-first y sync idempotente', () => {
     await processQueue('uid', remote)
     expect(remote.count('recoveryChecks')).toBe(1)
     // Reprocesar (p. ej. tras reconexión): nada pendiente, mismo doc
-    await enqueueOp('recoveryChecks', new Date().toISOString().slice(0, 10))
+    await enqueueOp('recoveryChecks', todayKey())
     await processQueue('uid', remote)
     expect(remote.count('recoveryChecks')).toBe(1)
 

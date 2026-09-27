@@ -36,17 +36,27 @@ export interface StreamCallbacks {
   onError: (error: string) => void
 }
 
+export interface StreamOptions {
+  /**
+   * Bloque de sistema extra (contexto real del usuario + evidencia
+   * recuperada). Se suma al prompt base, nunca lo reemplaza.
+   */
+  systemPrompt?: string
+}
+
 function isAvailable(): boolean {
-  // Honesto: disponible solo si hay proxy o clave configurados (nunca asumir red/modelo).
+  // Honesto: disponible solo si hay proxy configurado (nunca asumir red/modelo).
+  // La clave no puede vivir en frontend; sin proxy se usa el fallback local.
+  // Lectura por miembro: evita inlinear el objeto completo de variables VITE_*.
   try {
-    const env = (import.meta as { env?: Record<string, string | undefined> }).env || {}
-    return !!(env.VITE_GROQ_PROXY_URL || env.VITE_GROQ_API_KEY)
+    return !!import.meta.env.VITE_GROQ_PROXY_URL
   } catch { return false }
 }
 
 export async function streamChat(
   messages: ChatCompletionMessage[],
-  callbacks: StreamCallbacks
+  callbacks: StreamCallbacks,
+  options?: StreamOptions
 ): Promise<void> {
   if (!isAvailable()) {
     callbacks.onError('API proxy no configurado. Configurá VITE_GROQ_PROXY_URL en .env')
@@ -59,7 +69,10 @@ export async function streamChat(
     return
   }
 
-  const systemMsg: ChatCompletionMessage = { role: 'system', content: CHAT_SYSTEM_PROMPT }
+  const systemContent = options?.systemPrompt
+    ? `${CHAT_SYSTEM_PROMPT}\n\n${options.systemPrompt}`
+    : CHAT_SYSTEM_PROMPT
+  const systemMsg: ChatCompletionMessage = { role: 'system', content: systemContent }
   const fullMessages = [systemMsg, ...messages]
 
   try {

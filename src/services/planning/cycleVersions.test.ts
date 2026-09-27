@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { db } from '@/services/storage/db'
 import type { CycleConfig } from '@/utils/cycle'
+import { DEFAULT_CYCLE } from '@/utils/cycle'
 import {
   savePlanning,
   getActiveVersion,
+  getCanonicalCycle,
   listVersions,
   getVersionForSession,
   isPlanningUsed,
@@ -153,5 +155,88 @@ describe('FASE 3 — Versionado de planificación', () => {
     const legacy = await getSession('ts')
     expect(legacy?.sessionStatus).toBe('COMPLETED')
     expect(await getVersionForSession(legacy!)).toBeNull()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FASE 2 S3 — Evidencia de cierre: lectura canónica activa, fallback legacy,
+// ausencia de ciclo y ausencia de doble escritura canónica.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('FASE 2 S3 — contrato de lectura canónica y fallback legacy', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    await db.delete()
+    await db.open()
+  })
+
+  it('A. la versión activa gana sobre el snapshot legacy profile.cycle', async () => {
+    await db.userProfile.put({ id: 'me', cycle: CYCLE_V1, updatedAt: '2026-09-01T00:00:00Z' } as never)
+    await savePlanning({ cycle: CYCLE_V2 })
+
+    const canonical = await getCanonicalCycle((await db.userProfile.get('me')) as never)
+
+    expect(await getActiveVersion()).not.toBeNull()
+    expect(canonical.startDate).toBe('2026-10-01')
+    expect(canonical.trainingDays).toHaveLength(3)
+    expect(canonical.weekMap).toEqual(CYCLE_V2.weekMap)
+    expect(canonical.methodId).toBe(CYCLE_V2.methodId)
+    // El snapshot legacy (2 días, 2026-09-01) no contaminó el resultado.
+    expect(canonical.trainingDays).not.toHaveLength(2)
+  })
+
+  it('B. sin versión activa cae al snapshot legacy (fallback intencional)', async () => {
+    await db.userProfile.put({ id: 'me', cycle: CYCLE_V1, updatedAt: '2026-09-01T00:00:00Z' } as never)
+    expect(await getActiveVersion()).toBeNull()
+
+    const canonical = await getCanonicalCycle((await db.userProfile.get('me')) as never)
+
+    expect(canonical.startDate).toBe(CYCLE_V1.startDate)
+    expect(canonical.trainingDays).toHaveLength(2)
+    expect(canonical.methodId).toBe(CYCLE_V1.methodId)
+  })
+
+  it('C. sin versión ni ciclo no rompe: devuelve DEFAULT_CYCLE, nunca undefined', async () => {
+    await expect(getCanonicalCycle(null)).resolves.toEqual(DEFAULT_CYCLE)
+
+    await db.userProfile.put({ id: 'me', updatedAt: '2026-09-01T00:00:00Z' } as never)
+    const sinCiclo = await getCanonicalCycle((await db.userProfile.get('me')) as never)
+
+    expect(sinCiclo).toEqual(DEFAULT_CYCLE)
+    expect(sinCiclo.weekMap).toBeDefined()
+    expect(sinCiclo.trainingDays.length).toBeGreaterThan(0)
+    expect(sinCiclo.startDate).toBeTruthy()
+  })
+
+  it('D. la versión histórica de una sesión no cambia al crear una nueva activa', async () => {
+    await savePlanning({ cycle: CYCLE_V1 })
+    const s1 = await createReadySession({
+      calendarDate: '2026-09-10', routineId: 'r1', routineName: 'R',
+      plannedDay: 1, plannedDayName: 'Pecho', actualDay: 1, actualDayName: 'Pecho',
+      exercises: EXERCISES,
+    })
+    await finishSession(s1.sessionId)
+
+    await savePlanning({ cycle: CYCLE_V2 })
+
+    const historica = await getVersionForSession((await getSession(s1.sessionId))!)
+    expect(historica?.version).toBe(1)
+    expect(historica?.status).toBe('historic')
+    expect(historica?.cycle.trainingDays).toHaveLength(2)
+
+    const activa = await getActiveVersion()
+    expect(activa?.version).toBe(2)
+    expect((await getVersionForSession({ cycleId: activa!.id }))?.version).toBe(2)
+  })
+
+  it('E. savePlanning es el único escritor canónico: misma planificación no duplica versiones', async () => {
+    await savePlanning({ cycle: CYCLE_V1 })
+    await savePlanning({ cycle: { ...CYCLE_V1 } })
+    await savePlanning({ cycle: { ...CYCLE_V1 } })
+
+    expect(await db.cycleVersions.count()).toBe(1)
+    const all = await listVersions()
+    expect(all).toHaveLength(1)
+    expect(all.filter(v => v.status === 'active')).toHaveLength(1)
+    expect(all.filter(v => v.status === 'historic')).toHaveLength(0)
   })
 })

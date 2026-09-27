@@ -1,4 +1,5 @@
-export type Goal = 'fuerza' | 'hipertrofia' | 'resistencia' | 'perdida_peso' | 'recomposicion' | 'mantenimiento' | 'personalizado'
+/** @deprecated Vocabulario español legacy del onboarding. Fuente oficial: TrainingGoal (campo trainingGoal). */
+export type Goal = 'fuerza' | 'hipertrofia' | 'resistencia' | 'perdida_peso' | 'recomposicion' | 'mantenimiento' | 'personalizado' | 'movilidad'
 export type Level = 'principiante' | 'intermedio' | 'avanzado'
 export type CoachIntensity = 'profesional' | 'motivacional' | 'duro' | 'extremo'
 
@@ -40,7 +41,7 @@ export interface SetLog {
   id: string; sessionId: string; exerciseId: string; setNumber: number
   weight: number; reps: number; rpe?: number; rir?: number; completed: boolean; notes?: string; createdAt: string
 }
-export interface RecoveryCheck { id: string; localDate: string; energy: number; fatigue: number; stress: number; sleepHours?: number; sleepQuality?: number; soreness?: number; motivation: number; digestion?: number; hydration?: number; score: number; color: 'green'|'yellow'|'red'; perceivedExertion?: number; painArea?: string; painObservation?: string; notes?: string; isDemo?: boolean }
+export interface RecoveryCheck { id: string; localDate: string; energy: number; fatigue: number; stress: number; sleepHours?: number; sleepQuality?: number; soreness?: number; motivation: number; /** Estado de ánimo 1-10. Opcional: los registros antiguos solo guardan `motivation`. */ mood?: number; digestion?: number; hydration?: number; score: number; color: 'green'|'yellow'|'red'; perceivedExertion?: number; painArea?: string; painObservation?: string; notes?: string; isDemo?: boolean }
 export interface HydrationLog { id: string; localDate: string; amountMl: number; time: string; isDemo?: boolean }
 export interface PainLog {
   id: string
@@ -53,10 +54,27 @@ export interface PainLog {
   createdAt: string
 }
 export interface UserProfile {
-  id: string; goal: Goal; level: Level; availableDays: number[]; trainingTime: string
+  id: string;
+  /** @deprecated Objetivo legacy español (onboarding). Fuente oficial: trainingGoal. */
+  goal: Goal;
+  /** @deprecated Objetivo legacy en texto libre (onboarding, español). Fuente oficial: trainingGoal. */
+  level: Level; availableDays: number[]; trainingTime: string
   equipment: Equipment[]; units: { weight: 'kg'|'lb'; liquid: 'ml'|'oz' }; lang: string
+  /**
+   * FASE 2 S6 · Preferencia LEGACY del onboarding. Se consulta únicamente
+   * cuando la persona no tiene método de entrenamiento configurado y no chose
+   * un tono explícito. Leer siempre vía `resolveCoachTone()` (@/services/ai/coachPersonality).
+   */
   coachIntensity: CoachIntensity; onboardingDone: boolean; hydrationGoalMl: number
-  coachMethodView?: string; coachTone?: string
+  /** FASE 2 S6 · Método que la persona quiere VER en la pantalla del Coach. No es el método canónico del ciclo. */
+  coachMethodView?: string
+  /**
+   * FASE 2 S6 · Tono canónico del Coach (preferencia explícita, editada en
+   * Perfil). Se mantiene como `string` porque `mapTone` traduce a propósito los
+   * valores legacy ('PROFESIONAL'|'MOTIVACIONAL'|'ESTRICTO'|'DURO').
+   * No escribirlo desde otro lugar que no sea el selector de Perfil.
+   */
+  coachTone?: string
   createdAt: string; updatedAt: string
   cycle?: { startDate: string; trainingDays: { n:number; name:string }[]; weekMap: (number|null)[]; methodId?: string; methodJustification?: string }
   // Perfil onboarding Coach IA
@@ -65,15 +83,28 @@ export interface UserProfile {
   bodyFatPct?: number; muscleMassKg?: number
   bmi?: string; bmiCategory?: string; bmiCalculatedAt?: string
   targetWeightKg?: number
+  /** @deprecated Objetivo legacy en texto libre (onboarding, español). Fuente oficial: trainingGoal. */
   goalPrimary?: string; goalsSecondary?: string[]; customGoal?: string
   needsDescription?: string
+  /**
+   * ENTRENAMIENTO · Limitaciones (equipamiento, movimiento, tiempo, espacio,
+   * dolor). Fuente canónica de restricciones de entrenamiento.
+   * Leer siempre vía `getTrainingLimitations()` (@/utils/restrictions).
+   */
   limitations?: string[]; painAreas?: string[]; limitationDescription?: string
+  /**
+   * @deprecated FASE 2 S4 · Espejo legacy de ENTRENAMIENTO escrito solo por el
+   * onboarding. Sin lectores desde S4: no usar. Las alimentarias viven en
+   * `nutritionPrefs.restrictions`.
+   */
   restrictions?: string[]; restrictionDescription?: string
+  /** ENTRENAMIENTO · Ids de ejercicios excluidos. Canónico (`getExcludedExercises()`). */
   excludedExercises?: string[] // ids "biceps/barbell-curl"
   activityLevel?: 'sedentario'|'poco_activo'|'moderado'|'muy_activo'|'extremadamente_activo'
   coachContext?: any
 
   // ─── Coach IA v2: perfiles objetivo ───
+  /** Fuente oficial del objetivo de entrenamiento (vocabulario inglés). */
   trainingGoal?: TrainingGoal
   experienceLevel?: ExperienceLevel
   trainingHistory?: {
@@ -94,6 +125,11 @@ export interface UserProfile {
     sessionTimeAvailable?: number
   }
   nutritionPrefs?: {
+    /**
+     * NUTRICIÓN · Restricciones alimentarias. Fuente canónica
+     * (`getNutritionRestrictions()`). No mezclar con `restrictions`, que es
+     * de entrenamiento.
+     */
     restrictions?: string[]
     allergies?: string[]
     dislikedFoods?: string[]

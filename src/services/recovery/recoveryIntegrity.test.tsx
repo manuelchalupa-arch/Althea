@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { todayKey } from '@/utils/dates'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { db } from '@/services/storage/db'
@@ -6,7 +7,7 @@ import { updateRecoveryCheck, saveRecoveryCheck } from './recoveryService'
 import { SleepForm } from '@/components/recovery/SleepForm'
 import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'
 
-const today = new Date().toISOString().slice(0, 10)
+const today = todayKey()
 
 describe('FASE 1 — Integridad de Recovery (no sobrescritura)', () => {
   beforeEach(async () => {
@@ -40,9 +41,10 @@ describe('FASE 1 — Integridad de Recovery (no sobrescritura)', () => {
     await updateRecoveryCheck({ sleepHours: 7.5, sleepQuality: 8 })
     render(<RecoveryCheckForm date={today} />)
     await waitFor(() => {
-      expect(screen.getByText('Guardar check-in')).toBeInTheDocument()
+      expect(screen.getByText('Guardar recuperación')).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByText('Guardar check-in'))
+    await waitFor(() => expect((screen.getByText('Guardar recuperación') as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(screen.getByText('Guardar recuperación'))
     await waitFor(async () => {
       const r = await db.recoveryChecks.get(today)
       expect(r?.energy).toBeDefined()

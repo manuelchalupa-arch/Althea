@@ -14,7 +14,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="theme-toggle-btn group flex items-center justify-center w-9 h-9 rounded-lg hover:bg-surface-container-high/50 transition-colors"
+      className="theme-toggle-btn group flex items-center justify-center w-11 h-11 rounded-lg hover:bg-surface-container-high/50 transition-colors"
       aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
       type="button"
     >

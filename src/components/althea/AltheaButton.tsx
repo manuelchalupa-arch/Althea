@@ -10,17 +10,17 @@ interface AltheaButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
 }
 
-const variantStyles = {
-  primary: 'bg-primary text-on-primary border border-outline-variant hover:opacity-90 shadow-md',
-  secondary: 'bg-transparent text-on-surface border border-outline-variant hover:bg-surface-container-high',
-  ghost: 'bg-transparent text-on-surface-variant hover:text-primary hover:bg-surface-container-high border border-transparent',
-  danger: 'bg-error/15 text-error border border-error/40 hover:bg-error/25',
+const variantClass = {
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  ghost: 'btn-ghost',
+  danger: 'btn-danger',
 };
 
 const sizeStyles = {
-  sm: 'px-3 py-1.5 text-xs',
-  md: 'px-4 py-2 text-xs',
-  lg: 'px-5 py-2.5 text-xs',
+  sm: 'px-3 py-1.5 text-xs min-h-8',
+  md: 'px-4 py-2 min-h-10',
+  lg: 'px-6 py-3 min-h-11',
 };
 
 export function AltheaButton({
@@ -30,21 +30,20 @@ export function AltheaButton({
   return (
     <button
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-1.5 font-label-md font-bold uppercase tracking-wider rounded transition-all
-        ${variantStyles[variant]} ${sizeStyles[size]}
+      className={`${variantClass[variant]} ${sizeStyles[size]}
         ${fullWidth ? 'w-full' : ''}
-        ${disabled ? 'opacity-50 cursor-not-allowed' : 'active:scale-[0.98]'}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         ${className}`}
       {...props}
     >
       {loading ? (
         <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
       ) : icon && iconPosition === 'left' ? (
-        <span className="material-symbols-outlined text-[14px]">{icon}</span>
+        <span className="material-symbols-outlined text-[16px]">{icon}</span>
       ) : null}
       {children}
       {icon && iconPosition === 'right' && !loading && (
-        <span className="material-symbols-outlined text-[14px]">{icon}</span>
+        <span className="material-symbols-outlined text-[16px]">{icon}</span>
       )}
     </button>
   );

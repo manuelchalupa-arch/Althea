@@ -3,10 +3,11 @@
 // NUNCA pide permiso aquí (solo la UI de Perfil lo pide ante acción explícita).
 // Sin topes legacy ni fuentes paralelas: el scheduler deduplica por horario.
 import { db } from '@/services/storage/db'
+import { todayKey } from '@/utils/dates'
 
 export type PushType = 'seguimiento' | 'pre-entreno' | 'agua' | 'cuestionario' | 'recuperacion' | 'comoEstas' | 'proteina' | 'entrenamiento' | 'coach'
 
-function todayStr() { return new Date().toISOString().slice(0, 10) }
+function todayStr() { return todayKey() }
 
 function platformAvailable(): boolean {
   try { return typeof Notification !== 'undefined' && 'Notification' in window } catch { return false }
