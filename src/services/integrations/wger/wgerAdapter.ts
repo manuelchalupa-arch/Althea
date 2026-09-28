@@ -45,8 +45,7 @@ export async function importWgerSample(
 
   // 2. Verificar cuáles ya fueron importados (no duplicar)
   const existing = await db.customExercises
-    .where('origin')
-    .equals('WGER')
+    .filter((e) => (e as { origin?: string }).origin === 'WGER')
     .toArray()
   const existingSourceIds = new Set(
     existing
@@ -93,8 +92,7 @@ export async function importWgerSample(
  */
 export async function listWgerExercises(): Promise<WgerExerciseRecord[]> {
   const all = await db.customExercises
-    .where('origin')
-    .equals('WGER')
+    .filter((e) => (e as { origin?: string }).origin === 'WGER')
     .toArray()
   return all as unknown as WgerExerciseRecord[]
 }

@@ -17,6 +17,10 @@ vi.mock('@/services/storage/db', () => {
   return {
     db: {
       customExercises: {
+        filter: (fn: (e: unknown) => boolean) => ({
+          toArray: async () => Array.from(store.values()).filter(fn),
+        }),
+        toArray: async () => Array.from(store.values()),
         where: () => ({
           equals: () => ({
             toArray: async () => Array.from(store.values()),

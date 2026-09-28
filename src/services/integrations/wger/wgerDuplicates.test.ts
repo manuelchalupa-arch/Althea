@@ -16,11 +16,10 @@ vi.mock('@/services/storage/db', () => {
   return {
     db: {
       customExercises: {
-        where: () => ({
-          equals: () => ({
-            toArray: async () => Array.from(store.values()),
-          }),
+        filter: (fn: (e: unknown) => boolean) => ({
+          toArray: async () => Array.from(store.values()).filter(fn),
         }),
+        toArray: async () => Array.from(store.values()),
         put: async (record: { id: string }) => {
           store.set(record.id, record)
           return record.id
