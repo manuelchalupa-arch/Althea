@@ -126,4 +126,27 @@ No hay ninguna acción técnica de código pendiente en el proyecto.
 
 ---
 
-*Cierre total de fases A, B y C. Gates verificados, decisiones documentadas, sin push ni deploy.*
+## 8. Actualización (2026-09-28) — cierre de orden posterior
+
+Tras este documento se ejecutó una orden de cierre adicional (gasto calórico del ejercicio e informes PDF). Contadores y gates actuales:
+
+| Gate | Resultado |
+|---|---|
+| `npx tsc --noEmit` | exit 0, 0 errores |
+| `npm test` | **124/124 archivos, 1041/1041 tests** (0 fallidos) |
+| `npm run build` | PASS, PWA emitido (71 entradas de precache) |
+| `npm run lint` | 0 errores / 166 warnings (= baseline; 0 nuevos) |
+
+Crecimiento sobre este cierre (121 archivos / 1012 tests): **+3 archivos, +29 tests**.
+
+Lo nuevo, sin tocar la cadena de datos existente:
+
+- **Gasto calórico del ejercicio** con motor único `src/services/training/exerciseEnergy.ts` (duración medida − pausas × peso registrado → MET 6.0), compartido por Inicio (`inicio-gasto-calorico`: hoy + semana), historial (`Calendario`: sesión y total del día) e informes.
+- **Informes PDF** con modos semanal / mensual / personalizado, completadas e incompletas, duración medida, gasto, distribución, días extremos, observaciones, destacados, PRs y conclusiones (documentación: `docs/INFORMES_PDF.md`).
+- Verificación local de credenciales y gates: `ALTHEA_FINAL_CLOSURE.md` §13.
+
+Los dos pendientes externos de §7 siguen vigentes e intactos.
+
+---
+
+*Actualización de contadores y gates. Los apartados 1–7 describen el estado original de este cierre.*

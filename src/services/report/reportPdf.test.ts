@@ -16,12 +16,37 @@ const data: ReportData = {
     diasEntrenados: 18, diasUnicos: ['2026-09-01'], sesiones: 18, volumen: 48250.4,
     series: 320, repeticiones: 9120, frecuencia: 0.6, adherencia: 72,
     rendimiento: { volumenPorSesion: 2680 },
+    completadas: 16, incompletas: 2, duracionMin: 842,
+    serieDiaria: [
+      { fecha: '2026-09-02', volumen: 900, series: 12 },
+      { fecha: '2026-09-20', volumen: 3200, series: 24 },
+    ],
+    gastoCalorico: {
+      totalKcal: 5432.6, totalMinutes: 842, motivo: null,
+      porFecha: [
+        { fecha: '2026-09-02', kcal: 460.4, minutes: 55 },
+        { fecha: '2026-09-20', kcal: 512.2, minutes: 62 },
+      ],
+    },
+    distribucion: [
+      { dia: 'Lun', sesiones: 6 }, { dia: 'Mar', sesiones: 2 }, { dia: 'Mié', sesiones: 3 },
+      { dia: 'Jue', sesiones: 1 }, { dia: 'Vie', sesiones: 4 }, { dia: 'Sáb', sesiones: 2 },
+      { dia: 'Dom', sesiones: 0 },
+    ],
+    diasActividad: { mayor: { fecha: '2026-09-20', volumen: 3200 }, menor: { fecha: '2026-09-02', volumen: 900 } },
+    comparativa: { primeraMitad: 22000, segundaMitad: 26250.4, deltaPct: 19 },
+    observaciones: ['Buena energía en la sesión del 20 de septiembre'],
+    destacados: [{ exerciseId: 'pecho/press-banca', volumen: 12000 }],
   },
   fuerza: {
     pesoMax: 92.5, repeticiones: 5, volumen: 462, rmEstimado: 106.4,
     progresoPorEjercicio: [
       { exerciseId: 'pecho/press-banca', pesoMax: 92.5, reps: 5, volumen: 462, rm: 106.4 },
       { exerciseId: 'espalda/remo-barra', pesoMax: 80, reps: 8, volumen: 640, rm: 102.2 },
+    ],
+    prs: [
+      { exerciseId: 'pecho/press-banca', peso: 92.5, reps: 5, fecha: '2026-09-10', rm: 106.4, enPeriodo: true },
+      { exerciseId: 'espalda/remo-barra', peso: 80, reps: 8, fecha: '2026-06-02', rm: 102.2, enPeriodo: false },
     ],
   },
   musculos: {
@@ -50,6 +75,10 @@ const data: ReportData = {
     grasaPct: { inicial: 21.5, final: 20.4, delta: -1.1 },
     perimetros: [{ clave: 'Cintura', inicial: 88, final: 86.5, delta: -1.5 }],
   },
+  conclusiones: [
+    'Sesiones en el período: 16 completadas y 2 incompletas · 842 min de entrenamiento medidos.',
+    'Gasto calórico del ejercicio: 5433 kcal (estimación MET sobre sesiones con duración y peso registrados).',
+  ],
   isEmpty: false,
   completo: true,
 }
@@ -141,6 +170,32 @@ describe('Informe PDF descargable (escritor propio, sin dependencias)', () => {
     expect(count).toBeGreaterThan(1)
     for (let p = 1; p <= count; p++) { expect(text).toContain(`P\xE1gina ${p}/${count}`) }
     expect(text).toContain('continuaci\xF3n')
+  })
+
+  it('incluye gasto calórico, distribución, records y conclusiones', async () => {
+    const text = headerText(await bytesOf(buildReportPdf(data, { today: '2026-09-26' })))
+    expect(text).toContain('GASTO CAL\xD3RICO DEL EJERCICIO') // sección del gasto del ejercicio
+    expect(text).toContain('5.433')                          // total del período (5432,6 → 5.433 kcal)
+    expect(text).toContain('DISTRIBUCI\xD3N')                // sesiones por día de la semana
+    expect(text).toContain('RECORDS Y MEJORES MARCAS')       // PRs/1RM
+    expect(text).toContain('CONCLUSIONES')                   // conclusiones del informe
+    expect(text).toContain('842 min')                        // duración real medida
+    expect(text).toContain('Buena energ\xEDa en la sesi\xF3n') // observaciones registradas
+  })
+
+  it('cuando no hay datos suficientes para el gasto lo dice, sin rellenar ceros', async () => {
+    const sinGasto: ReportData = {
+      ...data,
+      entrenamiento: {
+        ...data.entrenamiento!,
+        gastoCalorico: { totalKcal: null, totalMinutes: null, motivo: 'SIN_PESO', porFecha: [] },
+      },
+      conclusiones: ['Gasto calórico del ejercicio: sin datos suficientes para estimar.'],
+    }
+    const text = headerText(await bytesOf(buildReportPdf(sinGasto, { today: '2026-09-26' })))
+    expect(text).toContain('Sin datos suficientes')
+    expect(text).toContain('Falta el peso corporal registrado')
+    expect(text).not.toContain('Total del período: 0 kcal')
   })
 
   it('un período vacío no inventa datos y lo dice explícitamente', async () => {

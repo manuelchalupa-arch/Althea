@@ -7,6 +7,14 @@ import type { CycleConfig, LoadState } from '@/utils/cycle'
 import { getLoadForDate, LOAD_STATE_LABEL, LOAD_STATE_COLOR } from '@/utils/cycle'
 import { todayKey, weekdayOfKey } from '@/utils/dates'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
+import { sessionEnergy, loadWeightRows, weightForDate, energyInsufficientReason, type EnergySession, type WeightRow } from '@/services/training/exerciseEnergy'
+
+type DaySession = EnergySession & {
+  id: string
+  localDate: string
+  status: string
+  routineName?: string
+}
 
 function daysInMonth(y:number,m:number){ return new Date(y,m+1,0).getDate() }
 
@@ -121,10 +129,21 @@ export default function Calendario(){
       db.sessions.where('localDate').equals(key).toArray().catch(()=>[]),
       db.trainingSessions.where('calendarDate').equals(key).toArray().catch(()=>[]),
     ])
-    const sessions = [
-      ...legacySessions.map((s)=> ({ id: s.id, localDate: s.localDate, status: s.finishedAt ? 'COMPLETED' : 'ABANDONED' })),
-      ...officialSessions.map((s)=> ({ id: s.sessionId || s.id, localDate: s.calendarDate, status: s.sessionStatus, routineName: s.routineName })),
+    const sessions: DaySession[] = [
+      ...legacySessions.map((s)=> {
+        const id = String(s.id); const date = String(s.localDate)
+        const status = s.finishedAt ? 'COMPLETED' : 'ABANDONED'
+        return { id, localDate: date, status, sessionId: id, calendarDate: date, sessionStatus: status }
+      }),
+      ...officialSessions.map((s)=> ({
+        id: s.sessionId || s.id, localDate: s.calendarDate, status: s.sessionStatus, routineName: s.routineName,
+        sessionId: s.sessionId || s.id, calendarDate: s.calendarDate, sessionStatus: s.sessionStatus,
+        startedAt: s.startedAt, completedAt: s.completedAt, endedAt: s.endedAt, completingAt: s.completingAt,
+        pausedAt: s.pausedAt, resumedAt: s.resumedAt, totalPausedDurationSec: s.totalPausedDurationSec, isDemo: s.isDemo,
+      })),
     ]
+    // Gasto calórico del ejercicio del día: mismo motor que Inicio y los informes PDF.
+    const weightRows: WeightRow[] = await loadWeightRows()
     // Detalle por sesión: ejercicios, series, volumen y cumplimiento (solo lectura).
     const prettyId = (id: string) => String(id).split('/').pop()?.replace(/-/g, ' ') || String(id)
     const detailed = await Promise.all(sessions.map(async (s) => {
@@ -141,6 +160,10 @@ export default function Calendario(){
         : [...new Set(logs.map(l => prettyId(String((l as { exerciseId?: string }).exerciseId || ''))))]
       const planned = ses.reduce((a, e) => a + Number((e as { plannedSetCount?: number }).plannedSetCount || 0), 0)
       const doneCount = done.length + logs.filter(l => (l as { completed?: boolean }).completed).length
+      // Gasto calórico de ESTA sesión con el motor central (nunca inventado).
+      const weight = weightForDate(weightRows, s.localDate)
+      const energy = sessionEnergy(s, weight)
+      const motivo = energyInsufficientReason(s, weight)
       return {
         ...s,
         exercises: exNames.filter(Boolean),
@@ -148,6 +171,9 @@ export default function Calendario(){
         setsDone: doneCount,
         setsPlanned: planned || undefined,
         compliance: planned > 0 ? Math.round((doneCount / planned) * 100) : undefined,
+        kcal: energy?.kcal ?? null,
+        durationMinutes: energy?.durationMinutes ?? null,
+        gastoSinDatos: motivo === 'SIN_PESO' || motivo === 'SIN_DURACION',
       }
     }))
     const hyd = await db.hydrationLogs.where('localDate').equals(key).toArray().then(a=> a.reduce((s,b)=>s+b.amountMl,0)).catch(()=>0)
@@ -164,6 +190,12 @@ export default function Calendario(){
     setDetail({date:key, scheduled, actual, changed, sessions: detailed, hydration: hyd, recovery: rec, meals: diary.length, calories: Math.round(dayCalories), load,
       macros: { proteins: Math.round(proteins), carbs: Math.round(carbs), fats: Math.round(fats) }} as never)
   }
+
+  // Gasto del día (historial): misma suma que muestra Inicio para la misma fecha.
+  const sesionesGasto = detail ? (detail.sessions as Array<{ kcal?: number | null; gastoSinDatos?: boolean }>) : []
+  const gastoDia = sesionesGasto.reduce((a, s) => a + (typeof s.kcal === 'number' ? s.kcal : 0), 0)
+  const hayGasto = sesionesGasto.some(s => typeof s.kcal === 'number')
+  const gastoSinDatosDelDia = !hayGasto && sesionesGasto.some(s => s.gastoSinDatos)
 
   const dim = daysInMonth(y,m)
   const first = new Date(y,m,1).getDay()
@@ -278,6 +310,16 @@ export default function Calendario(){
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Programado: {detail.scheduled} {detail.changed && `→ Realizado: ${detail.actual} (cambiado)`}</p>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-2">Carga: <span className={`px-2 py-0.5 rounded-full border text-[9px] font-semibold ${LOAD_STATE_COLOR[(detail as { load?: string }).load as LoadState] ?? LOAD_STATE_COLOR.NORMAL}`}>{LOAD_STATE_LABEL[(detail as { load?: string }).load as LoadState] ?? (detail as { load?: string }).load}</span></p>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sesiones: {detail.sessions.length}{detail.sessions.length === 0 && detail.actual !== 'Descanso' ? ' · Sesión pendiente de registrar' : ''} · Hidratación: {detail.hydration > 0 ? `${detail.hydration} ml` : 'Sin datos'} · Recuperación: {typeof detail.recovery?.score === 'number' ? `${detail.recovery.score}/100` : 'Sin datos'}</p>
+            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+              Gasto calórico del ejercicio:{' '}
+              {hayGasto ? (
+                <span data-testid="dia-gasto-total" className="text-primary font-semibold">{Math.round(gastoDia)} kcal</span>
+              ) : gastoSinDatosDelDia ? (
+                <span data-testid="dia-gasto-sin-datos" className="italic">Sin datos suficientes para estimar</span>
+              ) : (
+                <span data-testid="dia-gasto-vacio" className="italic">Sin sesiones registradas</span>
+              )}
+            </p>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Comidas: {detail.meals ?? 0}{detail.calories ? ` · ${detail.calories} kcal` : ' · Sin comidas registradas'}{detail.macros ? ` · P ${detail.macros.proteins}g · C ${detail.macros.carbs}g · G ${detail.macros.fats}g` : ''} · Sueño: {typeof detail.recovery?.sleepHours === 'number' ? `${detail.recovery.sleepHours}h (calidad ${detail.recovery.sleepQuality ?? '—'}/10)` : 'Sin datos'}</p>
             {detail.sessions.length>0 && (
               <AltheaCard className="space-y-2">
@@ -293,7 +335,15 @@ export default function Calendario(){
                       {s.volume > 0 && <span> · {s.volume} kg</span>}
                       {s.setsDone > 0 && <span> · {s.setsDone}{s.setsPlanned ? `/${s.setsPlanned}` : ''} series</span>}
                       {typeof s.compliance === 'number' && <span> · {s.compliance}%</span>}
+                      {s.kcal !== null && (
+                        <span data-testid="sesion-gasto"> · {Math.round(s.kcal)} kcal{s.durationMinutes ? ` · ${Math.round(s.durationMinutes)} min` : ''}</span>
+                      )}
                     </p>
+                    {s.kcal === null && s.gastoSinDatos && (
+                      <p data-testid="sesion-gasto-sin-datos" className="font-body-sm text-[12px] text-on-surface-variant italic pl-1">
+                        Sin datos suficientes para estimar el gasto de esta sesión.
+                      </p>
+                    )}
                   </div>
                 ) })}
               </AltheaCard>

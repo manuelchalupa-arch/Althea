@@ -238,4 +238,31 @@ Una vez revocadas ambas credenciales en sus respectivas consolas, y actualizada 
 
 ---
 
+## 13. Verificación local de las credenciales y gates (2026-09-28)
+
+Todo lo que puede verificarse **sin acceso a las consolas** quedó ejecutado y en verde. No se tocó ningún valor de credencial: ni se leyó, ni se copió, ni se modificó, ni se expuso.
+
+| Verificación local | Resultado |
+|---|---|
+| Claves `VITE_GROQ_API_KEY` y `VITE_NINJA_API_KEY` presentes en `dist/` | **No aparecen en ningún archivo de `dist/`** |
+| Referencias a esas claves en el frontend (`src/`) | Ninguna lectura; sólo el comentario de `vite-env.d.ts` y la aserción de `ChatWidget.test.tsx` que comprueba su ausencia |
+| Claves con forma de secreto (`gsk_…`, `sk-…`, `AIza…`) en el árbol rastreado | Ninguna |
+| `.env.local` / `.env.production` versionados | No; ambos están en `.gitignore` |
+| Worker | Lee `GROQ_API_KEY` sólo de `env` (secret de Cloudflare); `wrangler.toml` sólo documenta cómo setearlo |
+| API de nutrición | La clave la introduce el usuario en su dispositivo (`localStorage`), nunca se distribuye con la app |
+| Uso actual del frontend | Sólo `VITE_GROQ_PROXY_URL` (URL pública, no secreto) y la config pública de Firebase |
+
+Consecuencia: **la única barrera entre el proyecto y el cierre completo son las dos revocaciones externas de §11.** La acción localmente posible está completa; los valores históricos permanecen en los `.env` locales sin versionar porque siguen siendo necesarios para verificar que la clave vieja devuelve 401 tras la revocación.
+
+### Gates re-ejecutados (2026-09-28)
+
+| Gate | Resultado |
+|---|---|
+| `npx tsc --noEmit` | exit 0, 0 errores |
+| `npm test` (vitest run) | **124 archivos / 1041 tests declarados / 1041 ejecutados / 1041 aprobados / 0 fallidos** |
+| `npm run build` | PASS, PWA emitido (71 entradas de precache) |
+| `npm run lint` | 0 errores / 166 warnings — **idéntico al baseline, 0 warnings nuevos** (el script sale con exit 1 por `--max-warnings 0` sobre los 166 históricos, igual que antes de este cierre) |
+
+---
+
 *Documento de cierre final. Verificación de release, bundle, Git y Worker. Sin modificación de código.*

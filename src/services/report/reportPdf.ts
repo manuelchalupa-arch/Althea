@@ -42,6 +42,11 @@ function footer(page: PdfPage, index: number, total: number, generated: string):
   page.text(`Página ${index}/${total}`, page.right, MARGIN + 10, { size: 7, bold: true, color: BRAND.primary, align: 'right' })
 }
 
+/** Nombre legible de un ejercicio a partir de su id. */
+function shortName(exerciseId: string): string {
+  return exerciseId.split('/').pop()?.replace(/-/g, ' ') ?? exerciseId
+}
+
 function sectionTitle(page: PdfPage, y: number, title: string, hint?: string): number {
   page.text(title.toUpperCase(), MARGIN, y, { size: 9, bold: true, color: BRAND.primary })
   const w = page.measure(title.toUpperCase(), 9, true)
@@ -97,6 +102,17 @@ function table(page: PdfPage, y: number, headers: string[], rows: string[][], wi
     page.line(MARGIN, cy, page.right, cy, BRAND.line, 0.4)
   })
   return cy - 6
+}
+
+/** Viñetas de texto con paginación automática (una idea por línea). */
+function bullets(pager: Pager, y: number, items: string[]): number {
+  let cy = y
+  for (const t of items) {
+    cy = pager.ensure(24, cy)
+    const used = pager.current.text(`· ${t}`, MARGIN, cy, { size: 8, color: BRAND.ink, maxWidth: pager.current.usableWidth })
+    cy -= used + 5
+  }
+  return cy
 }
 
 /** Divide los datos en páginas para que ninguna tabla se corte a la mitad. */
@@ -171,6 +187,12 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
   if (data.nutricion) {
     kpis.push({ label: 'Calorías', value: `${formatNumber(data.nutricion.calorias)} kcal`, sub: `Agua ${formatNumber(data.nutricion.hidratacionMl)} ml` })
   }
+  const gasto = data.entrenamiento?.gastoCalorico
+  if (gasto) {
+    kpis.push(gasto.totalKcal !== null
+      ? { label: 'Gasto del ejercicio', value: `${formatNumber(gasto.totalKcal)} kcal`, sub: gasto.totalMinutes !== null ? `${formatNumber(gasto.totalMinutes)} min medidos` : 'Estimación MET' }
+      : { label: 'Gasto del ejercicio', value: 'Sin datos', sub: 'Datos insuficientes para estimar', color: BRAND.inkSoft })
+  }
   y = kpiRow(first, y, kpis)
   y -= 6
 
@@ -180,7 +202,8 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
     y = sectionTitle(pager.current, y, 'Entrenamiento', 'Sesiones y carga')
     const rows: string[][] = [
       ['Días entrenados', formatNumber(data.entrenamiento.diasEntrenados)],
-      ['Sesiones', formatNumber(data.entrenamiento.sesiones)],
+      ['Sesiones completadas', formatNumber(data.entrenamiento.completadas)],
+      ['Sesiones incompletas', formatNumber(data.entrenamiento.incompletas)],
       ['Volumen total', `${formatNumber(data.entrenamiento.volumen)} kg`],
       ['Series completadas', formatNumber(data.entrenamiento.series)],
       ['Repeticiones', formatNumber(data.entrenamiento.repeticiones)],
@@ -188,9 +211,40 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
     ]
     if (data.entrenamiento.adherencia !== undefined) { rows.push(['Adherencia', `${data.entrenamiento.adherencia}%`]) }
     if (data.entrenamiento.rendimiento) { rows.push(['Volumen por sesión', `${formatNumber(data.entrenamiento.rendimiento.volumenPorSesion)} kg`]) }
-    if (data.entrenamiento.duracionMin) { rows.push(['Duración', `${data.entrenamiento.duracionMin} min`]) }
+    if (data.entrenamiento.duracionMin) { rows.push(['Duración total', `${data.entrenamiento.duracionMin} min`]) }
+    if (gasto) { rows.push(['Gasto del ejercicio', gasto.totalKcal !== null ? `${Math.round(gasto.totalKcal)} kcal` : 'Sin datos suficientes para estimar']) }
     y = table(pager.current, y, ['Indicador', 'Valor'], rows, [3, 1])
     y -= 8
+
+    const act = data.entrenamiento.diasActividad
+    const notasDia = [
+      act?.mayor ? `Mayor actividad: ${act.mayor.fecha} (${formatNumber(act.mayor.volumen)} kg)` : '',
+      act?.menor && act.mayor && act.menor.fecha !== act.mayor.fecha ? `Menor actividad: ${act.menor.fecha} (${formatNumber(act.menor.volumen)} kg)` : '',
+      data.entrenamiento.destacados.length
+        ? `Mayor volumen por ejercicio: ${data.entrenamiento.destacados.map(d => `${shortName(d.exerciseId)} (${formatNumber(d.volumen)} kg)`).join(', ')}`
+        : '',
+    ].filter(Boolean)
+    for (const nota of notasDia) {
+      const used = pager.current.text(nota, MARGIN, y, { size: 8, color: BRAND.inkSoft, maxWidth: contentWidth })
+      y -= used + 4
+    }
+    y -= 6
+
+    // Distribución de sesiones por día de la semana (solo días con sesiones).
+    const dist = data.entrenamiento.distribucion ?? []
+    if (dist.some(d => d.sesiones > 0)) {
+      y = pager.ensure(90, y)
+      y = sectionTitle(pager.current, y, 'Distribución', 'Sesiones por día de la semana')
+      y = pager.current.bars(dist.map(d => ({ label: d.dia, value: d.sesiones })), MARGIN, y, contentWidth, { color: BRAND.primary, valueSuffix: ' ses.', gap: 14 })
+      y -= 8
+    }
+
+    if (data.entrenamiento.observaciones.length) {
+      y = pager.ensure(40, y)
+      y = sectionTitle(pager.current, y, 'Observaciones', 'Texto registrado en las sesiones')
+      y = bullets(pager, y, data.entrenamiento.observaciones)
+      y -= 6
+    }
 
     const serie = (data.entrenamiento.serieDiaria ?? []).slice(-14)
     if (serie.length) {
@@ -207,6 +261,33 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
       y = pager.current.bars(bars, MARGIN, y, contentWidth, { color: BRAND.primary, valueSuffix: ' kg', gap })
       y -= 6
     }
+
+    // ─── Gasto calórico del ejercicio (mismo motor que Inicio e historial) ───
+    if (gasto) {
+      y = pager.ensure(100, y)
+      y = sectionTitle(pager.current, y, 'Gasto calórico del ejercicio', 'Estimación MET · duración medida × peso')
+      if (gasto.totalKcal !== null) {
+        const porFecha = (gasto.porFecha ?? []).slice(-14)
+        if (porFecha.length) {
+          y = pager.current.bars(
+            porFecha.map(p => ({ label: p.fecha.slice(5).replace('-', '/'), value: Math.round(p.kcal) })),
+            MARGIN, y, contentWidth, { color: BRAND.macroFat, valueSuffix: ' kcal', gap: 16 },
+          )
+          y -= 6
+        }
+        const nota = `Total del período: ${Math.round(gasto.totalKcal)} kcal · ${gasto.totalMinutes !== null ? `${Math.round(gasto.totalMinutes)} min de sesión medidos` : ''}`
+        const used = pager.current.text(nota, MARGIN, y, { size: 8, color: BRAND.inkSoft, maxWidth: contentWidth })
+        y -= used + 6
+      } else {
+        const motivo = gasto.motivo === 'SIN_SESIONES'
+          ? 'No hay sesiones registradas en este período.'
+          : gasto.motivo === 'SIN_PESO'
+            ? 'Falta el peso corporal registrado para estimarlo.'
+            : 'Faltan duraciones medidas de las sesiones para estimarlo.'
+        const used = pager.current.text(`Sin datos suficientes para estimar el gasto calórico del ejercicio. ${motivo}`, MARGIN, y, { size: 8, color: BRAND.inkSoft, maxWidth: contentWidth })
+        y -= used + 6
+      }
+    }
   }
 
   // ─── Fuerza ───
@@ -214,12 +295,28 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
     y = pager.ensure(140, y)
     y = sectionTitle(pager.current, y, 'Fuerza', '1RM estimado (Epley)')
     const rows = data.fuerza.progresoPorEjercicio.slice(0, 12).map(p => [
-      p.exerciseId.split('/').pop()?.replace(/-/g, ' ') ?? p.exerciseId,
+      shortName(p.exerciseId),
       formatDecimal(p.pesoMax),
       formatNumber(p.reps),
       formatDecimal(p.rm),
     ])
     y = table(pager.current, y, ['Ejercicio', 'Peso máx (kg)', 'Reps', '1RM (kg)'], rows, [3.2, 1, 0.8, 0.9])
+    y -= 8
+  }
+
+  // ─── Records / mejores marcas (motor propio de PRs) ───
+  if (data.fuerza?.prs.length) {
+    y = pager.ensure(140, y)
+    y = sectionTitle(pager.current, y, 'Records y mejores marcas', 'Mejor serie histórica por ejercicio')
+    const rows = data.fuerza.prs.slice(0, 10).map(p => [
+      shortName(p.exerciseId),
+      formatDecimal(p.peso),
+      formatNumber(p.reps),
+      formatDecimal(p.rm),
+      p.fecha,
+      p.enPeriodo ? 'En período' : '—',
+    ])
+    y = table(pager.current, y, ['Ejercicio', 'Peso máx (kg)', 'Reps', '1RM (kg)', 'Fecha', 'Marca'], rows, [2.4, 0.9, 0.6, 0.8, 1.2, 1])
     y -= 8
   }
 
@@ -324,6 +421,14 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
     p.text('Hidratación', MARGIN, y + 20, { size: 8, color: BRAND.inkSoft })
     p.text(`${formatNumber(nu.hidratacionMl)} ml`, contentWidth + MARGIN, y + 20, { size: 8, bold: true, align: 'right' })
     y -= 26
+  }
+
+  // ─── Conclusiones (solo datos del propio informe) ───
+  if (data.conclusiones?.length) {
+    y = pager.ensure(60, y)
+    y = sectionTitle(pager.current, y, 'Conclusiones', 'Derivadas de tus registros')
+    y = bullets(pager, y, data.conclusiones)
+    y -= 8
   }
 
   // Pie en todas las páginas + numeración definitiva.

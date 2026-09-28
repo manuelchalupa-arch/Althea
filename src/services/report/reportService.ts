@@ -3,7 +3,12 @@ import { isDateInPeriod, type AnalysisPeriod } from '@/services/training/metrics
 import { distinctTrainingDays, isCompletedSession } from '@/services/training/sessionMetrics'
 import { getDiaryEntries } from '@/services/storage/diaryStore'
 import { buildMuscleResolver } from '@/services/training/muscleAttribution'
-import { todayKey, dayKeyOffset, toDateKey, daysBetween } from '@/utils/dates'
+import { todayKey, dayKeyOffset, toDateKey, daysBetween, weekdayOfKey } from '@/utils/dates'
+import { computeExpenditure, sessionDurationMinutes, loadWeightRows, type ExpenditureResult } from '@/services/training/exerciseEnergy'
+import { toUnifiedSets, calculateExercisePRs } from '@/services/training/prs'
+import type { TrainingSession, SetRecord } from '@/services/training/domain'
+
+const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 export type ReportPeriod = AnalysisPeriod
 // Las 4 secciones que el usuario puede elegir. 'fuerza' y 'musculos' son
@@ -46,15 +51,32 @@ export interface ReportData {
     diasEntrenados: number
     diasUnicos: string[]
     sesiones: number // = diasEntrenados (1 día = 1 sesión)
+    /** Sesiones COMPLETED en el período. */
+    completadas: number
+    /** Sesiones PARTIAL en el período (empezadas y no terminadas). */
+    incompletas: number
     volumen: number
     series: number
     repeticiones: number
+    /** Duración real medida (startedAt → fin − pausas) de las sesiones del período. */
     duracionMin?: number
     frecuencia: number // sesiones / días del período
-    adherencia?: number // % días entrenados vs días con datos
+    adherencia?: number // % días entrenados vs días del período
     rendimiento?: { volumenPorSesion: number }
     /** Serie temporal diaria (kg×reps por día) del período: sustituye la gráfica de evolución. */
     serieDiaria?: Array<{ fecha: string; volumen: number; series: number }>
+    /** Gasto calórico del ejercicio: mismo motor que Inicio y el historial. */
+    gastoCalorico?: Pick<ExpenditureResult, 'totalKcal' | 'totalMinutes' | 'motivo' | 'porFecha'>
+    /** Distribución de sesiones por día de la semana (Lun…Dom). */
+    distribucion: Array<{ dia: string; sesiones: number }>
+    /** Días con más y menos volumen entrenado (solo días con series). */
+    diasActividad?: { mayor: { fecha: string; volumen: number } | null; menor: { fecha: string; volumen: number } | null }
+    /** Comparación interna 1ª vs 2ª mitad del período; null si no hay con qué comparar. */
+    comparativa?: { primeraMitad: number; segundaMitad: number; deltaPct: number | null }
+    /** Observaciones escritas en las sesiones (texto real, sin interpretar). */
+    observaciones: string[]
+    /** Top 3 ejercicios por volumen en el período. */
+    destacados: Array<{ exerciseId: string; volumen: number }>
   }
   fuerza?: {
     pesoMax: number
@@ -62,6 +84,8 @@ export interface ReportData {
     volumen: number
     rmEstimado: number // 1RM Epley sobre mejor serie
     progresoPorEjercicio: Array<{ exerciseId: string; pesoMax: number; reps: number; volumen: number; rm: number }>
+    /** Mejores marcas históricas por ejercicio (cálculo propio de prs.ts). */
+    prs: Array<{ exerciseId: string; peso: number; reps: number; fecha: string; rm: number; enPeriodo: boolean }>
   }
   musculos?: {
     cargaPorGrupo: Array<{ muscle: string; volumen: number; pct: number }>
@@ -92,6 +116,8 @@ export interface ReportData {
     masaMuscularKg?: { inicial: number; final: number; delta: number }
     perimetros: Array<{ clave: string; inicial: number; final: number; delta: number }>
   }
+  /** Conclusiones derivadas SOLO de los datos del informe (sin causalidad inventada). */
+  conclusiones?: string[]
   isEmpty: boolean
   completo: boolean
 }
@@ -136,14 +162,15 @@ export async function generateReport(sel: ReportSelection): Promise<ReportData> 
 
   // ENTRENAMIENTO: días únicos, volumen/series/reps desde setRecords oficiales
   if (sel.categories.includes('entrenamiento') || sel.categories.includes('fuerza') || sel.categories.includes('musculos')) {
-    const sessions = await db.trainingSessions.toArray().catch(() => []) as Array<Record<string, unknown>>
-    const filteredSessions = (sessions as never[]).filter((s: never) => {
-      const ss = s as { calendarDate: string; sessionStatus: string; isDemo?: boolean }
-      if (!isCompletedSession(ss as never)) {return false}
-      return inReportPeriod(ss.calendarDate, sel)
-    }) as Array<{ calendarDate: string }>
+    const sessions = await db.trainingSessions.toArray().catch(() => []) as unknown as TrainingSession[]
+    // Sesiones reales del período (cualquier estado): base de completas/incompletas,
+    // duración, distribución y gasto calórico. Las demo nunca entran.
+    const periodAll = sessions.filter(s => !!s.calendarDate && !s.isDemo && inReportPeriod(s.calendarDate, sel))
+    const filteredSessions = periodAll.filter(s => isCompletedSession(s))
     const diasUnicos = [...new Set(filteredSessions.map(s => s.calendarDate))].sort()
     const diasEntrenados = diasUnicos.length
+    const completadas = periodAll.filter(s => s.sessionStatus === 'COMPLETED').length
+    const incompletas = periodAll.filter(s => s.sessionStatus === 'PARTIAL').length
 
     const allSets = await db.setRecords.toArray().catch(() => []) as Array<Record<string, unknown>>
     const periodSets = allSets.filter(s => {
@@ -157,9 +184,19 @@ export async function generateReport(sel: ReportSelection): Promise<ReportData> 
     const volumen = periodSets.reduce((a, s) => a + Number(s.actualWeight || 0) * Number(s.actualReps || 0), 0)
     const series = periodSets.length
     const repeticiones = periodSets.reduce((a, s) => a + Number(s.actualReps || 0), 0)
-    // duración: no hay campo dedicado, reutilizar volumen como proxy si existe, si no undefined
-    const periodDaysCount = sel.period === 'all' ? 365 : Number(sel.period) || (periodSets.length ? 30 : 0)
-    const frecuencia = periodDaysCount ? Math.round((diasEntrenados / periodDaysCount) * 100) / 100 : 0
+    // Duración real medida (startedAt → fin − pausas). Sin timestamps no se suma:
+    // nunca se estima una duración que no está registrada.
+    const duracionMin = Math.round(periodAll.reduce((a, s) => {
+      const m = sessionDurationMinutes(s)
+      return m === null ? a : a + m
+    }, 0) * 10) / 10
+
+    // Días reales del período: `custom` y `all` ya no asumen 30/365 días.
+    const primeraFecha = sessions.filter(s => !!s.calendarDate && !s.isDemo).map(s => s.calendarDate).sort()[0]
+    const periodDaysCount = sel.period === 'all'
+      ? Math.max(1, daysBetween(primeraFecha && primeraFecha < range.end ? primeraFecha : range.end, range.end) + 1)
+      : Math.max(1, daysBetween(range.start, range.end) + 1)
+    const frecuencia = Math.round((diasEntrenados / periodDaysCount) * 100) / 100
 
     if (sel.categories.includes('entrenamiento')) {
       const porDia = new Map<string, { volumen: number; series: number }>()
@@ -174,17 +211,68 @@ export async function generateReport(sel: ReportSelection): Promise<ReportData> 
       const serieDiaria = [...porDia.entries()]
         .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
         .map(([fecha, v]) => ({ fecha, volumen: Math.round(v.volumen * 10) / 10, series: v.series }))
+
+      // Gasto calórico del ejercicio: mismo motor que Inicio e historial.
+      const weightRows = await loadWeightRows()
+      const gasto = computeExpenditure({ from: range.start, to: range.end, sessions: periodAll, weightRows })
+
+      const distribucion = DIAS_SEMANA.map(dia => ({ dia, sesiones: 0 }))
+      for (const s of filteredSessions) { distribucion[(weekdayOfKey(s.calendarDate) + 6) % 7].sesiones++ }
+
+      const porVolumen = [...serieDiaria].sort((a, b) => a.volumen - b.volumen)
+      const diasActividad = serieDiaria.length
+        ? {
+            mayor: { fecha: porVolumen[porVolumen.length - 1].fecha, volumen: porVolumen[porVolumen.length - 1].volumen },
+            menor: { fecha: porVolumen[0].fecha, volumen: porVolumen[0].volumen },
+          }
+        : { mayor: null, menor: null }
+
+      // Comparación interna: 1ª vs 2ª mitad del rango (null si no hay con qué comparar).
+      const mid = dayKeyOffset(range.start, Math.floor(daysBetween(range.start, range.end) / 2))
+      let primeraMitad = 0, segundaMitad = 0
+      for (const d of serieDiaria) {
+        if (d.fecha <= mid) { primeraMitad += d.volumen } else { segundaMitad += d.volumen }
+      }
+      const comparativa = {
+        primeraMitad: Math.round(primeraMitad * 10) / 10,
+        segundaMitad: Math.round(segundaMitad * 10) / 10,
+        deltaPct: primeraMitad > 0 && segundaMitad > 0 ? Math.round(((segundaMitad - primeraMitad) / primeraMitad) * 100) : null,
+      }
+
+      const observaciones = [...new Set(
+        periodAll.map(s => String(s.generalObservation ?? '').trim()).filter(Boolean),
+      )].slice(0, 5)
+
+      const byExVol = new Map<string, number>()
+      for (const s of periodSets) {
+        const id = String(s.exerciseId)
+        byExVol.set(id, (byExVol.get(id) ?? 0) + Number(s.actualWeight || 0) * Number(s.actualReps || 0))
+      }
+      const destacados = [...byExVol.entries()]
+        .map(([exerciseId, v]) => ({ exerciseId, volumen: Math.round(v * 10) / 10 }))
+        .sort((a, b) => b.volumen - a.volumen)
+        .slice(0, 3)
+
       data.entrenamiento = {
         diasEntrenados,
         diasUnicos,
         sesiones: diasEntrenados,
+        completadas,
+        incompletas,
         volumen: Math.round(volumen * 10) / 10,
         series,
         repeticiones,
+        duracionMin: duracionMin > 0 ? duracionMin : undefined,
         frecuencia,
         adherencia: periodoAdherencia(diasEntrenados, periodDaysCount),
         rendimiento: { volumenPorSesion: diasEntrenados ? Math.round((volumen / diasEntrenados) * 10) / 10 : 0 },
         serieDiaria,
+        gastoCalorico: gasto,
+        distribucion,
+        diasActividad,
+        comparativa,
+        observaciones,
+        destacados,
       }
       if (diasEntrenados > 0 || volumen > 0) {data.isEmpty = false}
     }
@@ -207,12 +295,14 @@ export async function generateReport(sel: ReportSelection): Promise<ReportData> 
         cur.rm = Math.max(cur.rm, epley1RM(Number(s.actualWeight || 0), Number(s.actualReps || 0)))
         byEx.set(id, cur)
       }
+      const prs = buildExercisePRs(allSets, range)
       data.fuerza = {
         pesoMax,
         repeticiones,
         volumen: Math.round(volumen * 10) / 10,
         rmEstimado,
         progresoPorEjercicio: [...byEx.entries()].map(([exerciseId, v]) => ({ exerciseId, ...v, volumen: Math.round(v.volumen * 10) / 10 })).sort((a, b) => b.pesoMax - a.pesoMax),
+        prs,
       }
       if (pesoMax > 0) {data.isEmpty = false}
     }
@@ -334,10 +424,92 @@ export async function generateReport(sel: ReportSelection): Promise<ReportData> 
   }
 
   // Si ninguna categoría aportó datos, isEmpty true (período vacío)
+  data.conclusiones = buildConclusiones(data)
   return data
 }
 
 function periodoAdherencia(diasEntrenados: number, periodoDias: number): number | undefined {
   if (!periodoDias) {return undefined}
   return Math.round((diasEntrenados / periodoDias) * 100)
+}
+
+/** Nombre legible de un ejercicio a partir de su id (mismo criterio que el PDF). */
+function shortExerciseName(exerciseId: string): string {
+  return exerciseId.split('/').pop()?.replace(/-/g, ' ') ?? exerciseId
+}
+
+/**
+ * Mejores marcas históricas por ejercicio usando el motor propio de PRs/1RM
+ * (prs.ts). `enPeriodo` indica si la marca se logró dentro del rango del
+ * informe; no se inventan records ni se comparan con datos externos.
+ */
+function buildExercisePRs(
+  allSets: Array<Record<string, unknown>>,
+  range: { start: string; end: string },
+): NonNullable<ReportData['fuerza']>['prs'] {
+  const byExAll = new Map<string, SetRecord[]>()
+  for (const s of allSets as unknown as SetRecord[]) {
+    if (s.status !== 'COMPLETED' || s.isDemo || !s.exerciseId) {continue}
+    if (!((s.actualWeight ?? 0) > 0) || !(s.actualReps > 0)) {continue}
+    const list = byExAll.get(s.exerciseId) ?? []
+    list.push(s)
+    byExAll.set(s.exerciseId, list)
+  }
+  return [...byExAll.entries()].flatMap(([exerciseId, list]) => {
+    const pr = calculateExercisePRs(toUnifiedSets(list))
+    const w = pr.maxWeight
+    const rm = pr.maxEstimated1RM
+    if (!w || !rm) {return []}
+    return [{
+      exerciseId,
+      peso: w.weight,
+      reps: w.reps,
+      fecha: w.date,
+      rm: Math.round(rm.estimated1RM * 10) / 10,
+      enPeriodo: w.date >= range.start && w.date <= range.end,
+    }]
+  })
+    .sort((a, b) => (Number(b.enPeriodo) - Number(a.enPeriodo)) || (b.rm - a.rm))
+    .slice(0, 10)
+}
+
+/**
+ * Conclusiones derivadas SOLO de lo que hay en el propio informe: sin
+ * causalidad, sin prognóstico y marcando «datos insuficientes» cuando falta.
+ */
+function buildConclusiones(data: ReportData): string[] {
+  const out: string[] = []
+  const e = data.entrenamiento
+  if (e) {
+    out.push(`Sesiones en el período: ${e.completadas} completadas y ${e.incompletas} incompletas${e.duracionMin ? ` · ${e.duracionMin} min de entrenamiento medidos` : ''}.`)
+    const c = e.comparativa
+    if (c && c.deltaPct !== null) {
+      out.push(`El volumen de la 2ª mitad del período fue ${c.deltaPct > 0 ? '+' : ''}${c.deltaPct}% respecto de la 1ª (${c.primeraMitad} vs ${c.segundaMitad} kg).`)
+    } else {
+      out.push('Datos insuficientes para comparar la 1ª y la 2ª mitad del período.')
+    }
+    if (e.diasActividad?.mayor) { out.push(`Día de mayor actividad: ${e.diasActividad.mayor.fecha} (${Math.round(e.diasActividad.mayor.volumen)} kg).`) }
+    if (e.gastoCalorico) {
+      out.push(e.gastoCalorico.totalKcal !== null
+        ? `Gasto calórico del ejercicio: ${Math.round(e.gastoCalorico.totalKcal)} kcal (estimación MET sobre sesiones con duración y peso registrados).`
+        : 'Gasto calórico del ejercicio: sin datos suficientes para estimar.')
+    }
+    if (e.destacados.length) { out.push(`Mayor volumen por ejercicio: ${e.destacados.map(d => `${shortExerciseName(d.exerciseId)} (${d.volumen} kg)`).join(', ')}.`) }
+    if (e.observaciones.length) { out.push(`Observaciones registradas: ${e.observaciones.join(' · ')}`) }
+  }
+  const pr = data.fuerza?.prs.find(p => p.enPeriodo) ?? data.fuerza?.prs[0]
+  if (pr) {
+    out.push(`Mejor marca de fuerza: ${shortExerciseName(pr.exerciseId)} ${pr.peso} kg × ${pr.reps} (1RM ${pr.rm} kg, ${pr.fecha}).`)
+  }
+  if (data.musculos?.gruposMas.length) { out.push(`Grupos musculares más trabajados: ${data.musculos.gruposMas.join(', ')}.`) }
+  if (data.recuperacion?.avgScore !== undefined) { out.push(`Recuperación media del período: ${data.recuperacion.avgScore}/100.`) }
+  if (data.mediciones?.peso) {
+    const p = data.mediciones.peso
+    out.push(`Peso: ${p.inicial} → ${p.final} kg (${p.delta > 0 ? '+' : ''}${p.delta} kg en el período).`)
+  }
+  if (data.nutricion) {
+    out.push(`Nutrición registrada: ${Math.round(data.nutricion.calorias)} kcal · ${data.nutricion.hidratacionMl} ml de agua.`)
+  }
+  if (!out.length) { out.push('Sin datos suficientes en el período para armar conclusiones.') }
+  return out
 }

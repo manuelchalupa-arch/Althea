@@ -29,6 +29,9 @@ export function ReportModal({ open, onClose }: { open: boolean; onClose: () => v
   // Las 4 secciones → informe completo.
   const completo = isCompleteReport(sections.flatMap(categoriesForSection) as ReportCategory[])
 
+  // Gasto del ejercicio: número real o null → nunca se inventa un valor.
+  const gastoKcal = report?.entrenamiento?.gastoCalorico?.totalKcal ?? null
+
   const clearReport = () => {
     setReport(null)
     setDownloaded(null)
@@ -212,7 +215,30 @@ className="w-full mt-1 bg-surface-container border border-outline-variant rounde
                         <span>frecuencia: <strong>{report.entrenamiento.frecuencia}</strong></span>
                         <span>adherencia: <strong>{report.entrenamiento.adherencia ?? '—'}%</strong></span>
                         <span>rendimiento: <strong>{report.entrenamiento.rendimiento?.volumenPorSesion.toLocaleString()} kg/sesión</strong></span>
+                        <span data-testid="report-completas">completas / incompletas: <strong>{report.entrenamiento.completadas} / {report.entrenamiento.incompletas}</strong></span>
+                        <span>duración: <strong>{report.entrenamiento.duracionMin ? `${report.entrenamiento.duracionMin} min` : 'Sin datos'}</strong></span>
+                        <span data-testid="report-gasto">
+                          gasto del ejercicio:{' '}
+                          <strong>
+                            {gastoKcal !== null
+                              ? `${Math.round(gastoKcal)} kcal`
+                              : 'Sin datos suficientes para estimar'}
+                          </strong>
+                        </span>
+                        <span>
+                          distribución:{' '}
+                          <strong>{(report.entrenamiento.distribucion ?? []).filter(d => d.sesiones > 0).map(d => `${d.dia} ${d.sesiones}`).join(' · ') || 'Sin sesiones'}</strong>
+                        </span>
                       </div>
+                      {report.entrenamiento.diasActividad?.mayor && (
+                        <div className="text-on-surface-variant">
+                          mayor actividad: {report.entrenamiento.diasActividad.mayor.fecha} ({Math.round(report.entrenamiento.diasActividad.mayor.volumen)} kg)
+                          {report.entrenamiento.diasActividad.menor ? ` · menor: ${report.entrenamiento.diasActividad.menor.fecha} (${Math.round(report.entrenamiento.diasActividad.menor.volumen)} kg)` : ''}
+                        </div>
+                      )}
+                      {report.entrenamiento.observaciones.length > 0 && (
+                        <div className="text-on-surface-variant">observaciones: {report.entrenamiento.observaciones.join(' · ')}</div>
+                      )}
                       {report.entrenamiento.serieDiaria && report.entrenamiento.serieDiaria.length > 0 && (
                         <div className="text-on-surface-variant">
                           volumen diario: {report.entrenamiento.serieDiaria.slice(-7)
@@ -233,6 +259,11 @@ className="w-full mt-1 bg-surface-container border border-outline-variant rounde
                         {report.fuerza.progresoPorEjercicio.slice(0, 5).map(p => (
                           <div key={p.exerciseId} className="text-on-surface-variant">
                             {p.exerciseId}: {p.pesoMax} kg × {p.reps} reps → 1RM {p.rm} kg
+                          </div>
+                        ))}
+                        {report.fuerza.prs.slice(0, 3).map(p => (
+                          <div key={`pr-${p.exerciseId}`} className="text-on-surface-variant" data-testid="report-pr">
+                            record {p.exerciseId}: {p.peso} kg × {p.reps} → 1RM {p.rm} kg ({p.fecha}{p.enPeriodo ? ' · en período' : ''})
                           </div>
                         ))}
                       </div>
@@ -286,6 +317,16 @@ className="w-full mt-1 bg-surface-container border border-outline-variant rounde
                       <div className="font-body-sm text-xs text-on-surface">
                         kcal {report.nutricion.calorias} · P {report.nutricion.proteinas}g · C {report.nutricion.carbohidratos}g · G {report.nutricion.grasas}g · agua {report.nutricion.hidratacionMl} ml
                       </div>
+                    </section>
+                  )}
+                  {report.conclusiones && report.conclusiones.length > 0 && (
+                    <section className="space-y-1">
+                      <div className="font-label-caps text-[10px] uppercase text-outline">Conclusiones</div>
+                      <ul className="font-body-sm text-xs text-on-surface space-y-0.5 list-disc pl-4" data-testid="report-conclusiones">
+                        {report.conclusiones.map((c, i) => (
+                          <li key={i}>{c}</li>
+                        ))}
+                      </ul>
                     </section>
                   )}
                 </>

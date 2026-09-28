@@ -18,7 +18,7 @@ import { getSourceById } from '@/services/ai/evidence'
 import { getActiveConversation, saveMessage, getMessages, clearConversation, type ChatMessage } from '@/services/ai/chatHistory'
 import { getUsage, getResetInfo } from '@/services/ai/groqUsage'
 import { AltheaBadge, AltheaButton, AltheaCard, AltheaCardHeader, AltheaEmpty, AltheaLoading } from '@/components/althea'
-import { SCIENTIFIC_SOURCES, calculateCalorieExpenditure } from '@/services/ai/metExpenditure'
+import { SCIENTIFIC_SOURCES } from '@/services/ai/metExpenditure'
 
 const PAGE_CONTEXT = 'Coach IA'
 
@@ -680,26 +680,5 @@ export function CoachScientificSources() {
         </div>
       )}
     </AltheaCard>
-  )
-}
-
-/** Muestra el gasto energético estimado de una sesión. */
-export function CalorieExpenditureDisplay({ weightKg, durationMinutes }: { weightKg?: number; durationMinutes?: number }) {
-  if (!weightKg || !durationMinutes || durationMinutes <= 0) {
-    return <p className="font-body-sm text-xs text-on-surface-variant">No hay datos suficientes para estimar el gasto.</p>
-  }
-  const result = calculateCalorieExpenditure({
-    activity: 'Entrenamiento de fuerza general',
-    met: 6.0,
-    weightKg,
-    durationMinutes,
-  })
-  return (
-    <div className="rounded border border-outline-variant/30 p-3 space-y-1">
-      <div className="font-label-caps text-[9px] uppercase text-on-surface-variant">Gasto energético estimado</div>
-      <div className="font-headline-md text-lg text-on-surface font-semibold">{result.grossKcal} kcal</div>
-      <div className="font-body-sm text-[11px] text-on-surface-variant">Neto: {result.netKcal} kcal · MET: {result.met}</div>
-      <div className="font-label-caps text-[9px] text-on-surface-variant">Fórmula: MET × 3,5 × kg ÷ 200 × min</div>
-    </div>
   )
 }

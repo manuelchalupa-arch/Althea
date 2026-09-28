@@ -14,7 +14,8 @@ import { WaterBottle } from '@/components/recovery/WaterBottle'
 import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
 import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
-import { todayKey, daysBetween, parseLocalDateKey, toLocalDateKey, weekdayOfKey, addDaysToKey, toDateKey, isDateKey } from '@/utils/dates'
+import { todayKey, daysBetween, parseLocalDateKey, toLocalDateKey, weekdayOfKey, addDaysToKey, toDateKey, isDateKey, weekStartKey } from '@/utils/dates'
+import type { ExpenditureResult } from '@/services/training/exerciseEnergy'
 
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X']
 
@@ -32,6 +33,30 @@ function SessionStatusIcon({ status }: { status: string | null }) {
   }
   const s = map[status] || { icon: 'schedule', color: 'text-outline' }
   return <span className={`material-symbols-outlined ${s.color} animate-pulse`} style={{ fontSize: 15 }}>{s.icon}</span>
+}
+
+/** Fila del gasto calórico: valor real o estado honesto, nunca números inventados. */
+function GastoRow({ label, res, testId }: { label: string; res: ExpenditureResult; testId: string }) {
+  const sinDatos = res.totalKcal === null && res.motivo !== 'SIN_SESIONES'
+  if (sinDatos) {
+    return (
+      <div data-testid={testId} className="flex items-center justify-between gap-3 rounded bg-surface-container border border-outline-variant/20 px-2.5 py-2">
+        <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">{label}</span>
+        <span data-testid={`${testId}-sin-datos`} className="text-[11px] text-on-surface-variant italic text-right">Sin datos suficientes para estimar</span>
+      </div>
+    )
+  }
+  return (
+    <div data-testid={testId} className="flex items-center justify-between gap-3 rounded bg-surface-container border border-outline-variant/20 px-2.5 py-2">
+      <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">{label}</span>
+      <span className="text-right">
+        <span data-testid={`${testId}-kcal`} className="font-headline-sm text-on-surface font-semibold">{Math.round(res.totalKcal ?? 0)} <span className="text-[11px] text-primary font-normal">kcal</span></span>
+        <span data-testid={`${testId}-min`} className="block text-[10px] text-on-surface-variant">
+          {res.totalMinutes !== null ? `${Math.round(res.totalMinutes)} min de sesión` : 'Sin sesiones registradas'}
+        </span>
+      </span>
+    </div>
+  )
 }
 
 export default function Inicio(){
@@ -56,6 +81,8 @@ export default function Inicio(){
   const [overrideDay, setOverrideDay] = useState<number|null>(null)
   const [weekOffset, setWeekOffset] = useState(0)
   const [dayStatus, setDayStatus] = useState<Record<string,{planned:boolean; dayN:number|null; dayName:string|null; sessionStatus:string|null; overridden:boolean; volume?:number; rating?:number|null}>>({})
+  // Gasto calórico del ejercicio: mismo motor que historial e informes (PDF).
+  const [gasto, setGasto] = useState<{ hoy: ExpenditureResult; semana: ExpenditureResult } | null>(null)
   const todayCompleted = dayStatus[todayStr]?.sessionStatus === 'COMPLETED'
   const [selectedDate, setSelectedDate] = useState<string>(todayStr)
   const [previewList, setPreviewList] = useState<{id:string;name:string;sets:number;reps:number;weight:number|null;restSec?:number;seriesType?:string;muscle?:string}[]>([])
@@ -145,6 +172,28 @@ export default function Inicio(){
     }
     loadWeek().catch(()=>{})
   },[cycle, weekKeys, overrideDay])
+
+  // Gasto calórico del ejercicio (fecha actual + semana en curso, lun→hoy).
+  // Un solo motor (exerciseEnergy) compartido con historial e informes PDF.
+  useEffect(()=>{
+    let alive = true
+    const load = async ()=>{
+      const { computeExpenditure, loadWeightRows } = await import('@/services/training/exerciseEnergy')
+      const [sessions, weightRows] = await Promise.all([
+        db.trainingSessions.toArray().catch(()=>[]),
+        loadWeightRows(),
+      ])
+      const desde = weekStartKey(todayStr)
+      const hoy = computeExpenditure({ from: todayStr, to: todayStr, sessions, weightRows })
+      const semana = computeExpenditure({ from: desde, to: todayStr, sessions, weightRows })
+      if(alive){ setGasto({ hoy, semana }) }
+    }
+    load().catch(()=>{})
+    const onChange = ()=>{ load().catch(()=>{}) }
+    window.addEventListener('althea:session-changed', onChange)
+    window.addEventListener('focus', onChange)
+    return ()=>{ alive = false; window.removeEventListener('althea:session-changed', onChange); window.removeEventListener('focus', onChange) }
+  },[todayStr])
 
   useEffect(()=>{
     const dow = weekdayOfKey(selectedDate)
@@ -576,6 +625,28 @@ export default function Inicio(){
 
         {/* RIGHT 4: WIDGETS */}
         <div className="lg:col-span-4 space-y-4">
+          {/* WIDGET 0: GASTO CALÓRICO DEL EJERCICIO (sesiones reales) */}
+          <div data-testid="inicio-gasto-calorico" className="border border-outline-variant/40 rounded-lg p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>local_fire_department</span>
+                <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Gasto calórico del ejercicio</span>
+              </div>
+              <Link to="/calendario" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps uppercase hover:text-primary transition-colors">Historial →</Link>
+            </div>
+            <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-2">
+              Estimación MET sobre tus sesiones registradas (duración medida × peso corporal).
+            </p>
+            {gasto === null ? (
+              <p className="text-[12px] text-on-surface-variant">Cargando…</p>
+            ) : (
+              <div className="space-y-2">
+                <GastoRow label="Hoy" res={gasto.hoy} testId="inicio-gasto-hoy" />
+                <GastoRow label="Semana (lun → hoy)" res={gasto.semana} testId="inicio-gasto-semana" />
+              </div>
+            )}
+          </div>
+
           {/* WIDGET 1: RECUPERACIÓN ARETE */}
            <div className="border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-3 relative overflow-hidden">
             <div className="flex items-center justify-between">

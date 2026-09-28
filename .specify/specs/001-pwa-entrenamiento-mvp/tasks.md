@@ -4,8 +4,8 @@
 **Prerequisites**: plan aprobado, Dexie como SSOT
 
 **Estado real (2026-09-28):** todas las fases implementadas y verificadas salvo lo anotado en T032.
-Gates: `tsc` 0 errores · `vitest` 121 archivos / 1012 tests · `build` PASS · `lint` 0 errores / 166 warnings.
-Cierre documentado en `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md`.
+Gates (ejecutados 2026-09-28): `tsc` 0 errores · `vitest` 124 archivos de test / 1041 tests declarados / 1041 ejecutados / 1041 aprobados / 0 fallidos · `build` PASS (PWA emitido, 71 entradas de precache) · `lint` 0 errores / 166 warnings (todos históricos; 0 warnings nuevos).
+Cierre documentado en `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md` · informes PDF en `docs/INFORMES_PDF.md`.
 
 ## Phase 1: Setup (Shared Infrastructure)
 
@@ -64,8 +64,11 @@ Cierre documentado en `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md`
 
 - [x] T029 [P] Accesibilidad (contraste, 44px targets, ARIA, teclado) + responsive audit — real: targets 48px (superior a lo pedido), `eslint-plugin-jsx-a11y`, `prefers-reduced-motion`, gráficos con equivalente textual
 - [x] T030 [P] Notificaciones `services/notifications/push.ts` (máx 2/día, suppress si completado) + `notificationLog`
-- [x] T031 [P] Tests integración: offline flow, import/export roundtrip, recoveryScore — real: 121 archivos / 1012 tests
-- [ ] T032 Validar `quickstart.md` + Lighthouse PWA≥90 + bundle <150KB gzip + `npm run build` sin errores — real: `npm run build` PASS y PWA emitido (69 entradas de precache); `quickstart.md` no existe en el repo y Lighthouse no se pudo ejecutar en este entorno. **Único punto no verificado del MVP**
+- [x] T031 [P] Tests integración: offline flow, import/export roundtrip, recoveryScore — real: 124 archivos / 1041 tests al cierre
+- [ ] T032 Validar `quickstart.md` + Lighthouse PWA≥90 + bundle <150KB gzip + `npm run build` sin errores — real: `npm run build` PASS y PWA emitido (71 entradas de precache); `quickstart.md` no existe en el repo y Lighthouse no se pudo ejecutar en este entorno. **Único punto no verificado del MVP**
+- [x] T033 Gasto calórico del ejercicio en Inicio (hoy + semana) con motor único `services/training/exerciseEnergy.ts`, compartido con historial e informes, estados honestos `Sin datos suficientes para estimar` — real: widget `inicio-gasto-calorico` + `Inicio.gasto.test.tsx` + `Calendario.gasto.test.tsx`
+- [x] T034 Informes PDF enriquecidos: modos semanal/mensual/personalizado, completadas/incompletas, duración, gasto, distribución, días extremos, observaciones, destacados, PRs y conclusiones — real: `reportService` + `reportPdf` + preview en `ReportModal` (ver `docs/INFORMES_PDF.md`)
+- [x] T035 Verificación local de credenciales (bundle sin claves, frontend sin `VITE_GROQ_API_KEY`/`VITE_NINJA_API_KEY`, `.env*` fuera de Git, Worker con secret server-side) — real: ver `docs/history/althea/ALTHEA_FINAL_CLOSURE.md` §13; las 2 revocaciones siguen siendo acción externa
 
 ## Dependencies & Execution Order
 
