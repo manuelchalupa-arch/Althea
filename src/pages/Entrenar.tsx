@@ -205,7 +205,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   }, [sessionStatus])
 
   const [showModify,setShowModify]=useState(false)
-  const [mod,setMod]=useState({weight:0,reps:0,sets:0, seriesType:'normal'})
+  const [mod,setMod]=useState<{weight:number|'';reps:number|'';sets:number;seriesType?:string}>({weight:0,reps:0,sets:0, seriesType:'Normal'})
   const [showObservation,setShowObservation]=useState(false)
   const [obsReasons,setObsReasons]=useState<string[]>([])
   const [obsComment,setObsComment]=useState('')
@@ -1606,13 +1606,17 @@ const exercises: SessionEx[] = seList.map((se) => {
         )}
 
         <ModifyModal show={showModify && !!cur} onClose={()=>setShowModify(false)} exerciseName={cur?.name||''} mod={mod} setMod={setMod} onApply={async ()=>{
-                const newPlannedSets = Array.from({length: mod.sets}, (_:unknown, i:number) => ({
-                  order: i + 1,
-                  reps: mod.reps,
-                  weight: mod.weight,
-                  setType: ((mod.seriesType || 'NORMAL').toUpperCase().replace(' ','_')) as import('@/services/training/domain').SetType,
-                }))
-                setExs(prev => prev.map((ex, i) => i === current ? { ...ex, weight: mod.weight, reps: mod.reps, sets: mod.sets, plannedSets: mod.sets, plannedSetValues: newPlannedSets } : ex))
+                const { generatePlannedSets } = await import('@/services/training/setPlanner')
+                // Empty string = sin peso/sin reps (null)
+                const baseWeight = mod.weight === '' ? null : Number(mod.weight)
+                const baseReps = mod.reps === '' ? 0 : Number(mod.reps)
+                const newPlannedSets = generatePlannedSets({
+                  sets: mod.sets,
+                  baseWeight: baseWeight ?? 0,
+                  baseReps,
+                  seriesType: mod.seriesType || 'Normal',
+                })
+                setExs(prev => prev.map((ex, i) => i === current ? { ...ex, weight: baseWeight, reps: baseReps, sets: mod.sets, plannedSets: mod.sets, plannedSetValues: newPlannedSets } : ex))
                 const seId = seIdByIndex[current]
                 if(seId){
                   const se = await db.sessionExercises.get(seId).catch(()=>null)

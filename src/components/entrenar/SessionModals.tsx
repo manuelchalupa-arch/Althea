@@ -6,7 +6,7 @@ const INCOMPLETE_REASONS = ['Dolor / molestia','Falta de tiempo','Cansancio exce
 /* ── Modify Modal ── */
 export function ModifyModal({ show, onClose, exerciseName, mod, setMod, onApply }:{
   show:boolean; onClose:()=>void; exerciseName:string;
-  mod:{weight:number;reps:number;sets:number;seriesType?:string}; setMod:(m:any)=>void; onApply:()=>void
+  mod:{weight:number|'';reps:number|'';sets:number;seriesType?:string}; setMod:(m:any)=>void; onApply:()=>void
 }){
   if(!show) {return null}
   return (
@@ -14,12 +14,12 @@ export function ModifyModal({ show, onClose, exerciseName, mod, setMod, onApply 
       <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
         <h3 className="font-headline-lg text-base font-semibold text-on-surface">Modificar {exerciseName}</h3>
         <div className="grid grid-cols-3 gap-2">
-          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Peso<input type="number" value={mod.weight} onChange={e=>setMod({...mod, weight:Number(e.target.value)})} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/></label>
-          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Reps<input type="number" value={mod.reps} onChange={e=>setMod({...mod, reps:Number(e.target.value)})} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/></label>
-          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series<input type="number" value={mod.sets} onChange={e=>setMod({...mod, sets:Number(e.target.value)})} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/></label>
+          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Peso<input type="number" value={mod.weight} onChange={e=>setMod({...mod, weight: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/></label>
+          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Reps<input type="number" value={mod.reps} onChange={e=>setMod({...mod, reps: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/></label>
+          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series<input type="number" value={mod.sets} onChange={e=>setMod({...mod, sets: Number(e.target.value) || 0})} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/></label>
         </div>
         <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Tipo de serie
-          <select onChange={e=> setMod({...mod, seriesType: e.target.value} as any)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
+          <select onChange={e=> setMod({...mod, seriesType: e.target.value} as any)} value={mod.seriesType || 'Normal'} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
             <option>Normal</option><option>Ascendente</option><option>Descendente</option><option>Piramidal</option><option>DropSet</option><option>Otra</option>
           </select>
         </label>

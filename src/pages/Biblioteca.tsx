@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { db } from '@/services/storage/db'
 import * as Gym from '@/services/exerciseGym'
 import { effectiveBreakdown, listCustomExercises } from '@/services/training/customExercises'
+import { listWgerExercises, toExercise as wgerToExercise } from '@/services/integrations/wger'
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Dumbbell, Layers, Box, Heart, Globe, WifiOff } from 'lucide-react'
@@ -92,7 +93,10 @@ export default function Biblioteca(){
           customs = filterExercises(allCustom as unknown as import('@/services/exerciseGym').Exercise[], { group: key }) as unknown as typeof customs
         } else {customs = await listCustomExercises(t, key).catch(()=>[])}
       } else {customs = await listCustomExercises(key==='__all__' ? undefined : t, key==='__all__' ? undefined : key).catch(()=>[])}
-      const merged = [...(res.exercises || []), ...customs].sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
+      // Ejercicios Wger importados (solo lectura desde Dexie)
+      const wgerExercises = await listWgerExercises().catch(()=>[])
+      const wgerAsExercise = wgerExercises.map(wgerToExercise)
+      const merged = [...(res.exercises || []), ...wgerAsExercise, ...customs].sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
       setExercises(merged)
       if(key==='__all__') { setTotalCount(merged.length) }
       Gym.cacheSet(cacheKey, res.exercises)
@@ -207,7 +211,7 @@ export default function Biblioteca(){
                 {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="w-full h-full object-cover" /> : <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-[10px] text-center">GIF</span>}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-body-md text-sm text-on-surface font-medium text-sm flex items-center gap-2"><span className="truncate">{ex.name}</span>{ex.origin==='USER_CREATED' ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[10px]">Mío</AltheaBadge> : null}</div>
+                <div className="font-body-md text-sm text-on-surface font-medium text-sm flex items-center gap-2"><span className="truncate">{ex.name}</span>{ex.origin==='USER_CREATED' ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[10px]">Mío</AltheaBadge> : null}{String(ex.id).startsWith('wger-') ? <AltheaBadge variant="outline" className="text-secondary border-secondary shrink-0 text-[10px]">Wger</AltheaBadge> : null}</div>
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle} · {ex.equipment}</div>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {musclePct(ex).slice(0,3).map(m=> (
@@ -276,6 +280,13 @@ export default function Biblioteca(){
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cómo hacerlo</div>
                 <ol className="list-decimal list-inside font-body-md text-sm text-on-surface space-y-1 mt-1">{detail.instructions.map((s,i)=><li key={i}>{s}</li>)}</ol>
               </AltheaCard>
+              {String(detail.id).startsWith('wger-') && (
+                <AltheaCard className="p-3">
+                  <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fuente</div>
+                  <p className="font-body-md text-sm text-on-surface mt-1">Wger · ID {detail.id.replace('wger-', '')}</p>
+                  <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Licencia CC-BY-SA 4.0</p>
+                </AltheaCard>
+              )}
               {detail.origin==='USER_CREATED' ? (
                 <div className="flex gap-2">
                   <button onClick={()=>{ setEditing(detail as CustomExercise) }} className="flex-1 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Editar</button>
