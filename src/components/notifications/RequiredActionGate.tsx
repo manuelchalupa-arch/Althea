@@ -29,10 +29,10 @@ export function RequiredActionGate({ children }: { children: React.ReactNode }) 
     }
   }, [])
 
-  if (checking) return <>{children}</>
+  if (checking) {return <>{children}</>}
 
   const needsRecovery = pending.some(p => p.config.type === 'recuperacion')
-  if (!needsRecovery || pending.length === 0) return <>{children}</>
+  if (!needsRecovery || pending.length === 0) {return <>{children}</>}
 
   const cfg = pending.find(p => p.config.type === 'recuperacion')!.config
   const times = cfg.times?.length ? cfg.times.join(' · ') : cfg.time

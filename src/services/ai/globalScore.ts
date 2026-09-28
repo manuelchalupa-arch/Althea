@@ -29,17 +29,17 @@ export function computeGlobalScore(i: ScoreInput): GlobalScore {
     score += delta
     factors.push({ label, delta, estado })
   }
-  if (i.adherencePct == null) {factors.push({ label: 'Adherencia', delta: 0, estado: 'sin plan medible' })}
+  if (i.adherencePct === null || i.adherencePct === undefined) {factors.push({ label: 'Adherencia', delta: 0, estado: 'sin plan medible' })}
   else if (i.adherencePct >= 85) {add('Adherencia', 15, `${i.adherencePct}%: positivo`)}
   else if (i.adherencePct >= 60) {add('Adherencia', 5, `${i.adherencePct}%: aceptable`)}
   else {add('Adherencia', -10, `${i.adherencePct}%: baja`)}
 
-  if (i.recoveryLast == null) {factors.push({ label: 'Recuperación', delta: 0, estado: 'sin registro reciente' })}
+  if (i.recoveryLast === null || i.recoveryLast === undefined) {factors.push({ label: 'Recuperación', delta: 0, estado: 'sin registro reciente' })}
   else if (i.recoveryLast >= 70) {add('Recuperación', 10, `${i.recoveryLast}: buena`)}
   else if (i.recoveryLast >= 45) {add('Recuperación', 0, `${i.recoveryLast}: moderada`)}
   else {add('Recuperación', -10, `${i.recoveryLast}: baja`)}
 
-  if (i.hydrationMl == null) {factors.push({ label: 'Hidratación', delta: 0, estado: 'sin registro hoy' })}
+  if (i.hydrationMl === null || i.hydrationMl === undefined) {factors.push({ label: 'Hidratación', delta: 0, estado: 'sin registro hoy' })}
   else if (i.hydrationMl >= 2000) {add('Hidratación', 5, `${i.hydrationMl}ml: adecuada`)}
   else if (i.hydrationMl >= 1000) {add('Hidratación', 0, `${i.hydrationMl}ml: moderada`)}
   else {add('Hidratación', -5, `${i.hydrationMl}ml: baja`)}
@@ -48,16 +48,16 @@ export function computeGlobalScore(i: ScoreInput): GlobalScore {
   else if (i.regressedRecently === true) {add('Progreso', -5, 'caída reciente')}
   else {factors.push({ label: 'Progreso', delta: 0, estado: 'sin datos suficientes' })}
 
-  if (i.painMax7d == null) {factors.push({ label: 'Dolor', delta: 0, estado: 'sin registros' })}
+  if (i.painMax7d === null || i.painMax7d === undefined) {factors.push({ label: 'Dolor', delta: 0, estado: 'sin registros' })}
   else if (i.painMax7d >= 1) {add('Dolor', -5, `dolor reportado en los últimos 7d`)}
   else {add('Dolor', 0, `sin dolor reportado`)}
 
-  if (i.proteinPctGoal == null) {factors.push({ label: 'Proteína', delta: 0, estado: 'sin datos' })}
+  if (i.proteinPctGoal === null || i.proteinPctGoal === undefined) {factors.push({ label: 'Proteína', delta: 0, estado: 'sin datos' })}
   else if (i.proteinPctGoal >= 80) {add('Proteína', 5, `${Math.round(i.proteinPctGoal)}% del objetivo`)}
   else if (i.proteinPctGoal >= 50) {add('Proteína', 0, `${Math.round(i.proteinPctGoal)}% (estimado)`)}
   else {add('Proteína', -5, `${Math.round(i.proteinPctGoal)}% (estimado)`)}
 
-  if (i.gapDays == null) {factors.push({ label: 'Continuidad', delta: 0, estado: 'sin sesiones' })}
+  if (i.gapDays === null || i.gapDays === undefined) {factors.push({ label: 'Continuidad', delta: 0, estado: 'sin sesiones' })}
   else if (i.gapDays >= 7) {add('Continuidad', -10, `${i.gapDays} días sin entrenar`)}
   else if (i.gapDays >= 4) {add('Continuidad', -3, `${i.gapDays} días sin entrenar`)}
   else {add('Continuidad', 3, 'ritmo activo')}
@@ -87,7 +87,7 @@ export async function buildGlobalScore(): Promise<GlobalScore> {
       let done = 0
       for (let i = 0; i < 14; i++) {
         const iso = dayKeyOffset(todayKey(), -i)
-        if (cycle.weekMap[weekdayOfKey(iso)] != null) {
+        if (cycle.weekMap[weekdayOfKey(iso)] !== null && cycle.weekMap[weekdayOfKey(iso)] !== undefined) {
           planned++
           if (finals.some((s) => s.calendarDate === iso)) {done++}
         }

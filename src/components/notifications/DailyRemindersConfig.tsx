@@ -20,7 +20,7 @@ export function DailyRemindersConfig() {
 
   const updateField = async (id: string, patch: Partial<UnifiedNotifConfig>) => {
     const cfg = configs.find(x => x.id === id)
-    if (!cfg) return
+    if (!cfg) {return}
     await saveUnifiedConfig({ ...cfg, ...patch } as UnifiedNotifConfig)
     await load()
   }

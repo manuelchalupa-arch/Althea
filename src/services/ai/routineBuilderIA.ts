@@ -45,10 +45,10 @@ function isAvailable(): boolean {
 
 function goalToMethodId(goal: string): TrainingMethodId {
   const g = goal.toLowerCase()
-  if (g.includes('fuerza')) return 'strength'
-  if (g.includes('perdida_grasa') || g.includes('grasa')) return 'hiit'
-  if (g.includes('resistencia')) return 'strength_endurance'
-  if (g.includes('hipertrofia')) return 'hypertrophy'
+  if (g.includes('fuerza')) {return 'strength'}
+  if (g.includes('perdida_grasa') || g.includes('grasa')) {return 'hiit'}
+  if (g.includes('resistencia')) {return 'strength_endurance'}
+  if (g.includes('hipertrofia')) {return 'hypertrophy'}
   return 'hypertrophy'
 }
 
@@ -79,9 +79,9 @@ async function generateRoutineFallback(wants: UserWants): Promise<GeneratedRouti
   const excluded: string[] = profile.excludedExercises || []
   const painAreas: string[] = profile.painAreas || []
   const shouldExclude = (ex: Exercise) => {
-    if (excluded.includes(ex.id)) return true
-    if (wants.injuryNote && ex.name.toLowerCase().includes(wants.injuryNote.toLowerCase())) return true
-    if (painAreas.some((p: string) => ex.muscle.toLowerCase().includes(p.toLowerCase()))) return false // no bloquea, solo prioriza
+    if (excluded.includes(ex.id)) {return true}
+    if (wants.injuryNote && ex.name.toLowerCase().includes(wants.injuryNote.toLowerCase())) {return true}
+    if (painAreas.some((p: string) => ex.muscle.toLowerCase().includes(p.toLowerCase()))) {return false} // no bloquea, solo prioriza
     return false
   }
   const dayExercises: GeneratedRoutine['dayExercises'] = {}
@@ -90,7 +90,7 @@ async function generateRoutineFallback(wants: UserWants): Promise<GeneratedRouti
     const muscles = parseDayMuscles(d.name)
     const fetches = await Promise.allSettled((muscles.length ? muscles : ['quads']).map(m => fetchByMuscle(m)))
     let pool: Exercise[] = []
-    fetches.forEach(r => { if (r.status === 'fulfilled' && r.value?.exercises) pool.push(...r.value.exercises) })
+    fetches.forEach(r => { if (r.status === 'fulfilled' && r.value?.exercises) {pool.push(...r.value.exercises)} })
     // Fallback si familia vacía: trae todo y filtra
     if (pool.length === 0) {
       const all = await fetchByMuscle('quads').then(r => r.exercises).catch(() => [])

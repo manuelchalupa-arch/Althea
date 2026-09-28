@@ -313,28 +313,28 @@ function migrateExportData(data: any, fromVersion: number): ExportData {
   let migrated = { ...data }
   
   if (fromVersion < 2) {
-    if (!migrated.sessionExercises) migrated.sessionExercises = []
-    if (!migrated.setRecords) migrated.setRecords = []
-    if (!migrated.sessionEvents) migrated.sessionEvents = []
-    if (!migrated.postWorkoutSurveys) migrated.postWorkoutSurveys = []
-    if (!migrated.negativeSets) migrated.negativeSets = []
-    if (!migrated.exerciseObservations) migrated.exerciseObservations = []
-    if (!migrated.weeklySequences) migrated.weeklySequences = []
-    if (!migrated.chatMessages) migrated.chatMessages = []
-    if (!migrated.chatConversations) migrated.chatConversations = []
-    if (!migrated.nutritionDiary) migrated.nutritionDiary = []
-    if (!migrated.nutritionAdherence) migrated.nutritionAdherence = []
-    if (!migrated.sessionOverrides) migrated.sessionOverrides = []
-    if (!migrated.coachMemory) migrated.coachMemory = []
-    if (!migrated.decisionLog) migrated.decisionLog = []
-    if (!migrated.knowledgeDocuments) migrated.knowledgeDocuments = []
-    if (!migrated.exerciseKnowledge) migrated.exerciseKnowledge = []
-    if (!migrated.scoreSnapshots) migrated.scoreSnapshots = []
-    if (!migrated.onboardingDrafts) migrated.onboardingDrafts = []
-    if (!migrated.painLogs) migrated.painLogs = []
-    if (!migrated.customExercises) migrated.customExercises = []
-    if (!migrated.routineDays) migrated.routineDays = []
-    if (!migrated.routineExercises) migrated.routineExercises = []
+    if (!migrated.sessionExercises) {migrated.sessionExercises = []}
+    if (!migrated.setRecords) {migrated.setRecords = []}
+    if (!migrated.sessionEvents) {migrated.sessionEvents = []}
+    if (!migrated.postWorkoutSurveys) {migrated.postWorkoutSurveys = []}
+    if (!migrated.negativeSets) {migrated.negativeSets = []}
+    if (!migrated.exerciseObservations) {migrated.exerciseObservations = []}
+    if (!migrated.weeklySequences) {migrated.weeklySequences = []}
+    if (!migrated.chatMessages) {migrated.chatMessages = []}
+    if (!migrated.chatConversations) {migrated.chatConversations = []}
+    if (!migrated.nutritionDiary) {migrated.nutritionDiary = []}
+    if (!migrated.nutritionAdherence) {migrated.nutritionAdherence = []}
+    if (!migrated.sessionOverrides) {migrated.sessionOverrides = []}
+    if (!migrated.coachMemory) {migrated.coachMemory = []}
+    if (!migrated.decisionLog) {migrated.decisionLog = []}
+    if (!migrated.knowledgeDocuments) {migrated.knowledgeDocuments = []}
+    if (!migrated.exerciseKnowledge) {migrated.exerciseKnowledge = []}
+    if (!migrated.scoreSnapshots) {migrated.scoreSnapshots = []}
+    if (!migrated.onboardingDrafts) {migrated.onboardingDrafts = []}
+    if (!migrated.painLogs) {migrated.painLogs = []}
+    if (!migrated.customExercises) {migrated.customExercises = []}
+    if (!migrated.routineDays) {migrated.routineDays = []}
+    if (!migrated.routineExercises) {migrated.routineExercises = []}
   }
   
   return migrated as ExportData
@@ -387,7 +387,7 @@ async function detectConflicts(
 ): Promise<ConflictInfo[]> {
   const conflicts: ConflictInfo[] = []
   
-  if (options.mode === 'replace-all') return conflicts
+  if (options.mode === 'replace-all') {return conflicts}
   
   const routineIds = new Set(importedData.routines.map(r => r.id))
   const existingRoutines = await db.routineStore.where('id').anyOf([...routineIds]).toArray()
@@ -490,7 +490,7 @@ async function applyImport(
   ]
   
   for (const { table, data: tableData, key, countKey, name } of tablesToImport) {
-    if (!tableData.length) continue
+    if (!tableData.length) {continue}
     
     const conflictIds = new Set(conflicts.filter(c => c.table === name).map(c => c.id))
     

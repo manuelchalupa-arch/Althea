@@ -34,11 +34,11 @@ export async function getVariantsForExercise(
   
   // Determinar razón de sustitución
   let reason: 'pain' | 'equipment' | 'limitation' | 'dislike' | 'progression' | 'regression' = 'pain'
-  if (context.reason === 'equipment') reason = 'equipment'
-  else if (context.reason === 'limitation') reason = 'limitation'
-  else if (context.reason === 'user_request') reason = 'dislike'
-  else if (context.reason === 'progression') reason = 'progression'
-  else if (context.reason === 'regression') reason = 'regression'
+  if (context.reason === 'equipment') {reason = 'equipment'}
+  else if (context.reason === 'limitation') {reason = 'limitation'}
+  else if (context.reason === 'user_request') {reason = 'dislike'}
+  else if (context.reason === 'progression') {reason = 'progression'}
+  else if (context.reason === 'regression') {reason = 'regression'}
   
   // Obtener resultado del motor de sustitución
   const result: SubstitutionResult = await findAlternatives(
@@ -178,7 +178,7 @@ export function isExerciseCompatible(
   exercise: { id: string; equipment: string; muscle: string; pattern: string; level: string },
   userProfile: UserProfile | null
 ): { compatible: boolean; reasons: string[] } {
-  if (!userProfile) return { compatible: true, reasons: [] }
+  if (!userProfile) {return { compatible: true, reasons: [] }}
   
   const reasons: string[] = []
   

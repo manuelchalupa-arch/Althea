@@ -10,15 +10,15 @@ import { isDateInPeriod, type AnalysisPeriod } from './metrics'
 const COMPLETED_STATUSES = new Set(['COMPLETED', 'PARTIAL'])
 
 export function isCompletedSession(s: Pick<TrainingSession, 'sessionStatus' | 'calendarDate' | 'isDemo'>): boolean {
-  if (!s.calendarDate) return false
-  if (s.isDemo) return false
+  if (!s.calendarDate) {return false}
+  if (s.isDemo) {return false}
   return COMPLETED_STATUSES.has(s.sessionStatus)
 }
 
 export function distinctTrainingDays(sessions: Array<Pick<TrainingSession, 'sessionStatus' | 'calendarDate' | 'isDemo'>>): string[] {
   const set = new Set<string>()
   for (const s of sessions) {
-    if (isCompletedSession(s)) set.add(s.calendarDate)
+    if (isCompletedSession(s)) {set.add(s.calendarDate)}
   }
   return [...set].sort()
 }
@@ -39,7 +39,7 @@ export function countTrainingDaysInPeriod(
 export async function getTrainingDays(period?: AnalysisPeriod, opts?: { customStart?: string; customEnd?: string; today?: string }): Promise<{ total: number; inPeriod?: number; days: string[] }> {
   const sessions = await db.trainingSessions.toArray().catch(() => []) as TrainingSession[]
   const days = distinctTrainingDays(sessions)
-  if (!period || period === 'all') return { total: days.length, days }
+  if (!period || period === 'all') {return { total: days.length, days }}
   const inPeriodDays = days.filter(d => isDateInPeriod(d, period, opts))
   return { total: days.length, inPeriod: inPeriodDays.length, days: inPeriodDays }
 }

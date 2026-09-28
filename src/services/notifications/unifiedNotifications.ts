@@ -78,21 +78,21 @@ export async function saveUnifiedConfig(cfg: UnifiedNotifConfig): Promise<void> 
 export async function saveUnifiedConfigs(cfgs: UnifiedNotifConfig[]): Promise<void> {
   const normalized = cfgs.map(c => {
     const n = { ...c, updatedAt: nowIso() } as UnifiedNotifConfig
-    if (n.type === 'preparar_habitacion') n.times = [n.time]
+    if (n.type === 'preparar_habitacion') {n.times = [n.time]}
     return n
   })
   await db.unifiedNotifConfigs.bulkPut(normalized as never[])
   const ids = new Set(normalized.map(c => c.id))
   const existing = await db.unifiedNotifConfigs.toArray().catch(() => []) as unknown as UnifiedNotifConfig[]
   const toDelete = existing.filter(e => !ids.has(e.id)).map(e => e.id)
-  if (toDelete.length) await db.unifiedNotifConfigs.bulkDelete(toDelete).catch(() => {})
+  if (toDelete.length) {await db.unifiedNotifConfigs.bulkDelete(toDelete).catch(() => {})}
 }
 
 export async function updateUnifiedConfig(id: string, patch: Partial<Omit<UnifiedNotifConfig, 'id' | 'updatedAt'>>): Promise<UnifiedNotifConfig> {
   const existing = await db.unifiedNotifConfigs.get(id).catch(() => null) as unknown as UnifiedNotifConfig | null
-  if (!existing) throw new Error(`Config no encontrada: ${id}`)
+  if (!existing) {throw new Error(`Config no encontrada: ${id}`)}
   const updated = { ...existing, ...patch, updatedAt: nowIso() } as UnifiedNotifConfig
-  if (updated.type === 'preparar_habitacion' && patch.time) updated.times = [patch.time]
+  if (updated.type === 'preparar_habitacion' && patch.time) {updated.times = [patch.time]}
   await db.unifiedNotifConfigs.put(updated as never)
   return updated
 }

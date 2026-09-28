@@ -125,11 +125,11 @@ function scoreMethod(
   if (painAreas.length > 0 && method.requirements.neuromuscularDemand === 'high') {score -= 0.1}
 
   // Fatiga reciente
-  if (recentFatigue != null && recentFatigue > 7 && method.requirements.cardiovascularDemand === 'high') {score -= 0.1}
-  if (recentFatigue != null && recentFatigue > 7 && method.requirements.neuromuscularDemand === 'high') {score -= 0.1}
+  if (recentFatigue !== null && recentFatigue !== undefined && recentFatigue > 7 && method.requirements.cardiovascularDemand === 'high') {score -= 0.1}
+  if (recentFatigue !== null && recentFatigue !== undefined && recentFatigue > 7 && method.requirements.neuromuscularDemand === 'high') {score -= 0.1}
 
   // Volumen reciente alto → favorecer métodos menos demandantes
-  if (recentVolume != null && recentVolume > 15 && method.requirements.neuromuscularDemand === 'high') {score -= 0.05}
+  if (recentVolume !== null && recentVolume !== undefined && recentVolume > 15 && method.requirements.neuromuscularDemand === 'high') {score -= 0.05}
 
   return Math.max(0, Math.min(1, score))
 }
@@ -189,8 +189,8 @@ function calculateConfidence(profile: UserProfile, recentVolume?: number, recent
   if (profile.schedule?.availableDays) {confidence += 0.1}
   if (profile.sessionDurationMin) {confidence += 0.05}
   if (profile.equipment) {confidence += 0.05}
-  if (recentVolume != null) {confidence += 0.05}
-  if (recentFatigue != null) {confidence += 0.05}
+  if (recentVolume !== null && recentVolume !== undefined) {confidence += 0.05}
+  if (recentFatigue !== null && recentFatigue !== undefined) {confidence += 0.05}
 
   return Math.min(1, confidence)
 }

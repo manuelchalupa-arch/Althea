@@ -13,9 +13,9 @@ export function todayKey(): DateKey {
 }
 
 export function toDateKey(value: string | Date): DateKey {
-  if (value instanceof Date) return toLocalDateKey(value)
+  if (value instanceof Date) {return toLocalDateKey(value)}
   const d = new Date(value)
-  if (isNaN(d.getTime())) return ''
+  if (isNaN(d.getTime())) {return ''}
   return toLocalDateKey(d)
 }
 

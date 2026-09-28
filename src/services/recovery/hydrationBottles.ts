@@ -57,10 +57,10 @@ function toConfig(raw: { id: string; name?: string; capacityMl: number; active: 
 
 export function validateBottles(bottles: BottleConfig[]): string | null {
   const active = bottles.filter(b => b.active)
-  if (active.length < 2 || active.length > 3) return 'Debe haber entre 2 y 3 botellas activas'
+  if (active.length < 2 || active.length > 3) {return 'Debe haber entre 2 y 3 botellas activas'}
   for (const b of bottles) {
-    if (!Number.isFinite(b.capacityMl) || b.capacityMl <= 0) return `Capacidad inválida para ${b.id}`
-    if (b.capacityMl < 100 || b.capacityMl > 5000) return `Capacidad fuera de rango para ${b.id}`
+    if (!Number.isFinite(b.capacityMl) || b.capacityMl <= 0) {return `Capacidad inválida para ${b.id}`}
+    if (b.capacityMl < 100 || b.capacityMl > 5000) {return `Capacidad fuera de rango para ${b.id}`}
   }
   return null
 }
@@ -79,7 +79,7 @@ export async function getBottleConfigs(): Promise<BottleConfig[]> {
 
 export async function saveBottleConfigs(configs: BottleConfig[]): Promise<void> {
   const err = validateBottles(configs)
-  if (err) throw new Error(err)
+  if (err) {throw new Error(err)}
   const now = new Date().toISOString()
   const rows = configs.map(c => ({
     id: c.id,
@@ -96,13 +96,13 @@ export async function saveBottleConfigs(configs: BottleConfig[]): Promise<void> 
 export async function updateBottleConfig(id: string, patch: Partial<Pick<BottleConfig, 'name' | 'capacityMl' | 'capacityLiters' | 'active'>>): Promise<BottleConfig[]> {
   const current = await getBottleConfigs()
   const idx = current.findIndex(b => b.id === id)
-  if (idx === -1) throw new Error(`Botella no encontrada: ${id}`)
+  if (idx === -1) {throw new Error(`Botella no encontrada: ${id}`)}
   const updated = [...current]
   const target = { ...updated[idx] }
-  if (patch.name !== undefined) target.name = patch.name?.trim() || undefined
-  if (patch.capacityMl !== undefined) target.capacityMl = Math.round(patch.capacityMl)
-  else if (patch.capacityLiters !== undefined) target.capacityMl = Math.round(patch.capacityLiters * 1000)
-  if (patch.active !== undefined) target.active = patch.active
+  if (patch.name !== undefined) {target.name = patch.name?.trim() || undefined}
+  if (patch.capacityMl !== undefined) {target.capacityMl = Math.round(patch.capacityMl)}
+  else if (patch.capacityLiters !== undefined) {target.capacityMl = Math.round(patch.capacityLiters * 1000)}
+  if (patch.active !== undefined) {target.active = patch.active}
   target.capacityLiters = target.capacityMl / 1000
   updated[idx] = target
   await saveBottleConfigs(updated)
@@ -118,7 +118,7 @@ export async function updateBottleConfig(id: string, patch: Partial<Pick<BottleC
  */
 async function writeHydrationLog(bottleId: string, amountMl: number, localDate?: string): Promise<BottleLog> {
   const ml = Math.round(Number(amountMl))
-  if (!Number.isFinite(ml) || ml <= 0) throw new Error('Cantidad de hidratación inválida')
+  if (!Number.isFinite(ml) || ml <= 0) {throw new Error('Cantidad de hidratación inválida')}
   const log: BottleLog = {
     id: crypto.randomUUID(),
     localDate: localDate ?? todayKey(),
@@ -140,9 +140,9 @@ async function writeHydrationLog(bottleId: string, amountMl: number, localDate?:
 export async function completeBottle(bottleId: string, localDate?: string): Promise<BottleLog> {
   const configs = await getBottleConfigs()
   const cfg = configs.find(c => c.id === bottleId)
-  if (!cfg) throw new Error(`Botella no encontrada: ${bottleId}`)
-  if (!cfg.active) throw new Error(`Botella inactiva: ${bottleId}`)
-  if (cfg.capacityMl <= 0) throw new Error(`Capacidad inválida para ${bottleId}`)
+  if (!cfg) {throw new Error(`Botella no encontrada: ${bottleId}`)}
+  if (!cfg.active) {throw new Error(`Botella inactiva: ${bottleId}`)}
+  if (cfg.capacityMl <= 0) {throw new Error(`Capacidad inválida para ${bottleId}`)}
   return writeHydrationLog(bottleId, cfg.capacityMl, localDate)
 }
 
@@ -230,20 +230,20 @@ export function calcHydrationGoalMl(opts: {
   tempC?: number
 }): number {
   const w = opts.weightKg
-  if (!w || !Number.isFinite(w) || w <= 0) return 2500
+  if (!w || !Number.isFinite(w) || w <= 0) {return 2500}
   // Base: 35 ml/kg (estándar EFSA)
   let goal = w * 35
   // Actividad
   const act = (opts.activityLevel || 'moderado').toLowerCase()
-  if (act.includes('muy_activo') || act.includes('muy activo')) goal += 300
-  else if (act.includes('extremadamente')) goal += 500
-  else if (act.includes('moderado')) goal += 150
-  else if (act.includes('poco')) goal += 50
+  if (act.includes('muy_activo') || act.includes('muy activo')) {goal += 300}
+  else if (act.includes('extremadamente')) {goal += 500}
+  else if (act.includes('moderado')) {goal += 150}
+  else if (act.includes('poco')) {goal += 50}
   // Entrenamiento hoy
-  if (opts.hasTrainingToday) goal += 500
+  if (opts.hasTrainingToday) {goal += 500}
   // Clima cálido
-  if (opts.tempC !== undefined && opts.tempC >= 28) goal += 300
-  else if (opts.tempC !== undefined && opts.tempC >= 24) goal += 150
+  if (opts.tempC !== undefined && opts.tempC >= 28) {goal += 300}
+  else if (opts.tempC !== undefined && opts.tempC >= 24) {goal += 150}
   return Math.round(goal / 100) * 100 // redondear a 100 ml
 }
 

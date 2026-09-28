@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { recoveryIndex, recoveryColor } from '@/utils/calc'
 import { db } from '@/services/storage/db'
 import { updateRecoveryCheck } from '@/services/recovery/recoveryService'
@@ -44,6 +44,12 @@ export function RecoveryCheckForm({ date, onChange, onSaved }: Props) {
   const [hasRecord, setHasRecord] = useState(false)
   const [hydration, setHydration] = useState<HydrationState>('loading')
 
+  // El callback del padre puede cambiar de identidad en cada render; se guarda
+  // en un ref para que el efecto de carga (sólo depende de `today`) llame
+  // siempre a la versión más reciente sin re-ejecutarse.
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
   // Cargar registro existente desde Dexie y hidratar formulario.
   // Siempre carga la fecha solicitada, no limitada a "hoy".
   useEffect(() => {
@@ -68,7 +74,7 @@ export function RecoveryCheckForm({ date, onChange, onSaved }: Props) {
         setScore(s); setColor(c)
         setHasRecord(true)
         setHydration('hydrated')
-        onChange?.(v, s, c)
+        onChangeRef.current?.(v, s, c)
       } else {
         // No existe registro: aplicar defaults puros.
         const s = recoveryIndex(DEFAULT_RECOVERY_VALS)
@@ -76,7 +82,7 @@ export function RecoveryCheckForm({ date, onChange, onSaved }: Props) {
         setScore(s); setColor(c)
         setHasRecord(false)
         setHydration('hydrated')
-        onChange?.(DEFAULT_RECOVERY_VALS, s, c)
+        onChangeRef.current?.(DEFAULT_RECOVERY_VALS, s, c)
       }
     }).catch(() => {
       setHydration('error')
@@ -95,7 +101,7 @@ export function RecoveryCheckForm({ date, onChange, onSaved }: Props) {
 
   // Guardado definitivo: solo se permite después de hidratación completa.
 const save = async () => {
-    if (hydration !== 'hydrated') return
+    if (hydration !== 'hydrated') {return}
     setSaving(true)
     try {
       const patch: {
@@ -111,9 +117,9 @@ const save = async () => {
         painArea: vals.painArea, painObservation: vals.painObservation,
         score, color,
       }
-      if (typeof vals.sleepHours === 'number') patch.sleepHours = vals.sleepHours
-      if (typeof vals.sleepQuality === 'number') patch.sleepQuality = vals.sleepQuality
-      if (vals.sleepNotes != null) (patch as unknown as Record<string, unknown>).notes = vals.sleepNotes
+      if (typeof vals.sleepHours === 'number') {patch.sleepHours = vals.sleepHours}
+      if (typeof vals.sleepQuality === 'number') {patch.sleepQuality = vals.sleepQuality}
+      if (vals.sleepNotes !== null && vals.sleepNotes !== undefined) {(patch as unknown as Record<string, unknown>).notes = vals.sleepNotes}
       await updateRecoveryCheck(patch as never, today)
       setHasRecord(true)
       onSaved?.(score)

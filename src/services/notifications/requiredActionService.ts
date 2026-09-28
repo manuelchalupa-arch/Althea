@@ -39,17 +39,17 @@ export async function ensurePendingForDue(date?: string, now?: Date): Promise<Re
   const required = cfgs.filter(c => c.enabled && c.requiredAction)
   const created: RequiredActionState[] = []
   for (const cfg of required) {
-    if (!cfg.days[idx]) continue
+    if (!cfg.days[idx]) {continue}
     const times = cfg.type === 'preparar_habitacion' ? [cfg.time] : cfg.times
     const due = times.some(tm => tm <= t)
-    if (!due) continue
+    if (!due) {continue}
     const id = stateId(cfg.id, dateStr)
     const existing = await db.requiredActionStates.get(id).catch(() => null) as unknown as RequiredActionState | null
-    if (existing) continue
+    if (existing) {continue}
     // si RecoveryCheck ya está completado (score existe), no crear pending
     if (cfg.type === 'recuperacion') {
       const rec = await db.recoveryChecks.get(dateStr).catch(() => null) as { score?: number } | null
-      if (typeof rec?.score === 'number') continue
+      if (typeof rec?.score === 'number') {continue}
     }
     const st: RequiredActionState = { id, configId: cfg.id, date: dateStr, status: 'pending', createdAt: new Date().toISOString() }
     await db.requiredActionStates.put(st as never).catch(() => {})
@@ -103,7 +103,7 @@ export async function completeRecoveryCheck(date?: string): Promise<void> {
   } else {
     // aunque no sea required, marcar genérico para desbloquear futuros checks
     const anyRec = cfgs.find(c => c.type === 'recuperacion')
-    if (anyRec) await completeAction(anyRec.id, dateStr)
+    if (anyRec) {await completeAction(anyRec.id, dateStr)}
   }
 }
 

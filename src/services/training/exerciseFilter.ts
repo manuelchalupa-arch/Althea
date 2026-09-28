@@ -12,7 +12,7 @@ export const GROUP_MUSCLES: Record<string, string[]> = {
 
 export function musclesForGroup(group: string): string[] {
   const key = group.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-  if (GROUP_MUSCLES[key]) return GROUP_MUSCLES[key]
+  if (GROUP_MUSCLES[key]) {return GROUP_MUSCLES[key]}
   // singular/plural fallback via GROUP_MAP
   return [key]
 }
@@ -27,7 +27,7 @@ export interface ExerciseFilters {
 }
 
 export function matchesGroup(ex: Exercise, group?: string): boolean {
-  if (!group) return true
+  if (!group) {return true}
   const want = group.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   // piernas family
   const family = GROUP_MUSCLES[want]
@@ -40,23 +40,23 @@ export function matchesGroup(ex: Exercise, group?: string): boolean {
 }
 
 export function matchesMovement(ex: Exercise, movement?: string): boolean {
-  if (!movement) return true
+  if (!movement) {return true}
   const m = movement.toLowerCase()
   return (ex.movementPattern || '').toLowerCase() === m || (ex.category || '').toLowerCase().includes(m)
 }
 
 export function matchesEquipment(ex: Exercise, equipment?: string): boolean {
-  if (!equipment || equipment === 'todos' || equipment === '__all__') return true
+  if (!equipment || equipment === 'todos' || equipment === '__all__') {return true}
   return ex.equipment.toLowerCase() === equipment.toLowerCase()
 }
 
 export function matchesDifficulty(ex: Exercise, difficulty?: string): boolean {
-  if (!difficulty) return true
+  if (!difficulty) {return true}
   return (ex.exerciseDifficulty || '').toLowerCase() === difficulty.toLowerCase()
 }
 
 export function matchesQuery(ex: Exercise, query?: string): boolean {
-  if (!query) return true
+  if (!query) {return true}
   const q = query.toLowerCase()
   return ex.name.toLowerCase().includes(q) || ex.muscle.toLowerCase().includes(q) || ex.bodyPart.toLowerCase().includes(q) || ex.equipment.toLowerCase().includes(q) || ex.category.toLowerCase().includes(q) || (ex.secondaryMuscles || []).some(m => m.toLowerCase().includes(q))
 }
@@ -65,12 +65,12 @@ export function matchesQuery(ex: Exercise, query?: string): boolean {
 export function filterExercises(exercises: Exercise[], filters: ExerciseFilters): Exercise[] {
   return exercises.filter(ex => {
     // grupo o músculo específico
-    if (filters.group && !matchesGroup(ex, filters.group)) return false
-    if (filters.muscle && ex.muscle !== filters.muscle && !(ex.secondaryMuscles || []).includes(filters.muscle)) return false
-    if (!matchesMovement(ex, filters.movement)) return false
-    if (!matchesEquipment(ex, filters.equipment)) return false
-    if (!matchesDifficulty(ex, filters.difficulty)) return false
-    if (!matchesQuery(ex, filters.query)) return false
+    if (filters.group && !matchesGroup(ex, filters.group)) {return false}
+    if (filters.muscle && ex.muscle !== filters.muscle && !(ex.secondaryMuscles || []).includes(filters.muscle)) {return false}
+    if (!matchesMovement(ex, filters.movement)) {return false}
+    if (!matchesEquipment(ex, filters.equipment)) {return false}
+    if (!matchesDifficulty(ex, filters.difficulty)) {return false}
+    if (!matchesQuery(ex, filters.query)) {return false}
     return true
   })
 }

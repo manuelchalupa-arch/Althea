@@ -38,26 +38,26 @@ export interface VolumeLandmark {
 
 /** Epley: 1RM = w * (1 + r/30) */
 export function epley1RM(weight: number, reps: number): number {
-  if (reps <= 0) return weight
+  if (reps <= 0) {return weight}
   return weight * (1 + reps / 30)
 }
 
 /** Brzycki: 1RM = w * 36 / (37 - r) */
 export function brzycki1RM(weight: number, reps: number): number {
-  if (reps >= 37) return weight * 36 // asymptotic
+  if (reps >= 37) {return weight * 36} // asymptotic
   return (weight * 36) / (37 - reps)
 }
 
 /** Lander: 1RM = (100 * w) / (101.3 - 2.67123 * r) */
 export function lander1RM(weight: number, reps: number): number {
   const denom = 101.3 - 2.67123 * reps
-  if (denom <= 0) return weight
+  if (denom <= 0) {return weight}
   return (100 * weight) / denom
 }
 
 /** Lombardi: 1RM = w * r^0.10 */
 export function lombardi1RM(weight: number, reps: number): number {
-  if (reps <= 0) return weight
+  if (reps <= 0) {return weight}
   return weight * Math.pow(reps, 0.10)
 }
 

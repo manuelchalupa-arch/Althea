@@ -205,7 +205,7 @@ function buildTrainingNutritionAdvice(
 ): TrainingNutritionAdvice {
   const caloricState: TrainingNutritionAdvice['caloricState'] =
     goalCals && tdee ? goalCals > tdee * 1.05 ? 'surplus' : goalCals < tdee * 0.95 ? 'deficit' : 'maintenance' : 'maintenance'
-  const deficitAggressive = caloricState === 'deficit' && goalCals != null && tdee != null && goalCals < tdee * 0.7
+  const deficitAggressive = caloricState === 'deficit' && goalCals !== null && goalCals !== undefined && tdee !== null && tdee !== undefined && goalCals < tdee * 0.7
   const proteinAdequate = proteinG / weightKg >= 1.6
 
   let message = ''

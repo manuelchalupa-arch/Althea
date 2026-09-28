@@ -61,7 +61,7 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
       setTimeout(() => setSaved(false), 1500)
       return
     }
-    if (saving) return
+    if (saving) {return}
 
     const today = todayKey()
     const existing = await db.painLogs
@@ -96,7 +96,7 @@ export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel =
     } finally {
       setSaving(false)
     }
-  }, [level, zone, notes, exerciseId, sessionId, onPainChange])
+  }, [level, zone, notes, exerciseId, onPainChange, saving])
 
   useEffect(() => {
     if (level !== 'none') {

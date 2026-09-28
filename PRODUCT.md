@@ -38,8 +38,10 @@ Nombre `Althea`, paleta actual mármol/blanco roto/grises cálidos/negro-grafito
 ## Evidence on Hand
 - Código: `src/pages/Entrenar.tsx`, `src/pages/Progreso.tsx`, `src/pages/Calendario.tsx`, `src/pages/Nutricion.tsx`, `src/services/training/sessionMetrics.ts`, `src/services/training/exerciseFilter.ts`, `src/services/training/exerciseEnergy.ts` (motor único de gasto calórico), `src/utils/cycle.ts`, `src/services/report/reportService.ts`, `src/components/entrenar/ExerciseSeriesTable.tsx`, `src/services/integrations/wger/wgerComparison.ts`
  - Datos: `src/services/storage/db.ts` v20, `src/data/exercises.json` (10 ejercicios locales, catálogo real remoto `ExerciseGymGifsDB`), `ExerciseGymGifsDB` v1.1.0, catálogo Wger sincronizable
- - Tests: 124 archivos de test / 1041 tests declarados / 1041 ejecutados / 1041 aprobados / 0 fallidos (gates: `tsc` 0 errores, `vitest` verde, `build` PASS, `lint` 0 errores / 166 warnings, todos históricos — 0 warnings nuevos)
+ - Tests: 124 archivos de test / 1041 tests declarados / 1041 ejecutados / 1041 aprobados / 0 fallidos (gates: `tsc` 0 errores, `vitest` verde, `build` PASS, `lint` **exit 0 — 0 errores / 0 warnings**; los 166 warnings históricos fueron corregidos el 2026-09-28 sin tocar la config de ESLint)
  - Informes: `docs/INFORMES_PDF.md` (modos, contenido, fuente única de gasto)
+ - Lighthouse (2026-09-28, LH 11.7.1 sobre `npm run preview`): **PWA 100/100 ✓**, Performance 75/100 (SC-001 pide ≥85), JS inicial ≈400 KB gzip (objetivo <150 KB) → T032 **PARCIAL**; ver `docs/history/althea/ALTHEA_FINAL_CLOSURE.md` §14
+ - Credenciales: verificación local completa en `docs/history/althea/ALTHEA_FINAL_CLOSURE.md` §13; pendientes sólo 2 revocaciones externas (§11)
  - Cierre: `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md` (decisiones y sustituciones)
 - Demo: tablas con `isDemo` flag, identificables
 

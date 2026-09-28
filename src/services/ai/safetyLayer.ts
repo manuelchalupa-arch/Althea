@@ -27,7 +27,7 @@ export async function check(ctx: SafetyContext): Promise<SafetyCheck> {
   }
 
   // Dolor alto en sesión actual
-  if (ctx.sessionPain != null && ctx.sessionPain >= 7) {
+  if (ctx.sessionPain !== null && ctx.sessionPain !== undefined && ctx.sessionPain >= 7) {
     result.severity = 'critical'
     result.requiresProfessional = true
     result.message = `Dolor alto registrado (${ctx.sessionPain}/10). No recomiendo aumentar carga. Si el dolor persiste, consultá con un profesional.`

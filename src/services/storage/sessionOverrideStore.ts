@@ -31,7 +31,7 @@ export async function getObservationData(date: string): Promise<Record<string, a
 
 export async function hasOverride(date: string): Promise<boolean> {
   const row = await table().get(date)
-  return row != null
+  return row !== null && row !== undefined
 }
 
 // ─── Write ───
@@ -73,7 +73,7 @@ export async function migrateSessionOverridesFromLocalStorage(): Promise<void> {
     if (existingDates.has(date)) {continue}
     const raw = localStorage.getItem(`session:override:${date}`)
     const overrideDay = raw ? Number(raw) : null
-    if (overrideDay == null || isNaN(overrideDay)) {continue}
+    if (overrideDay === null || overrideDay === undefined || isNaN(overrideDay)) {continue}
 
     const changedRaw = localStorage.getItem(`session:changed:${date}`)
     const observationRaw = localStorage.getItem(`session:observation:${date}`)

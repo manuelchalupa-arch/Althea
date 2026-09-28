@@ -149,7 +149,7 @@ export const LOAD_STATE_COLOR: Record<LoadState, string> = {
 export function getWeekLoads(cycle: CycleConfig): LoadState[] {
   if (cycle.weekLoads && cycle.weekLoads.length === 7) {return cycle.weekLoads}
   // derivación coherente: si no hay weekLoads, usar CARGA_CERO para descanso y NORMAL para entreno
-  return cycle.weekMap.map(n => (n == null ? 'CARGA_CERO' : 'NORMAL'))
+  return cycle.weekMap.map(n => (n === null || n === undefined ? 'CARGA_CERO' : 'NORMAL'))
 }
 
 export function setWeekLoad(cycle: CycleConfig, dow: number, load: LoadState): CycleConfig {

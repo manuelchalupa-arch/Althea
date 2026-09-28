@@ -285,7 +285,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           const cyc = (pv?.cycle ?? todayRoutine?.cycle) as CycleConfig | undefined
           const todayDayN = override ? Number(override) : cyc?.weekMap?.[dow] ?? null
           // Si la sesion activa es de otro dia de rutina, limpiar y crear nueva
-          if (active.actualDay != null && todayDayN != null && active.actualDay !== todayDayN) {
+          if (active.actualDay !== null && active.actualDay !== undefined && todayDayN !== null && todayDayN !== undefined && active.actualDay !== todayDayN) {
             const { clearActiveSession } = await import('@/services/training/sessionStore')
             clearActiveSession()
           } else {
@@ -296,7 +296,7 @@ const exercises: SessionEx[] = seList.map((se) => {
  setSessionStatus(active.sessionStatus)
  setRutinaName(active.routineName || 'Rutina')
  setRoutineId(active.routineId)
- setDayName(active.actualDayName || (active.actualDay != null ? `Día N°${active.actualDay}` : 'Descanso'))
+ setDayName(active.actualDayName || (active.actualDay !== null && active.actualDay !== undefined ? `Día N°${active.actualDay}` : 'Descanso'))
  setPlannedDayN(active.plannedDay)
  setActualDayN(active.actualDay)
  setPlannedName(active.plannedDayName || '')
@@ -331,11 +331,15 @@ const exercises: SessionEx[] = seList.map((se) => {
   }
 
   // carga inicial + escucha cambios de día desde Inicio
+  // `load` se recrea en cada render: el efecto (y sus listeners) llaman siempre
+  // a la versión más reciente vía ref, sin re-ejecutar el efecto por eso.
+  const loadRef = useRef(load)
+  loadRef.current = load
   useEffect(()=>{
     migrateSessionOverridesFromLocalStorage()
-    ensureSeeded().then(()=> load())
-    const onFocus = ()=> load()
-    const onCustom = ()=>{ loadedRef.current=''; load() }
+    ensureSeeded().then(()=> loadRef.current())
+    const onFocus = ()=> loadRef.current()
+    const onCustom = ()=>{ loadedRef.current=''; loadRef.current() }
     const onBeforeUnload = (e: BeforeUnloadEvent)=>{
       if(['IN_PROGRESS','PAUSED','COMPLETING'].includes(sessionStatusRef.current)){
         e.preventDefault(); e.returnValue = ''
@@ -656,13 +660,13 @@ const exercises: SessionEx[] = seList.map((se) => {
   }, [])
 
   const handlePainChange = useCallback(async () => {
-    if (!currentPainExercise) return
+    if (!currentPainExercise) {return}
     // The PainToggle component handles saving to PainLog internally
     // We just need to update local state if needed
   }, [currentPainExercise])
 
   const handlePainVariantRequest = useCallback(() => {
-    if (!currentPainExercise) return
+    if (!currentPainExercise) {return}
     const context: VariantContext = {
       originalExerciseId: currentPainExercise.exerciseId,
       reason: 'pain',
@@ -672,13 +676,13 @@ const exercises: SessionEx[] = seList.map((se) => {
     setVariantContext(context)
     setShowVariantPicker(true)
     setCurrentPainExercise(null)
-  }, [])
+  }, [currentPainExercise])
 
   // Variant Picker Handlers
   const handleVariantSelect = useCallback(async (variant: VariantOption, decision: 'accepted' | 'modified') => {
-    if (!cur || !session) return
+    if (!cur || !session) {return}
     const seId = seIdByIndex[current]
-    if (!seId) return
+    if (!seId) {return}
 
     const reason = variantContext?.reason === 'pain' ? 'Molestia / dolor' : 'Cambio durante la sesión'
     const { replaceSessionExercise } = await import('@/services/training/sessionStore')
@@ -715,7 +719,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     const ctx = await buildTrainingContext(variant.exerciseId, variant.name)
     const rec = await aiService.generateRecommendation(ctx).catch(() => ({ reason: `Vamos con ${cur.weight ?? 0}kg x ${cur.reps}.`, suggested_weight: cur.weight ?? undefined }))
     setCoach(rec)
-  }, [cur, session, current, today, variantContext])
+  }, [cur, session, current, today, variantContext, exs, seIdByIndex, setCoach, setDone, setExs, setLogs])
 
   const handleOpenVariantPicker = useCallback((context: VariantContext) => {
     setVariantContext(context)
@@ -979,8 +983,8 @@ const exercises: SessionEx[] = seList.map((se) => {
         const seqId = `seq-${routineId}-w${weekNumber}`
         const prev: unknown = await db.weeklySequences.get(seqId).catch(()=>null)
         const p = (prev || {}) as { completedDays?: number[]; partialDays?: number[]; plannedDays?: number[]; createdAt?: string }
-        const done_days = Array.from(new Set([...(p.completedDays||[]), ...(actualDayN!=null?[actualDayN]:[])]))
-        await db.weeklySequences.put({ id: seqId, cycleId: routineId, weekNumber, startDate: '', plannedDays: p.plannedDays||[], completedDays: done_days, partialDays: status==='PARTIAL' ? [...(p.partialDays||[]), ...(actualDayN!=null?[actualDayN]:[])] : (p.partialDays||[]), createdAt: p.createdAt || new Date().toISOString() })
+        const done_days = Array.from(new Set([...(p.completedDays||[]), ...(actualDayN!==null&&actualDayN!==undefined?[actualDayN]:[])]))
+        await db.weeklySequences.put({ id: seqId, cycleId: routineId, weekNumber, startDate: '', plannedDays: p.plannedDays||[], completedDays: done_days, partialDays: status==='PARTIAL' ? [...(p.partialDays||[]), ...(actualDayN!==null&&actualDayN!==undefined?[actualDayN]:[])] : (p.partialDays||[]), createdAt: p.createdAt || new Date().toISOString() })
       }catch{ /* noop */ }
       try{ await db.coachMemory.put({ id: `obs-${today}`, type: 'observation', date: today, sessionId: sess.sessionId, sessionStatus: status, routineName: rutinaName }) }catch{ /* noop */ }
       for(const ex of exs){ try{ localStorage.removeItem(`exstate:${today}:${ex.exId}`) }catch{ /* noop */ } }
@@ -1012,7 +1016,7 @@ const exercises: SessionEx[] = seList.map((se) => {
         setSessionStatus(fresh.sessionStatus)
         setRutinaName(fresh.routineName || 'Rutina')
         setRoutineId(fresh.routineId)
-        setDayName(fresh.actualDayName || (fresh.actualDay != null ? `Día N°${fresh.actualDay}` : 'Descanso'))
+        setDayName(fresh.actualDayName || (fresh.actualDay !== null && fresh.actualDay !== undefined ? `Día N°${fresh.actualDay}` : 'Descanso'))
         setPlannedDayN(fresh.plannedDay)
         setActualDayN(fresh.actualDay)
         setPlannedName(fresh.plannedDayName || '')
@@ -1403,7 +1407,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                     initialLevel="none"
                     onPainChange={() => {}}
                     onOpenVariants={() => {
-                      if (!cur) return
+                      if (!cur) {return}
                       const context: VariantContext = {
                         originalExerciseId: cur.exId,
                         reason: 'pain',

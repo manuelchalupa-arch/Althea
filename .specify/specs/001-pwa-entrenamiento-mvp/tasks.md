@@ -4,8 +4,8 @@
 **Prerequisites**: plan aprobado, Dexie como SSOT
 
 **Estado real (2026-09-28):** todas las fases implementadas y verificadas salvo lo anotado en T032.
-Gates (ejecutados 2026-09-28): `tsc` 0 errores · `vitest` 124 archivos de test / 1041 tests declarados / 1041 ejecutados / 1041 aprobados / 0 fallidos · `build` PASS (PWA emitido, 71 entradas de precache) · `lint` 0 errores / 166 warnings (todos históricos; 0 warnings nuevos).
-Cierre documentado en `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md` · informes PDF en `docs/INFORMES_PDF.md`.
+Gates (re-ejecutados 2026-09-28, cierre de lint): `tsc` 0 errores · `vitest` 124 archivos de test / 1041 tests declarados / 1041 ejecutados / 1041 aprobados / 0 fallidos · `build` PASS (PWA emitido, 71 entradas de precache) · `lint` **exit 0 — 0 errores / 0 warnings** (los 166 warnings históricos fueron corregidos: 104 `curly`, 42 `eqeqeq`, 17 `react-hooks/exhaustive-deps`, 3 `no-console`; sin tocar `eslint.config.mjs`, sin excluir archivos, sin desactivar reglas).
+Cierre documentado en `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md` · informes PDF en `docs/INFORMES_PDF.md` · verificación de credenciales y Lighthouse en `docs/history/althea/ALTHEA_FINAL_CLOSURE.md` §13–§14.
 
 ## Phase 1: Setup (Shared Infrastructure)
 
@@ -65,7 +65,7 @@ Cierre documentado en `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md`
 - [x] T029 [P] Accesibilidad (contraste, 44px targets, ARIA, teclado) + responsive audit — real: targets 48px (superior a lo pedido), `eslint-plugin-jsx-a11y`, `prefers-reduced-motion`, gráficos con equivalente textual
 - [x] T030 [P] Notificaciones `services/notifications/push.ts` (máx 2/día, suppress si completado) + `notificationLog`
 - [x] T031 [P] Tests integración: offline flow, import/export roundtrip, recoveryScore — real: 124 archivos / 1041 tests al cierre
-- [ ] T032 Validar `quickstart.md` + Lighthouse PWA≥90 + bundle <150KB gzip + `npm run build` sin errores — real: `npm run build` PASS y PWA emitido (71 entradas de precache); `quickstart.md` no existe en el repo y Lighthouse no se pudo ejecutar en este entorno. **Único punto no verificado del MVP**
+- [ ] T032 Validar `quickstart.md` + Lighthouse PWA≥90 + bundle <150KB gzip + `npm run build` sin errores — real (verificado localmente 2026-09-28): `npm run build` PASS (71 entradas de precache); **Lighthouse 11.7.1 ejecutado** contra `npm run preview` → **PWA 100/100 ✓ (≥90)**, pero **Performance 75/100 (<85 del SC-001)** y **JS inicial ≈400 KB gzip (>150 KB del objetivo)**; `quickstart.md` **sí existe** en `.specify/specs/001-pwa-entrenamiento-mvp/quickstart.md` (corrige la nota anterior que decía "no existe"). **Estado: PARCIAL — 2 de 3 criterios de aceptación cumplidos; pendiente optimizar carga inicial (chunks `vendor-other`, `vendor-transformers`).** Nota: Lighthouse ≥12 eliminó la categoría `pwa`; el criterio se ejecuta con `npx -y lighthouse@11` (ver §14 de `docs/history/althea/ALTHEA_FINAL_CLOSURE.md`).
 - [x] T033 Gasto calórico del ejercicio en Inicio (hoy + semana) con motor único `services/training/exerciseEnergy.ts`, compartido con historial e informes, estados honestos `Sin datos suficientes para estimar` — real: widget `inicio-gasto-calorico` + `Inicio.gasto.test.tsx` + `Calendario.gasto.test.tsx`
 - [x] T034 Informes PDF enriquecidos: modos semanal/mensual/personalizado, completadas/incompletas, duración, gasto, distribución, días extremos, observaciones, destacados, PRs y conclusiones — real: `reportService` + `reportPdf` + preview en `ReportModal` (ver `docs/INFORMES_PDF.md`)
 - [x] T035 Verificación local de credenciales (bundle sin claves, frontend sin `VITE_GROQ_API_KEY`/`VITE_NINJA_API_KEY`, `.env*` fuera de Git, Worker con secret server-side) — real: ver `docs/history/althea/ALTHEA_FINAL_CLOSURE.md` §13; las 2 revocaciones siguen siendo acción externa

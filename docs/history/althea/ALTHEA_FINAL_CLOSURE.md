@@ -261,8 +261,53 @@ Consecuencia: **la única barrera entre el proyecto y el cierre completo son las
 | `npx tsc --noEmit` | exit 0, 0 errores |
 | `npm test` (vitest run) | **124 archivos / 1041 tests declarados / 1041 ejecutados / 1041 aprobados / 0 fallidos** |
 | `npm run build` | PASS, PWA emitido (71 entradas de precache) |
-| `npm run lint` | 0 errores / 166 warnings — **idéntico al baseline, 0 warnings nuevos** (el script sale con exit 1 por `--max-warnings 0` sobre los 166 históricos, igual que antes de este cierre) |
+| `npm run lint` | **exit 0 — 0 errores / 0 warnings** (los 166 warnings históricos: 104 `curly` + 42 `eqeqeq` + 17 `react-hooks/exhaustive-deps` + 3 `no-console` fueron corregidos; `eslint.config.mjs` sin cambios, ningún archivo excluido, ninguna regla desactivada) |
+| `npm run check:release` | OK: sin claves de API embebidas en `dist/` (70 archivos revisados) |
 
 ---
 
-*Documento de cierre final. Verificación de release, bundle, Git y Worker. Sin modificación de código.*
+## 14. Lighthouse y T032 (2026-09-28)
+
+Ejecutado **localmente en este entorno** sobre `npm run preview` + Chrome headless (CDP `:9222`), con **Lighthouse 11.7.1** (`npx -y lighthouse@11`).
+
+**Nota metodológica:** Lighthouse ≥12 eliminó la categoría `pwa`; el criterio del spec (Lighthouse PWA ≥90) sólo es ejecutable con LH 11.
+
+| Criterio T032 | Resultado | Estado |
+|---|---|---|
+| `npm run build` sin errores | PASS, PWA emitido (71 entradas de precache) | **PASS** |
+| Lighthouse PWA ≥90 | **100 / 100** (manifest instalable, service worker, splash, viewport, maskable icon, themed omnibox = 1) | **PASS** |
+| Lighthouse Performance ≥85 (SC-001) | **75 / 100** — FCP 2,8 s · LCP 5,3 s (score 0,21) · TBT 10 ms · CLS 0,031 · TTI 4,4 s | **NO PASS** |
+| Bundle inicial <150 KB gzip | JS inicial de la ruta `/` ≈ **400 KB gzip** (dominado por `vendor-other` 199 KB gz y `vendor-transformers` que se descarga al inicio) | **NO PASS** |
+| `quickstart.md` existe | Sí: `.specify/specs/001-pwa-entrenamiento-mvp/quickstart.md` (la nota previa de tasks.md que decía "no existe" era incorrecta) | **PASS** |
+
+### Cómo reproducirlo (lo que debe ejecutar una persona)
+
+```powershell
+npm run build
+npm run preview            # serve dist con SW activo (puerto 5173/5174 según disponibilidad)
+# Chrome headless con CDP (PowerShell, otra terminal):
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" --headless=new --remote-debugging-port=9222 --user-data-dir="$env:TEMP\lhp" --no-sandbox about:blank
+npx -y lighthouse@11 http://localhost:5173 --port=9222 --only-categories=pwa,performance --output=json --output-path=lh.json
+# lea lh.json → categories.pwa.score (≥0,90) y categories.performance.score (≥0,85)
+```
+
+Verificación complementaria en línea: `npm run lint` (exit 0), `npm test`, `npx tsc --noEmit`, `npm run check:release`.
+
+### Estado real de T032
+
+**PARCIAL**: 2 de 3 criterios de aceptación cumplidos (PWA 100 ✓, build ✓, quickstart ✓) y 2 pendientes de optimización de carga inicial (Performance 75 < 85; JS inicial ≈400 KB gz > 150 KB). No se modificó el code-splitting en este cierre: es trabajo estructural aparte, fuera del alcance de "cerrar sólo los cabos abiertos" de esta orden.
+
+---
+
+## 15. Decisión estructural de `src/services/logger.ts` (2026-09-28)
+
+Al llevar `npm run lint` a exit 0 quedó un conflicto real entre la política del proyecto y un comportamiento cerrado:
+
+- `eslint.config.mjs` aplica `no-console: ['warn', { allow: ['warn', 'error'] }]` a **todo** `src/` (los `.test.ts` están exentos).
+- `logger.ts` escribía **todos** los niveles a consola (`console.debug`, `console.info`, `console.log` en la línea 74) y `logger.test.ts` lo verificaba.
+
+**Resolución (sin tocar la config, sin `eslint-disable`, sin ocultar el warning):** `logger` escribe a consola **sólo `warn` y `error`** (lo que la política permite) y los niveles `debug`/`info` se emiten al **pipeline de listeners estructurados** (`addListener`), que es el sink real del logger. Se actualizó `logger.test.ts` al contrato corregido: los tests de `debug`/`info` ahora verifican que la entrada llega a los listeners (mensaje, contexto y nivel) **y** que no escribe a consola; los de `warn`/`error` siguen verificando la consola. Cobertura intacta: 124 archivos / 1041 tests en verde.
+
+---
+
+*Documento de cierre final. Verificación de release, bundle, Git y Worker. La única modificación de código de este documento es la decisión estructural de §15 (logger) y la corrección de warnings de lint descrita en §13.*

@@ -160,10 +160,10 @@ export default function Inicio(){
         const nm = n ? cycle.trainingDays.find((d:any)=>d.n===n)?.name || `Día N°${n}` : null
         const sess = byDate[iso]
         map[iso] = {
-          planned: n != null,
+          planned: n !== null && n !== undefined,
           dayN: n, dayName: nm,
           sessionStatus: sess?.sessionStatus || null,
-          overridden: overrides[i] != null,
+          overridden: overrides[i] !== null && overrides[i] !== undefined,
           volume: sess?.totalVolume || undefined,
           rating: ratingByDate[iso] ?? null,
         }
@@ -198,7 +198,7 @@ export default function Inicio(){
   useEffect(()=>{
     const dow = weekdayOfKey(selectedDate)
     const n = cycle.weekMap[dow] ?? null
-    if(n == null){ setPreviewList([]); setPreviewName('Descanso'); return }
+    if(n === null || n === undefined){ setPreviewList([]); setPreviewName('Descanso'); return }
     setPreviewName(cycle.trainingDays.find((d:any)=>d.n===n)?.name || `Día N°${n}`)
     import('@/utils/routine').then(({getDayExercises})=> getDayExercises(n, cycle).then(setPreviewList).catch(()=>setPreviewList([])))
   },[selectedDate, cycle])
@@ -226,7 +226,7 @@ export default function Inicio(){
       const c = await getCanonicalCycle(p!)
       setCycle(c)
       const override = await getOverrideDay(todayStr)
-      const n = override != null ? override : getTrainingDayForDate(todayStr, c).n
+      const n = override !== null && override !== undefined ? override : getTrainingDayForDate(todayStr, c).n
       setOverrideDay(override)
       loadDay(c, n)
       if(c.methodId){
@@ -235,7 +235,7 @@ export default function Inicio(){
       }
     }).catch(()=>{})
     db.userProfile.get('me').then((p: any)=>{ if(p?.name) {setUserName(p.name)} }).catch(()=>{})
-  },[])
+  },[todayStr])
 
   // Revisión de la rutina (E): fecha configurable `reviewDate`; si no existe,
   // fallback createdAt + rotationDays. Aviso NO bloqueante (nunca impide entrenar)
@@ -611,7 +611,7 @@ export default function Inicio(){
                   </div>
                   <div className="p-2.5 rounded bg-surface-container border border-outline-variant/20">
                     <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">INTENSIDAD MEDIA (PLAN)</span>
-                    <p className="font-headline-sm text-headline-sm text-primary font-semibold mt-0.5">{todayRPE != null && todayRPE > 0 ? todayRPE.toFixed(1) : '—'} <span className="text-[12px] text-on-surface-variant font-normal">/ 10 RPE</span></p>
+                    <p className="font-headline-sm text-headline-sm text-primary font-semibold mt-0.5">{todayRPE !== null && todayRPE !== undefined && todayRPE > 0 ? todayRPE.toFixed(1) : '—'} <span className="text-[12px] text-on-surface-variant font-normal">/ 10 RPE</span></p>
                   </div>
                   <div className="p-2.5 rounded bg-surface-container border border-outline-variant/20">
                     <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">DURACIÓN EST.</span>

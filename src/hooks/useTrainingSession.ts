@@ -102,7 +102,7 @@ export function useTrainingSession({
       const cycle = sv?.cycle ?? getCycleFromProfile(prof ?? null)
       const override = await getOverrideDay(today)
       const dow = weekdayOfKey(today)
-      const n = override != null ? override : (cycle.weekMap[dow] ?? null)
+      const n = override !== null && override !== undefined ? override : (cycle.weekMap[dow] ?? null)
       const schedN = cycle.weekMap[dow] ?? null
       const schedName = schedN ? cycle.trainingDays.find(d => d.n === schedN)?.name || `Día N°${schedN}` : null
       const dname = n ? cycle.trainingDays.find(d => d.n === n)?.name ?? `Día N°${n}` : 'Descanso'
@@ -184,7 +184,7 @@ export function useTrainingSession({
       onError?.(e instanceof Error ? e.message : 'No se pudo comenzar la sesión.')
       setIsStarting(false)
     }
-  }, [today, actualDayN, plannedDayN, plannedName, dayName, loadSession, onError])
+  }, [today, actualDayN, plannedDayN, plannedName, dayName, loadSession, onError, isStarting])
 
   const resumeSession = useCallback(async (sessionId: string, andFinish: boolean) => {
     try {

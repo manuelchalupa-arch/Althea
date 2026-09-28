@@ -69,10 +69,16 @@ class Logger {
     
     const entry = this.createEntry(level, message, context, error)
     
-    // Console output for development
+    // Consola SOLO para warn/error: es la política `no-console` de todo src/
+    // (allow: ['warn', 'error']). debug e info no se escriben a consola; su
+    // salida real es el pipeline de listeners estructurados (ver getLogs/exportLogs
+    // y addListener). Esta es la decisión estructural del logger.
     const prefix = `[${entry.timestamp}] [${level.toUpperCase()}]${entry.operation ? ` [${entry.operation}]` : ''}`
-    const consoleMethod = level === 'error' ? console.error : level === 'warn' ? console.warn : level === 'debug' ? console.debug : level === 'info' ? console.info : console.log
-    consoleMethod(prefix, message, context || '', error || '')
+    if (level === 'error') {
+      console.error(prefix, message, context || '', error || '')
+    } else if (level === 'warn') {
+      console.warn(prefix, message, context || '', error || '')
+    }
     
     // Notify listeners
     for (const listener of this.listeners) {

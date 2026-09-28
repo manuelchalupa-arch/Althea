@@ -149,4 +149,32 @@ Los dos pendientes externos de §7 siguen vigentes e intactos.
 
 ---
 
-*Actualización de contadores y gates. Los apartados 1–7 describen el estado original de este cierre.*
+## 9. Actualización final (2026-09-28) — cierre de lint, T032 y credenciales
+
+Orden posterior al apartado 8, ejecutado el mismo día. Sólo se tocaron los cabos abiertos que dejó `af8735a`: lint, auditoría del motor MET, credenciales, T032 y documentación.
+
+| Gate | Resultado | Estado |
+|---|---|---|
+| `npm run lint` | **exit 0 — 0 errores / 0 warnings** (`--max-warnings 0` sin excepciones) | **PASS** |
+| `npx tsc --noEmit` | exit 0, 0 errores | **PASS** |
+| `npm test` | 124 archivos / 1041 tests / 1041 aprobados / 0 fallidos | **PASS** |
+| `npm run build` | PASS, PWA emitido (71 entradas de precache) | **PASS** |
+| `npm run check:release` | OK: sin claves en `dist/` (70 archivos) | **PASS** |
+| Lighthouse 11.7.1 (local) | PWA **100/100** · Performance **75/100** · JS inicial ≈400 KB gz | **PARCIAL** (ver `ALTHEA_FINAL_CLOSURE.md` §14) |
+
+Cómo se resolvieron los 166 warnings históricos, sin tocar `eslint.config.mjs`:
+
+- **104 `curly`** → llaves añadidas (`eslint --fix`, revisado: 104 líneas, sólo sintaxis).
+- **42 `eqeqeq`** → equivalencia semántica exacta (`x != null` → `x !== null && x !== undefined` y viceversa); cero cambio de comportamiento.
+- **17 `react-hooks/exhaustive-deps`** → dependencias completadas donde faltaban valores reales; patrón ref para valores que cambian por render (`RecoveryCheckForm.onChange`, `Entrenar.load`); `refreshKey` movido al effect de `WaterBottle`; `loadCoachRecommendation` reordenado en `useExerciseState` (evita TDZ); dependencias sobrantes eliminadas donde el cuerpo no las usa (`sessionId` en `useExerciseState` y `PainToggle`, `active?.cycle`/`active?.createdAt` en `Rutina`); `muscles` memoizado en `Rutina.IntelligentPicker`.
+- **3 `no-console`** → decisión estructural en `src/services/logger.ts`, documentada en `ALTHEA_FINAL_CLOSURE.md` §15 (consola sólo para `warn`/`error`, `debug`/`info` por el pipeline de listeners; `logger.test.ts` actualizado al contrato corregido).
+
+Auditoría del motor MET (sin cambiar ningún valor): `EXERCISE_MET = 6.0` y `EXERCISE_ACTIVITY` están centralizados y documentados con fuente en `exerciseEnergy.ts:18-20` (Compendium 2024); la fórmula `kcal/min = MET × 3,5 × peso ÷ 200` existe en un solo lugar (`metExpenditure.ts:63`); ningún componente de UI calcula kcal (Inicio/Calendario/informes sólo formatean el resultado de `computeExpenditure`/`sessionEnergy`); el único otro `6.0` es la fila de la tabla Compendium (`metExpenditure.ts:17`) y las aserciones de tests.
+
+Credenciales re-verificadas hoy (§13): sin claves en `src/`, `dist/`, árbol rastreado, ni historia git (las únicas coincidencias de `gsk_` son patrones de los scripts de verificación y documentación); `.env`/`.env.local`/`.env.production` en `.gitignore`; sólo `.env.example` rastreado. **Siguen pendientes únicamente las 2 acciones externas de §7/§11.**
+
+T032: verificado localmente con Lighthouse (apartado `ALTHEA_FINAL_CLOSURE.md` §14); `quickstart.md` sí existe (`.specify/specs/001-pwa-entrenamiento-mvp/quickstart.md`), lo que corrige la nota anterior. **Estado: PARCIAL** (PWA ✓, build ✓; performance y tamaño de bundle ✗).
+
+---
+
+*Actualización de contadores y gates. Los apartados 1–7 describen el estado original de este cierre y el 8 su primera actualización.*

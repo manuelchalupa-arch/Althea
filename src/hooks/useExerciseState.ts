@@ -78,6 +78,20 @@ export function useExerciseState({
   const [showWhy, setShowWhy] = useState(false)
   const [viewer, setViewer] = useState<any>(null)
 
+  const loadCoachRecommendation = useCallback(async (exerciseId: string, exerciseName: string) => {
+    try {
+      const { buildTrainingContext } = await import('@/services/ai/contextBuilder')
+      const ctx = await buildTrainingContext(exerciseId, exerciseName)
+      const { aiService } = await import('@/services/ai/aiService')
+      const rec = await aiService.generateRecommendation(ctx).catch(() => ({
+        reason: 'Vamos con la carga estándar.', suggested_weight: 20, confidence: 0.6, factors: ['determinístico']
+      }))
+      setCoach(rec)
+    } catch {
+      setCoach(null)
+    }
+  }, [])
+
   const initializeExercises = useCallback(async (exercises: SessionEx[], liveSessionExercises?: SessionExercise[]) => {
     // Fuente única: la lista real pasada por el llamante (nunca el array
     // vacío inicial del hook). Sin lista válida no se inicializa nada.
@@ -107,37 +121,23 @@ export function useExerciseState({
     } else {
       setCoach(null)
     }
-  }, [sessionId, sessionExercises, currentIndex])
-
-  const loadCoachRecommendation = useCallback(async (exerciseId: string, exerciseName: string) => {
-    try {
-      const { buildTrainingContext } = await import('@/services/ai/contextBuilder')
-      const ctx = await buildTrainingContext(exerciseId, exerciseName)
-      const { aiService } = await import('@/services/ai/aiService')
-      const rec = await aiService.generateRecommendation(ctx).catch(() => ({
-        reason: 'Vamos con la carga estándar.', suggested_weight: 20, confidence: 0.6, factors: ['determinístico']
-      }))
-      setCoach(rec)
-    } catch {
-      setCoach(null)
-    }
-  }, [])
+  }, [sessionExercises, currentIndex, loadCoachRecommendation])
 
   const completeSet = useCallback(async (setRecord: SetRecord) => {
     // implementation would go here
-  }, [sessionId])
+  }, [])
 
   const skipExercise = useCallback(async (index: number, reason: string, comment?: string) => {
     // implementation would go here
-  }, [sessionId])
+  }, [])
 
   const swapExercise = useCallback(async (index: number, newEx: SessionEx, reason: string, comment?: string) => {
     // implementation would go here
-  }, [sessionId])
+  }, [])
 
   const modifyExercise = useCallback(async (index: number, mod: { weight: number; reps: number; sets: number }) => {
     // implementation would go here
-  }, [sessionId])
+  }, [])
 
   return {
     exs,

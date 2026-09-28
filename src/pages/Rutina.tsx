@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { db, ensureSeeded } from '@/services/storage/db'
 import type { Exercise, UserProfile } from '@/types'
 import { DEFAULT_CYCLE, type CycleConfig, type LoadState, LOAD_STATE_LABEL, LOAD_STATE_COLOR, getWeekLoads } from '@/utils/cycle'
@@ -148,7 +148,7 @@ export default function RutinaPage(){
       const hist = Object.values(active.dayExercises).flat().slice(0,3).map(x=> x.name || x.exId).join(', ')
       setRotationRec(`Tu rutina "${active.name}" lleva ${days} días (límite ${active.rotationDays}). Ejercicios: ${hist || '—'}. Sugerencia: revisá si algún ejercicio se estancó o molesta y considerá una variante del mismo grupo. Nada cambia sin tu decisión.`)
     } else {setRotationRec(null)}
-  },[activeId, active?.cycle, active?.createdAt])
+  },[activeId, active])
 
   const updateActive = (fn:(r:RutinaData)=>RutinaData)=>{
     const changed = {...fn(routines.find(r=>r.id===activeId) as RutinaData), updatedAt: new Date().toISOString()}
@@ -775,7 +775,9 @@ export default function RutinaPage(){
 }
 
 function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClose, onView}:{dayN:number; dayName:string; existingIds:string[]; onAdd:(exId:string,gifUrl:string,name:string,muscle:string,imageDataUrl?:string)=>void; onAddMany:(items:{exId:string;gifUrl:string;name:string;muscle:string;imageDataUrl?:string}[])=>void; onClose:()=>void; onView:(ex:Gym.Exercise)=>void}){
-  const muscles = parseDayMuscles(dayName)
+  // Memo para que el array sea estable entre renders (el efecto de carga sólo
+  // debe re-ejecutarse si cambian los músculos del día, no en cada render).
+  const muscles = useMemo(() => parseDayMuscles(dayName), [dayName])
   const [q,setQ]=useState('')
   const [equipFilter,setEquipFilter]=useState('todos')
   const [muscleFilter,setMuscleFilter]=useState('todos')
@@ -828,7 +830,7 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
     }
     load()
     return ()=>{ cancelled=true }
-  },[dayName])
+  },[muscles])
 
   const availableMuscles = Array.from(new Set(items.map(ex=>ex.muscle))).sort((a,b)=> displayMuscle(a).localeCompare(displayMuscle(b), 'es'))
 

@@ -92,7 +92,7 @@ export default function Calendario(){
     const onRec = () => loadRecovery()
     window.addEventListener('recoveryChange', onRec)
     return () => window.removeEventListener('recoveryChange', onRec)
-  }, [selectedDate])
+  }, [selectedDate, todayStr])
 
   useEffect(()=>{
     const daysInM = new Date(y, m + 1, 0).getDate()
@@ -102,7 +102,7 @@ export default function Calendario(){
     })
     Promise.all(keys.map(k => getOverrideDay(k))).then(results => {
       const ov: Record<string, boolean> = {}
-      results.forEach((r, i) => { if (r != null) {ov[keys[i]] = true} })
+      results.forEach((r, i) => { if (r !== null && r !== undefined) {ov[keys[i]] = true} })
       setMonthOverrides(ov)
     })
   }, [y, m])
@@ -122,9 +122,9 @@ export default function Calendario(){
     const scheduled = scheduledN ? cycle.trainingDays.find((x)=>x.n===scheduledN)?.name || `Día N°${scheduledN}` : 'Descanso'
     const load = cycle ? getLoadForDate(key, cycle) : 'NORMAL' as const
     const overrideVal = await getOverrideDay(key)
-    const actualN = overrideVal != null ? overrideVal : scheduledN
+    const actualN = overrideVal !== null && overrideVal !== undefined ? overrideVal : scheduledN
     const actual = actualN ? cycle?.trainingDays.find((x)=>x.n===actualN)?.name || `Día N°${actualN}` : 'Descanso'
-    const changed = overrideVal != null && overrideVal !== scheduledN
+    const changed = overrideVal !== null && overrideVal !== undefined && overrideVal !== scheduledN
     const [legacySessions, officialSessions] = await Promise.all([
       db.sessions.where('localDate').equals(key).toArray().catch(()=>[]),
       db.trainingSessions.where('calendarDate').equals(key).toArray().catch(()=>[]),

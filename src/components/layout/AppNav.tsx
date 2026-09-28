@@ -78,7 +78,7 @@ export default function AppNav() {
   // cambios de sesión (crear, finalizar, cancelar) sin recargar la página.
   const { hasActiveSession } = useActiveTrainingSession()
   const primaryItems = NAV_ITEMS.filter(i => {
-    if (i.icon === 'training') return hasActiveSession
+    if (i.icon === 'training') {return hasActiveSession}
     return ['home', 'nutrition', 'progress'].includes(i.icon as string)
   })
   const mobileItems = [...primaryItems, MORE_ITEM]

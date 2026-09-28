@@ -59,7 +59,7 @@ export function WaterBottle({ date, allowQuickAdd = true, compact = false, size,
     const counts: Record<string, number> = {}
     for (const pb of summary.perBottle) { counts[pb.bottleId] = pb.count }
     setCounts(counts)
-  }, [day, refreshKey])
+  }, [day])
 
   useEffect(() => {
     let alive = true
@@ -74,7 +74,9 @@ export function WaterBottle({ date, allowQuickAdd = true, compact = false, size,
       alive = false
       window.removeEventListener('bottleConfigChange', onConfigChange)
     }
-  }, [reload])
+    // refreshKey no se usa dentro de reload: se declara acá para que un cambio
+    // externo fuerce la relectura (misma intención que el prop documenta).
+  }, [reload, refreshKey])
 
   const onComplete = async (bottleId: string) => {
     setBusy(true)

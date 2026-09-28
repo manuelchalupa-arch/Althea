@@ -88,7 +88,7 @@ async function isTrainingDayLocal(dateStr:string): Promise<boolean> {
     const cyc = pv?.cycle ?? active?.cycle
     if(!cyc?.weekMap) {return true}
     const dow = weekdayOfKey(dateStr)
-    return (cyc.weekMap[dow] ?? null) != null
+    return (cyc.weekMap[dow] ?? null) !== null
   }catch{ return true }
 }
 
@@ -197,7 +197,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
         navigate('/onboarding', { replace: true })
       }
     })
-  }, [loc.pathname])
+  }, [loc.pathname, navigate])
 
   if (!authChecked) {return <div className="p-8 text-center">Cargando…</div>}
   if (needsLogin && loc.pathname !== '/login') {

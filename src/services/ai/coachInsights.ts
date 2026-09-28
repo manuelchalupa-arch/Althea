@@ -239,7 +239,7 @@ export function detectRoutineStale(routineAgeDays: number, improvedRecently: boo
 
 // 9. Proteína insuficiente vs objetivo (§14) — estimado: el diario no registra porciones
 export function detectProteinGap(proteinEstimate: number | null, goalMin: number | null, items: number): CoachInsight | null {
-  if (goalMin == null || items === 0 || proteinEstimate == null) {return null}
+  if (goalMin === null || goalMin === undefined || items === 0 || proteinEstimate === null || proteinEstimate === undefined) {return null}
   if (proteinEstimate < goalMin * 0.5) {
     return {
       id: 'protein-low', kind: 'nutrition', level: 'warn',
@@ -253,7 +253,7 @@ export function detectProteinGap(proteinEstimate: number | null, goalMin: number
 
 // 10. Entrenó en descanso / cambió día (§10, §4-5 test)
 export function detectRestDayTraining(sessions: SessionRow[]): CoachInsight | null {
-  const rest = sessions.filter((s) => s.plannedDay == null && s.actualDay != null)
+  const rest = sessions.filter((s) => (s.plannedDay === null || s.plannedDay === undefined) && s.actualDay !== null && s.actualDay !== undefined)
   if (rest.length === 0) {return null}
   return {
     id: 'rest-train', kind: 'restday', level: 'info',
@@ -301,7 +301,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
         cycleWeekMap = cycle.weekMap
         for (let i = 0; i < 14; i++) {
           const iso = dayKeyOffset(todayKey(), -i)
-          if (cycle.weekMap[weekdayOfKey(iso)] != null) {planned14.push(iso)}
+          if (cycle.weekMap[weekdayOfKey(iso)] !== null && cycle.weekMap[weekdayOfKey(iso)] !== undefined) {planned14.push(iso)}
         }
       }
     } catch { /* noop */ }
