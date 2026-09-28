@@ -56,15 +56,14 @@ describe('selectMethods', () => {
     expect(rec.primary).toBeTruthy()
   })
 
-  it('creates mixed method when secondary methods exist', () => {
+  it('no longer crea método mixto (funcionalidad eliminada)', () => {
     const profile: UserProfile = {
       ...baseProfile,
       trainingGoal: 'general_health',
       experienceLevel: 'intermediate',
     }
     const rec = selectMethods(profile)
-    expect(rec.mixed).toBeDefined()
-    expect(rec.mixed?.components.length).toBeGreaterThanOrEqual(2)
+    expect(rec.mixed).toBeUndefined()
   })
 
   it('produces valid primary method for each goal', () => {

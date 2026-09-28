@@ -5,7 +5,7 @@ PWA móvil-first offline-first instalable en Android (iOS compatible). Coach vir
 > Responde: **"¿Qué tengo que hacer hoy?"** sin internet.
 
 ## Stack
-React 18 + TS + Vite 6 + Tailwind 3 + Dexie (IndexedDB, v18) + Zustand + Recharts + vite-plugin-pwa (Workbox) + react-router-dom
+React 18 + TS + Vite 6 + Tailwind 3 + Dexie (IndexedDB, v20) + Recharts + vite-plugin-pwa (Workbox) + react-router-dom
 
 ## Inicio rápido
 ```bash
@@ -23,7 +23,7 @@ npm run preview  # http://localhost:5173 con PWA activa
 - Lectura unificada y deduplicada del historial (`services/history.ts`): oficial + legacy sin contar dos veces.
 - Planificado vs ejecutado siempre separados; el historial es inmutable.
 - Versionado: planificación (`cycleVersions`) y rutinas (snapshots `vN`) preservan el pasado.
-- Zustand/localStorage solo para preferencias UI y cachés; nunca dominio.
+- localStorage solo para preferencias UI y cachés; nunca dominio.
 - Firebase solo transporte/backup con cola idempotente y política de conflictos por entidad.
 
 ## Flujo PWA

@@ -466,28 +466,6 @@ export async function buildInsights(): Promise<CoachInsight[]> {
         })
       }
     } catch { /* noop */ }
-    // ─── Coach IA v2: memory patterns ───
-    try {
-      const { buildUserMemory } = await import('./memoryManager')
-      const mem = await buildUserMemory()
-      if (mem.patterns.avoidedExercises.length >= 3) {
-        out.push({
-          id: 'memory-avoided', kind: 'pattern', level: 'info',
-          title: `${mem.patterns.avoidedExercises.length} ejercicios evitados frecuentemente`,
-          detail: 'Podemos crear variaciones personalizadas o buscar alternativas más adecuadas.',
-          evidence: `Ejercicios evitados: ${mem.patterns.avoidedExercises.slice(0, 3).join(', ')}.`,
-        })
-      }
-      if (mem.patterns.commonPainAreas.length >= 2) {
-        out.push({
-          id: 'memory-pain', kind: 'pattern', level: 'warn',
-          title: `Dolor recurrente en: ${mem.patterns.commonPainAreas.join(', ')}`,
-          detail: 'Estas zonas aparecen en tus respuestas. Considerá consultar con un profesional.',
-          evidence: `Zonas con dolor: ${mem.patterns.commonPainAreas.join(', ')}.`,
-          question: { key: 'memory:pain', text: `¿Cómo se siente tu ${mem.patterns.commonPainAreas[0]} últimamente?` },
-        })
-      }
-    } catch { /* noop */ }
   } catch { /* noop: sin datos → sin insights, nunca inventar */ }
   return out
 }

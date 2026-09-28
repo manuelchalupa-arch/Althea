@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 import { todayKey } from '@/utils/dates'
 import Progreso from './Progreso'
-import { FollowUpForm } from '@/components/followup/FollowUpForm'
 
 describe('Progreso — bloques del resumen del período', () => {
   beforeEach(async () => {
@@ -57,12 +56,4 @@ describe('Progreso — bloques del resumen del período', () => {
     expect(screen.queryByRole('button', { name: /^Registrar$/ })).not.toBeInTheDocument()
     expect(screen.queryByText(/Detalle completo/)).not.toBeInTheDocument()
   }, 40000)
-
-  it('el seguimiento (check-in) vive en su propio componente y es usable', async () => {
-    render(<MemoryRouter><FollowUpForm /></MemoryRouter>)
-
-    expect(await screen.findByRole('heading', { name: 'Seguimiento' }, { timeout: 10000 })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: /Período de seguimiento/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Guardar seguimiento/ })).toBeInTheDocument()
-  }, 30000)
 })

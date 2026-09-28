@@ -30,7 +30,6 @@ import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
 import { MacroRing } from '@/components/nutrition/MacroRing'
 import { DishComposer, type DishSavePayload } from '@/components/nutrition/DishComposer'
 import { dishFromEntry, type DishDraft } from '@/services/nutrition/recipeInterpreter'
-import { coduliaProvider } from '@/services/nutrition/foodProvider'
 import { todayKey, dayKeyOffset, weekdayOfKey } from '@/utils/dates'
 
 type PageStatus = 'loading' | 'ready' | 'error'
@@ -317,7 +316,7 @@ export default function Nutricion() {
     methodName: activeMethod?.nameEs ?? null,
   })
 
-  const coduliaConfigured = coduliaProvider.isConfigured()
+  const coduliaConfigured = Codulia.getCoduliaKey().length > 0
   const dateText = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   if (status === 'loading') {

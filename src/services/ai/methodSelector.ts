@@ -1,10 +1,9 @@
 // METHOD SELECTOR — Motor de selección inteligente de métodos de entrenamiento
 // Analiza al usuario y determina qué método es más apropiado
-import type { TrainingMethodId, UserProfile, MethodRecommendation, MixedMethod } from './trainingMethods'
+import type { TrainingMethodId, UserProfile, MethodRecommendation } from './trainingMethods'
 import type { TrainingGoal, ExperienceLevel } from '@/types'
 import { TRAINING_METHODS, getMethod, getStructureMethods, getTrainingMethods } from './trainingMethodsDB'
 import { checkCompatibility } from './compatibilityEngine'
-import { createMixedMethod } from './mixedMethodBuilder'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
 
 /** Analizar al usuario y recomendar métodos */
@@ -54,11 +53,6 @@ export function selectMethods(profile: UserProfile, recentVolume?: number, recen
   // 8. Construir justificación
   const justification = buildJustification(primaryStructure, primaryTraining, secondary, complementary, goal, level, days, sessionMin)
 
-  // 9. Decidir si crear método mixto
-  const mixed = shouldCreateMixedMethod(primaryStructure, primaryTraining, secondary, goal, level, days, sessionMin, recentFatigue)
-    ? createMixedMethod(primaryStructure, primaryTraining, secondary, complementary, goal, level, days, sessionMin, justification)
-    : undefined
-
   // 10. Confidence basada en cuántos factores conocemos
   const confidence = calculateConfidence(profile, recentVolume, recentFatigue)
 
@@ -67,7 +61,6 @@ export function selectMethods(profile: UserProfile, recentVolume?: number, recen
     secondary,
     complementary,
     notRecommended,
-    mixed,
     justification,
     confidence,
     factors: buildFactorsList(goal, level, days, sessionMin, hasEquipment, limitations, painAreas),
@@ -146,28 +139,6 @@ function getAvailableDays(profile: UserProfile): number {
   if (profile.schedule?.availableDays) {return profile.schedule.availableDays.length}
   if (profile.cycle?.weekMap) {return profile.cycle.weekMap.filter(d => d !== null).length}
   return 3 // default
-}
-
-/** Determinar si se debe crear un método mixto */
-function shouldCreateMixedMethod(
-  structure: TrainingMethodId,
-  training: TrainingMethodId,
-  secondary: TrainingMethodId[],
-  goal: string,
-  level: string,
-  days: number,
-  sessionMin: number,
-  fatigue?: number,
-): boolean {
-  // Crear mixto si hay métodos secundarios relevantes
-  if (secondary.length > 0) {return true}
-  // Si el objetivo es general_health, siempre mixto
-  if (goal === 'general_health') {return true}
-  // Si hay poco tiempo pero múltiples necesidades
-  if (sessionMin < 45 && days <= 3) {return true}
-  // Si fatiga es alta, combinar con movilidad
-  if (fatigue != null && fatigue > 6) {return true}
-  return false
 }
 
 /** Construir justificación en español */

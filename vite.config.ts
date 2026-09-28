@@ -50,14 +50,14 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           // Core vendor
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/scheduler')) {
-            return 'vendor-react'
-          }
           if (id.includes('node_modules/react-router')) {
             return 'vendor-router'
           }
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/scheduler')) {
+            return 'vendor-react'
+          }
           // State management
-          if (id.includes('node_modules/dexie') || id.includes('node_modules/zustand')) {
+          if (id.includes('node_modules/dexie')) {
             return 'vendor-state'
           }
           // Charts - split recharts
@@ -98,7 +98,7 @@ export default defineConfig({
   server: { port: 5173 },
   // Optimize dependencies
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'dexie', 'zustand'],
+    include: ['react', 'react-dom', 'react-router-dom', 'dexie'],
     exclude: ['@huggingface/transformers']
   }
 })

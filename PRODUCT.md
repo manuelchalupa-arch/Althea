@@ -6,7 +6,7 @@
 web
 
 ## Stack
-delegated: React 18 + TypeScript + Vite 6 + Tailwind CSS 3 + Dexie/IndexedDB (local-first) + Firebase Auth/Sync (cuando está configurado) + Workbox PWA — codebase existente en C:\Users\manue\OneDrive\Escritorio\Nico\train-pwa, no se cambia stack en este rediseño.
+delegated: React 18 + TypeScript + Vite 6 + Tailwind CSS 3 + Dexie/IndexedDB (local-first) + Firebase Auth/Sync (cuando está configurado) + Workbox PWA
 
 ## Users
 Persona que entrena de forma regular en gimnasio, desde nivel principiante hasta intermedio/avanzado, busca guía integral para planificar y registrar entrenamientos, controlar recuperación y nutrición, y analizar progreso longitudinal con apoyo de Coach IA sin depender de entrenador personal. La utiliza principalmente **antes, durante y después del entrenamiento**, y para revisar evolución. Audiencias secundarias: usuarios nuevos sin historial (estado vacío) y usuarios en modo demo.
@@ -26,19 +26,19 @@ Mecanismo diferencial: **PWA offline-first local-first con Dexie como fuente de 
 ## Capabilities and Constraints
 **Capacidades confirmadas:** Rutinas con días/ejercicios/series/peso/reps; `TrainingSession` máquina estados `PLANNED→COMPLETED/PARTIAL` versionada; `unifiedAllCompletedSets` deduplicado; PR/1RM Epley; `muscleLoadOf/partVolumeOf`; periodización `cycleVersions`; notificaciones `unifiedNotifConfigs` con `requiredAction` pending/completed; hidratación botellas; macros con `macroStatus`; informe `generateReport(period, categorías)` client-side; calendario ficha `Fecha→Estado→Entrenamiento→Nutrición→Recuperación→Progreso`; Dexie v20, `routineStore`, `sessionStore`, `diaryStore`.
 
-**Restricciones duraderas:** Preservar gama cromática Althea (mármol/blanco roto/grises cálidos/grafito/dorado-bronce + acentos verde/azul suaves, sin neón/violeta), tipografía Playfair Display (marca) + Inter (datos), no inventar datos, `Dexie → Servicios → Cálculos → UI` (nunca `UI → números escritos`), no segunda fuente de verdad, no tocar lógica sesiones/estados/historial/PR/periodización/Coach memoria/sync/migraciones, no borrar tablas Dexie, no modificar Firebase/auth innecesariamente, rutas `/`, `/entrenar`, `/progreso`, `/calendario`, `/nutricion`, `/recuperacion`, `/rutina`, `/biblioteca`, `/perfil`, `/coach`, `/mas` se mantienen.
+**Restricciones duraderas:** Preservar gama cromática Althea (mármol/blanco roto/grises cálidos/grafito/dorado-bronce + acentos verde/azul suaves, sin neón/violeta), tipografía Cormorant Garamond (marca) + Inter (datos), no inventar datos, `Dexie → Servicios → Cálculos → UI` (nunca `UI → números escritos`), no segunda fuente de verdad, no tocar lógica sesiones/estados/historial/PR/periodización/Coach memoria/sync/migraciones, no borrar tablas Dexie, no modificar Firebase/auth innecesariamente, rutas `/`, `/entrenar`, `/progreso`, `/calendario`, `/nutricion`, `/recuperacion`, `/rutina`, `/biblioteca`, `/perfil`, `/coach`, `/mas` se mantienen.
 
 **Terminología:** `Rutina → Día → Ejercicio → Serie` (SessionExercise/SetRecord), `plannedSets/plannedReps/plannedWeight` vs `actualReps/actualWeight`, `Sesiones = días únicos`, `Sin datos suficientes` como estado vacío.
 
 **Indecisos explícitos:** Ninguno material pendiente; estética puede evolucionar libremente salvo paleta.
 
 ## Brand Commitments
-Nombre `Althea`, paleta actual mármol/blanco roto/grises cálidos/negro-grafito/dorado-bronce + acentos verde/azul suaves discretos, tipografía Playfair Display (serif marca) + Inter (sans datos), estética clásica+deportiva+tecnológica+elegante, sin neón/gradientes agresivos/violeta/gamer/cyberpunk/glassmorphism excesivo. Referencia visual: imagen clásica anatómica mármol + dorado, limpia editorial, con datos.
+Nombre `Althea`, paleta actual mármol/blanco roto/grises cálidos/negro-grafito/dorado-bronce + acentos verde/azul suaves discretos, tipografía Cormorant Garamond (serif marca) + Inter (sans datos), estética clásica+deportiva+tecnológica+elegante, sin neón/gradientes agresivos/violeta/gamer/cyberpunk/glassmorphism excesivo. Referencia visual: imagen clásica anatómica mármol + dorado, limpia editorial, con datos.
 
 ## Evidence on Hand
 - Código: `src/pages/Entrenar.tsx`, `src/pages/Progreso.tsx`, `src/pages/Calendario.tsx`, `src/pages/Nutricion.tsx`, `src/services/training/sessionMetrics.ts`, `src/services/training/exerciseFilter.ts`, `src/utils/cycle.ts`, `src/services/report/reportService.ts`, `src/components/entrenar/ExerciseSeriesTable.tsx`
-- Datos: `src/services/storage/db.ts` v20, `src/data/exercises.json` 1323 ejercicios, `ExerciseGymGifsDB` v1.1.0
-- Tests: 541 tests (Calendario.recovery, nodata, hydrationBottles, macroService, sessionMetrics, cycle, reportService, exerciseFilter, etc.) — build OK `2422 modules`
+ - Datos: `src/services/storage/db.ts` v20, `src/data/exercises.json` (10 ejercicios locales, catálogo real remoto `ExerciseGymGifsDB`), `ExerciseGymGifsDB` v1.1.0
+ - Tests: 113 archivos de test / ~943 bloques `it()`/`test()`
 - Demo: tablas con `isDemo` flag, identificables
 
 ## Product Principles
