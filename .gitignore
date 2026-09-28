@@ -13,3 +13,5 @@ dist
 .impeccable/
 skills-lock.json
 *.exe
+# worker build cache
+worker/.wrangler/

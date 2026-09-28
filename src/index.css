@@ -343,10 +343,7 @@ html[data-textscale="l"] { font-size: 112.5%; }
 .althea-level-4 { background: var(--c-surface-container); border: var(--althea-border); border-radius: var(--althea-radius-sm); }
 
 /* ============================ CONTENEDOR / LAYOUT ============================ */
-.althea-container { width: 100%; max-width: var(--container-max); margin-inline: auto; }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-.scrollbar-none { scrollbar-width: none; }
-.scrollbar-none::-webkit-scrollbar { display: none; }
 
 /* ============================ BOTONES ============================ */
 .btn-primary,
@@ -400,23 +397,7 @@ html[data-textscale="l"] { font-size: 112.5%; }
 .input:disabled, select:disabled { color: var(--c-on-surface); background: var(--c-surface-container); cursor: not-allowed; }
 .input[aria-invalid="true"], .input.input-error { border-color: var(--c-error); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-error) 12%, transparent); }
 
-/* ============================ TARJETAS — soportes ============================ */
-.marble-card { background: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow); border-radius: var(--althea-radius-lg); }
-.stone-plate { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), var(--althea-shadow-sm); border: 1px solid var(--c-outline-variant); border-radius: var(--althea-radius-md); }
-.stone-etch-border { border: 1px solid var(--c-outline-variant); border-radius: var(--althea-radius-md); }
-.stone-card { background: var(--c-surface-container-low); border: 1px solid var(--c-outline-variant); border-radius: var(--althea-radius-lg); box-shadow: var(--althea-shadow-sm); }
-.stone-card-hover {
-  background: var(--c-surface-container-low); border: 1px solid var(--c-outline-variant);
-  border-radius: var(--althea-radius-lg); box-shadow: var(--althea-shadow-sm);
-  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
-}
-.stone-card-hover:hover { background: var(--c-surface-container); border-color: var(--c-primary); }
-.chiseled-card { background: var(--c-surface-container); border: 1px solid var(--c-outline-variant); border-radius: var(--althea-radius-md); }
-.chiseled-stele { border: 1px solid var(--c-outline-variant); border-radius: var(--althea-radius-md); background: transparent; }
-.gold-glow { box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-primary) 22%, transparent), 0 6px 22px -4px color-mix(in srgb, var(--c-primary) 28%, transparent); }
-
 /* ============================ DIVISORES ============================ */
-.greek-meander { height: 1px; background: var(--c-outline-variant); opacity: 0.7; }
 .meander-border-b { border-bottom: 1px solid var(--c-outline-variant); }
 .althea-divider { height: 1px; background: var(--c-outline-variant); border: 0; }
 
@@ -548,25 +529,6 @@ html[data-textscale="l"] { font-size: 112.5%; }
 .flash-confirm { animation: pulse-confirm 0.25s ease-out; }
 .tpress { transition: transform 0.12s ease-out, background-color 0.16s ease-out; }
 .tpress:active { transform: scale(0.97); }
-
-@keyframes cycleSlide1 {
-  0%, 28% { opacity: 1; transform: scale(1.02); }
-  33%, 95% { opacity: 0; transform: scale(1.0); }
-  100% { opacity: 1; transform: scale(1.02); }
-}
-@keyframes cycleSlide2 {
-  0%, 28% { opacity: 0; transform: scale(1.0); }
-  33%, 61% { opacity: 1; transform: scale(1.02); }
-  66%, 100% { opacity: 0; transform: scale(1.0); }
-}
-@keyframes cycleSlide3 {
-  0%, 61% { opacity: 0; transform: scale(1.0); }
-  66%, 95% { opacity: 1; transform: scale(1.02); }
-  100% { opacity: 0; transform: scale(1.0); }
-}
-.bg-slide-1 { animation: cycleSlide1 21s infinite ease-in-out; }
-.bg-slide-2 { animation: cycleSlide2 21s infinite ease-in-out; }
-.bg-slide-3 { animation: cycleSlide3 21s infinite ease-in-out; }
 
 /* ============================ TEMPLO — fondo de sección ============================ */
 /* Mármol claro / granito oscuro: tintes de marca + vetas muy sutiles generadas

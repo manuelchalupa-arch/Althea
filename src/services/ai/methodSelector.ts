@@ -2,7 +2,7 @@
 // Analiza al usuario y determina qué método es más apropiado
 import type { TrainingMethodId, UserProfile, MethodRecommendation } from './trainingMethods'
 import type { TrainingGoal, ExperienceLevel } from '@/types'
-import { TRAINING_METHODS, getMethod, getStructureMethods, getTrainingMethods } from './trainingMethodsDB'
+import { TRAINING_METHODS, getMethod } from './trainingMethodsDB'
 import { checkCompatibility } from './compatibilityEngine'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
 
