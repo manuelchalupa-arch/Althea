@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { db } from '@/services/storage/db'
 import * as Gym from '@/services/exerciseGym'
 import { effectiveBreakdown, listCustomExercises } from '@/services/training/customExercises'
+import { exerciseMatches } from '@/services/training/exerciseSearch'
 import { listWgerExercises, toExercise as wgerToExercise } from '@/services/integrations/wger'
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import type { CustomExercise } from '@/services/training/customExercises'
@@ -114,8 +115,7 @@ export default function Biblioteca(){
     if(movement && !String(ex.movementPattern||'').toLowerCase().includes(movement.toLowerCase())) {return false}
     if(difficulty && String(ex.exerciseDifficulty||'').toLowerCase() !== difficulty.toLowerCase()) {return false}
     if(!q) {return true;}
-    const s=q.toLowerCase();
-    return ex.name.toLowerCase().includes(s) || String(ex.muscle||'').toLowerCase().includes(s) || String(ex.bodyPart||'').toLowerCase().includes(s) || String(ex.equipment||'').toLowerCase().includes(s) || String(ex.category||'').toLowerCase().includes(s)
+    return exerciseMatches(ex, q)
   })
 
   const Chip = ({active, children, onClick}:{active:boolean; children:string; onClick:()=>void})=>(
