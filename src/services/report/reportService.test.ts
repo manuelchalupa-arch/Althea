@@ -62,6 +62,22 @@ describe('BLOQUE 6 — Informe de Progreso real por periodo y categorías', () =
     expect(r.isEmpty).toBe(false)
   })
 
+  it('serie diaria del período (sustituye la gráfica de evolución del dashboard)', async () => {
+    await db.trainingSessions.bulkPut([mkSession('s1', '2026-09-18', 'COMPLETED'), mkSession('s2', '2026-09-20', 'COMPLETED')])
+    await db.setRecords.bulkPut([
+      mkSet('s1', 'bench-press', 1, 80, 8, '2026-09-18'),
+      mkSet('s2', 'bench-press', 1, 80, 5, '2026-09-20'),
+      mkSet('s2', 'squat', 2, 100, 5, '2026-09-20'),
+    ])
+    const r = await generateReport({ period: '30', categories: ['entrenamiento'], today })
+    expect(r.entrenamiento?.serieDiaria).toEqual([
+      { fecha: '2026-09-18', volumen: 640, series: 1 },
+      { fecha: '2026-09-20', volumen: 900, series: 2 },
+    ])
+    const vacio = await generateReport({ period: 'custom', customStart: '2026-09-01', customEnd: '2026-09-10', categories: ['entrenamiento'], today })
+    expect(vacio.entrenamiento?.serieDiaria).toEqual([])
+  })
+
   it('datos reales: múltiples métricas (musculos, recuperacion, nutricion)', async () => {
     await db.trainingSessions.bulkPut([mkSession('s1', '2026-09-20', 'COMPLETED')])
     await db.setRecords.bulkPut([mkSet('s1', 'bench-press', 1, 60, 10, '2026-09-20')])

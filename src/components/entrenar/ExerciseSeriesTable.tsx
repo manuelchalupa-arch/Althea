@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toDateKey } from '@/utils/dates'
+import { parseLoad, toKg, fromKg, formatLoad, roundLoad } from '@/services/training/loadModel'
 
 const EX_STATE_KEY = (today:string, exId:string) => `exstate:${today}:${exId}`
 
@@ -14,7 +15,7 @@ const kgOrNull = (v:number|null|undefined):number|null=>{
   return Math.round(n*10)/10
 }
 
-export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeight, plannedSets, onComplete, onSkipSet, onAddSet, logs, initialCompleted, initialSkipped }:{ exerciseId:string; today:string; sets:number; plannedReps:number; plannedWeight:number|null; plannedSets?: Array<{ order: number; reps: number; weight: number|null; setType?: string }>; onComplete:(idx:number,w:number|null,r:number,neg?:any,obs?:string)=>void; onSkipSet?:(idx:number)=>void; onAddSet?:()=>void; logs:any[]; initialCompleted?:Record<number,{weight:number|null;reps:number}>; initialSkipped?:number[] }){
+export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeight, plannedSets, planMeta, onComplete, onSkipSet, onAddSet, logs, initialCompleted, initialSkipped }:{ exerciseId:string; today:string; sets:number; plannedReps:number; plannedWeight:number|null; plannedSets?: Array<{ order: number; reps: number; weight: number|null; setType?: string }>; planMeta?: { restSec?: number; tempo?: string; rir?: number; rpe?: number; notes?: string }; onComplete:(idx:number,w:number|null,r:number,neg?:any,obs?:string,loadText?:string)=>void; onSkipSet?:(idx:number)=>void; onAddSet?:()=>void; logs:any[]; initialCompleted?:Record<number,{weight:number|null;reps:number}>; initialSkipped?:number[] }){
   const [refs,setRefs]=useState<Record<number,any>>({})
   const [weights,setWeights]=useState<Record<number,number|null>>({})
   const [reps,setReps]=useState<Record<number,number|null>>({})
@@ -22,7 +23,18 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
   const [negEnabled,setNegEnabled]=useState(false)
   const [negReps,setNegReps]=useState('')
   const [negWeight,setNegWeight]=useState('')
-  const [obs,setObs]=useState('')
+  // Observación POR SERIE: cada serie tiene la suya; al confirmarla se limpia
+  // el borrador para que el texto no se pegue en las series siguientes.
+  const [obsBySet,setObsBySet]=useState<Record<number,string>>({})
+  // Unidad de carga visible (KG/LB). El dato canónico almacenado es SIEMPRE kg:
+  // loadModel convierte solo con equivalencia conocida y nunca reescribe el dato.
+  const [loadUnit,setLoadUnit]=useState<'KG'|'LB'>(()=>{ try{ return localStorage.getItem('althea:loadUnit') === 'LB' ? 'LB' : 'KG' }catch{ return 'KG' } })
+  // Texto tipeado por fila (visible mientras se escribe; al salir se re-normaliza).
+  const [weightText,setWeightText]=useState<Record<number,string>>({})
+  // Aviso por fila: carga sin equivalencia kg (no se inventa, no se guarda).
+  const [loadHint,setLoadHint]=useState<Record<number,string>>({})
+  // Valor + unidad originales tipeados con unidad distinta de kg (se preservan).
+  const [loadOriginal,setLoadOriginal]=useState<Record<number,string>>({})
   const [exInfo,setExInfo]=useState<any>(null)
   const [loaded,setLoaded]=useState(false)
   const [lastSession,setLastSession]=useState<{date:string; sets:{setNumber:number;weight:number;reps:number}[]} | null>(null)
@@ -134,6 +146,24 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
     load()
   },[exerciseId, sets, plannedReps, plannedWeight, plannedSets, getPlannedForIndex, migrateDraftOnce, initialCompleted, initialSkipped])
 
+  // Al cambiar de ejercicio no se heredan observaciones ni cargas de otro.
+  // Declarado ANTES de la semilla: el orden de los efectos limpia y luego siembra.
+  useEffect(()=>{ setObsBySet({}); setWeightText({}); setLoadHint({}); setLoadOriginal({}) }, [exerciseId])
+
+  // Semilla POR SERIE desde lo ya confirmado en BD (observation de cada SetRecord).
+  useEffect(()=>{
+    setObsBySet(prev=>{
+      const next = {...prev}
+      let changed = false
+      logs.forEach((l, i)=>{
+        if(!l) {return}
+        const recorded = (l as { observation?: string; obs?: string }).observation ?? (l as { obs?: string }).obs
+        if(recorded && !next[i]) { next[i] = String(recorded); changed = true }
+      })
+      return changed ? next : prev
+    })
+  },[logs])
+
   // Al cambiar de ejercicio, las marcas "editado a mano" no aplican más.
   useEffect(()=>{ dirtyRef.current = {w:new Set(), r:new Set()} }, [exerciseId])
 
@@ -143,20 +173,42 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
     return Math.round(n*10)/10
   }
 
+  // Cambia la unidad visible. Solo afecta la presentación: el estado en kg no se
+  // toca, por eso se limpia el texto tipeado y se vuelve a derivar de kg.
+  const toggleLoadUnit = (u:'KG'|'LB')=>{
+    setLoadUnit(u); setWeightText({}); setLoadHint({})
+    try{ localStorage.setItem('althea:loadUnit', u) }catch{ /* noop */ }
+  }
+
+  // kg almacenado → texto en la unidad visible (loadModel: equivalencia conocida).
+  const displayWeight = (kgValue:number|null):string=>{
+    if(kgValue === null || kgValue === undefined) {return ''}
+    if(loadUnit === 'KG') {return String(kgValue)}
+    const v = fromKg(kgValue, 'LB')
+    return v === null ? String(kgValue) : String(roundLoad(v))
+  }
+
   if(!loaded) {return <div className="space-y-3"><div className="h-8 bg-surface-container-low/90 border border-outline-variant rounded-lg animate-pulse"/></div>}
 
   const romanNumerals = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX']
-  const nextUncompletedIdx = Array.from({length:sets}).find((_, i)=> !checks[i] && !(initialSkipped||[]).includes(i))
+  // Índice de la próxima serie sin confirmar (-1 = todas confirmadas).
+  const nextUncompletedIdx = Array.from({length:sets}).findIndex((_, i)=> !checks[i] && !(initialSkipped||[]).includes(i))
 
   return (
     <div className="space-y-3">
-      <div className="rounded bg-surface-container/60 border border-outline-variant/30 p-2">
-        <div className="flex flex-wrap gap-1">
+      <div className="rounded bg-surface-container/60 border border-outline-variant/30 p-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1 min-w-0">
           {(() => {
             const bd = (exInfo as any)?.muscleBreakdown
             const pcts = (Array.isArray(bd) && bd.length > 0) ? bd.map((b:any)=> ({ n: b.name, p: b.pct })) : []
             return pcts.filter(x=>x.n).map(x=> <span key={x.n} className={`px-2 py-0.5 rounded-full border font-label-caps text-[10px] uppercase ${x.p>=60?'bg-primary-container/20 border-primary/40 text-primary':'bg-surface-container-high/30 border-outline-variant/40 text-on-surface-variant'}`}>{x.n}: {x.p}%</span>)
           })()}
+        </div>
+        <div className="flex shrink-0 rounded border border-outline-variant/40 overflow-hidden" role="group" aria-label="Unidad de carga">
+          {(['KG','LB'] as const).map(u=>(
+            <button key={u} type="button" onClick={()=>toggleLoadUnit(u)} aria-pressed={loadUnit===u}
+              className={`px-2.5 py-2 min-h-[36px] font-label-caps text-[10px] uppercase tracking-wider transition-colors ${loadUnit===u?'bg-secondary text-on-secondary-fixed':'text-outline hover:bg-surface-container-high/40'}`}>{u}</button>
+          ))}
         </div>
       </div>
       {lastSession && (
@@ -172,7 +224,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                 <th className="pb-2 px-1 font-semibold w-8">N.º</th>
                 <th className="pb-2 px-2 font-semibold">Última vez</th>
                 <th className="pb-2 px-2 font-semibold text-center">Repeticiones</th>
-                <th className="pb-2 px-2 font-semibold text-center">Kg</th>
+                <th className="pb-2 px-2 font-semibold text-center">{loadUnit === 'KG' ? 'Kg' : 'Lb'}</th>
                 <th className="pb-2 px-1 text-center font-semibold w-12"></th>
               </tr>
           </thead>
@@ -189,7 +241,9 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
               const isSkipped = (initialSkipped||[]).includes(si)
               const roman = romanNumerals[si] || `${si+1}`
               const planFor = getPlannedForIndex(si)
-              const displayW = w !== null ? w : ''
+              // Texto visible: lo tipeado (mientras se edita) o el kg almacenado
+              // convertido a la unidad de carga activa.
+              const displayW = weightText[si] !== undefined ? weightText[si] : displayWeight(w)
               return (
                 <tr key={si} className={`transition-colors ${
                   isDone
@@ -200,6 +254,9 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                 }`}>
                   <td className={`py-2.5 px-1 font-headline-sm text-[15px] ${isDone ? 'text-primary' : isActive ? 'text-secondary' : 'text-outline'}`}>
                     {roman}
+                    {planFor.setType && planFor.setType !== 'NORMAL' && (
+                      <span className="block text-[8px] font-label-caps uppercase leading-tight text-secondary/90" title={`Tipo de serie: ${planFor.setType}`}>{String(planFor.setType).replace(/_/g,' ')}</span>
+                    )}
                   </td>
                   <td className="py-2.5 px-2 text-[12px] text-on-surface-variant whitespace-nowrap">
                     {prevSet ? (
@@ -220,7 +277,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                           dirtyRef.current.r.add(si)
                           setReps({...reps, [si]: v === '' ? null : Number(v)})
                         }}
-                        className="w-full min-w-[64px] px-2 py-2.5 min-h-[44px] bg-surface-container-highest border border-outline-variant/40 rounded text-[14px] text-on-surface text-center"
+                        className="w-full min-w-[64px] px-2 py-2.5 min-h-[48px] bg-surface-container-highest border border-outline-variant/40 rounded text-[14px] text-on-surface text-center"
                         inputMode="numeric"
                         aria-label={`repeticiones serie ${si+1}`}
                       />
@@ -230,24 +287,54 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                   <td className="py-2.5 px-2">
                     <div className="flex flex-col items-center">
                       <input
-                        type="number"
-                        step="0.1"
+                        type="text"
                         value={displayW}
                         onChange={e=>{
                           const val = e.target.value
                           dirtyRef.current.w.add(si)
-                          if(val === '' || val === undefined) {
+                          setWeightText((prev)=>({...prev, [si]: val}))
+                          if(val.trim() === '') {
                             setWeights((prev)=>({...prev, [si]: null}))
-                          } else {
-                            const parsed = parseKg(val)
-                            // 0 tecleado = sin peso (mismo camino que borrar el campo)
-                            setWeights((prev)=>({...prev, [si]: parsed === 0 ? null : parsed}))
+                            setLoadHint((prev)=>({...prev, [si]: ''}))
+                            setLoadOriginal((prev)=>{ const n={...prev}; delete n[si]; return n })
+                            return
                           }
+                          // loadModel: parsea "45 lb", "2 placas", "80"… y convierte
+                          // a kg SOLO con equivalencia conocida.
+                          const typedUnit = /[a-zA-Z]/.test(val)
+                          let load = parseLoad(val)
+                          // Número solo con la unidad visible en LB = libras (el
+                          // teclado no trae sufijo, la unidad activa manda).
+                          if(!typedUnit && loadUnit === 'LB' && load.unit === 'KG') { load = { value: load.value, unit: 'LB' } }
+                          const kgValue = toKg(load)
+                          if(kgValue === null) {
+                            // Sin equivalencia: no se inventa kg. El último peso
+                            // válido se conserva y la fila avisa.
+                            setLoadHint((prev)=>({...prev, [si]: formatLoad(load)}))
+                            return
+                          }
+                          setLoadHint((prev)=>({...prev, [si]: ''}))
+                          setLoadOriginal((prev)=>{
+                            const n = {...prev}
+                            if(typedUnit && load.unit !== 'KG') { n[si] = val.trim() } else { delete n[si] }
+                            return n
+                          })
+                          const rounded = roundLoad(kgValue)
+                          if(rounded === 0) {
+                            // 0 tecleado = sin peso (mismo camino que borrar el campo)
+                            setWeights((prev)=>({...prev, [si]: null}))
+                            setWeightText((prev)=>{ const n={...prev}; delete n[si]; return n })
+                            return
+                          }
+                          setWeights((prev)=>({...prev, [si]: rounded}))
                         }}
-                        className="w-full min-w-[64px] px-2 py-2.5 min-h-[44px] bg-surface-container-highest border border-outline-variant/40 rounded text-[14px] text-on-surface text-center"
+                        onBlur={()=>{ setWeightText((prev)=>{ const n={...prev}; delete n[si]; return n }) }}
+                        className="w-full min-w-[64px] px-2 py-2.5 min-h-[48px] bg-surface-container-highest border border-outline-variant/40 rounded text-[14px] text-on-surface text-center"
                         inputMode="decimal"
                         aria-label={`kilogramos serie ${si+1}`}
                       />
+                      {loadHint[si] && <span className="mt-0.5 text-[9px] font-label-caps uppercase text-error text-center whitespace-nowrap" title="Sin equivalencia en kg: no se guarda como peso">{loadHint[si]}</span>}
+                      {!loadHint[si] && loadOriginal[si] && w !== null && <span className="mt-0.5 text-[9px] font-label-caps uppercase text-outline whitespace-nowrap">{loadOriginal[si]} → {w} kg</span>}
                       {w !== null && w !== planFor.weight && <span className="mt-0.5 text-[9px] font-label-caps uppercase text-outline whitespace-nowrap">{planFor.weight === null ? 'plan sin peso' : `plan ${planFor.weight}kg`}</span>}
                     </div>
                   </td>
@@ -263,8 +350,12 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                       <button onClick={(e)=>{
                         setChecks({...checks, [si]: true})
                         try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ }
-                        onComplete(si, w, r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obs||undefined)
-                      }} aria-label={`Confirmar serie ${si+1}`} className="px-4 py-3 min-h-[44px] min-w-[44px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[11px] uppercase font-bold shadow-sm transition-all active:scale-95">
+                        const obsDeEstaSerie = obsBySet[si]
+                        // La observación confirmada queda ligada a ESTA serie y el
+                        // borrador se limpia para no arrastrarlo a la siguiente.
+                        if(obsDeEstaSerie) { setObsBySet(prev=> ({ ...prev, [si]: '' })) }
+                        onComplete(si, w, r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obsDeEstaSerie||undefined, loadOriginal[si])
+                      }} aria-label={`Confirmar serie ${si+1}`} className="px-4 py-3 min-h-[48px] min-w-[48px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[11px] uppercase font-bold shadow-sm transition-all active:scale-95">
                         OK
                       </button>
                     </div>
@@ -275,7 +366,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
           </tbody>
         </table>
       </div>
-      {onAddSet ? <button onClick={onAddSet} className="w-full min-h-[44px] py-2 rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">+ Agregar serie</button> : null}
+      {onAddSet ? <button onClick={onAddSet} className="w-full min-h-[48px] py-2 rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">+ Agregar serie</button> : null}
       {prevSessions.length > 1 && (
         <div className="rounded-lg bg-surface-container/40 border border-outline-variant/20 px-3 py-2">
           <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider block mb-1.5">Progreso reciente</span>
@@ -311,9 +402,25 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
           </label>
         </div>
       </div>
-      <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider font-medium">Observaciones
-        <textarea placeholder="RPE, molestias, técnica..." value={obs} onChange={e=>setObs(e.target.value)} rows={3} className="w-full mt-2 bg-surface-container border border-outline-variant rounded p-3 font-body-md text-[15px] text-on-surface leading-relaxed"/>
-      </label>
+      {planMeta && (planMeta.restSec || planMeta.tempo || planMeta.rir !== undefined || planMeta.rpe !== undefined || planMeta.notes) ? (
+        <div className="rounded-lg bg-surface-container/60 border border-outline-variant/30 px-3 py-2 flex flex-wrap gap-x-3 gap-y-1 items-center">
+          <span className="font-label-caps text-[9px] uppercase tracking-wider text-outline">Plan</span>
+          {planMeta.restSec ? <span className="text-[11px] text-on-surface-variant">Descanso {planMeta.restSec}s</span> : null}
+          {planMeta.tempo ? <span className="text-[11px] text-on-surface-variant">Tempo {planMeta.tempo}</span> : null}
+          {planMeta.rir !== undefined ? <span className="text-[11px] text-on-surface-variant">RIR {planMeta.rir}</span> : null}
+          {planMeta.rpe !== undefined ? <span className="text-[11px] text-on-surface-variant">RPE {planMeta.rpe}</span> : null}
+          {planMeta.notes ? <span className="text-[11px] text-on-surface-variant italic">{planMeta.notes}</span> : null}
+        </div>
+      ) : null}
+      {(() => {
+        const activeObsIdx = nextUncompletedIdx >= 0 ? nextUncompletedIdx : Math.max(0, sets - 1)
+        const obs = obsBySet[activeObsIdx] ?? ''
+        return (
+          <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider font-medium">Observaciones serie {romanNumerals[activeObsIdx] || activeObsIdx + 1}
+            <textarea placeholder="RPE, molestias, técnica..." value={obs} onChange={e=>setObsBySet(prev=> ({ ...prev, [activeObsIdx]: e.target.value }))} rows={3} className="w-full mt-2 bg-surface-container border border-outline-variant rounded p-3 font-body-md text-[15px] text-on-surface leading-relaxed"/>
+          </label>
+        )
+      })()}
     </div>
   )
 }

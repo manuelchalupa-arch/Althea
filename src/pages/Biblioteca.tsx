@@ -3,7 +3,7 @@ import { db } from '@/services/storage/db'
 import * as Gym from '@/services/exerciseGym'
 import { effectiveBreakdown, listCustomExercises } from '@/services/training/customExercises'
 import { exerciseMatches } from '@/services/training/exerciseSearch'
-import { listWgerExercises, toExercise as wgerToExercise } from '@/services/integrations/wger'
+import { listWgerExercises, importWgerSample, toExercise as wgerToExercise } from '@/services/integrations/wger'
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Dumbbell, Layers, Box, Heart, Globe, WifiOff } from 'lucide-react'
@@ -30,6 +30,8 @@ export default function Biblioteca(){
   const [totalCount,setTotalCount]=useState<number|null>(null)
   const [movement,setMovement]=useState('')
   const [difficulty,setDifficulty]=useState('')
+  // Sincronización del catálogo Wger (importación real a Dexie, idempotente).
+  const [wgerSync,setWgerSync]=useState<{running:boolean; imported:number; total:number; count:number; error:string|null}>({running:false, imported:0, total:0, count:0, error:null})
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true
 
   useEffect(()=>{
@@ -110,6 +112,34 @@ export default function Biblioteca(){
 
   useEffect(()=>{ load('muscle','__all__') },[])
 
+  // Importa el catálogo Wger a Dexie (idempotente, no duplica por sourceId).
+  const syncWger = async ()=>{
+    if(wgerSync.running) {return}
+    setWgerSync(prev=>({...prev, running:true, error:null, imported:0, total:0}))
+    try{
+      const imported = await importWgerSample(30, (importedCount, total)=> setWgerSync(prev=>({...prev, imported:importedCount, total})))
+      const all = await listWgerExercises().catch(()=>[])
+      setWgerSync({running:false, imported:imported.length, total:all.length, count:all.length, error:null})
+      load('muscle','__all__')
+    }catch(e:any){
+      setWgerSync(prev=>({...prev, running:false, error: e?.message || 'Sin conexión con Wger'}))
+    }
+  }
+
+  // Primer arranque sin catálogo Wger y con red: importación automática (una sola
+  // vez por dispositivo; si falla se reintenta con el botón manual).
+  useEffect(()=>{
+    (async ()=>{
+      const existing = await listWgerExercises().catch(()=>[])
+      if(existing.length > 0) { setWgerSync(prev=>({...prev, count: existing.length})); return }
+      const attempted = localStorage.getItem('wger:autoImport:v1')
+      if(attempted || !navigator.onLine) {return}
+      localStorage.setItem('wger:autoImport:v1', '1')
+      await syncWger()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[])
+
   const filtered = exercises.filter(ex=>{
     if(onlyFavs && !favs.includes(ex.id)) {return false}
     if(movement && !String(ex.movementPattern||'').toLowerCase().includes(movement.toLowerCase())) {return false}
@@ -145,8 +175,8 @@ export default function Biblioteca(){
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-8 space-y-3">
-      {!online && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant bg-amber-900/30 border border-amber-800 rounded-lg p-2 flex items-center gap-2"><WifiOff size={14}/> Sin conexión — se muestra caché.</div>}
-      {error && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant bg-amber-900/30 border border-amber-800 rounded-lg p-2">{error}</div>}
+      {!online && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-secondary bg-secondary/10 border border-secondary/40 rounded-lg p-2 flex items-center gap-2"><WifiOff size={14}/> Sin conexión — se muestra caché.</div>}
+      {error && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-error bg-error/10 border border-error/40 rounded-lg p-2">{error}</div>}
 
       {/* Tabs (al entrar a cada filtro: selectedFilter = Todos) */}
       <div className="flex gap-1 p-1 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-x-auto">
@@ -199,6 +229,18 @@ export default function Biblioteca(){
         <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">Usa ExerciseGym + filtro local. Variantes: al ver detalle, sugiere mismo músculo/equipo.</p>
       </AltheaCard>
 
+      {/* Sincronización Wger — visible en mobile (el panel lateral es solo desktop) */}
+      <div className="lg:hidden flex items-center justify-between gap-3 rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
+        <div className="min-w-0">
+          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Wger · {wgerSync.count > 0 ? `${wgerSync.count} importados` : 'sin importar'}</div>
+          <div className="font-label-md text-[10px] uppercase tracking-widest text-outline truncate">{wgerSync.running ? `Importando ${wgerSync.imported}/${wgerSync.total || 30}…` : (wgerSync.error || 'Catálogo externo de enriquecimiento')}</div>
+        </div>
+        <button onClick={syncWger} disabled={wgerSync.running}
+          className="shrink-0 px-3 py-2 min-h-[44px] rounded border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface disabled:opacity-60">
+          {wgerSync.running ? '…' : 'Sincronizar'}
+        </button>
+      </div>
+
       {/* Resultados — solo consulta */}
       <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{loading ? 'Cargando ejercicios...' : `${filtered.length} ejercicios para consultar`}</div>
 
@@ -228,6 +270,24 @@ export default function Biblioteca(){
 
       <div className="lg:col-span-4 space-y-3 hidden lg:block">
       <button onClick={()=>{ setEditing(null); setShowForm(true) }} className="w-full py-3 rounded bg-primary text-on-surface font-medium min-h-[48px]">+ Agregar ejercicio</button>
+      <AltheaCard className="p-3">
+        <div className="flex items-center gap-2">
+          <Globe size={14} className="text-secondary shrink-0"/>
+          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Catálogo Wger</div>
+        </div>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">
+          {wgerSync.count > 0 ? `${wgerSync.count} ejercicios importados` : 'Sin importar'}
+        </div>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-0.5">
+          {wgerSync.running
+            ? `Importando ${wgerSync.imported}/${wgerSync.total || 30}…`
+            : wgerSync.error ? wgerSync.error : 'Fuente externa de enriquecimiento'}
+        </div>
+        <button onClick={syncWger} disabled={wgerSync.running}
+          className="w-full mt-2 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface min-h-[48px] disabled:opacity-60">
+          {wgerSync.running ? 'Importando…' : wgerSync.count > 0 ? 'Sincronizar de nuevo' : 'Descargar catálogo Wger'}
+        </button>
+      </AltheaCard>
       <AltheaCard className="p-3">
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Filtros</div>
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">{filtered.length} de {exercises.length} ejercicios</div>

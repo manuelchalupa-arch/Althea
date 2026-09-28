@@ -97,7 +97,7 @@ export function SyncStatusCard() {
     <div className="rounded-xl bg-surface-container-low/80 border border-outline-variant/50 p-4 space-y-2">
       <div className="font-label-caps text-[9px] uppercase text-on-surface-variant tracking-wider">Sincronización</div>
       <div className="flex items-center gap-2">
-        <span className={`w-2 h-2 rounded-full ${state === 'synced' ? 'bg-green-400' : state === 'offline' ? 'bg-slate-400' : state === 'syncing' ? 'bg-amber-400 animate-pulse' : state === 'error' ? 'bg-red-400' : 'bg-amber-400'}`} />
+        <span className={`w-2 h-2 rounded-full ${state === 'synced' ? 'bg-primary' : state === 'offline' ? 'bg-outline' : state === 'syncing' ? 'bg-secondary animate-pulse' : state === 'error' ? 'bg-error' : 'bg-secondary'}`} />
         <span className="font-body-md text-[15px] text-on-surface font-medium">{STATE_LABEL[state]}</span>
       </div>
       <div className="font-body-sm text-[12px] text-on-surface-variant">
@@ -108,7 +108,7 @@ export function SyncStatusCard() {
       <button
         onClick={syncNow}
         disabled={syncing}
-        className="w-full py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface disabled:opacity-50 min-h-[44px]"
+        className="w-full py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface disabled:opacity-50 min-h-[48px]"
       >
         {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
       </button>

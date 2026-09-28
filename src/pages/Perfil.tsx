@@ -16,9 +16,9 @@ import { todayKey } from '@/utils/dates'
 const GOAL_MAP: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   hypertrophy: { label: 'Hipertrofia', icon: <IconDumbbell className="w-5 h-5" />, color: 'bg-primary-container/30 border-primary/40 text-primary' },
   strength: { label: 'Fuerza', icon: <IconFire className="w-5 h-5" />, color: 'bg-secondary-container/30 border-secondary/40 text-secondary' },
-  fat_loss: { label: 'Pérdida de grasa', icon: <IconLightning className="w-5 h-5" />, color: 'bg-orange-900/30 border-orange-500/40 text-orange-400' },
-  mobility: { label: 'Movilidad', icon: <IconBody className="w-5 h-5" />, color: 'bg-purple-900/30 border-purple-500/40 text-purple-400' },
-  general_health: { label: 'Salud general', icon: <IconHeart className="w-5 h-5" />, color: 'bg-red-900/30 border-red-500/40 text-red-400' },
+  fat_loss: { label: 'Pérdida de grasa', icon: <IconLightning className="w-5 h-5" />, color: 'bg-tertiary-container/30 border-tertiary/40 text-tertiary' },
+  mobility: { label: 'Movilidad', icon: <IconBody className="w-5 h-5" />, color: 'bg-surface-container-high/70 border-outline-variant text-on-surface-variant' },
+  general_health: { label: 'Salud general', icon: <IconHeart className="w-5 h-5" />, color: 'bg-error-container/30 border-error/40 text-error' },
 }
 
 const NOTIF_TYPES: { kind: NotifKind | 'custom'; label: string; icon: React.ReactNode }[] = [

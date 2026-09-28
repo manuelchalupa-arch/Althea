@@ -20,6 +20,11 @@ export type DayEx = {
   exId: string
   restSec?: number
   seriesType?: string
+  tempo?: string
+  rir?: number
+  rpe?: number
+  notes?: string
+  routineExerciseId?: string
 }
 
 /** Plan por serie de un ejercicio del día: si no existe, se expande el escalar. */
@@ -57,6 +62,8 @@ export async function getDayExercises(dayN:number | null, cycle: CycleConfig): P
           series: it.series?.length ? it.series : undefined,
           muscle: ex?.groupMain || it.muscle, gifUrl: it.gifUrl, imageDataUrl: undefined,
           restSec: it.restSec, seriesType: it.seriesType,
+          tempo: it.tempo, rir: it.rir, rpe: it.rpe, notes: it.notes,
+          routineExerciseId: it.routineExerciseId ?? it.id,
         })
       }
       return results

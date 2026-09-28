@@ -42,7 +42,7 @@ export default function Inicio(){
   const { dayName, dayNum, month } = formatAgendaDate(todayStr)
   const [cycle, setCycle] = useState(getCycleFromProfile(null))
   const [userName, setUserName] = useState('')
-  const [exNames, setExNames] = useState<{id:string; name:string; sets:number; reps:number; weight:number|null; restSec?:number; muscle?:string}[]>([])
+  const [exNames, setExNames] = useState<{id:string; name:string; sets:number; reps:number; weight:number|null; restSec?:number; rpe?:number; muscle?:string}[]>([])
   const [addingWater, setAddingWater] = useState(false)
   const [waterVersion, setWaterVersion] = useState(0)
   const [routineReview, setRoutineReview] = useState<{ days: number; limit: number; reviewKey?: string; daysLeft?: number } | null>(null)
@@ -55,7 +55,7 @@ export default function Inicio(){
   const [changeComment, setChangeComment] = useState('')
   const [overrideDay, setOverrideDay] = useState<number|null>(null)
   const [weekOffset, setWeekOffset] = useState(0)
-  const [dayStatus, setDayStatus] = useState<Record<string,{planned:boolean; dayN:number|null; dayName:string|null; sessionStatus:string|null; overridden:boolean; volume?:number; rpe?:number}>>({})
+  const [dayStatus, setDayStatus] = useState<Record<string,{planned:boolean; dayN:number|null; dayName:string|null; sessionStatus:string|null; overridden:boolean; volume?:number; rating?:number|null}>>({})
   const todayCompleted = dayStatus[todayStr]?.sessionStatus === 'COMPLETED'
   const [selectedDate, setSelectedDate] = useState<string>(todayStr)
   const [previewList, setPreviewList] = useState<{id:string;name:string;sets:number;reps:number;weight:number|null;restSec?:number;seriesType?:string;muscle?:string}[]>([])
@@ -68,7 +68,7 @@ export default function Inicio(){
   const loadDay = async (cycleToUse:any, dayN:number | null)=>{
     const { getDayExercises } = await import('@/utils/routine')
     const list = await getDayExercises(dayN, cycleToUse)
-    setExNames(list.map(x=> ({id:x.exId, name:x.name, sets:x.sets, reps:x.reps, weight:x.weight, restSec:x.restSec, muscle:x.muscle})))
+    setExNames(list.map(x=> ({id:x.exId, name:x.name, sets:x.sets, reps:x.reps, weight:x.weight, restSec:x.restSec, rpe:x.rpe, muscle:x.muscle})))
   }
 
   const saveExerciseEdit = async (idx:number)=>{
@@ -121,6 +121,10 @@ export default function Inicio(){
         if(!prev || String(s.updatedAt||'') > String(prev.updatedAt||'')) {byDate[k] = s}
       }
       const overrides = await Promise.all(weekKeys.map(k => getOverrideDay(k)))
+      // Valoración real de la sesión (encuesta post-entreno), por fecha.
+      const surveys = await db.postWorkoutSurveys.toArray().catch(()=>[]) as Array<{calendarDate?: string; sessionRating?: number}>
+      const ratingByDate: Record<string, number> = {}
+      for(const sv of surveys){ if(sv.calendarDate && typeof sv.sessionRating === 'number'){ ratingByDate[sv.calendarDate] = sv.sessionRating } }
       const map: typeof dayStatus = {}
       for(let i = 0; i < weekKeys.length; i++){
         const iso = weekKeys[i]
@@ -134,7 +138,7 @@ export default function Inicio(){
           sessionStatus: sess?.sessionStatus || null,
           overridden: overrides[i] != null,
           volume: sess?.totalVolume || undefined,
-          rpe: sess?.avgRPE || undefined,
+          rating: ratingByDate[iso] ?? null,
         }
       }
       setDayStatus(map)
@@ -245,6 +249,9 @@ export default function Inicio(){
   const startOrContinueTraining = async ()=>{
     try{
       if(hasActiveSession){ nav('/entrenar'); return }
+      // Día ya completado: nunca se crea una segunda sesión para la misma fecha
+      // (el resultado queda en Progreso/Calendario; Entrenar no se ofrece).
+      if(todayCompleted){ return }
       const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
       const rawList = await getAllRoutines()
       const activeId = await getActiveRoutineId()
@@ -266,7 +273,8 @@ export default function Inicio(){
         plannedDayName: rawAgenda.name ?? null,
         actualDay: n ?? null,
         actualDayName: agenda.name ?? null,
-        exercises: list.map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl, plannedSets: x.series?.length ? x.series.map((s:any, k:number)=>({ order: k+1, reps: s.reps, weight: s.weight ?? null })) : undefined })),
+        exercises: list.map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl, routineExerciseId: x.routineExerciseId, restSec: x.restSec, seriesType: x.seriesType, tempo: x.tempo, rir: x.rir, rpe: x.rpe, notes: x.notes, plannedSets: x.series?.length ? x.series.map((s:any, k:number)=>({ order: k+1, reps: s.reps, weight: s.weight ?? null })) : undefined })),
+        plannedMuscleGroups: [...new Set(list.map((x:any)=> x.muscle).filter((m:any): m is string => typeof m === 'string' && m.length > 0))],
         dayChangeReason: changed?.changeReason || (isOverridden ? 'Cambio de día desde Inicio' : undefined),
         dayChangeComment: changed?.changeComment,
         weekNumber,
@@ -279,7 +287,10 @@ export default function Inicio(){
   const totalCount = Object.values(dayStatus).filter(s=> s.planned).length
   const weekVolume = Object.values(dayStatus).reduce((a,s)=> a + (s.volume||0), 0)
   const maxDayVol = Math.max(1, ...Object.values(dayStatus).map(s=> s.volume||0))
-  const todayRPE = dayStatus[todayStr]?.rpe ?? null
+  // Intensidad media PROYECTADA del día: promedio del RPE planificado en la
+  // rutina (no existe RPE ejecutado en el registro de series).
+  const plannedRpes = exNames.map(e=> e.rpe).filter((v): v is number => typeof v === 'number' && v > 0)
+  const todayRPE = plannedRpes.length > 0 ? plannedRpes.reduce((a,b)=> a + b, 0) / plannedRpes.length : null
 
   return (
     <div className="min-h-screen bg-transparent space-y-3">
@@ -337,7 +348,13 @@ export default function Inicio(){
               <span className="material-symbols-outlined text-outline" style={{ fontSize: 16 }}>swap_horiz</span>
               <span className="font-medium text-body-sm hidden sm:inline">Cambiar día</span>
 </button>
-             {(!isRest || hasActiveSession) && <button onClick={()=>{ startOrContinueTraining() }}
+             {todayCompleted && (
+               <span data-testid="inicio-day-done" className="flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[11px] uppercase font-bold">
+                 <span className="material-symbols-outlined" style={{ fontSize: 17 }}>check_circle</span>
+                 Sesión completada
+               </span>
+             )}
+             {(!isRest || hasActiveSession) && !todayCompleted && <button onClick={()=>{ startOrContinueTraining() }}
                data-testid="inicio-hero-cta"
                aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
                className="btn-primary px-3.5 py-1.5 min-h-[44px]">
@@ -394,7 +411,7 @@ export default function Inicio(){
                     {st?.dayName || (isRestDay ? 'Descanso' : '—')}
                   </p>
                   {st?.volume ? (
-                    <p className={`text-[10px] truncate ${isToday ? 'text-primary' : 'text-on-surface-variant'}`}>{st.volume.toLocaleString()} kg{st.rpe ? ` · RPE ${st.rpe}` : ''}</p>
+                    <p className={`text-[10px] truncate ${isToday ? 'text-primary' : 'text-on-surface-variant'}`}>{st.volume.toLocaleString()} kg{st.rating ? ` · ★ ${st.rating}/5` : ''}</p>
                   ) : isRestDay ? (
                     <p className="text-[10px] text-secondary truncate">Ayuno &amp; Reflexión</p>
                   ) : (
@@ -433,7 +450,13 @@ export default function Inicio(){
                 {isRest ? 'Descanso activo — sauna, movilidad y reflexión' : `${exNames.length} ejercicios · ${exNames.reduce((a,e)=>a+e.sets,0)} series · ${activeMethodName || 'Enfoque hipertrofia clásica'}`}
               </p>
             </div>
-            {(!isRest || hasActiveSession) && (
+            {todayCompleted && (
+              <span data-testid="inicio-start-done" className="self-start sm:self-center flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded bg-primary-container/40 border border-primary/40 text-primary font-label-md text-label-md font-semibold">
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check_circle</span>
+                <span className="uppercase tracking-wider text-[12px] font-semibold">SESIÓN COMPLETADA</span>
+              </span>
+            )}
+            {(!isRest || hasActiveSession) && !todayCompleted && (
             <button onClick={()=>{ startOrContinueTraining() }}
               data-testid="inicio-start-training"
               aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
@@ -538,7 +561,7 @@ export default function Inicio(){
                     <p className="font-headline-sm text-headline-sm text-on-surface font-semibold mt-0.5">{Math.round(exNames.reduce((a,e)=>a+e.sets*(e.reps||8)*(e.weight||0),0)).toLocaleString()} <span className="text-[12px] text-secondary font-normal">kg</span></p>
                   </div>
                   <div className="p-2.5 rounded bg-surface-container border border-outline-variant/20">
-                    <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">INTENSIDAD MEDIA</span>
+                    <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">INTENSIDAD MEDIA (PLAN)</span>
                     <p className="font-headline-sm text-headline-sm text-primary font-semibold mt-0.5">{todayRPE != null && todayRPE > 0 ? todayRPE.toFixed(1) : '—'} <span className="text-[12px] text-on-surface-variant font-normal">/ 10 RPE</span></p>
                   </div>
                   <div className="p-2.5 rounded bg-surface-container border border-outline-variant/20">

@@ -53,6 +53,8 @@ export interface ReportData {
     frecuencia: number // sesiones / días del período
     adherencia?: number // % días entrenados vs días con datos
     rendimiento?: { volumenPorSesion: number }
+    /** Serie temporal diaria (kg×reps por día) del período: sustituye la gráfica de evolución. */
+    serieDiaria?: Array<{ fecha: string; volumen: number; series: number }>
   }
   fuerza?: {
     pesoMax: number
@@ -150,7 +152,7 @@ export async function generateReport(sel: ReportSelection): Promise<ReportData> 
       if ((s as { status?: string }).status !== 'COMPLETED') {return false}
       if ((s as { isDemo?: boolean }).isDemo) {return false}
       return inReportPeriod(d, sel)
-    }) as Array<{ actualWeight: number; actualReps: number; exerciseId: string }>
+    }) as Array<{ actualWeight: number; actualReps: number; exerciseId: string; completedAt?: string; createdAt?: string }>
 
     const volumen = periodSets.reduce((a, s) => a + Number(s.actualWeight || 0) * Number(s.actualReps || 0), 0)
     const series = periodSets.length
@@ -160,6 +162,18 @@ export async function generateReport(sel: ReportSelection): Promise<ReportData> 
     const frecuencia = periodDaysCount ? Math.round((diasEntrenados / periodDaysCount) * 100) / 100 : 0
 
     if (sel.categories.includes('entrenamiento')) {
+      const porDia = new Map<string, { volumen: number; series: number }>()
+      for (const s of periodSets) {
+        const d = toDateKey(s.completedAt ?? s.createdAt ?? '')
+        if (!d) { continue }
+        const cur = porDia.get(d) ?? { volumen: 0, series: 0 }
+        cur.volumen += Number(s.actualWeight || 0) * Number(s.actualReps || 0)
+        cur.series += 1
+        porDia.set(d, cur)
+      }
+      const serieDiaria = [...porDia.entries()]
+        .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+        .map(([fecha, v]) => ({ fecha, volumen: Math.round(v.volumen * 10) / 10, series: v.series }))
       data.entrenamiento = {
         diasEntrenados,
         diasUnicos,
@@ -170,6 +184,7 @@ export async function generateReport(sel: ReportSelection): Promise<ReportData> 
         frecuencia,
         adherencia: periodoAdherencia(diasEntrenados, periodDaysCount),
         rendimiento: { volumenPorSesion: diasEntrenados ? Math.round((volumen / diasEntrenados) * 10) / 10 : 0 },
+        serieDiaria,
       }
       if (diasEntrenados > 0 || volumen > 0) {data.isEmpty = false}
     }

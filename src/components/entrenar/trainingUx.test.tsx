@@ -216,7 +216,7 @@ describe('FASE 1 — Plan precargado por serie, ejecutado separado', () => {
     })
     fireEvent.change(screen.getByLabelText('repeticiones serie 1') as HTMLInputElement, { target: { value: '9' } })
     fireEvent.click(screen.getByLabelText('Confirmar serie 1'))
-    expect(onComplete).toHaveBeenCalledWith(0, 80, 9, undefined, undefined)
+    expect(onComplete).toHaveBeenCalledWith(0, 80, 9, undefined, undefined, undefined)
     // El plan de las demás series sigue intacto
     expect((screen.getByLabelText('repeticiones serie 2') as HTMLInputElement).value).toBe('8')
   })

@@ -129,3 +129,24 @@ export function seriesTypeToSetType(label: string): SetType {
   }
   return map[label.toLowerCase()] || 'NORMAL'
 }
+
+/**
+ * Resuelve el tipo de serie planificado a partir de cualquier texto de la
+ * rutina (label en español, token en mayúsculas o indefinido).
+ * Único punto de conversión rutina → SetType: no duplicar el mapa.
+ */
+export function resolveSetType(seriesType?: string | null): SetType {
+  if (!seriesType) { return 'NORMAL' }
+  const t = seriesType.toUpperCase().replace(/\s+/g, '_')
+  const known: Record<string, SetType> = {
+    NORMAL: 'NORMAL',
+    ASCENDING: 'ASCENDING', ASCENDENTE: 'ASCENDING',
+    DESCENDING: 'DESCENDING', DESCENDENTE: 'DESCENDING',
+    PYRAMID_ASCENDING: 'PYRAMID_ASCENDING', PIRAMID_ASCENDING: 'PYRAMID_ASCENDING', PIRAMIDE_ASCENDENTE: 'PYRAMID_ASCENDING',
+    PYRAMID_DESCENDING: 'PYRAMID_DESCENDING', PIRAMID_DESCENDING: 'PYRAMID_DESCENDING', PIRAMIDAL: 'PYRAMID_DESCENDING',
+    PYRAMID_FULL: 'PYRAMID_FULL', PIRAMID_FULL: 'PYRAMID_FULL', PIRAMIDAL_FULL: 'PYRAMID_FULL',
+    DROPSET: 'DROP_SET', DROP_SET: 'DROP_SET',
+    CUSTOM: 'CUSTOM', OTRA: 'CUSTOM',
+  }
+  return known[t] ?? seriesTypeToSetType(seriesType)
+}

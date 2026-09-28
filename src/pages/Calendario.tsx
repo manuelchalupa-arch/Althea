@@ -30,7 +30,7 @@ export default function Calendario(){
   const [view,setView]=useState<{y:number; m:number}>(()=>({ y: now.getFullYear(), m: now.getMonth() }))
   const { y, m } = view
   const [map,setMap]=useState<Record<string,number>>({})
-  const [detail,setDetail]=useState<{date:string; scheduled:string; actual:string; changed:boolean; sessions:any[]; hydration:number; recovery:any; meals?:number; calories?:number} | null>(null)
+  const [detail,setDetail]=useState<{date:string; scheduled:string; actual:string; changed:boolean; sessions:any[]; hydration:number; recovery:any; meals?:number; calories?:number; macros?:{proteins:number; carbs:number; fats:number}} | null>(null)
   const [cycle,setCycle]=useState<CycleConfig | null>(null)
   const [monthOverrides,setMonthOverrides]=useState<Record<string,boolean>>({})
   const [showCheckin,setShowCheckin]=useState(false)
@@ -155,7 +155,14 @@ export default function Calendario(){
     const rec = await db.recoveryChecks.get(key).catch(()=>null)
     const diary = await db.nutritionDiary.where('date').equals(key).toArray().catch(() => [])
     const dayCalories = diary.reduce((a, e) => a + Number((e as { macros?: { calories?: number } }).macros?.calories || 0), 0)
-    setDetail({date:key, scheduled, actual, changed, sessions: detailed, hydration: hyd, recovery: rec, meals: diary.length, calories: Math.round(dayCalories), load} as never)
+    // Macros reales del día (suma de comidas registradas; sin dato = 0, sin inventar).
+    let proteins = 0, carbs = 0, fats = 0
+    for(const e of diary){
+      const mc = (e as { macros?: { proteins?: number; carbs?: number; fats?: number } }).macros
+      proteins += Number(mc?.proteins || 0); carbs += Number(mc?.carbs || 0); fats += Number(mc?.fats || 0)
+    }
+    setDetail({date:key, scheduled, actual, changed, sessions: detailed, hydration: hyd, recovery: rec, meals: diary.length, calories: Math.round(dayCalories), load,
+      macros: { proteins: Math.round(proteins), carbs: Math.round(carbs), fats: Math.round(fats) }} as never)
   }
 
   const dim = daysInMonth(y,m)
@@ -270,8 +277,8 @@ export default function Calendario(){
             <h3 className="font-headline-lg text-base font-semibold text-on-surface">{detail.date} — {detail.actual}</h3>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Programado: {detail.scheduled} {detail.changed && `→ Realizado: ${detail.actual} (cambiado)`}</p>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-2">Carga: <span className={`px-2 py-0.5 rounded-full border text-[9px] font-semibold ${LOAD_STATE_COLOR[(detail as { load?: string }).load as LoadState] ?? LOAD_STATE_COLOR.NORMAL}`}>{LOAD_STATE_LABEL[(detail as { load?: string }).load as LoadState] ?? (detail as { load?: string }).load}</span></p>
-            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sesiones: {detail.sessions.length} · Hidratación: {detail.hydration} ml · Recuperación: {typeof detail.recovery?.score === 'number' ? `${detail.recovery.score}/100` : 'Sin datos'}</p>
-            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Comidas: {detail.meals ?? 0}{detail.calories ? ` · ${detail.calories} kcal` : ''} · Sueño: {typeof detail.recovery?.sleepHours === 'number' ? `${detail.recovery.sleepHours}h (calidad ${detail.recovery.sleepQuality ?? '—'}/10)` : 'Sin datos'}</p>
+            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sesiones: {detail.sessions.length}{detail.sessions.length === 0 && detail.actual !== 'Descanso' ? ' · Sesión pendiente de registrar' : ''} · Hidratación: {detail.hydration > 0 ? `${detail.hydration} ml` : 'Sin datos'} · Recuperación: {typeof detail.recovery?.score === 'number' ? `${detail.recovery.score}/100` : 'Sin datos'}</p>
+            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Comidas: {detail.meals ?? 0}{detail.calories ? ` · ${detail.calories} kcal` : ' · Sin comidas registradas'}{detail.macros ? ` · P ${detail.macros.proteins}g · C ${detail.macros.carbs}g · G ${detail.macros.fats}g` : ''} · Sueño: {typeof detail.recovery?.sleepHours === 'number' ? `${detail.recovery.sleepHours}h (calidad ${detail.recovery.sleepQuality ?? '—'}/10)` : 'Sin datos'}</p>
             {detail.sessions.length>0 && (
               <AltheaCard className="space-y-2">
                 <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Ejercicios registrados</p>
@@ -290,6 +297,14 @@ export default function Calendario(){
                   </div>
                 ) })}
               </AltheaCard>
+            )}
+            {detail.sessions.length===0 && (
+              <div className="rounded-lg border border-outline-variant/40 bg-surface-container/60 p-3">
+                <p className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">Sin sesiones registradas este día</p>
+                <p className="font-body-sm text-[12px] text-on-surface-variant mt-1">
+                  {detail.actual !== 'Descanso' ? `Programado como «${detail.actual}»: todavía no se registró.` : 'Día de descanso.'}
+                </p>
+              </div>
             )}
             <AltheaButton fullWidth size="lg" onClick={()=>setDetail(null)} className="min-h-[48px]">Cerrar</AltheaButton>
           </div>

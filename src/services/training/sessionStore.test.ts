@@ -331,11 +331,8 @@ describe('US2 — T017/T018 Integridad (doble click, historial, offline)', () =>
 
   it('7. Ejercicio excluido nunca aparece como variante (isExerciseCompatible)', async () => {
     const { isExerciseCompatible } = await import('@/services/ai/variantService')
-    const { fetchAll } = await import('@/services/exerciseGym')
 
-    const exercises = (await fetchAll()).exercises
-    const press = exercises.find(e => e.id === 'press') || exercises[0]
-    
+    const press = { id: 'press', equipment: 'barbell', muscle: 'chest', movementPattern: 'push' }
     const userProfile = {
       id: 'test-user',
       goal: 'fuerza' as const,

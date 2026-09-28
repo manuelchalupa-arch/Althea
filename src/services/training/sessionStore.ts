@@ -10,6 +10,7 @@ import {
   type NegativeSet, type ExerciseObservation, type ExerciseReplacement,
   type SessionEvent, type SessionEventType, type PostWorkoutSurvey,
 } from './domain';
+import { resolveSetType } from './setPlanner';
 
 const ACTIVE_ID_KEY = 'althea:session:activeId';
 const USER_ID = 'me';
@@ -73,6 +74,9 @@ export async function logEvent(
 export interface PlannedExerciseInput {
   exId: string; name: string; sets: number; reps: number; weight: number | null;
   muscle?: string; gifUrl?: string; routineExerciseId?: string;
+  /** Objetivos de planificación que vienen desde la rutina. */
+  restSec?: number; seriesType?: string; tempo?: string;
+  rir?: number; rpe?: number; notes?: string;
   plannedSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
 }
 
@@ -113,8 +117,8 @@ export async function createSession(input: {
     // Plan POR SERIE: cada serie conserva su propio reps/weight. El escalar
     // (p.reps/p.weight) solo se usa como fallback para rutinas antiguas.
     const plan: PlannedSetSnapshot[] = (p.plannedSets && p.plannedSets.length > 0)
-      ? p.plannedSets.map((s, k) => ({ order: s.order ?? k + 1, reps: s.reps, weight: s.weight ?? null, setType: s.setType ?? 'NORMAL' }))
-      : Array.from({ length: p.sets }, (_, k) => ({ order: k + 1, reps: p.reps, weight: p.weight ?? null, setType: 'NORMAL' as SetType }));
+      ? p.plannedSets.map((s, k) => ({ order: s.order ?? k + 1, reps: s.reps, weight: s.weight ?? null, setType: s.setType ?? resolveSetType(p.seriesType) }))
+      : Array.from({ length: p.sets }, (_, k) => ({ order: k + 1, reps: p.reps, weight: p.weight ?? null, setType: resolveSetType(p.seriesType) as SetType }));
     const se: SessionExercise = {
       sessionExerciseId: uuid(), sessionId, exerciseId: p.exId,
       exerciseName: p.name,
@@ -122,6 +126,12 @@ export async function createSession(input: {
       planned: true, completed: false, status: 'PENDING',
       plannedSetCount: plan.length, actualSetCount: 0,
       plannedSets: plan,
+      restSec: p.restSec,
+      seriesType: resolveSetType(p.seriesType),
+      tempo: p.tempo,
+      targetRir: p.rir,
+      targetRpe: p.rpe,
+      notes: p.notes,
       createdAt: now, updatedAt: now,
     };
     await db.sessionExercises.put(se);
@@ -268,6 +278,7 @@ export async function getSetRecords(sessionExerciseId: string): Promise<SetRecor
 export async function confirmSetRecord(input: {
   sessionId: string; sessionExerciseId: string; exerciseId: string; order: number;
   actualReps: number; actualWeight: number | null; setType?: SetType; observation?: string;
+  actualLoadText?: string;
 }): Promise<SetRecord> {
   const now = new Date().toISOString();
   const id = setRecordIdFor(input.sessionExerciseId, input.order);
@@ -278,6 +289,10 @@ export async function confirmSetRecord(input: {
     plannedReps: prev?.plannedReps ?? input.actualReps, plannedWeight: prev?.plannedWeight ?? input.actualWeight ?? null,
     actualReps: input.actualReps, actualWeight: input.actualWeight ?? null,
     status: 'COMPLETED', observation: input.observation ?? prev?.observation,
+    // Preservación del original: se conserva SOLO si sigue correspondiendo al
+    // peso guardado; si el número cambió sin unidad tipeada, queda obsoleto.
+    actualLoadText: input.actualLoadText
+      ?? (prev?.actualLoadText && prev.actualWeight === (input.actualWeight ?? null) ? prev.actualLoadText : undefined),
     completedAt: now, createdAt: prev?.createdAt ?? now, updatedAt: now,
   };
   await db.setRecords.put(rec);
@@ -293,6 +308,19 @@ export async function skipSetRecord(sessionExerciseId: string, order: number, ob
   await db.setRecords.put({ ...prev, status: 'SKIPPED' as SetRecordStatus, observation: observation ?? prev.observation, updatedAt: now });
   await logEvent(prev.sessionId, 'SET_SKIPPED', { metadata: { sessionExerciseId, order } });
   await refreshSessionExerciseProgress(sessionExerciseId);
+}
+
+// Al reducir el plan de series, elimina los SetRecord PENDING que quedaron
+// fuera del plan nuevo. Solo PENDING: nunca se borra un registro COMPLETED
+// ni SKIPPED (son historial real). Sin esto, refreshSessionExerciseProgress
+// exige que todo esté COMPLETED y el ejercicio queda eternamente PARTIAL.
+export async function prunePendingSetRecords(sessionExerciseId: string, keepOrders: number[]): Promise<void> {
+  const rows = await getSetRecords(sessionExerciseId);
+  for (const r of rows) {
+    if (r.status === 'PENDING' && !keepOrders.includes(r.order)) {
+      await db.setRecords.delete(r.setRecordId);
+    }
+  }
 }
 
 // Agrega serie extra (actualSets): crea SetRecord con orden = max+1.
@@ -436,6 +464,9 @@ export interface ActiveSession {
   exercises: Array<{
     exId: string; name: string; sets: number; reps: number; weight: number | null;
     muscle?: string; gifUrl?: string; imageDataUrl?: string;
+    routineExerciseId?: string;
+    restSec?: number; seriesType?: string; tempo?: string;
+    rir?: number; rpe?: number; notes?: string;
     /** Plan por serie (reps/weight propios de cada serie) si la rutina lo define. */
     plannedSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
   }>;
@@ -463,14 +494,16 @@ function toActive(s: TrainingSession, exercises: ActiveSession['exercises'] = []
 }
 
 async function exercisesOf(sessionId: string): Promise<ActiveSession['exercises']> {
-  const rows = await db.sessionExercises.where('sessionId').equals(sessionId).toArray().catch(() => []) as Array<Record<string, unknown>>;
-  return (rows as Array<{ exerciseId: string; plannedSets: Array<{ order: number; reps: number; weight: number }>; status?: string }>)
-    .sort((a, b) => (a as unknown as { order: number }).order - (b as unknown as { order: number }).order)
+  const rows = await db.sessionExercises.where('sessionId').equals(sessionId).toArray().catch(() => []) as SessionExercise[];
+  return rows
+    .sort((a, b) => a.order - b.order)
     .map((r) => ({
-      exId: r.exerciseId, name: r.exerciseId,
+      exId: r.exerciseId, name: r.exerciseName ?? r.exerciseId,
       sets: r.plannedSets?.length ?? 0,
-      reps: r.plannedSets?.[0]?.reps ?? 0, weight: Number(r.plannedSets?.[0]?.weight ?? 0),
-      plannedSets: (r.plannedSets ?? []).map((s) => ({ order: s.order, reps: s.reps, weight: s.weight ?? null })),
+      reps: r.plannedSets?.[0]?.reps ?? 0, weight: r.plannedSets?.[0]?.weight ?? null,
+      restSec: r.restSec, seriesType: r.seriesType, tempo: r.tempo,
+      rir: r.targetRir, rpe: r.targetRpe, notes: r.notes,
+      plannedSets: (r.plannedSets ?? []).map((s) => ({ order: s.order, reps: s.reps, weight: s.weight ?? null, setType: s.setType })),
     }));
 }
 
@@ -503,6 +536,7 @@ export async function createReadySession(input: {
   plannedDay: number | null; plannedDayName: string | null;
   actualDay: number | null; actualDayName: string | null;
   exercises: ActiveSession['exercises'];
+  plannedMuscleGroups?: string[];
   dayChangeReason?: string; dayChangeComment?: string;
   cycleId?: string; weekNumber?: number;
 }): Promise<ActiveSession> {
@@ -520,6 +554,7 @@ export async function createReadySession(input: {
     plannedDay: input.plannedDay, plannedDayName: input.plannedDayName,
     actualDay: input.actualDay, actualDayName: input.actualDayName,
     calendarDate: input.calendarDate, cycleId, weekNumber: input.weekNumber,
+    plannedMuscleGroups: input.plannedMuscleGroups,
     dayChange: input.dayChangeReason ? { reason: input.dayChangeReason, comment: input.dayChangeComment } : undefined,
     plannedExercises: input.exercises,
   });
@@ -530,7 +565,7 @@ export async function createReadySession(input: {
     cycleId: created.cycleId, weekNumber: created.weekNumber,
     plannedDay: created.plannedDay, plannedDayName: created.plannedDayName ?? null,
     actualDay: created.actualDay, actualDayName: created.actualDayName ?? null,
-    plannedMuscleGroups: [], actualMuscleGroups: [],
+    plannedMuscleGroups: created.plannedMuscleGroups ?? [], actualMuscleGroups: [],
     exercises: input.exercises, sessionStatus: created.sessionStatus,
     statusHistory: [{ status: 'PLANNED', at: created.createdAt }, { status: 'READY', at: now }],
     dayChangeReason: input.dayChangeReason, dayChangeComment: input.dayChangeComment,

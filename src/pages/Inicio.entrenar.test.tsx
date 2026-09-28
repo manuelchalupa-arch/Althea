@@ -71,4 +71,33 @@ describe('Entrenar visibilidad según estado de sesión', () => {
     }, { timeout: 8000 })
     expect(screen.queryByText('LANZAR SESION')).not.toBeInTheDocument()
   })
+
+  it('día completado → no se ofrece COMENZAR ni se crea otra sesión', async () => {
+    const today = todayKey()
+    const created = await createReadySession({
+      calendarDate: today,
+      routineId: 'r1',
+      routineName: 'Rutina',
+      plannedDay: 1,
+      plannedDayName: 'Pecho',
+      actualDay: 1,
+      actualDayName: 'Pecho',
+      exercises: [{ exId: 'press', name: 'Press', sets: 1, reps: 8, weight: 80 }],
+    })
+    await transitionSession(created.sessionId, 'IN_PROGRESS')
+    await transitionSession(created.sessionId, 'COMPLETING')
+    await transitionSession(created.sessionId, 'COMPLETED')
+
+    renderInicio()
+    await waitFor(() => {
+      expect(screen.getByText(/¡Hola!/)).toBeInTheDocument()
+    }, { timeout: 8000 })
+    // Ni el CTA del hero ni el de la tarjeta principal aparecen
+    await waitFor(() => {
+      expect(screen.queryByTestId('inicio-start-training')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('inicio-hero-cta')).not.toBeInTheDocument()
+      expect(screen.getByTestId('inicio-start-done')).toBeInTheDocument()
+    }, { timeout: 8000 })
+    expect(screen.queryByRole('button', { name: /Comenzar entrenamiento/i })).not.toBeInTheDocument()
+  })
 })

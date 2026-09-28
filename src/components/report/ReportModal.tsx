@@ -213,6 +213,14 @@ className="w-full mt-1 bg-surface-container border border-outline-variant rounde
                         <span>adherencia: <strong>{report.entrenamiento.adherencia ?? '—'}%</strong></span>
                         <span>rendimiento: <strong>{report.entrenamiento.rendimiento?.volumenPorSesion.toLocaleString()} kg/sesión</strong></span>
                       </div>
+                      {report.entrenamiento.serieDiaria && report.entrenamiento.serieDiaria.length > 0 && (
+                        <div className="text-on-surface-variant">
+                          volumen diario: {report.entrenamiento.serieDiaria.slice(-7)
+                            .map(d => `${d.fecha.slice(5).replace('-', '/')} ${Math.round(d.volumen)} kg`)
+                            .join(' · ')}
+                          {report.entrenamiento.serieDiaria.length > 7 ? ` · +${report.entrenamiento.serieDiaria.length - 7} días en el PDF` : ''}
+                        </div>
+                      )}
                     </section>
                   )}
                   {report.fuerza && (

@@ -39,7 +39,7 @@ type RutinaDayExercise = {
   weight:number | null;
   /** Plan POR SERIE: fuente de verdad cuando existe. */
   series?: RutinaSeriesPlan[]
-  gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string; restSec?:number; seriesType?:string; routineExerciseId?:string
+  gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string; restSec?:number; seriesType?:string; tempo?:string; rir?:number; rpe?:number; notes?:string; routineExerciseId?:string
 }
 type RutinaData = {
   id: string
@@ -467,6 +467,50 @@ export default function RutinaPage(){
                           })}
                         </div>
                       </div>
+                      {/* Descanso y objetivos del ejercicio: viajan a la sesión (FASE cadena de datos) */}
+                      <div className="mt-3 border-t border-outline-variant/40 pt-2">
+                        <span className="font-label-caps text-[10px] uppercase tracking-wider text-outline">Descanso y objetivos</span>
+                        <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Descanso (s)
+                            <input type="number" value={it.restSec ?? ''} onChange={e=>{
+                              const v = e.target.value === '' ? undefined : Math.max(0, Number(e.target.value))
+                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], restSec: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
+                            }} aria-label={`Descanso en segundos de ${ex?.name || it.name || it.exId}`} placeholder="90" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant" inputMode="numeric"/>
+                          </label>
+                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Tipo de serie
+                            <select value={it.seriesType || 'Normal'} onChange={e=>{
+                              const v = e.target.value
+                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], seriesType: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
+                            }} aria-label={`Tipo de serie de ${ex?.name || it.name || it.exId}`} className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant">
+                              <option>Normal</option><option>Ascendente</option><option>Descendente</option><option>Piramidal</option><option>DropSet</option><option>Otra</option>
+                            </select>
+                          </label>
+                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Tempo
+                            <input type="text" value={it.tempo ?? ''} onChange={e=>{
+                              const v = e.target.value.trim() || undefined
+                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], tempo: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
+                            }} aria-label={`Tempo de ${ex?.name || it.name || it.exId}`} placeholder="3-1-1" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant"/>
+                          </label>
+                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">RIR
+                            <input type="number" value={it.rir ?? ''} onChange={e=>{
+                              const v = e.target.value === '' ? undefined : Number(e.target.value)
+                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], rir: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
+                            }} aria-label={`RIR de ${ex?.name || it.name || it.exId}`} placeholder="—" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant" inputMode="numeric"/>
+                          </label>
+                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">RPE
+                            <input type="number" value={it.rpe ?? ''} onChange={e=>{
+                              const v = e.target.value === '' ? undefined : Number(e.target.value)
+                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], rpe: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
+                            }} aria-label={`RPE de ${ex?.name || it.name || it.exId}`} placeholder="—" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant" inputMode="numeric"/>
+                          </label>
+                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Notas
+                            <input type="text" value={it.notes ?? ''} onChange={e=>{
+                              const v = e.target.value.trim() || undefined
+                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], notes: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
+                            }} aria-label={`Notas de ${ex?.name || it.name || it.exId}`} placeholder="—" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant"/>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   )
                 })}
@@ -620,7 +664,7 @@ export default function RutinaPage(){
                 const next=[...routines,data]; setRoutines(next); setActiveId(data.id); saveRoutines(next,data.id); setNewName(''); setShowNew(false); setNewReviewDate(addDaysToKey(todayKey(),30))
               }}>Crear rutina</AltheaButton>
             </div>
-            {routines.length>=MAX_ROUTINES && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-amber-300">Tenés {MAX_ROUTINES} rutinas guardadas. Para crear otra, eliminá una.</p>}
+            {routines.length>=MAX_ROUTINES && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-error">Tenés {MAX_ROUTINES} rutinas guardadas. Para crear otra, eliminá una.</p>}
           </div>
         </div>
       )}
@@ -663,13 +707,13 @@ export default function RutinaPage(){
       {aiLoading && !aiPreview && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md p-6 space-y-4 text-center">
-            <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-amber-600 to-orange-500 flex items-center justify-center">
-              <Sparkles size={32} className="text-white animate-pulse"/>
+            <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+              <Sparkles size={32} className="text-on-primary animate-pulse"/>
             </div>
             <h3 className="font-headline-lg text-base font-semibold text-on-surface">Coach IA está pensando…</h3>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Analizando tu perfil, historial y estilo de coaching para generar una rutina personalizada.</p>
             <div className="w-full bg-surface rounded-full h-2 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-amber-600 to-orange-500 rounded-full animate-pulse" style={{width:'60%'}}/>
+              <div className="h-full bg-gradient-to-r from-primary to-secondary rounded-full animate-pulse" style={{width:'60%'}}/>
             </div>
           </div>
         </div>
@@ -872,7 +916,7 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
           </div>
         )}
         {loading && <AltheaLoading lines={3} />}
-        {err && !loading && sorted.length===0 && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-amber-300 text-center py-4 whitespace-pre-line">{err}</p>}
+        {err && !loading && sorted.length===0 && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-error text-center py-4 whitespace-pre-line">{err}</p>}
         {!loading && sorted.length===0 && !err && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center py-4">Sin ejercicios para este filtro. Probá otro equipamiento o búsqueda.</p>}
         <div className="grid grid-cols-1 gap-3 max-h-[45vh] overflow-auto pr-1">
           {sorted.slice(0,60).map(ex=>{
@@ -975,7 +1019,7 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
         {/* Header */}
         <div className="sticky top-0 bg-surface/80 backdrop-blur-md border-b border-outline-variant p-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-orange-500 flex items-center justify-center"><Sparkles size={16} className="text-white"/></div>
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center"><Sparkles size={16} className="text-on-primary"/></div>
             <div>
               <div className="font-headline-lg text-base font-semibold text-on-surface">Rutina generada por IA</div>
               <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{method?.nameEs || routine.cycle.methodId} · {routine.cycle.trainingDays.length} días</div>
@@ -1126,7 +1170,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
         {/* Header */}
         <div className="sticky top-0 bg-surface/80 backdrop-blur-md border-b border-outline-variant p-4 flex items-center justify-between z-10">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-orange-500 flex items-center justify-center"><Sparkles size={16} className="text-white"/></div>
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center"><Sparkles size={16} className="text-on-primary"/></div>
             <div>
               <div className="font-headline-lg text-base font-semibold text-on-surface">Crear rutina con IA</div>
               <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Paso {step+1} de 4</div>
@@ -1136,7 +1180,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
         </div>
 
         {/* Progress bar */}
-        <div className="h-1 bg-surface"><div className="h-full bg-gradient-to-r from-amber-600 to-orange-500 transition-all" style={{width:`${((step+1)/4)*100}%`}}/></div>
+        <div className="h-1 bg-surface"><div className="h-full bg-gradient-to-r from-primary to-secondary transition-all" style={{width:`${((step+1)/4)*100}%`}}/></div>
 
         {/* Step 0: Goal */}
         {step===0 && (
@@ -1217,7 +1261,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
             {step > 0 && <button onClick={()=>setStep(step-1)} className="py-3 px-4 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Atrás</button>}
             <button onClick={onClose} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
             {canNext && <button onClick={()=>setStep(step+1)} className="flex-1 py-3 rounded bg-primary text-on-surface font-medium">Siguiente</button>}
-            {canGenerate && <button onClick={()=>onGenerate({ goal, daysPerWeek: days, focus, injuryNote: injury })} className="flex-1 py-3 rounded bg-gradient-to-r from-amber-600 to-orange-500 text-white font-medium flex items-center justify-center gap-1"><Sparkles size={14}/> Generar rutina</button>}
+            {canGenerate && <button onClick={()=>onGenerate({ goal, daysPerWeek: days, focus, injuryNote: injury })} className="flex-1 py-3 rounded bg-gradient-to-r from-primary to-secondary text-on-primary font-medium flex items-center justify-center gap-1"><Sparkles size={14}/> Generar rutina</button>}
           </div>
         </div>
       </div>

@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { weekdayOfKey } from '@/utils/dates'
+import { ErrorBoundary, EntrenarErrorBoundary, NutricionErrorBoundary, CoachErrorBoundary, ProgresoErrorBoundary } from '@/components/ErrorBoundary'
 
 // Custom hook to safely get offline mode - extracted to avoid calling hook in callback
 function useFirebaseOfflineMode() {
@@ -211,17 +212,17 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
       <Routes>
         <Route path="/login" element={<LazyPage><Login onDone={() => navigate('/', { replace: true })} /></LazyPage>} />
         <Route path="/" element={<LazyPage><Inicio /></LazyPage>} />
-        <Route path="/entrenar" element={<LazyPage><Entrenar /></LazyPage>} />
-        <Route path="/progresos" element={<LazyPage><Progresos /></LazyPage>} />
-        <Route path="/progreso" element={<LazyPage><Progresos /></LazyPage>} />
-        <Route path="/coach" element={<LazyPage><Coach /></LazyPage>} />
+        <Route path="/entrenar" element={<LazyPage><EntrenarErrorBoundary componentName="Entrenar"><Entrenar /></EntrenarErrorBoundary></LazyPage>} />
+        <Route path="/progresos" element={<LazyPage><ProgresoErrorBoundary componentName="Progreso"><Progresos /></ProgresoErrorBoundary></LazyPage>} />
+        <Route path="/progreso" element={<LazyPage><ProgresoErrorBoundary componentName="Progreso"><Progresos /></ProgresoErrorBoundary></LazyPage>} />
+        <Route path="/coach" element={<LazyPage><CoachErrorBoundary componentName="Coach"><Coach /></CoachErrorBoundary></LazyPage>} />
         <Route path="/mas" element={<LazyPage><Mas /></LazyPage>} />
         <Route path="/onboarding" element={<LazyPage><Onboarding /></LazyPage>} />
         <Route path="/biblioteca" element={<LazyPage><Biblioteca /></LazyPage>} />
         <Route path="/rutina" element={<LazyPage><Rutina /></LazyPage>} />
         <Route path="/rutinas" element={<LazyPage><Rutina /></LazyPage>} />
         <Route path="/calendario" element={<LazyPage><Calendario /></LazyPage>} />
-        <Route path="/nutricion" element={<LazyPage><Nutricion /></LazyPage>} />
+        <Route path="/nutricion" element={<LazyPage><NutricionErrorBoundary componentName="Nutricion"><Nutricion /></NutricionErrorBoundary></LazyPage>} />
         <Route path="/recuperacion" element={<LazyPage><Recuperacion /></LazyPage>} />
         <Route path="/perfil" element={<LazyPage><Perfil /></LazyPage>} />
       </Routes>
@@ -254,5 +255,7 @@ export default function App(){
     db.open().then(()=>setReady(true))
   },[])
   if(!ready) {return <div className="p-8 text-center">Cargando…</div>}
-  return <BrowserRouter><Layout/></BrowserRouter>
+  // Boundary global: evita pantalla blanca/negra ante un error de render en
+  // cualquier parte del árbol (los boundaries por página están dentro de Routes).
+  return <ErrorBoundary componentName="App"><BrowserRouter><Layout/></BrowserRouter></ErrorBoundary>
 }

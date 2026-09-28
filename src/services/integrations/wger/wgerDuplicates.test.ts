@@ -5,9 +5,6 @@ import { importWgerSample, listWgerExercises } from './wgerAdapter'
 vi.mock('./wgerClient', () => ({
   fetchExerciseList: vi.fn(),
   fetchExerciseInfo: vi.fn(),
-  fetchMuscles: vi.fn(),
-  fetchEquipment: vi.fn(),
-  fetchCategories: vi.fn(),
 }))
 
 // Mock de Dexie

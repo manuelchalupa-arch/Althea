@@ -6,3 +6,5 @@ export * from './wgerTypes'
 export * from './wgerClient'
 export * from './wgerMapper'
 export * from './wgerAdapter'
+// Comparación de fuentes y decisión documentada (Wger vs ExerciseGymGifsDB).
+export * from './wgerComparison'

@@ -20,6 +20,13 @@ export type RoutineDayExercise = {
   muscle?: string
   restSec?: number
   seriesType?: string
+  /** Tempo planificado (texto, ej. "3-1-1"). */
+  tempo?: string
+  /** RIR / RPE objetivo planificados. */
+  rir?: number
+  rpe?: number
+  /** Notas del ejercicio en la rutina. */
+  notes?: string
   routineExerciseId?: string
 }
 

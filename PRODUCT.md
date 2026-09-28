@@ -24,7 +24,7 @@ Mecanismo diferencial: **PWA offline-first local-first con Dexie como fuente de 
 - Rituales: check-in recuperación diario, registro botellas por fecha, planificación semanal con estados NORMAL/SOBRECARGA/CARGA_REDUCIDA/CARGA_CERO
 
 ## Capabilities and Constraints
-**Capacidades confirmadas:** Rutinas con días/ejercicios/series/peso/reps; `TrainingSession` máquina estados `PLANNED→COMPLETED/PARTIAL` versionada; `unifiedAllCompletedSets` deduplicado; PR/1RM Epley; `muscleLoadOf/partVolumeOf`; periodización `cycleVersions`; notificaciones `unifiedNotifConfigs` con `requiredAction` pending/completed; hidratación botellas; macros con `macroStatus`; informe `generateReport(period, categorías)` client-side; calendario ficha `Fecha→Estado→Entrenamiento→Nutrición→Recuperación→Progreso`; Dexie v20, `routineStore`, `sessionStore`, `diaryStore`.
+**Capacidades confirmadas:** Rutinas con días/ejercicios/series/peso/reps; `TrainingSession` máquina estados `PLANNED→COMPLETED/PARTIAL` versionada; `unifiedAllCompletedSets` deduplicado; PR/1RM Epley; `muscleLoadOf/partVolumeOf`; periodización `cycleVersions`; notificaciones `unifiedNotifConfigs` con `requiredAction` pending/completed; hidratación botellas; macros con `macroStatus`; informe `generateReport(period, categorías)` client-side con `serieDiaria` (volumen por día) y secciones seleccionables; calendario ficha `Fecha→Estado→Entrenamiento→Nutrición→Recuperación→Progreso`; Dexie v20, `routineStore`, `sessionStore`, `diaryStore`; catálogo Wger sincronizable desde Biblioteca (`syncWger`, comparación `wgerComparison`, `DECISION=MANTENER_AMBAS`); carga en KG/LB con kg canónico y unidad original preservada (`loadModel`, `actualLoadText`); ErrorBoundary global y por página.
 
 **Restricciones duraderas:** Preservar gama cromática Althea (mármol/blanco roto/grises cálidos/grafito/dorado-bronce + acentos verde/azul suaves, sin neón/violeta), tipografía Cormorant Garamond (marca) + Inter (datos), no inventar datos, `Dexie → Servicios → Cálculos → UI` (nunca `UI → números escritos`), no segunda fuente de verdad, no tocar lógica sesiones/estados/historial/PR/periodización/Coach memoria/sync/migraciones, no borrar tablas Dexie, no modificar Firebase/auth innecesariamente, rutas `/`, `/entrenar`, `/progreso`, `/calendario`, `/nutricion`, `/recuperacion`, `/rutina`, `/biblioteca`, `/perfil`, `/coach`, `/mas` se mantienen.
 
@@ -36,9 +36,10 @@ Mecanismo diferencial: **PWA offline-first local-first con Dexie como fuente de 
 Nombre `Althea`, paleta actual mármol/blanco roto/grises cálidos/negro-grafito/dorado-bronce + acentos verde/azul suaves discretos, tipografía Cormorant Garamond (serif marca) + Inter (sans datos), estética clásica+deportiva+tecnológica+elegante, sin neón/gradientes agresivos/violeta/gamer/cyberpunk/glassmorphism excesivo. Referencia visual: imagen clásica anatómica mármol + dorado, limpia editorial, con datos.
 
 ## Evidence on Hand
-- Código: `src/pages/Entrenar.tsx`, `src/pages/Progreso.tsx`, `src/pages/Calendario.tsx`, `src/pages/Nutricion.tsx`, `src/services/training/sessionMetrics.ts`, `src/services/training/exerciseFilter.ts`, `src/utils/cycle.ts`, `src/services/report/reportService.ts`, `src/components/entrenar/ExerciseSeriesTable.tsx`
- - Datos: `src/services/storage/db.ts` v20, `src/data/exercises.json` (10 ejercicios locales, catálogo real remoto `ExerciseGymGifsDB`), `ExerciseGymGifsDB` v1.1.0
- - Tests: 113 archivos de test / ~943 bloques `it()`/`test()`
+- Código: `src/pages/Entrenar.tsx`, `src/pages/Progreso.tsx`, `src/pages/Calendario.tsx`, `src/pages/Nutricion.tsx`, `src/services/training/sessionMetrics.ts`, `src/services/training/exerciseFilter.ts`, `src/utils/cycle.ts`, `src/services/report/reportService.ts`, `src/components/entrenar/ExerciseSeriesTable.tsx`, `src/services/integrations/wger/wgerComparison.ts`
+ - Datos: `src/services/storage/db.ts` v20, `src/data/exercises.json` (10 ejercicios locales, catálogo real remoto `ExerciseGymGifsDB`), `ExerciseGymGifsDB` v1.1.0, catálogo Wger sincronizable
+ - Tests: 121 archivos de test / 1012 tests (gates: `tsc` 0 errores, `vitest` verde, `build` PASS, `lint` 0 errores / 166 warnings)
+ - Cierre: `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md` (decisiones y sustituciones)
 - Demo: tablas con `isDemo` flag, identificables
 
 ## Product Principles

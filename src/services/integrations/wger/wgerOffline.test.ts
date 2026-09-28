@@ -11,9 +11,6 @@ import { createSession, confirmSetRecord } from '@/services/training/sessionStor
 vi.mock('./wgerClient', () => ({
   fetchExerciseList: vi.fn(),
   fetchExerciseInfo: vi.fn(),
-  fetchMuscles: vi.fn(),
-  fetchEquipment: vi.fn(),
-  fetchCategories: vi.fn(),
 }))
 
 import { fetchExerciseList, fetchExerciseInfo } from './wgerClient'

@@ -31,7 +31,7 @@ import PainToggle from '@/features/training/components/PainToggle'
 import { VariantPicker } from '@/features/training/components/VariantPicker'
 import { todayKey, toDateKey, daysBetween, weekdayOfKey } from '@/utils/dates'
 
-type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number|null; muscle?:string; gifUrl?:string; imageDataUrl?:string; swappedFrom?:string; replaced?:boolean; extra?:boolean; plannedSets?:number; plannedSetsDetail?: { order:number; reps:number; weight:number|null }[]; plannedSetValues?: Array<{ order: number; reps: number; weight: number|null; setType?: import('@/services/training/domain').SetType }>; seriesType?:string; seId?:string }
+type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number|null; muscle?:string; gifUrl?:string; imageDataUrl?:string; swappedFrom?:string; replaced?:boolean; extra?:boolean; plannedSets?:number; plannedSetsDetail?: { order:number; reps:number; weight:number|null }[]; plannedSetValues?: Array<{ order: number; reps: number; weight: number|null; setType?: import('@/services/training/domain').SetType }>; seriesType?:string; restSec?:number; tempo?:string; rir?:number; rpe?:number; notes?:string; seId?:string }
 
 export default function Entrenar(){
   const today = todayKey()
@@ -94,6 +94,12 @@ const exercises: SessionEx[] = seList.map((se) => {
           plannedSets: se.plannedSetCount,
           plannedSetValues,
           seId: se.sessionExerciseId,
+          seriesType: se.seriesType,
+          restSec: se.restSec,
+          tempo: se.tempo,
+          rir: se.targetRir,
+          rpe: se.targetRpe,
+          notes: se.notes,
           swappedFrom: se.replacement?.originalExerciseId,
           replaced: se.status === 'REPLACED',
           extra: se.status === 'EXTRA',
@@ -384,6 +390,8 @@ const exercises: SessionEx[] = seList.map((se) => {
   const completedSets = Object.keys(logs).reduce((sum, k) => sum + (logs[Number(k)] || []).filter((s: unknown) => !!s && (s as { status?: string }).status === 'COMPLETED').length, 0)
   const totalSets = exs.reduce((sum, ex) => sum + (ex.plannedSets ?? ex.sets), 0)
   const defaultRest = methodIdRef.current ? (getMethod(methodIdRef.current)?.defaults.restSeconds ?? 90) : 90
+  // Descanso REAL del ejercicio: si la rutina definió uno, manda sobre el default del método.
+  const restForExercise = (cur?.restSec && cur.restSec > 0) ? cur.restSec : defaultRest
   const doneInCur = (logs[current] || []).filter((l: unknown) => !!l && (l as { status?: string }).status === 'COMPLETED').length
 
   // Navegación entre ejercicios: solo cambia el índice visible, persiste la
@@ -394,7 +402,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     const forward = nextIdx>current
     // Flujo OK → guardar → SIGUIENTE → descanso: el descanso se dispara al
     // navegar hacia adelante con el ejercicio actual terminado.
-    if(forward && done[current]){ startRest(defaultRest) }
+    if(forward && done[current]){ startRest(restForExercise) }
     setCurrent(nextIdx)
     nextCoach(nextIdx)
     const sid = sessionId
@@ -422,11 +430,12 @@ const exercises: SessionEx[] = seList.map((se) => {
     }
   }
 
-  const handleSetDone = async (setIdx:number, w:number|null, r:number, neg?:{reps:number; weight:number}, obs?:string)=>{
+  const handleSetDone = async (setIdx:number, w:number|null, r:number, neg?:{reps:number; weight:number}, obs?:string, loadText?:string)=>{
     if(!cur || !session) {return}
     const seId = seIdByIndex[current] || cur.seId
     if(!seId) { setFinishError('Sin SessionExercise para este ejercicio: recargá la pestaña.'); return }
     const { confirmSetRecord, saveNegatives, saveExerciseObservation, updateSession, getSetRecords } = await import('@/services/training/sessionStore')
+    const { resolveSetType } = await import('@/services/training/setPlanner')
     // Primera confirmación de la sesión: READY → IN_PROGRESS (la máquina de
     // estados exige pasar por IN_PROGRESS antes de cualquier avance).
     if(sessionStatusRef.current === 'READY'){
@@ -435,13 +444,19 @@ const exercises: SessionEx[] = seList.map((se) => {
         setSession(nx); setSessionStatus('IN_PROGRESS')
       }catch{ /* noop */ }
     }
-    const setType = ((cur.seriesType || 'Normal') as string).toUpperCase().replace(' ', '_') as import('@/services/training/domain').SetType
+    // Tipo de serie de ESTA serie: el plan por serie es la fuente de verdad;
+    // si no lo define, se usa el tipo planificado del ejercicio en la rutina.
+    // Nunca se sobrescribe a NORMAL un plan de pirámide/descenso.
+    const setType = cur.plannedSetValues?.[setIdx]?.setType ?? resolveSetType(cur.seriesType)
     // Peso vacío → null real. Nunca ""→0 ni Number("")→0.
     const weightOrNull = w === undefined ? null : w
     // upsert idempotente por setRecordId: recargar nunca duplica (§18)
     await confirmSetRecord({
       sessionId: session.sessionId, sessionExerciseId: seId, exerciseId: cur.exId,
       order: setIdx + 1, actualReps: r, actualWeight: weightOrNull, setType, observation: obs || undefined,
+      // Valor + unidad originales tipeados (ej: "45 lb"): loadModel hace la
+      // conversión y aquí se conserva la entrada tal cual.
+      actualLoadText: loadText,
     })
     // negativas: solo existen si el usuario las registra; una por ejercicio (§27)
     if(neg && (Number(neg.reps) > 0 || Number(neg.weight) > 0)){
@@ -458,7 +473,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     arr[setIdx] = { 
       weight: weightOrNull, 
       reps: r, 
-      setType: 'NORMAL',
+      setType,
       obs,
       setRecordId: '',
       sessionId: session?.sessionId || '',
@@ -1169,7 +1184,7 @@ const exercises: SessionEx[] = seList.map((se) => {
             <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} — {resumeBanner.dayName} · estado {resumeBanner.status} · {resumeBanner.exerciseCount} ejercicios</div>
             <div className="flex gap-2">
               <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Continuar</button>
-              <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[44px] py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Finalizar</button>
+              <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[48px] py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Finalizar</button>
               <button onClick={localAbandonResume} className="flex-1 py-2 rounded bg-surface-container/60 border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Abandonar</button>
             </div>
           </div>
@@ -1196,7 +1211,7 @@ const exercises: SessionEx[] = seList.map((se) => {
             <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} — {resumeBanner.dayName} · estado {resumeBanner.status} · {resumeBanner.exerciseCount} ejercicios</div>
             <div className="flex gap-2">
               <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Continuar</button>
-              <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[44px] py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Finalizar</button>
+              <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[48px] py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Finalizar</button>
               <button onClick={localAbandonResume} className="flex-1 py-2 rounded bg-surface-container/60 border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Abandonar</button>
             </div>
           </div>
@@ -1233,18 +1248,18 @@ const exercises: SessionEx[] = seList.map((se) => {
                     location.reload()
                   }
                 }
-              }} className="hidden md:inline-flex items-center min-h-[44px] font-body-sm text-[13px] text-primary underline mt-1">Cambiar día de entrenamiento</button>
+              }} className="hidden md:inline-flex items-center min-h-[48px] font-body-sm text-[13px] text-primary underline mt-1">Cambiar día de entrenamiento</button>
             </div>
             <div className="flex items-center gap-2.5">
-              <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex items-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
+              <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
                 <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
                 <span className="hidden sm:inline">Cancelar sesión</span>
               </button>
-              <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex items-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
+              <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
                 <span className="material-symbols-outlined text-[18px]">reorder</span>
                 <span className="hidden sm:inline">Abandonar</span>
               </button>
-              <button onClick={openFinishModal} className="flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98]">
+              <button onClick={openFinishModal} className="flex items-center gap-1.5 min-h-[48px] px-4 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98]">
                 <Check size={14}/> <span className="hidden sm:inline">FINALIZAR</span><span className="sm:hidden">FIN</span>
               </button>
             </div>
@@ -1269,7 +1284,7 @@ const exercises: SessionEx[] = seList.map((se) => {
             {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED') && (
               <div className="flex items-center gap-2">
                 <span className={`px-3 py-1 rounded-full border font-label-caps text-[10px] uppercase ${sessionStatus==='PAUSED' ? 'bg-secondary-container/20 border-secondary/30 text-secondary' : 'bg-primary-container/20 border-primary/30 text-primary'}`}>Estado: {sessionStatus}</span>
-                <button onClick={togglePause} className="min-h-[44px] px-3 py-1 rounded-full bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/40 transition-colors">{sessionStatus==='PAUSED' ? 'Continuar' : 'Pausar'}</button>
+                <button onClick={togglePause} className="min-h-[48px] px-3 py-1 rounded-full bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/40 transition-colors">{sessionStatus==='PAUSED' ? 'Continuar' : 'Pausar'}</button>
               </div>
             )}
           </div>
@@ -1329,11 +1344,11 @@ const exercises: SessionEx[] = seList.map((se) => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <button onClick={openViewer} className="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary/60 text-secondary font-label-md text-[14px] transition-colors whitespace-nowrap">
+                    <button onClick={openViewer} className="inline-flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary/60 text-secondary font-label-md text-[14px] transition-colors whitespace-nowrap">
                       <span className="material-symbols-outlined text-[18px]">visibility</span>
                       <span>Ver</span>
                     </button>
-                    <button onClick={loadSwapOptions} className="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary/60 text-secondary font-label-md text-[14px] transition-colors whitespace-nowrap">
+                    <button onClick={loadSwapOptions} className="inline-flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary/60 text-secondary font-label-md text-[14px] transition-colors whitespace-nowrap">
                       <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
                       <span>Cambiar</span>
                     </button>
@@ -1347,7 +1362,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                     <strong className="text-secondary font-medium">Clave de Virtud:</strong>{' '}
                     {coach ? (coach.suggested_weight ? `${coach.suggested_weight}kg — ${coach.reason}` : coach.reason) : `Vamos con ${cur.weight ?? 0}kg × ${cur.reps}.`}
                   </p>
-                  <button onClick={()=>setShowWhy(s=>!s)} className="ml-auto inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 font-label-caps text-[10px] text-secondary underline">¿Por qué?</button>
+                  <button onClick={()=>setShowWhy(s=>!s)} className="ml-auto inline-flex items-center justify-center min-h-[48px] min-w-[44px] px-2 font-label-caps text-[10px] text-secondary underline">¿Por qué?</button>
                 </div>
                 {showWhy && (
                   <div className="px-6 py-2 bg-surface-container-high/30 border-b border-outline-variant/30">
@@ -1411,7 +1426,8 @@ const exercises: SessionEx[] = seList.map((se) => {
                     plannedReps={cur.reps}
                     plannedWeight={cur.weight}
                     plannedSets={cur.plannedSetValues}
-                    onComplete={(si,w,r,neg,obs)=> handleSetDone(si,w,r,neg,obs)}
+                    planMeta={{ restSec: cur.restSec, tempo: cur.tempo, rir: cur.rir, rpe: cur.rpe, notes: cur.notes }}
+                    onComplete={(si,w,r,neg,obs,loadText)=> handleSetDone(si,w,r,neg,obs,loadText)}
                     onSkipSet={(si)=> skipSetRow(si)}
                     onAddSet={addSetRow}
                     logs={logs[current]||[]}
@@ -1423,8 +1439,8 @@ const exercises: SessionEx[] = seList.map((se) => {
                 {/* Modify + Skip buttons */}
                 {!done[current] && (
                   <div className="px-6 pb-4 flex gap-2">
-                    <button onClick={()=>{ setMod({weight:cur.weight ?? 0,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 min-h-[44px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
-                    <button onClick={handleSkipWithReason} className="flex-1 py-2 min-h-[44px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
+                    <button onClick={()=>{ setMod({weight:cur.weight ?? 0,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
+                    <button onClick={handleSkipWithReason} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
                   </div>
                 )}
 
@@ -1452,7 +1468,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                     </div>
                   )}
                   {done[current] && (
-                    <button onClick={()=> setDone((p)=>{ const n={...p}; delete n[current]; return n })} className="w-full py-1.5 min-h-[44px] rounded border border-outline-variant/40 font-label-caps text-[10px] uppercase text-outline hover:text-on-surface-variant hover:border-outline-variant transition-colors">
+                    <button onClick={()=> setDone((p)=>{ const n={...p}; delete n[current]; return n })} className="w-full py-1.5 min-h-[48px] rounded border border-outline-variant/40 font-label-caps text-[10px] uppercase text-outline hover:text-on-surface-variant hover:border-outline-variant transition-colors">
                       <span className="flex items-center justify-center gap-1.5"><RotateCcw size={11}/> Desmarcar ejercicio</span>
                     </button>
                   )}
@@ -1480,7 +1496,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                         <h3 className="font-headline-sm text-[20px] text-on-surface group-hover:text-primary transition-colors">{ex.name}</h3>
                         <p className="font-body-sm text-[13px] text-outline mt-1.5">{ex.weight ?? 0}kg · {ex.muscle || ''}</p>
                         <div className="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/30">
-                          <span className="font-label-caps text-[10px] text-on-surface-variant">Descanso asignado: {defaultRest}s</span>
+                          <span className="font-label-caps text-[10px] text-on-surface-variant">Descanso asignado: {restForExercise}s</span>
                           <span className="material-symbols-outlined text-secondary text-[20px]">arrow_forward</span>
                         </div>
                       </div>
@@ -1506,7 +1522,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                  <div className="relative w-44 h-44 flex items-center justify-center my-2">
                    <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
                      <circle className="text-surface-container-highest" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeWidth="6" />
-                     <circle className="text-secondary transition-all duration-1000" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeDasharray={440} strokeDashoffset={440 - (440 * restSec / Math.max(defaultRest, 1))} strokeLinecap="round" strokeWidth="6" />
+                     <circle className="text-secondary transition-all duration-1000" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeDasharray={440} strokeDashoffset={440 - (440 * restSec / Math.max(restForExercise, 1))} strokeLinecap="round" strokeWidth="6" />
                    </svg>
                    <div className="absolute inset-0 flex flex-col items-center justify-center">
                      <button onClick={()=> restPaused ? resumeRest() : pauseRest()} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="text-[44px] leading-none font-semibold text-on-surface font-mono tracking-tight bg-transparent border-none cursor-pointer hover:text-secondary transition-colors">
@@ -1567,7 +1583,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                   <strong className="text-on-surface">{progress}%</strong>
                 </div>
               </div>
-              <button onClick={openFinishModal} className="w-full min-h-[44px] py-2 px-3 rounded bg-primary hover:bg-primary-fixed text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
+              <button onClick={openFinishModal} className="w-full min-h-[48px] py-2 px-3 rounded bg-primary hover:bg-primary-fixed text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
                 CONFIRMAR Y GUARDAR EN EL TEMPLO
               </button>
             </div>
@@ -1586,8 +1602,8 @@ const exercises: SessionEx[] = seList.map((se) => {
                   <div className="font-label-caps text-[10px] uppercase text-secondary tracking-wider">{restPaused ? 'Descanso pausado' : 'Descanso en curso'}</div>
                   <div className="font-headline-md text-[24px] text-on-surface font-semibold tabular-nums leading-tight">{Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</div>
                 </button>
-                <button onClick={skipRest} aria-label="Saltar descanso" className="px-3 py-2 min-h-[44px] rounded bg-secondary text-on-secondary-fixed font-label-caps text-[10px] uppercase font-bold">SALTAR</button>
-                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-4 py-2.5 min-h-[44px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shrink-0">
+                <button onClick={skipRest} aria-label="Saltar descanso" className="px-3 py-2 min-h-[48px] rounded bg-secondary text-on-secondary-fixed font-label-caps text-[10px] uppercase font-bold">SALTAR</button>
+                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-4 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shrink-0">
                   <Check size={14}/> FIN
                 </button>
               </>
@@ -1597,7 +1613,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                   <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Progreso</div>
                   <div className="font-body-md text-[15px] text-on-surface font-medium">{progress}% — {Object.keys(done).filter(k=>done[Number(k)]).length}/{exs.length} ejercicios</div>
                 </div>
-                <button onClick={openFinishModal} className="flex items-center gap-1.5 px-5 py-2.5 min-h-[44px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98] shrink-0">
+                <button onClick={openFinishModal} className="flex items-center gap-1.5 px-5 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98] shrink-0">
                   <Check size={14}/> FINALIZAR
                 </button>
               </>
@@ -1621,21 +1637,25 @@ const exercises: SessionEx[] = seList.map((se) => {
                 if(seId){
                   const se = await db.sessionExercises.get(seId).catch(()=>null)
                   if(se){
-                    await db.sessionExercises.put({ ...se, plannedSetCount: mod.sets, plannedSets: newPlannedSets, updatedAt: new Date().toISOString() })
-                    // Actualizar solo SetRecords PENDING, no tocar COMPLETED
+                    const { resolveSetType } = await import('@/services/training/setPlanner')
+                    await db.sessionExercises.put({ ...se, plannedSetCount: mod.sets, plannedSets: newPlannedSets, seriesType: resolveSetType(mod.seriesType), updatedAt: new Date().toISOString() })
+                    // Actualizar solo SetRecords PENDING, no tocar COMPLETED.
+                    // Nunca se escribe el peso/reps "real" antes de que el usuario confirme.
                     const records = await db.setRecords.where('sessionExerciseId').equals(se.sessionExerciseId).toArray().catch(()=>[])
                     for(const ps of newPlannedSets){
-                      const recId = se.sessionExerciseId + ':set:' + ps.order
                       // Find existing record for this order (by order, not by id string)
                       const existing = records.find(r=> r.order === ps.order)
                       if(existing && existing.status === 'PENDING'){
-                        await db.setRecords.put({ ...existing, plannedReps: ps.reps, plannedWeight: ps.weight, actualReps: ps.reps, actualWeight: ps.weight, setType: ps.setType, updatedAt: new Date().toISOString() })
+                        await db.setRecords.put({ ...existing, plannedReps: ps.reps, plannedWeight: ps.weight, actualWeight: null, setType: ps.setType, updatedAt: new Date().toISOString() })
                       } else if(!existing){
                         const { setRecordIdFor } = await import('@/services/training/domain')
                         const nid = setRecordIdFor(se.sessionExerciseId, ps.order)
-                        await db.setRecords.put({ setRecordId: nid, sessionId: se.sessionId, sessionExerciseId: se.sessionExerciseId, exerciseId: se.exerciseId, order: ps.order, setType: ps.setType, plannedReps: ps.reps, plannedWeight: ps.weight, actualReps: ps.reps, actualWeight: ps.weight, status: 'PENDING', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+                        await db.setRecords.put({ setRecordId: nid, sessionId: se.sessionId, sessionExerciseId: se.sessionExerciseId, exerciseId: se.exerciseId, order: ps.order, setType: ps.setType, plannedReps: ps.reps, plannedWeight: ps.weight, actualReps: ps.reps, actualWeight: null, status: 'PENDING', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
                       }
                     }
+                    // Series fuera del plan nuevo: solo PENDING se elimina (historial intacto).
+                    const { prunePendingSetRecords } = await import('@/services/training/sessionStore')
+                    await prunePendingSetRecords(se.sessionExerciseId, newPlannedSets.map(ps=> ps.order))
                   }
                 }
                 saveDecision({ date: today, type:'modify', exercise: cur!.name, reason:`Modificado a ${mod.weight}kg × ${mod.reps} × ${mod.sets}`, contextSnapshot:{mod}})

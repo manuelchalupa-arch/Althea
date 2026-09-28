@@ -191,6 +191,22 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
     if (data.entrenamiento.duracionMin) { rows.push(['Duración', `${data.entrenamiento.duracionMin} min`]) }
     y = table(pager.current, y, ['Indicador', 'Valor'], rows, [3, 1])
     y -= 8
+
+    const serie = (data.entrenamiento.serieDiaria ?? []).slice(-14)
+    if (serie.length) {
+      const label = `Volumen diario · ${serie.length} ${serie.length === 1 ? 'día con series' : 'días con series'}`
+      const gap = 16
+      const labelH = 10
+      y = pager.ensure((serie.length - 1) * gap + 8 + labelH + 14, y)
+      const used = pager.current.text(label, MARGIN, y, { size: 7.5, color: BRAND.inkSoft })
+      y -= used + 4
+      const bars: BarDatum[] = serie.map((d) => ({
+        label: d.fecha.slice(5).replace('-', '/'),
+        value: Math.round(d.volumen),
+      }))
+      y = pager.current.bars(bars, MARGIN, y, contentWidth, { color: BRAND.primary, valueSuffix: ' kg', gap })
+      y -= 6
+    }
   }
 
   // ─── Fuerza ───

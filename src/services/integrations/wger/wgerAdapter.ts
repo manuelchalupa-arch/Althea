@@ -3,11 +3,7 @@
 //
 // ENDPOINTS utilizados:
 //   GET /api/v2/exercise/            lista de IDs
-//   GET /api/v2/exerciseinfo/{id}/   detalle completo por ejercicio
-//   GET /api/v2/muscle/              músculos (taxonomía)
-//   GET /api/v2/equipment/           equipamiento (taxonomía)
-//   GET /api/v2/category/            categorías (taxonomía)
-//   GET /api/v2/ingredient/          ingredientes (nutrición)
+//   GET /api/v2/exerciseinfo/{id}/   detalle completo (incluye taxonomía e i18n)
 //
 // Persistencia: usa la tabla existente `customExercises` con origin='WGER'
 // para no crear tablas nuevas hasta determinar si son necesarias.
@@ -95,41 +91,6 @@ export async function listWgerExercises(): Promise<WgerExerciseRecord[]> {
     .filter((e) => (e as { origin?: string }).origin === 'WGER')
     .toArray()
   return all as unknown as WgerExerciseRecord[]
-}
-
-/**
- * Obtiene taxonomía Wger (músculos, equipamiento, categorías).
- * Cacheada en localStorage para uso offline.
- */
-export async function fetchWgerTaxonomy(): Promise<{
-  muscles: { id: number; name: string }[]
-  equipment: { id: number; name: string }[]
-  categories: { id: number; name: string }[]
-}> {
-  const cacheKey = 'wger:taxonomy:v1'
-  try {
-    const cached = localStorage.getItem(cacheKey)
-    if (cached) {return JSON.parse(cached)}
-  } catch { /* noop */ }
-
-  const { fetchMuscles, fetchEquipment, fetchCategories } = await import('./wgerClient')
-  const [muscles, equipment, categories] = await Promise.all([
-    fetchMuscles(),
-    fetchEquipment(),
-    fetchCategories(),
-  ])
-
-  const taxonomy = {
-    muscles: muscles.results.map((m) => ({ id: m.id, name: m.name })),
-    equipment: equipment.results.map((e) => ({ id: e.id, name: e.name })),
-    categories: categories.results.map((c) => ({ id: c.id, name: c.name })),
-  }
-
-  try {
-    localStorage.setItem(cacheKey, JSON.stringify(taxonomy))
-  } catch { /* noop */ }
-
-  return taxonomy
 }
 
 /**

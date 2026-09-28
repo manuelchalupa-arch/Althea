@@ -95,6 +95,29 @@ export function canConvertToKg(load: Load): boolean {
 }
 
 /**
+ * Convierte un valor en kg a la unidad de destino (para MOSTRAR).
+ * Igual que toKg: sin equivalencia conocida retorna null (no inventa).
+ */
+export function fromKg(kgValue: number, unit: LoadType): number | null {
+  if (typeof kgValue !== 'number' || !Number.isFinite(kgValue)) { return null }
+  switch (unit) {
+    case 'KG':
+      return kgValue
+    case 'LB':
+      return kgValue / LB_TO_KG
+    default:
+      // PLATE_COUNT / STACK_COUNT / UNIT requieren el factor específico del
+      // equipo: sin él no hay equivalencia y no se inventa.
+      return null
+  }
+}
+
+/** Redondea a 1 decimal para mostrar (nunca altera el dato almacenado). */
+export function roundLoad(value: number): number {
+  return Math.round(value * 10) / 10
+}
+
+/**
  * Formatea una carga para mostrar al usuario.
  * Siempre muestra el valor original con su unidad.
  * Agrega equivalencia en kg solo si es convertible.

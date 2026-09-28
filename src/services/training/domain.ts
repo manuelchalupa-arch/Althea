@@ -120,6 +120,17 @@ export interface SessionExercise {
   plannedSetCount: number;
   actualSetCount: number;
   plannedSets: PlannedSetSnapshot[];
+  /** Descanso planificado para ESTE ejercicio (segundos). Viene de la rutina. */
+  restSec?: number;
+  /** Tipo de serie planificado a nivel ejercicio (resumen; cada serie lleva su propio setType). */
+  seriesType?: SetType;
+  /** Tempo planificado (ej. "3-1-1"). Texto, no se interpreta. */
+  tempo?: string;
+  /** RIR / RPE objetivo planificados en la rutina. */
+  targetRir?: number;
+  targetRpe?: number;
+  /** Notas de la rutina para este ejercicio. */
+  notes?: string;
   actualSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
   replacement?: ExerciseReplacement;
   negatives?: NegativeSet;
@@ -146,6 +157,11 @@ export interface SetRecord {
   status: SetRecordStatus;
   observation?: string;
   obs?: string;
+  /**
+   * Valor + unidad tal cual los escribió la persona (ej: "45 lb", "2 placas").
+   * El dato canónico es kg (`actualWeight`); este campo conserva el original.
+   */
+  actualLoadText?: string;
   completedAt?: string;
   createdAt: string;
   updatedAt: string;
