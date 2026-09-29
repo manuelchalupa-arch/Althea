@@ -25,9 +25,10 @@ import { buildNutritionSuggestions } from '@/services/ai/nutritionEngine'
 import { recordAdherence, getAdherenceTrend, type AdherenceRecord } from '@/services/ai/adherenceTracker'
 import { Search, X, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { AltheaCard, AltheaBadge, AltheaProgress, AltheaButton, AltheaSection, AltheaEmpty, AltheaLoading } from '@/components/althea'
-  import { WaterBottle } from '@/components/recovery/WaterBottle'
+  import { HydrationBottle, HydrationQuickAdd } from '@/components/nutrition/HydrationBottle'
 import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
-import { MacroRing } from '@/components/nutrition/MacroRing'
+import { MacroPlate } from '@/components/nutrition/MacroPlate'
+import { getBottleDailySummary, getCalculatedHydrationGoal, getBottleConfigs, completeBottle, addHydrationMl, type BottleConfig } from '@/services/recovery/hydrationBottles'
 import { DishComposer, type DishSavePayload } from '@/components/nutrition/DishComposer'
 import { dishFromEntry, type DishDraft } from '@/services/nutrition/recipeInterpreter'
 import { todayKey, dayKeyOffset, weekdayOfKey } from '@/utils/dates'
@@ -55,6 +56,12 @@ export default function Nutricion() {
   const [todayVolume, setTodayVolume] = useState(0)
   const [status, setStatus] = useState<PageStatus>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Hidratación: consumo real, objetivo y botellas configuradas
+  const [hydrationTotalMl, setHydrationTotalMl] = useState(0)
+  const [hydrationGoalMl, setHydrationGoalMl] = useState(0)
+  const [bottleConfigs, setBottleConfigs] = useState<BottleConfig[]>([])
+  const [hydrationBusy, setHydrationBusy] = useState(false)
 
   // Flujo de comida
   const [draft, setDraft] = useState<DishDraft | null>(null)
@@ -156,6 +163,53 @@ export default function Nutricion() {
   }, [loadDay])
 
   useEffect(() => { loadData(activeDate) }, [loadData, activeDate])
+
+  // --- Hidratación: cargar consumo real, objetivo y botellas ---
+  const loadHydration = useCallback(async (date: string) => {
+    const [summary, goal, configs] = await Promise.all([
+      getBottleDailySummary(date),
+      getCalculatedHydrationGoal().catch(() => 0),
+      getBottleConfigs().catch(() => [] as BottleConfig[]),
+    ])
+    setHydrationTotalMl(summary.totalMl)
+    setHydrationGoalMl(goal)
+    setBottleConfigs(configs)
+  }, [])
+
+  useEffect(() => {
+    if (status === 'ready') { loadHydration(activeDate).catch(() => { /* noop */ }) }
+  }, [status, activeDate, loadHydration])
+
+  // Recargar hidratación cuando BottleConfigEditor guarda cambios
+  useEffect(() => {
+    const onConfigChange = () => { loadHydration(activeDate).catch(() => { /* noop */ }) }
+    window.addEventListener('bottleConfigChange', onConfigChange)
+    return () => window.removeEventListener('bottleConfigChange', onConfigChange)
+  }, [activeDate, loadHydration])
+
+  const handleAddBottle = async (bottle: { id: string; name?: string; capacityMl: number }) => {
+    setHydrationBusy(true)
+    try {
+      await completeBottle(bottle.id, activeDate)
+      await loadHydration(activeDate)
+    } catch {
+      // noop
+    } finally {
+      setHydrationBusy(false)
+    }
+  }
+
+  const handleAddMl = async (ml: number) => {
+    setHydrationBusy(true)
+    try {
+      await addHydrationMl(ml, activeDate)
+      await loadHydration(activeDate)
+    } catch {
+      // noop
+    } finally {
+      setHydrationBusy(false)
+    }
+  }
 
   // --- Totales del día: solo las comidas del día local actual ---
   const dayEntries = useMemo(() => filterEntriesByDay(diaryEntries, activeDate), [diaryEntries, activeDate])
@@ -548,9 +602,9 @@ export default function Nutricion() {
       {/* F — Dos columnas desktop (1 en mobile): MACRO RING a la izquierda,
           BOTELLA DE HIDRATACIÓN a la derecha. En mobile quedan apiladas. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start" data-testid="nutricion-top-grid">
-        {/* Columna izquierda: anillo de macros + contexto */}
+        {/* Columna izquierda: plato de macros + contexto */}
         <AltheaCard level={2} className="flex flex-col items-center py-8" data-testid="macro-ring-card">
-          <MacroRing totals={totals} goals={goals} size={340} />
+          <MacroPlate totals={totals} goals={goals} size={340} />
           <p className="font-body-sm text-[11px] text-on-surface-variant mt-3 text-center">
             {goalsPersonalized
               ? 'Cada segmento muestra tu progreso sobre tu objetivo real del día.'
@@ -571,14 +625,22 @@ export default function Nutricion() {
             ))}
           </div>
         </AltheaCard>
-        {/* Columna derecha: botella grande de hidratación */}
+        {/* Columna derecha: botella de hidratación */}
         <section className="marble-panel p-4" aria-label="Hidratación del día">
           <div className="flex items-center gap-2 shrink-0 mb-2">
             <span className="material-symbols-outlined text-secondary text-[18px]">water_drop</span>
             <h2 className="font-label-caps text-[11px] uppercase text-on-surface font-semibold">Hidratación de hoy</h2>
           </div>
           <div className="flex justify-center">
-            <WaterBottle date={activeDate} size="lg" allowQuickAdd />
+            <HydrationBottle current={hydrationTotalMl} goal={hydrationGoalMl} width={120} />
+          </div>
+          <div className="mt-3">
+            <HydrationQuickAdd
+              bottles={bottleConfigs.filter(c => c.active).map(c => ({ id: c.id, name: c.name, capacityMl: c.capacityMl }))}
+              onAddBottle={handleAddBottle}
+              onAddMl={handleAddMl}
+              disabled={hydrationBusy}
+            />
           </div>
           {/* (G) Las botellas se configuran acá mismo: nombre, capacidad y activa */}
           <div className="mt-3">

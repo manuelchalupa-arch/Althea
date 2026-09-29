@@ -1,0 +1,387 @@
+/**
+ * ALTHEA — COMPONENT SYSTEM
+ * Paneles compactos, jerarquía editorial, sin "una tarjeta por dato".
+ * Depende de althea-tokens.css y althea-brand.css.
+ */
+
+/* ============ PANEL BASE ============ */
+.althea-panel {
+  background: var(--althea-surface);
+  border: var(--althea-border-width) solid var(--althea-outline);
+  border-radius: var(--althea-radius-lg);
+  box-shadow: var(--althea-shadow-panel);
+  padding: var(--althea-space-5);
+}
+
+.althea-panel--flush { padding: 0; }
+.althea-panel--compact { padding: var(--althea-space-4); }
+
+.althea-panel--interactive {
+  cursor: pointer;
+  transition: border-color var(--althea-duration-base) var(--althea-ease-standard),
+              box-shadow var(--althea-duration-base) var(--althea-ease-standard);
+}
+@media (hover: hover) and (pointer: fine) {
+  .althea-panel--interactive:hover {
+    border-color: var(--althea-primary);
+    box-shadow: var(--althea-shadow-panel-hover);
+  }
+}
+.althea-panel--interactive:focus-visible {
+  outline: 2px solid var(--althea-primary);
+  outline-offset: 2px;
+}
+
+/* ============ SECTION ============ */
+.althea-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--althea-space-4);
+}
+
+.althea-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--althea-space-3);
+}
+
+.althea-section__title {
+  font-family: var(--althea-font-display);
+  font-size: var(--althea-fs-display-md);
+  color: var(--althea-on-surface);
+  margin: 0;
+}
+
+.althea-section__heading { display: flex; align-items: center; gap: var(--althea-space-3); min-width: 0; }
+.althea-section__icon { color: var(--althea-primary); display: inline-flex; }
+.althea-section__subtitle { margin: 2px 0 0; font-family: var(--althea-font-ui); font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted); }
+.althea-section__slot { flex-shrink: 0; }
+.althea-section__action {
+  font-family: var(--althea-font-ui);
+  font-size: var(--althea-fs-body-sm);
+  color: var(--althea-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--althea-space-1) 0;
+}
+
+/* ============ METRIC (número protagonista + label) ============ */
+.althea-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.althea-metric__value {
+  font-family: var(--althea-font-display);
+  font-size: var(--althea-fs-display-xl);
+  line-height: var(--althea-lh-display);
+  color: var(--althea-on-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.althea-metric__unit {
+  font-family: var(--althea-font-ui);
+  font-size: var(--althea-fs-body-md);
+  color: var(--althea-on-surface-muted);
+  margin-left: 2px;
+}
+
+.althea-metric__label {
+  font-family: var(--althea-font-ui);
+  font-size: var(--althea-fs-body-sm);
+  color: var(--althea-on-surface-muted);
+}
+
+.althea-metric__delta {
+  font-family: var(--althea-font-ui);
+  font-size: var(--althea-fs-body-sm);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.althea-metric__delta--up { color: var(--althea-success); }
+.althea-metric__delta--down { color: var(--althea-error); }
+.althea-metric__delta--flat { color: var(--althea-on-surface-muted); }
+
+/* ============ STAT ROW (varias métricas comparten fila, no tarjetas separadas) ============ */
+.althea-stat-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--althea-space-4);
+}
+
+.althea-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--althea-space-3);
+  padding: var(--althea-space-2) 0;
+}
+
+.althea-stat__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--althea-radius-md);
+  background: var(--althea-primary-soft);
+  color: var(--althea-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.althea-stat__body { display: flex; flex-direction: column; }
+.althea-stat__value {
+  font-family: var(--althea-font-ui);
+  font-weight: 700;
+  font-size: var(--althea-fs-body-lg);
+  color: var(--althea-on-surface);
+  font-variant-numeric: tabular-nums;
+}
+.althea-stat__label {
+  font-family: var(--althea-font-ui);
+  font-size: var(--althea-fs-body-sm);
+  color: var(--althea-on-surface-muted);
+}
+
+/* ============ TOOLBAR (selector de fecha/rango, tabs compactos) ============ */
+.althea-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--althea-space-1);
+  background: var(--althea-surface-2);
+  border-radius: var(--althea-radius-pill);
+  padding: 4px;
+  width: fit-content;
+}
+
+.althea-toolbar__item {
+  font-family: var(--althea-font-ui);
+  font-size: var(--althea-fs-body-sm);
+  font-weight: 600;
+  color: var(--althea-on-surface-muted);
+  background: none;
+  border: none;
+  border-radius: var(--althea-radius-pill);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background-color var(--althea-duration-fast) var(--althea-ease-standard),
+              color var(--althea-duration-fast) var(--althea-ease-standard);
+}
+@media (hover: hover) and (pointer: fine) {
+  .althea-toolbar__item:hover { color: var(--althea-on-surface); }
+}
+.althea-toolbar__item[aria-selected='true'] {
+  background: var(--althea-primary);
+  color: var(--althea-on-primary);
+}
+.althea-toolbar__item:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ============ BOTONES ============ */
+.althea-btn {
+  font-family: var(--althea-font-ui);
+  font-size: var(--althea-fs-body-md);
+  font-weight: 600;
+  border-radius: var(--althea-radius-md);
+  padding: 10px 18px;
+  border: var(--althea-border-width) solid transparent;
+  cursor: pointer;
+  transition: background-color var(--althea-duration-fast) var(--althea-ease-standard),
+              border-color var(--althea-duration-fast) var(--althea-ease-standard),
+              transform var(--althea-duration-press) var(--althea-ease-out);
+}
+.althea-btn:active { transform: scale(0.97); }
+.althea-btn-primary {
+  background: var(--althea-primary);
+  color: var(--althea-on-primary);
+}
+@media (hover: hover) and (pointer: fine) {
+  .althea-btn-primary:hover { background: var(--althea-primary-hover); }
+  }
+.althea-btn-secondary {
+  background: transparent;
+  border-color: var(--althea-outline);
+  color: var(--althea-on-surface);
+}
+
+/* ============ NAVEGACIÓN ============ */
+.althea-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--althea-space-3);
+  padding: 10px var(--althea-space-3);
+  border-radius: var(--althea-radius-md);
+  color: var(--althea-on-surface-muted);
+  font-family: var(--althea-font-ui);
+  font-size: var(--althea-fs-body-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--althea-duration-fast) var(--althea-ease-standard),
+              color var(--althea-duration-fast) var(--althea-ease-standard);
+}
+@media (hover: hover) and (pointer: fine) {
+  .althea-nav-item:hover { background: var(--althea-surface-2); color: var(--althea-on-surface); }
+}
+.althea-nav-item:active { transform: scale(0.98); transition: transform var(--althea-duration-press) var(--althea-ease-out); }
+.althea-nav-item[aria-current='page'] {
+  background: var(--althea-primary);
+  color: var(--althea-on-primary);
+  font-weight: 600;
+}
+.althea-nav-item[data-disabled='true'] { opacity: 0.4; pointer-events: none; }
+
+/* ============ MOTION — principios Emil Kowalski: rápido, físico, sin rebote ============ */
+@keyframes althea-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.althea-enter { animation: althea-fade-in var(--althea-duration-base) var(--althea-ease-out) both; }
+
+@keyframes althea-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.althea-enter-pop { animation: althea-scale-in var(--althea-duration-base) var(--althea-ease-out) both; }
+
+/* Reduced motion: se quita el movimiento, se conserva el cambio de opacidad/color. */
+@media (prefers-reduced-motion: reduce) {
+  .althea-enter, .althea-enter-pop { animation: none; }
+  .althea-btn:active, .althea-nav-item:active { transform: none; }
+  .althea-atlas__muscle, .althea-plate__arc, .althea-bottle__water { transition-property: opacity, fill-opacity, stroke; }
+}
+
+/* ============ FOCO ============ */
+.althea-btn:focus-visible,
+.althea-toolbar__item:focus-visible,
+.althea-nav-item:focus-visible,
+.althea-section__action:focus-visible {
+  outline: 2px solid var(--althea-primary);
+  outline-offset: 2px;
+}
+
+/* ============ MUSCLE ATLAS ============ */
+.althea-atlas { display: flex; flex-direction: column; align-items: center; gap: var(--althea-space-4); width: 100%; }
+.althea-atlas__figure { width: 100%; display: flex; flex-direction: column; align-items: center; gap: var(--althea-space-3); }
+.althea-atlas__svg { width: 100%; height: auto; display: block; touch-action: manipulation; }
+.althea-atlas__silhouette path { fill: var(--althea-muscle-silhouette); stroke: var(--althea-muscle-outline); stroke-width: 1.6; stroke-linejoin: round; }
+.althea-atlas__lines path { fill: none; stroke: var(--althea-muscle-outline); stroke-opacity: 0.8; stroke-width: 0.45; stroke-linecap: round; }
+
+.althea-atlas__muscle { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.althea-atlas__fill {
+  stroke: var(--althea-muscle-outline);
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+  transition: fill var(--althea-duration-fast) var(--althea-ease-standard),
+              fill-opacity var(--althea-duration-fast) var(--althea-ease-standard),
+              stroke var(--althea-duration-fast) var(--althea-ease-standard);
+}
+.althea-atlas__fibers { fill: none; stroke: var(--althea-muscle-fiber); stroke-width: 0.25; pointer-events: none; }
+.althea-atlas__shade { pointer-events: none; }
+.althea-atlas__muscle.is-idle .althea-atlas__fill { fill: var(--althea-muscle-idle); }
+.althea-atlas__muscle.is-low .althea-atlas__fill { fill: var(--althea-muscle-low); }
+.althea-atlas__muscle.is-mid .althea-atlas__fill { fill: var(--althea-muscle-mid); }
+.althea-atlas__muscle.is-high .althea-atlas__fill { fill: var(--althea-muscle-high); }
+.althea-atlas__muscle.is-hovered .althea-atlas__fill,
+.althea-atlas__muscle:focus-visible .althea-atlas__fill { stroke: var(--althea-on-surface); stroke-width: 0.9; }
+.althea-atlas__muscle.is-selected .althea-atlas__fill { stroke: var(--althea-primary); stroke-width: 1.4; }
+.althea-atlas__muscle.is-selected .althea-atlas__fibers { stroke-opacity: 1; }
+
+.althea-atlas__detail-panel { width: 100%; max-width: 360px; min-height: 96px; }
+.althea-atlas__card {
+  background: var(--althea-surface-2);
+  border: var(--althea-border-width) solid var(--althea-outline);
+  border-radius: var(--althea-radius-md);
+  padding: var(--althea-space-3) var(--althea-space-4);
+  font-family: var(--althea-font-ui);
+  animation: althea-fade-in var(--althea-duration-base) var(--althea-ease-out) both;
+}
+.althea-atlas__card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--althea-space-2); margin-bottom: var(--althea-space-2); }
+.althea-atlas__card-head strong { font-size: var(--althea-fs-body-md); color: var(--althea-on-surface); }
+.althea-atlas__badge { font-size: var(--althea-fs-label); font-weight: 600; padding: 2px 8px; border-radius: var(--althea-radius-pill); background: var(--althea-surface-3); color: var(--althea-on-surface-muted); white-space: nowrap; }
+.althea-atlas__badge.is-high { background: var(--althea-primary-soft); color: var(--althea-success); }
+.althea-atlas__badge.is-mid { color: var(--althea-warning); }
+.althea-atlas__badge.is-low { color: var(--althea-error); }
+.althea-atlas__rows { margin: 0; display: grid; gap: 4px; font-size: var(--althea-fs-body-sm); }
+.althea-atlas__rows > div { display: flex; justify-content: space-between; gap: var(--althea-space-3); }
+.althea-atlas__rows dt { color: var(--althea-on-surface-muted); }
+.althea-atlas__rows dd { margin: 0; color: var(--althea-on-surface); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.althea-atlas__rows .althea-atlas__exercises { flex-direction: column; gap: 2px; }
+.althea-atlas__rows .althea-atlas__exercises dd { text-align: left; font-weight: 500; }
+.althea-atlas__hint { margin: 0; font-family: var(--althea-font-ui); font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted); }
+
+/* Contenedores anchos (desktop): figura y detalle lado a lado. */
+@container (min-width: 560px) {
+  .althea-atlas { flex-direction: row; align-items: flex-start; justify-content: center; }
+}
+
+/* ============ MACRO PLATE ============ */
+.althea-plate { display: inline-flex; flex-direction: column; align-items: center; gap: var(--althea-space-4); width: 100%; }
+.althea-plate__svg { width: 100%; height: auto; display: block; }
+.althea-plate__track { fill: none; stroke: var(--althea-surface-3); }
+.althea-plate__arc { fill: none; transition: stroke-dasharray var(--althea-duration-slow) var(--althea-ease-out); }
+.althea-plate__over { fill: none; stroke: var(--althea-error); stroke-linecap: round; }
+.althea-plate__kcal { font-family: var(--althea-font-display); fill: var(--althea-on-surface); font-variant-numeric: tabular-nums; }
+.althea-plate__unit, .althea-plate__goal { font-family: var(--althea-font-ui); fill: var(--althea-on-surface-muted); }
+.althea-plate__status--alcanzado { fill: var(--althea-success); }
+.althea-plate__status--superado { fill: var(--althea-error); }
+.althea-plate__status--cerca { fill: var(--althea-warning); }
+.althea-plate__legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--althea-space-2); width: 100%; font-family: var(--althea-font-ui); font-size: var(--althea-fs-body-sm); }
+.althea-plate__legend li { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: var(--althea-space-2); color: var(--althea-on-surface); }
+.althea-plate__dot { width: 10px; height: 10px; border-radius: 50%; }
+.althea-plate__legend .is-carb { background: var(--althea-carb); }
+.althea-plate__legend .is-protein { background: var(--althea-protein); }
+.althea-plate__legend .is-fat { background: var(--althea-fat); }
+.althea-plate__legend small { color: var(--althea-on-surface-muted); font-variant-numeric: tabular-nums; }
+
+/* ============ HYDRATION BOTTLE ============ */
+.althea-bottle { display: inline-flex; flex-direction: column; align-items: center; gap: var(--althea-space-2); }
+.althea-bottle__svg { display: block; height: auto; }
+.althea-bottle__water { transition: transform var(--althea-duration-slow) var(--althea-ease-out); }
+.althea-bottle__label { font-family: var(--althea-font-ui); font-weight: 700; font-size: var(--althea-fs-body-md); color: var(--althea-on-surface); font-variant-numeric: tabular-nums; }
+.althea-bottle__label small { color: var(--althea-on-surface-muted); font-weight: 500; font-size: inherit; }
+.althea-bottle__quick { display: flex; flex-direction: column; gap: var(--althea-space-2); width: 100%; }
+.althea-bottle__quick-row { display: flex; flex-wrap: wrap; gap: var(--althea-space-2); }
+.althea-bottle__input {
+  font-family: var(--althea-font-ui); font-size: var(--althea-fs-body-md);
+  padding: 10px 14px; border-radius: var(--althea-radius-md);
+  border: var(--althea-border-width) solid var(--althea-outline);
+  background: var(--althea-surface); color: var(--althea-on-surface); width: 128px;
+}
+.althea-bottle__input:focus-visible { outline: 2px solid var(--althea-primary); outline-offset: 2px; }
+
+/* ============ RESPONSIVE — 360 · 390 · 430 · 768 · 1024 · 1280 · 1440 ============ */
+.althea-stack { display: grid; gap: var(--althea-space-4); grid-template-columns: 1fr; }                /* 360–430: una columna */
+.althea-stack--2 { grid-template-columns: 1fr; }
+@media (min-width: 768px) {                                                                             /* 768: dos columnas */
+  .althea-stack--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--althea-space-6); }
+  .althea-panel { padding: var(--althea-space-6); }
+}
+@media (min-width: 1024px) {                                                                            /* 1024+: 12 columnas */
+  .althea-grid-12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--althea-space-6); }
+  .althea-col-4 { grid-column: span 4; } .althea-col-5 { grid-column: span 5; }
+  .althea-col-6 { grid-column: span 6; } .althea-col-7 { grid-column: span 7; }
+  .althea-col-8 { grid-column: span 8; } .althea-col-12 { grid-column: span 12; }
+}
+.althea-page { max-width: var(--althea-container-max); margin-inline: auto; padding-inline: var(--althea-space-4); }
+@media (min-width: 1280px) { .althea-page { padding-inline: var(--althea-space-8); } }
+@media (max-width: 430px) {
+  .althea-stat-row { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .althea-metric__value { font-size: 2.25rem; }
+}
+.althea-atlas-wrap { container-type: inline-size; width: 100%; }
+
+/* ============ NAV: variantes ============ */
+.althea-nav { display: flex; gap: var(--althea-space-1); }
+.althea-nav--sidebar { flex-direction: column; }
+.althea-nav-item { border: 0; background: none; text-decoration: none; text-align: left; width: 100%; }
+.althea-nav--bar {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 30;
+  justify-content: space-around; padding: var(--althea-space-2) var(--althea-space-2) calc(var(--althea-space-2) + env(safe-area-inset-bottom));
+  background: var(--althea-surface); border-top: var(--althea-border-width) solid var(--althea-outline);
+}
+.althea-nav--bar .althea-nav-item { flex-direction: column; gap: 2px; padding: 6px var(--althea-space-2); font-size: var(--althea-fs-label); text-align: center; width: auto; min-width: 56px; }
+.althea-nav-item[disabled] { opacity: 0.4; cursor: not-allowed; }

@@ -15,6 +15,7 @@ import { ExerciseHeader, ExerciseHeaderInline } from '@/components/entrenar/Exer
 import ExerciseSeriesTable from '@/components/entrenar/ExerciseSeriesTable'
 import { ModifyModal, ViewerModal, SwapModal, SkipReasonModal, CancelModal, AbandonModal, AddExtraModal, FinishModal } from '@/components/entrenar/SessionModals'
 import { MOBILE_NAV_OFFSET } from '@/components/layout/AppNav'
+import { AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
 
 import { aiService } from '@/services/ai/aiService'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
@@ -1221,7 +1222,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           </div>
         )}
         {/* Session Hero Header */}
-        <section className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-6  relative overflow-hidden">
+        <AltheaPanel className="relative overflow-hidden">
           <div className="absolute -right-20 -top-20 w-80 h-80 bg-primary-container/10 rounded-full blur-3xl pointer-events-none" />
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
             <div>
@@ -1270,21 +1271,14 @@ const exercises: SessionEx[] = seList.map((se) => {
           </div>
           {/* Metrics row + progress bar */}
           <div className="mt-6 pt-5 border-t border-outline-variant/30 grid grid-cols-1 md:grid-cols-4 gap-4 items-center relative z-10">
-            <div className="flex flex-col">
-              <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-headline-sm text-[20px] font-semibold text-secondary">{Object.keys(done).length}</span>
-                <span className="font-body-md text-[15px] text-outline">/ {exs.length}</span>
-              </div>
-              <span className="font-label-caps text-[10px] text-primary mt-0.5">{progress}% de Virtud Cumplida</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series Hechas</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-headline-sm text-[20px] font-semibold text-secondary">{completedSets}</span>
-                <span className="font-body-md text-[15px] text-outline">/ {totalSets}</span>
-              </div>
-            </div>
+            <AltheaMetric
+              value={`${Object.keys(done).length}/${exs.length}`}
+              label="Ejercicios"
+            />
+            <AltheaMetric
+              value={`${completedSets}/${totalSets}`}
+              label="Series hechas"
+            />
             {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED') && (
               <div className="flex items-center gap-2">
                 <span className={`px-3 py-1 rounded-full border font-label-caps text-[10px] uppercase ${sessionStatus==='PAUSED' ? 'bg-secondary-container/20 border-secondary/30 text-secondary' : 'bg-primary-container/20 border-primary/30 text-primary'}`}>Estado: {sessionStatus}</span>
@@ -1295,7 +1289,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           <div className="mt-5 w-full bg-surface-container-lowest h-2.5 rounded-full overflow-hidden flex gap-1 p-0.5 border border-outline-variant/40 relative z-10">
             {exs.map((_,i)=> <div key={i} className={`h-full rounded-full transition-all ${done[i]?'bg-primary': i===current?'bg-secondary animate-pulse':'bg-surface-container-high'}`} style={{flex:1}} />)}
           </div>
-        </section>
+        </AltheaPanel>
 
         {restFlash && restSec===0 && <button onClick={dismissFlash} className="w-full flex items-center justify-center gap-2 font-body-md text-[15px] text-on-surface st-completed border rounded p-2 fade-in"><Check size={14}/> Descanso terminado — a entrenar</button>}
 

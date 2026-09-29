@@ -6,7 +6,7 @@ import { v4 as uuid } from 'uuid'
 import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye, Sparkles, X, Check, RefreshCw } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { IconDumbbell, IconFire, IconLightning, IconBody, IconTarget } from '@/components/brand/FitnessIcons'
-import { AltheaCard, AltheaBadge, AltheaButton, AltheaEmpty, AltheaLoading, StatusTag } from '@/components/althea'
+import { AltheaCard, AltheaBadge, AltheaButton, AltheaEmpty, AltheaLoading, StatusTag, AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
 import { generateRoutineWithAI, isRoutineAIAvailable, type GeneratedRoutine, type UserWants } from '@/services/ai/routineBuilderIA'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
@@ -615,12 +615,14 @@ export default function RutinaPage(){
       </div>
 
       <div className="lg:col-span-4 space-y-3 hidden lg:block">
-        <AltheaCard className="space-y-2">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Dumbbell size={14}/> Stats de la rutina</div>
-          <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Días de entrenamiento</span><span className="font-body-md text-sm text-on-surface font-medium">{active.cycle.trainingDays.length}/semana</span></div>
-          <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total ejercicios</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(active.dayExercises).flat().length}</span></div>
-          <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total series</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(active.dayExercises).flat().reduce((a, e) => a + (e.sets || 0), 0)}</span></div>
-        </AltheaCard>
+        <AltheaPanel>
+          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1 mb-3"><Dumbbell size={14}/> Stats de la rutina</div>
+          <AltheaStatRow items={[
+            { icon: 'rutinas', value: `${active.cycle.trainingDays.length}/semana`, label: 'Días de entrenamiento' },
+            { icon: 'entrenar', value: Object.values(active.dayExercises).flat().length, label: 'Total ejercicios' },
+            { icon: 'progreso', value: Object.values(active.dayExercises).flat().reduce((a, e) => a + (e.sets || 0), 0), label: 'Total series' },
+          ]} />
+        </AltheaPanel>
         {active.cycle.methodId && (() => {
           const m = getMethod(active.cycle.methodId)
           return m ? (

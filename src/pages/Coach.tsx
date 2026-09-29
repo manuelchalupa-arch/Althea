@@ -17,7 +17,7 @@ import {
 import { getSourceById } from '@/services/ai/evidence'
 import { getActiveConversation, saveMessage, getMessages, clearConversation, type ChatMessage } from '@/services/ai/chatHistory'
 import { getUsage, getResetInfo } from '@/services/ai/groqUsage'
-import { AltheaBadge, AltheaButton, AltheaCard, AltheaCardHeader, AltheaEmpty, AltheaLoading } from '@/components/althea'
+import { AltheaBadge, AltheaButton, AltheaCard, AltheaCardHeader, AltheaEmpty, AltheaLoading, AltheaPanel } from '@/components/althea'
 import { SCIENTIFIC_SOURCES } from '@/services/ai/metExpenditure'
 
 const PAGE_CONTEXT = 'Coach IA'
@@ -109,16 +109,16 @@ function generatePostWorkoutTips(surveys: any[], lastSession: any): PostWorkoutT
 
 function TipItem({ title, detail }: RoutineTip) {
   return (
-    <div className="rounded-lg bg-surface-container-low/90 border border-outline-variant p-3">
+    <AltheaPanel density="compact" className="p-3">
       <div className="font-body-md text-sm font-medium text-on-surface">{title}</div>
       <div className="font-body-md text-xs text-on-surface-variant mt-0.5">{detail}</div>
-    </div>
+    </AltheaPanel>
   )
 }
 
 function PostTipItem({ tip }: { tip: PostWorkoutTip }) {
   return (
-    <div className="rounded-lg bg-surface-container-low/90 border border-outline-variant p-3">
+    <AltheaPanel density="compact" className="p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="font-body-md text-sm font-medium text-on-surface">{tip.title}</div>
         <AltheaBadge variant={tip.priority === 'high' ? 'danger' : 'warning'} size="xs">
@@ -126,7 +126,7 @@ function PostTipItem({ tip }: { tip: PostWorkoutTip }) {
         </AltheaBadge>
       </div>
       <div className="font-body-md text-xs text-on-surface-variant mt-0.5">{tip.detail}</div>
-    </div>
+    </AltheaPanel>
   )
 }
 

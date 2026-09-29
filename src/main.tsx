@@ -2,6 +2,9 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
+import './styles/althea-tokens.css'
+import './styles/althea-brand.css'
+import './styles/althea-components.css'
 // Migración legacy -> modelo oficial (una vez, idempotente, sin borrar datos).
 import('@/services/training/migrate').then(async ({ migrateLegacyTrainingData, wasMigratedV5 }) => {
   try { if (!wasMigratedV5()) {await migrateLegacyTrainingData()} } catch { /* noop */ }

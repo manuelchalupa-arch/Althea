@@ -8,7 +8,7 @@ import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { SyncStatusCard } from '@/components/sync/SyncStatusCard'
 import { IconDumbbell, IconFire, IconBody, IconHeart, IconWater, IconUtensils, IconSleep, IconClipboard, IconLightning, IconTarget, IconUser, IconShield } from '@/components/brand/FitnessIcons'
-import { AltheaButton, AltheaBadge, AltheaSelect, AltheaEmpty } from '@/components/althea'
+import { AltheaButton, AltheaBadge, AltheaSelect, AltheaEmpty, AltheaPanel, AltheaMetric } from '@/components/althea'
 import * as Gym from '@/services/exerciseGym'
 import { resolveCoachTone } from '@/services/ai/coachPersonality'
 import { todayKey } from '@/utils/dates'
@@ -391,7 +391,7 @@ export default function Perfil() {
     <div className="min-h-screen bg-transparent pb-24 max-w-[640px] w-full mx-auto px-4 py-6 space-y-4">
 
       {/* ═══ HEADER ═══ */}
-      <div className="bg-surface-container-low/80 backdrop-blur-sm border border-outline-variant/50 rounded-2xl p-5  relative overflow-hidden">
+      <AltheaPanel className="relative overflow-hidden">
         <div className="absolute -right-16 -top-16 w-48 h-48 bg-primary-container/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex items-center gap-4">
           <div className="w-16 h-16 rounded-full bg-primary-container/30 border-2 border-primary/30 flex items-center justify-center shrink-0">
@@ -407,13 +407,13 @@ export default function Perfil() {
           </div>
         </div>
         {(form.weightKg || form.heightCm) && (
-          <div className="relative z-10 flex gap-4 mt-4 pt-3 border-t border-outline-variant/30">
-            {form.weightKg && <div className="text-center"><div className="font-headline-sm text-[18px] text-on-surface font-semibold">{form.weightKg}</div><div className="font-label-caps text-[9px] uppercase text-on-surface-variant">kg</div></div>}
-            {form.heightCm && <div className="text-center"><div className="font-headline-sm text-[18px] text-on-surface font-semibold">{form.heightCm}</div><div className="font-label-caps text-[9px] uppercase text-on-surface-variant">cm</div></div>}
-            {imc && <div className="text-center"><div className="font-headline-sm text-[18px] text-on-surface font-semibold">{imc.value}</div><div className="font-label-caps text-[9px] uppercase text-on-surface-variant">IMC</div></div>}
+          <div className="relative z-10 grid grid-cols-3 gap-4 mt-4 pt-3 border-t border-outline-variant/30">
+            {form.weightKg && <AltheaMetric value={form.weightKg} unit="kg" label="Peso" />}
+            {form.heightCm && <AltheaMetric value={form.heightCm} unit="cm" label="Altura" />}
+            {imc && <AltheaMetric value={imc.value} label="IMC" />}
           </div>
         )}
-      </div>
+      </AltheaPanel>
 
       {/* ═══ DATOS PERSONALES ═══ */}
       <Section title="Datos personales" icon={<IconUser className="w-5 h-5" />} defaultOpen={false}>

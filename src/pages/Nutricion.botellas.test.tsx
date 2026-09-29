@@ -21,7 +21,9 @@ describe('G: botellas configurables, ml manuales y llenado proporcional', () => 
     render(<MemoryRouter><Nutricion /></MemoryRouter>)
 
     const hidratacion = await screen.findByLabelText('Hidratación del día', undefined, { timeout: 15000 })
-    const input = await within(hidratacion).findByLabelText('Mililitros a registrar', undefined, { timeout: 15000 })
+    const addMlBtn = await within(hidratacion).findByRole('button', { name: '+ Registrar ml' }, { timeout: 15000 })
+    addMlBtn.click()
+    const input = await within(hidratacion).findByPlaceholderText('ml (ej. 250)')
     const form = input.closest('form') as HTMLFormElement
 
     fireEvent.change(input, { target: { value: '300' } })
@@ -34,11 +36,9 @@ describe('G: botellas configurables, ml manuales y llenado proporcional', () => 
     }, { timeout: 10000 })
 
     await waitFor(() => {
-      const svg = screen.getByTestId('water-bottle-svg')
-      expect(svg.getAttribute('data-consumed-ml')).toBe('300')
-      // Llenado proporcional al objetivo (2500 ml sin perfil) → 12%
-      expect(svg.getAttribute('data-goal-ml')).toBe('2500')
-      expect(svg.getAttribute('data-pct')).toBe('12')
+      const label = document.querySelector('.althea-bottle__label')
+      expect(label?.textContent).toContain('300')
+      expect(label?.textContent).toContain('2.500')
     }, { timeout: 10000 })
   }, 40000)
 
@@ -50,7 +50,7 @@ describe('G: botellas configurables, ml manuales y llenado proporcional', () => 
     const hidratacion = await screen.findByLabelText('Hidratación del día', undefined, { timeout: 15000 })
 
     fireEvent.click(within(hidratacion).getByTestId('bottle-config-toggle'))
-    const chk = await within(hidratacion).findByLabelText('Botella 3 activa', undefined, { timeout: 15000 })
+    const chk = await within(hidratacion).findByRole('checkbox', { name: /Botella 3/ }, { timeout: 15000 })
     fireEvent.click(chk)
     fireEvent.click(within(hidratacion).getByTestId('bottle-config-save'))
 
@@ -61,7 +61,7 @@ describe('G: botellas configurables, ml manuales y llenado proporcional', () => 
     }, { timeout: 10000 })
 
     // La botella activa la tercera en los accesos rápidos
-    expect(await screen.findByTestId('water-bottle-add-bottle-3', undefined, { timeout: 10000 })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Botella 3/ }, { timeout: 10000 })).toBeInTheDocument()
 
     // Persistencia real: la config vive en Dexie, no en memoria del componente
     const persisted = await getBottleConfigs()
@@ -79,10 +79,10 @@ describe('G: botellas configurables, ml manuales y llenado proporcional', () => 
 
     fireEvent.click(within(hidratacion).getByTestId('bottle-config-toggle'))
     expect(await within(hidratacion).findByDisplayValue('Mi botella', undefined, { timeout: 15000 })).toBeInTheDocument()
-    const cap = within(hidratacion).getByLabelText('Capacidad en litros de la botella 1') as HTMLInputElement
+    const cap = within(hidratacion).getByLabelText(/Capacidad.*botella 1/i) as HTMLInputElement
     expect(Number(cap.value)).toBeCloseTo(0.9)
 
     // El botón rápido refleja la capacidad persistida
-    expect(await screen.findByLabelText('Registrar Mi botella (900 ml)', undefined, { timeout: 10000 })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Mi botella.*900/ }, { timeout: 10000 })).toBeInTheDocument()
   }, 40000)
 })

@@ -12,6 +12,7 @@ import type { CycleConfig } from '@/utils/cycle'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { WaterBottle } from '@/components/recovery/WaterBottle'
 import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
+import { AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
 import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { todayKey, daysBetween, parseLocalDateKey, toLocalDateKey, weekdayOfKey, addDaysToKey, toDateKey, isDateKey, weekStartKey } from '@/utils/dates'
@@ -361,7 +362,7 @@ export default function Inicio(){
         </section>
       )}
       {/* Hero compacto: saludo + qué hacer hoy + acciones del día (E1, E2) */}
-      <section className="marble-panel p-4">
+      <AltheaPanel className="p-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -412,8 +413,8 @@ export default function Inicio(){
 </button>
           }
           </div>
-         </div>
-      </section>
+          </div>
+       </AltheaPanel>
 
       {/* 2. MICROCICLO SEMANAL (7-DAY STRIP) — una sola fila compacta */}
       <section className="border border-outline-variant/30 rounded-lg px-3 py-2.5">
@@ -604,20 +605,11 @@ export default function Inicio(){
               </div>
               {/* KPI Summary */}
               {exNames.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3 border-t border-surface-bright">
-                  <div className="p-2.5 rounded bg-surface-container border border-outline-variant/20">
-                    <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">VOLUMEN PROYECTADO</span>
-                    <p className="font-headline-sm text-headline-sm text-on-surface font-semibold mt-0.5">{Math.round(exNames.reduce((a,e)=>a+e.sets*(e.reps||8)*(e.weight||0),0)).toLocaleString()} <span className="text-[12px] text-secondary font-normal">kg</span></p>
-                  </div>
-                  <div className="p-2.5 rounded bg-surface-container border border-outline-variant/20">
-                    <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">INTENSIDAD MEDIA (PLAN)</span>
-                    <p className="font-headline-sm text-headline-sm text-primary font-semibold mt-0.5">{todayRPE !== null && todayRPE !== undefined && todayRPE > 0 ? todayRPE.toFixed(1) : '—'} <span className="text-[12px] text-on-surface-variant font-normal">/ 10 RPE</span></p>
-                  </div>
-                  <div className="p-2.5 rounded bg-surface-container border border-outline-variant/20">
-                    <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">DURACIÓN EST.</span>
-                    <p className="font-headline-sm text-headline-sm text-on-surface font-semibold mt-0.5">{Math.max(20, Math.round(exNames.reduce((a,e)=>a+e.sets*(e.restSec||90),0)/60 + exNames.length*3))} <span className="text-[12px] text-secondary font-normal">min</span></p>
-                  </div>
-                </div>
+                <AltheaStatRow className="pt-3 border-t border-surface-bright" items={[
+                  { icon: 'entrenar', value: `${Math.round(exNames.reduce((a,e)=>a+e.sets*(e.reps||8)*(e.weight||0),0)).toLocaleString()} kg`, label: 'Volumen proyectado' },
+                  { icon: 'progreso', value: todayRPE !== null && todayRPE !== undefined && todayRPE > 0 ? `${todayRPE.toFixed(1)}/10` : '—', label: 'Intensidad media (plan)' },
+                  { icon: 'nutricion', value: `${Math.max(20, Math.round(exNames.reduce((a,e)=>a+e.sets*(e.restSec||90),0)/60 + exNames.length*3))} min`, label: 'Duración est.' },
+                ]} />
               )}
             </>
           )}
@@ -773,8 +765,8 @@ export default function Inicio(){
       </div>
 
       {/* 4. BOTTOM SECTION: REGISTROS DE VIRTUD & VOLUMEN SEMANAL */}
-      <section className="border border-outline-variant/40 rounded-lg p-4 sm:p-5 space-y-3 mt-4">
-        <div className="flex items-center justify-between border-b border-surface-bright pb-2.5">
+      <AltheaPanel className="mt-4">
+        <div className="flex items-center justify-between border-b border-outline-variant/30 pb-2.5 mb-3">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>insights</span>
             <h3 className="font-headline-md text-title-md font-semibold text-on-surface tracking-wide">Registros de Virtud & Volumen Semanal</h3>
@@ -782,48 +774,27 @@ export default function Inicio(){
           <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">CICLO OLÍMPICO</span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-3 rounded bg-surface-container border border-outline-variant/20 space-y-1">
-            <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">SOBRECARGA PROGRESIVA</span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-headline-md text-headline-sm font-bold text-primary">{briefV2?.progress?.rate !== undefined ? `${briefV2.progress.rate >= 0 ? '+' : ''}${briefV2.progress.rate.toFixed(1)}%` : 'Sin datos'}</span>
-              <span className="text-[11px] text-on-surface-variant">vs sem. ant.</span>
-            </div>
-            <div className="w-full bg-surface-bright h-1 rounded-full overflow-hidden mt-1.5">
-                <div className="bg-primary h-full" style={{ width: briefV2?.progress?.rate !== undefined ? `${Math.min(100, Math.max(6, Math.abs(briefV2.progress.rate) * 10))}%` : '0%' }}></div>
-              </div>
-          </div>
-          <div className="p-3 rounded bg-surface-container border border-outline-variant/20 space-y-1">
-            <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">DÍAS COMPLETADOS</span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-headline-md text-headline-sm font-bold text-on-surface">{completedCount > 0 ? completedCount : '—'}</span>
-              <span className="text-[11px] text-secondary font-medium">Días</span>
-            </div>
-            <div className="w-full bg-surface-bright h-1 rounded-full overflow-hidden mt-1.5">
-              <div className="bg-secondary h-full" style={{ width: `${Math.min(100, completedCount * 20)}%` }}></div>
-            </div>
-          </div>
-          <div className="p-3 rounded bg-surface-container border border-outline-variant/20 space-y-1">
-            <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">ADHERENCIA AL PLAN</span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-headline-md text-headline-sm font-bold text-primary">{totalCount > 0 ? Math.round(completedCount/totalCount*100) : 0}%</span>
-              <span className="text-[11px] text-on-surface-variant">{completedCount === totalCount ? 'Sin faltas' : `${totalCount - completedCount} pendientes`}</span>
-            </div>
-            <div className="w-full bg-surface-bright h-1 rounded-full overflow-hidden mt-1.5">
-              <div className="bg-primary-container h-full" style={{ width: `${totalCount > 0 ? completedCount/totalCount*100 : 0}%` }}></div>
-            </div>
-          </div>
-          <div className="p-3 rounded bg-surface-container border border-outline-variant/20 space-y-1">
-            <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">CALIDAD DE RECUPERACIÓN</span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-headline-md text-headline-sm font-bold text-secondary">{briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Áurea A+' : briefV2.recovery.lastScore >= 40 ? 'B+ Estable' : 'C Debe Descansar') : 'Sin datos'}</span>
-              <span className="text-[11px] text-on-surface-variant">Sueño / HRV</span>
-            </div>
-            <div className="w-full bg-surface-bright h-1 rounded-full overflow-hidden mt-1.5">
-              <div className="bg-secondary h-full" style={{ width: `${briefV2?.recovery?.lastScore ?? 0}%` }}></div>
-            </div>
-          </div>
+          <AltheaMetric
+            value={briefV2?.progress?.rate !== undefined ? `${briefV2.progress.rate >= 0 ? '+' : ''}${briefV2.progress.rate.toFixed(1)}%` : 'Sin datos'}
+            label="Sobrecarga progresiva"
+            delta={briefV2?.progress?.rate}
+            deltaSuffix="%"
+          />
+          <AltheaMetric
+            value={completedCount > 0 ? completedCount : '—'}
+            unit="días"
+            label="Días completados"
+          />
+          <AltheaMetric
+            value={`${totalCount > 0 ? Math.round(completedCount/totalCount*100) : 0}%`}
+            label="Adherencia al plan"
+          />
+          <AltheaMetric
+            value={briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Áurea A+' : briefV2.recovery.lastScore >= 40 ? 'B+ Estable' : 'C Debe Descansar') : 'Sin datos'}
+            label="Calidad de recuperación"
+          />
         </div>
-      </section>
+      </AltheaPanel>
 
       {/* Day Change Modal */}
       {showChangeDay && (

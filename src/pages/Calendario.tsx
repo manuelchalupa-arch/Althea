@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { db } from '@/services/storage/db'
-import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton } from '@/components/althea'
+import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
 import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'
 import { getOverrideDay, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import type { CycleConfig, LoadState } from '@/utils/cycle'
@@ -271,11 +271,13 @@ export default function Calendario(){
 
       </div>
       <div className="lg:col-span-4 space-y-3">
-        <AltheaCard className="space-y-2">
+        <AltheaPanel>
           <AltheaCardHeader icon="summarize" title="Resumen del mes" />
-          <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Días con sesión</span><span className="font-body-md text-sm text-on-surface font-medium">{monthSessions}</span></div>
-          <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Total sesiones</span><span className="font-body-md text-sm text-on-surface font-medium">{Object.values(map).reduce((a,b)=>a+b, 0)}</span></div>
-        </AltheaCard>
+          <AltheaStatRow items={[
+            { icon: 'calendario', value: monthSessions, label: 'Días con sesión' },
+            { icon: 'rutinas', value: Object.values(map).reduce((a,b)=>a+b, 0), label: 'Total sesiones' },
+          ]} />
+        </AltheaPanel>
         <AltheaCard className="space-y-2">
           <AltheaCardHeader icon="schedule" title="Próximas sesiones" />
           {(cycle?.trainingDays.length ?? 0) > 0 ? (

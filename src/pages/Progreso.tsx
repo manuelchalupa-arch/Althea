@@ -8,7 +8,9 @@ import { buildMuscleResolver, type MuscleResolver } from '@/services/training/mu
 import { groupLoadOf, weeklyGroupComparison } from '@/services/training/muscleGroups'
 import { getCanonicalCycle } from '@/services/planning/cycleVersions'
 import { todayKey, dayKeyOffset, toDateKey, daysBetween } from '@/utils/dates'
-import { MuscleMapPanel } from '@/components/progress/MuscleMapPanel'
+import { MuscleAtlas, type MuscleDataPoint } from '@/components/progress/MuscleAtlas'
+import { resolveMuscleIds } from '@/components/progress/muscleVocabulary'
+import { MUSCLE_CATALOG } from '@/services/training/muscleCatalog'
 import { AltheaCard, AltheaCardHeader, AltheaButton, AltheaKPICard, AltheaEmpty, AltheaLoading } from '@/components/althea'
 import type { RecoveryCheck, UserProfile } from '@/types'
 
@@ -335,6 +337,27 @@ export default function Progresos() {
   const hasAnyData = allLogs.length > 0 || bodies.length > 0 || recovery.length > 0 || totalSessionDays > 0
   const hasPeriodData = periodLogs.length > 0 || periodBodies.length > 0 || periodRec.length > 0
 
+  const [vista, setVista] = useState<'front' | 'back'>('front')
+
+  const muscleData = useMemo((): Record<string, MuscleDataPoint> => {
+    if (!hasAnyData) {return {}}
+    const currentVol = muscleComparison.current?.byGroup ?? {}
+    const lastWeek = muscleComparison.weeks[muscleComparison.weeks.length - 1] ?? null
+    const out: Record<string, MuscleDataPoint> = {}
+    for (const m of MUSCLE_CATALOG) {
+      const regionIds = resolveMuscleIds(m.id)
+      if (regionIds.length === 0) {continue}
+      const current = currentVol[m.group] ?? 0
+      const previous = lastWeek?.byGroup[m.group] ?? 0
+      const trend = current > 0 && previous > 0
+        ? current > previous ? 'aumento' : current < previous ? 'descenso' : 'estable'
+        : 'sin-base'
+      const point: MuscleDataPoint = { muscleId: m.id, current, previous, trend, unit: 'kg' }
+      for (const rid of regionIds) {out[rid] = point}
+    }
+    return out
+  }, [hasAnyData, muscleComparison])
+
   // ─── BLOQUE 7: informe periódico (conclusiones + descarga) ───
   const reportBlock = () => (
     <AltheaCard className="p-4" data-testid="progreso-report">
@@ -453,15 +476,24 @@ export default function Progresos() {
         </AltheaCard>
       ) : (
         <>
-          {/* ─── BLOQUE 1 · mapa muscular (protagonista, ancho completo) ─── */}
-          <MuscleMapPanel
-            weeks={muscleComparison.weeks}
-            currentWeekIndex={muscleComparison.current?.week ?? muscleComparison.weeks.length + 1}
-            currentByGroup={muscleComparison.current?.byGroup ?? {}}
-            unmappedSets={unmappedMuscleSets}
-            cycleStartDate={(cycle?.startDate ?? todayKey())}
-            hasAnySet={allLogs.length > 0}
-          />
+          {/* ─── BLOQUE 1 · atlas muscular (protagonista, ancho completo) ─── */}
+          <section className="rounded-2xl border border-outline-variant/40 bg-surface-container-low p-4 md:p-5" data-testid="muscle-atlas">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+              <div>
+                <h2 className="font-headline-lg text-xl font-semibold text-on-surface tracking-tight">Mapa muscular</h2>
+                <p className="font-body-sm text-xs text-on-surface-variant">
+                  Trabajo por grupo · ciclo iniciado el {cycle?.startDate ?? todayKey()}
+                </p>
+              </div>
+            </div>
+            <MuscleAtlas
+              view={vista}
+              onViewChange={setVista}
+              data={muscleData}
+              width={280}
+              detail="below"
+            />
+          </section>
 
           {/* ─── BLOQUES 2, 3 y 5 · días, peso y volumen comparable ─── */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

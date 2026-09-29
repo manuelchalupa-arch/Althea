@@ -7,7 +7,7 @@ import { listWgerExercises, importWgerSample, toExercise as wgerToExercise } fro
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Dumbbell, Layers, Box, Heart, Globe, WifiOff } from 'lucide-react'
-import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading } from '@/components/althea'
+import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading, AltheaPanel, AltheaToolbar } from '@/components/althea'
 
 type Tab = 'muscle'|'equipment'|'bodypart'|'category'
 
@@ -179,12 +179,17 @@ export default function Biblioteca(){
       {error && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-error bg-error/10 border border-error/40 rounded-lg p-2">{error}</div>}
 
       {/* Tabs (al entrar a cada filtro: selectedFilter = Todos) */}
-      <div className="flex gap-1 p-1 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-x-auto">
-        <button onClick={()=>{ setTab('muscle'); load('muscle','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 min-h-[48px] ${tab==='muscle'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Heart size={12}/> Músculo</button>
-        <button onClick={()=>{ setTab('equipment'); load('equipment','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 min-h-[48px] ${tab==='equipment'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Dumbbell size={12}/> Equipo</button>
-        <button onClick={()=>{ setTab('bodypart'); load('bodypart','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 min-h-[48px] ${tab==='bodypart'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Layers size={12}/> Parte</button>
-        <button onClick={()=>{ setTab('category'); load('category','__all__') }} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center justify-center gap-1 min-h-[48px] ${tab==='category'?'bg-primary text-on-surface':'text-on-surface-variant'}`}><Box size={12}/> Categoría</button>
-      </div>
+      <AltheaToolbar
+        value={tab}
+        onChange={(v) => { setTab(v as Tab); load(v as Tab, '__all__') }}
+        options={[
+          { value: 'muscle', label: 'Músculo' },
+          { value: 'equipment', label: 'Equipo' },
+          { value: 'bodypart', label: 'Parte' },
+          { value: 'category', label: 'Categoría' },
+        ]}
+        aria-label="Tipo de filtro"
+      />
 
       {/* Listado índices */}
       <AltheaCard className="p-3">

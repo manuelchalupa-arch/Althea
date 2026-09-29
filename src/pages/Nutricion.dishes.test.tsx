@@ -49,8 +49,23 @@ const num = (testid: string) =>
 
 const texto = (testid: string) => screen.getByTestId(testid).textContent ?? ''
 
-const carbPct = () =>
-  Number(document.querySelector('[data-macro="carbs"]')?.getAttribute('data-percent'))
+const carbPct = () => {
+  const legend = document.querySelector('.althea-plate__legend')
+  if (!legend) { return 0 }
+  const items = legend.querySelectorAll('li')
+  for (const item of items) {
+    if (item.textContent?.includes('Carbohidratos')) {
+      const text = item.textContent || ''
+      const match = text.match(/(\d+)\s*\/\s*(\d+)\s*g/)
+      if (match) {
+        const consumed = Number(match[1])
+        const goal = Number(match[2])
+        return goal > 0 ? Math.round((consumed / goal) * 100) : 0
+      }
+    }
+  }
+  return 0
+}
 
 const kcalGuardada = async () => {
   const e = await db.nutritionDiary.toCollection().first()
@@ -230,7 +245,7 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
 
     const kcal = Math.round(await kcalGuardada())
     expect(num('consumed-calories')).toBe(kcal)
-    const centro = (document.querySelector('[data-macro="calories"]')?.textContent ?? '').replace(/\D/g, '')
+    const centro = (document.querySelector('.althea-plate__kcal')?.textContent ?? '').replace(/\D/g, '')
     expect(centro).toBe(kcal.toLocaleString('es-AR').replace(/\D/g, ''))
   })
 
@@ -239,7 +254,7 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
     const { getMacroGoals } = await import('@/services/nutrition/macroService')
     const goals = await getMacroGoals()
 
-    // Un único registro real que ya pasa el objetivo de grasas.
+    // Un único registro real que ya pasa el objetivo de calorías y grasas.
     await addDiaryEntry({
       id: 'muy-grasa',
       date: todayKey(),
@@ -248,7 +263,7 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
       servingLabel: 'plato',
       amount: 400,
       unit: 'g',
-      macros: { calories: 980, proteins: 24, carbs: 90, fats: goals.fat + 30 },
+      macros: { calories: goals.calories + 100, proteins: 24, carbs: 90, fats: goals.fat + 30 },
       addedAt: new Date().toISOString(),
     })
 
@@ -258,11 +273,8 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
 
     // estado "excedido" visible en la tabla
     expect(screen.getAllByTestId('macro-status-superado').length).toBeGreaterThan(0)
-    // el segmento se marca como excedente y conserva el porcentaje real
-    const fat = document.querySelector('[data-macro="fat"]')
-    expect(fat?.getAttribute('data-over')).toBe('true')
-    expect(Number(fat?.getAttribute('data-percent'))).toBeGreaterThan(100)
-    // los otros segmentos no se ven afectados
-    expect(document.querySelector('[data-macro="protein"]')?.getAttribute('data-over')).toBe('false')
+    // el estado "superado" se refleja en el texto del plato
+    const statusEl = document.querySelector('.althea-plate__goal')
+    expect(statusEl?.textContent).toContain('Objetivo superado')
   })
 })

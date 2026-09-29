@@ -1,0 +1,159 @@
+/**
+ * ALTHEA — DESIGN TOKENS (FINAL)
+ * Sistema científico de entrenamiento premium.
+ * Ciencia + Deporte + Estética Helénica + Tecnología moderna.
+ *
+ * PALETA DEFINITIVA
+ *   Claro : mármol blanco casi puro, vetas mínimas, texto carbono, VERDE oscuro
+ *           como color principal, dorado solo ornamental.
+ *   Oscuro: obsidiana/grafito casi negro, vetas blanco-grisáceas muy sutiles,
+ *           texto claro, VERDE oscuro como color principal, dorado solo ornamental.
+ *   El verde es el color de CTA, botones, navegación activa, selección y
+ *   elementos principales. No hay marrón, oliva ni dorado dominante.
+ * TIPOGRAFÍA DEFINITIVA: Playfair Display (marca, títulos, números
+ *   protagonistas) + Inter (datos, UI). Sin tercera tipografía.
+ *
+ * Todo color, tipografía y espaciado usado por los componentes de Althea
+ * debe salir de estas variables. No hardcodear hex dentro de componentes.
+ *
+ * Modo oscuro: clase `.dark` en <html> (convención del repo, Tailwind
+ * darkMode:'class') o atributo [data-theme="dark"]. Sin ninguno, es claro.
+ */
+
+:root {
+  /* ============ TIPOGRAFÍA ============ */
+  --althea-font-display: 'Playfair Display', ui-serif, Georgia, serif;
+  --althea-font-ui: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --althea-fs-display-xl: 2.75rem;   /* números protagonistas, hero */
+  --althea-fs-display-lg: 2rem;      /* headlines de sección */
+  --althea-fs-display-md: 1.5rem;    /* títulos de tarjeta */
+  --althea-fs-body-lg: 1rem;
+  --althea-fs-body-md: 0.875rem;
+  --althea-fs-body-sm: 0.75rem;
+  --althea-fs-label: 0.6875rem;
+
+  --althea-lh-display: 1.15;
+  --althea-lh-body: 1.5;
+
+  /* ============ ESPACIADO ============ */
+  --althea-space-1: 4px;
+  --althea-space-2: 8px;
+  --althea-space-3: 12px;
+  --althea-space-4: 16px;
+  --althea-space-5: 20px;
+  --althea-space-6: 24px;
+  --althea-space-8: 32px;
+  --althea-space-10: 40px;
+
+  /* ============ RADIO / BORDE ============ */
+  --althea-radius-sm: 8px;
+  --althea-radius-md: 12px;
+  --althea-radius-lg: 18px;
+  --althea-radius-pill: 999px;
+  --althea-border-width: 1px;
+
+  /* ============ SOMBRA (mínima, editorial) ============ */
+  --althea-shadow-panel: 0 1px 3px rgba(18, 26, 20, 0.05), 0 1px 1px rgba(18, 26, 20, 0.04);
+  --althea-shadow-panel-hover: 0 2px 8px rgba(18, 26, 20, 0.08);
+
+  /* ============ MOTION ============ */
+  /* Curvas y duraciones de Emil Kowalski (skill "animate"): ease-out fuerte
+     para entradas/salidas, ease-in-out fuerte para movimiento en pantalla.
+     Nunca ease-in en UI. Toda animación de UI < 300ms. */
+  --althea-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --althea-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --althea-ease-standard: ease; /* hover / cambio de color */
+  --althea-duration-press: 120ms;   /* feedback de botón: 100–160ms */
+  --althea-duration-fast: 160ms;    /* hover, tooltips */
+  --althea-duration-base: 200ms;    /* aparición de paneles */
+  --althea-duration-slow: 280ms;    /* llenado de anillo / botella */
+
+  /* ============ GRID ============ */
+  --althea-grid-columns-desktop: 12;
+  --althea-container-max: 1280px;
+
+  /* ============ COLOR — MODO CLARO (mármol) ============ */
+  --althea-primary: #1B4332;          /* verde oscuro elegante — CTA, activos, progreso */
+  --althea-primary-hover: #143526;
+  --althea-primary-soft: #E7EFE9;     /* fondo tenue del verde, chips/estados */
+  --althea-on-primary: #F7F5F0;
+
+  --althea-marble: #FBFAF7;           /* mármol blanco casi puro (base de superficie) */
+  --althea-surface: #FBFAF7;          /* mármol blanco casi puro */
+  --althea-surface-2: #F4F2EC;        /* superficie secundaria, ligera veta */
+  --althea-surface-3: #ECE9E1;        /* superficie terciaria / hover de panel */
+  --althea-on-surface: #1A1B17;       /* texto principal, negro cálido */
+  --althea-on-surface-muted: #63645C;
+  --althea-outline: #DEDACF;          /* bordes suaves sobre mármol */
+
+  --althea-marble-vein: rgba(120, 116, 100, 0.10); /* vetas del mármol, muy sutiles */
+  --althea-marble-vein-strong: rgba(120, 116, 100, 0.18);
+
+  --althea-gold: #B08D3F;             /* dorado — SOLO detalle ornamental */
+  --althea-gold-soft: rgba(176, 141, 63, 0.14);
+
+  /* ============ COLOR SEMÁNTICO (nutrición / estado) ============ */
+  --althea-carb: #C98A3E;     /* carbohidratos — ámbar cálido */
+  --althea-protein: #8E3B3B;  /* proteínas — terracota profundo */
+  --althea-fat: #C9A63E;      /* grasas — dorado suave */
+  --althea-hydration: #4A9FBF; /* celeste agua */
+  --althea-warning: #B8863B;
+  --althea-error: #A13F3F;
+  --althea-success: #1B4332;
+
+  /* ============ MAPA MUSCULAR ============ */
+  --althea-muscle-low: #B0524B;      /* rojo — descenso/bajo */
+  --althea-muscle-mid: #C9A23E;      /* amarillo — estable */
+  --althea-muscle-high: #3F7A52;     /* verde — óptimo/aumento */
+  --althea-muscle-idle: #DCD8CC;     /* sin datos */
+  --althea-muscle-outline: #8A8674;
+  --althea-muscle-silhouette: #ECE9E1;
+  --althea-muscle-fiber: rgba(46, 43, 34, 0.22);
+}
+
+/* ============ COLOR — MODO OSCURO (obsidiana) ============ */
+.dark,
+[data-theme='dark'] {
+  --althea-primary: #2F7A54;          /* verde oscuro, elevado para contraste sobre obsidiana */
+  --althea-primary-hover: #3C9367;
+  --althea-primary-soft: rgba(47, 122, 84, 0.16);
+  --althea-on-primary: #F7F5F0;
+
+  --althea-marble: #101211;           /* obsidiana (base de superficie) */
+  --althea-surface: #101211;          /* obsidiana */
+  --althea-surface-2: #171A18;        /* grafito */
+  --althea-surface-3: #20241F;        /* superficie terciaria / hover */
+  --althea-on-surface: #F1F0EA;
+  --althea-on-surface-muted: #9C9C90;
+  --althea-outline: #2A2D27;
+
+  --althea-marble-vein: rgba(226, 224, 214, 0.05);
+  --althea-marble-vein-strong: rgba(226, 224, 214, 0.09);
+
+  --althea-gold: #C8A24E;
+  --althea-gold-soft: rgba(200, 162, 78, 0.14);
+
+  --althea-carb: #D9A05C;
+  --althea-protein: #B25D5D;
+  --althea-fat: #D6C066;
+  --althea-hydration: #6BB8D6;
+  --althea-warning: #D6A85C;
+  --althea-error: #C25B5B;
+  --althea-success: #2F7A54;
+
+  --althea-muscle-low: #C25B5B;
+  --althea-muscle-mid: #D6C066;
+  --althea-muscle-high: #4E9B6C;
+  --althea-muscle-idle: #2A2D27;
+  --althea-muscle-outline: #6C6F64;
+  --althea-muscle-silhouette: #20241F;
+  --althea-muscle-fiber: rgba(241, 240, 234, 0.16);
+
+  --althea-shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.24);
+  --althea-shadow-panel-hover: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+/* Reduced motion = menos y más suave, no cero (Emil §7): se conservan los
+   cambios de opacidad/color que ayudan a comprender; los componentes quitan
+   el movimiento (transform) en su propio @media, en althea-components.css. */

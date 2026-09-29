@@ -5,3 +5,7 @@ export { AltheaKPICard, AltheaProgress } from './AltheaKPI';
 export { AltheaSection } from './AltheaSection';
 export { AltheaEmpty, AltheaLoading } from './AltheaEmpty';
 export { AltheaInput, AltheaSelect, AltheaTextarea } from './AltheaInput';
+export { AltheaPanel } from './AltheaPanel';
+export { AltheaMetric } from './AltheaMetric';
+export { AltheaStat, AltheaStatRow } from './AltheaStat';
+export { AltheaToolbar } from './AltheaToolbar';

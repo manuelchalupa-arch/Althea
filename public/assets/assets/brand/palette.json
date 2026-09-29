@@ -1,0 +1,17 @@
+{
+  "light": {
+    "fg": "#1B4332",
+    "text": "#1A1B17",
+    "gold": "#B08D3F",
+    "mut": "#63645C",
+    "bg": "#FBFAF7"
+  },
+  "dark": {
+    "fg": "#F1F0EA",
+    "text": "#F1F0EA",
+    "gold": "#C8A24E",
+    "mut": "#9C9C90",
+    "bg": "#101211"
+  },
+  "note": "primary verde #1B4332 (claro) / #2F7A54 (oscuro); dorado solo ornamental"
+}

@@ -1,0 +1,107 @@
+/**
+ * ALTHEA — BRAND SURFACE SYSTEM
+ * Mármol (light/dark), motivo helénico sutil, ornamento dorado.
+ * Depende de althea-tokens.css.
+ */
+
+/* ---------- MÁRMOL ---------- */
+/* Vetas generadas por CSS (sin imagen pesada): dos capas de gradiente lineal
+   fino en ángulos distintos + una radial muy tenue para variación. Nunca debe
+   competir con el contenido: opacidad y contraste deliberadamente bajos. */
+.althea-marble {
+  position: relative;
+  background-color: var(--althea-surface);
+  background-image:
+    linear-gradient(128deg, transparent 38%, var(--althea-marble-vein) 39%, transparent 41%, transparent 63%, var(--althea-marble-vein-strong) 64%, transparent 66%),
+    linear-gradient(72deg, transparent 20%, var(--althea-marble-vein) 21%, transparent 23%, transparent 82%, var(--althea-marble-vein) 83%, transparent 85%),
+    radial-gradient(120% 90% at 10% 0%, var(--althea-marble-vein) 0%, transparent 55%);
+  background-size: 100% 100%;
+}
+
+.althea-marble-2 {
+  background-color: var(--althea-surface-2);
+  background-image:
+    linear-gradient(115deg, transparent 46%, var(--althea-marble-vein) 47%, transparent 49%),
+    linear-gradient(64deg, transparent 30%, var(--althea-marble-vein) 31%, transparent 33%);
+}
+
+/* ---------- MOTIVO HELÉNICO (friso), muy sutil, uso en separadores/headers ---------- */
+.althea-fret-divider {
+  height: 6px;
+  width: 100%;
+  opacity: 0.5;
+  background-repeat: repeat-x;
+  background-size: 24px 6px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='6' viewBox='0 0 24 6'%3E%3Cpath d='M0 1H7V5H11V1H17V5H21V1H24' fill='none' stroke='%23B08D3F' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+html.dark .althea-fret-divider,
+[data-theme='dark'] .althea-fret-divider {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='6' viewBox='0 0 24 6'%3E%3Cpath d='M0 1H7V5H11V1H17V5H21V1H24' fill='none' stroke='%23C8A24E' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+/* ---------- ORNAMENTO DORADO (detalle, nunca dominante) ---------- */
+.althea-gold-rule {
+  display: block;
+  width: 32px;
+  height: 2px;
+  background: var(--althea-gold);
+  border-radius: var(--althea-radius-pill);
+}
+
+.althea-gold-corner {
+  position: relative;
+}
+.althea-gold-corner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-top: 1px solid var(--althea-gold);
+  border-left: 1px solid var(--althea-gold);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* ---------- MARCA ---------- */
+.althea-wordmark {
+  font-family: var(--althea-font-display);
+  letter-spacing: 0.04em;
+  color: var(--althea-on-surface);
+  font-weight: 600;
+}
+
+.althea-wordmark-tagline {
+  font-family: var(--althea-font-ui);
+  font-size: var(--althea-fs-label);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--althea-on-surface-muted);
+}
+
+/* ---------- AVATAR / BUSTO ---------- */
+.althea-bust-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.althea-avatar-ring {
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--althea-surface-2);
+  border: var(--althea-border-width) solid var(--althea-outline);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* Empty-state watermark: busto atenuado, nunca decorativo en exceso */
+.althea-empty-watermark {
+  opacity: 0.9;
+  filter: grayscale(0.15);
+}

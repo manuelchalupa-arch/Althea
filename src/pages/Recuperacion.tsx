@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { db } from '@/services/storage/db'
-import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaLoading, AltheaEmpty } from '@/components/althea'
+import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaLoading, AltheaEmpty, AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
 import { WaterBottle } from '@/components/recovery/WaterBottle'
 import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
 import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'
@@ -195,10 +195,11 @@ export default function Recuperacion() {
             ) : (
               <div className="space-y-5">
                 <div className="flex flex-wrap items-start gap-x-6 gap-y-4">
-                  <div className="flex items-end gap-1">
-                    <span className="font-headline-lg text-4xl lg:text-5xl font-semibold tracking-tight text-on-surface leading-none">{ctx.lastScore}</span>
-                    <span className="font-label-md text-xs uppercase tracking-widest text-on-surface-variant pb-1">/100</span>
-                  </div>
+                  <AltheaMetric
+                    value={ctx.lastScore}
+                    unit="/100"
+                    label="Score de recuperación"
+                  />
                   <div className="flex flex-col gap-1.5">
                     <AltheaBadge variant={TREND_VARIANT[ctx.trend]} dot>{TREND_LABEL[ctx.trend]}</AltheaBadge>
                     {ctx.consecutiveLow > 0 && (
@@ -214,14 +215,11 @@ export default function Recuperacion() {
 
                 <div>
                   <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-2">Factores del último check-in</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                    {factors.map(f => (
-                      <div key={f.label} className="rounded-lg bg-surface-container-low/90 border border-outline-variant px-3 py-2">
-                        <div className="font-label-md text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant">{f.label}</div>
-                        <div className="font-body-md text-base font-semibold text-on-surface mt-0.5">{f.value}/10</div>
-                      </div>
-                    ))}
-                  </div>
+                  <AltheaStatRow items={factors.map(f => ({
+                    icon: f.label === 'Energía' ? 'progreso' : f.label === 'Fatiga' ? 'nutricion' : f.label === 'Dolor' ? 'recuperacion' : f.label === 'Estado de ánimo' ? 'coach' : 'mas',
+                    value: `${f.value}/10`,
+                    label: f.label,
+                  }))} />
                 </div>
 
                 <div>
