@@ -7,6 +7,8 @@
 //   GET /v1/foods/:id
 // Guía: https://codulia.com
 
+import { fetchWithRetry } from './apiUtils'
+
 export const CODULIA_BASE = 'https://nutricion-api-arg.fly.dev/v1'
 export const CODULIA_DOCS = 'https://codulia.com'
 
@@ -116,7 +118,7 @@ function normalizeDetail(raw:any): CoduliaFoodDetail {
 export async function searchFoods(q:string, opts?:{limit?:number; offset?:number}):Promise<CoduliaFoodSummary[]>{
   if(!q.trim()) {return []}
   const params = new URLSearchParams({ q: q.trim(), limit: String(opts?.limit ?? 20), offset: String(opts?.offset ?? 0) })
-  const res = await fetch(`${CODULIA_BASE}/foods/search?${params.toString()}`, { headers: headers() })
+  const res = await fetchWithRetry(`${CODULIA_BASE}/foods/search?${params.toString()}`, { headers: headers() })
   if(!res.ok){
     const body = await res.json().catch(()=>({error:{message:res.statusText}}))
     throw new Error(body?.error?.message || `Codulia search ${res.status}`)
@@ -128,7 +130,7 @@ export async function searchFoods(q:string, opts?:{limit?:number; offset?:number
 export async function getByBarcode(code:string):Promise<CoduliaFoodDetail>{
   const clean = code.replace(/\D/g,'').trim()
   if(!clean) {throw new Error('Código de barras vacío')}
-  const res = await fetch(`${CODULIA_BASE}/foods/barcode/${encodeURIComponent(clean)}`, { headers: headers() })
+  const res = await fetchWithRetry(`${CODULIA_BASE}/foods/barcode/${encodeURIComponent(clean)}`, { headers: headers() })
   if(!res.ok){
     const body = await res.json().catch(()=>({error:{message:res.statusText}}))
     throw new Error(body?.error?.message || `No encontrado (${res.status})`)
@@ -138,7 +140,7 @@ export async function getByBarcode(code:string):Promise<CoduliaFoodDetail>{
 }
 
 export async function getFoodDetail(id:string):Promise<CoduliaFoodDetail>{
-  const res = await fetch(`${CODULIA_BASE}/foods/${encodeURIComponent(id)}`, { headers: headers() })
+  const res = await fetchWithRetry(`${CODULIA_BASE}/foods/${encodeURIComponent(id)}`, { headers: headers() })
   if(!res.ok){
     const body = await res.json().catch(()=>({error:{message:res.statusText}}))
     throw new Error(body?.error?.message || `Codulia detail ${res.status}`)

@@ -4,7 +4,7 @@ import { parseRecommendation } from './recommendationParser'
 import { FallbackAIProvider } from './fallbackAIProvider'
 
 const MODEL_ID = 'onnx-community/Qwen3-0.6B-ONNX'
-const MODEL_SIZE = 'q4f16 ~340-380 MB · q4 ~320 MB' // real
+const MODEL_SIZE = 'q4f16 ~340-380 MB · q4 ~320 MB'
 const REQUIRED = '~400 MB descarga + ~1.0 GB RAM (WebGPU) / ~0.9 GB (WASM)'
 
 type Status = 'not-installed'|'downloading'|'installing'|'ready'
@@ -35,14 +35,11 @@ export class QwenProvider implements AIProvider {
     if(status==='ready' && pipe) {return}
     setStatus('downloading'); progress=0
     const onProg = (p:any)=>{
-      // transformers progress: {status, progress, file}
       if(p.progress) { progress = Math.round(p.progress); onProgress?.(progress); localStorage.setItem('qwen:progress', String(progress)) }
     }
     try{
       const { pipeline, env } = await import('@huggingface/transformers')
-      // cache a Cache API
       env.allowLocalModels = false
-      // intenta WebGPU primero
       const cap = await (await import('./capabilities')).detectCapabilities()
       device = cap.webgpu ? 'webgpu' : 'wasm'
       const dtype = device==='webgpu' ? 'q4f16' : 'q4'
@@ -60,22 +57,15 @@ export class QwenProvider implements AIProvider {
   }
 
   async generateRecommendation(ctx: AIContext): Promise<AIRecommendation>{
-    // privacidad: solo contexto reducido
-    if(ctx.dolor?.includes('severe') || ctx.dolor?.includes('Importante')){
-      return { type:'training_recommendation', exercise:ctx.ejercicio||'', action:'decrease_weight', reason:'Dolor importante registrado — no aumentar carga. Consultá profesional y considerá variante.', factors:['dolor importante','seguridad'], confidence:0.9 }
-    }
     if(!pipe){
-      // si no está listo, intenta fallback determinístico sin romper
       return this.fallback.generateRecommendation(ctx)
     }
     const prompt = buildPrompt(ctx)
     try{
       const out:any = await pipe(prompt, { max_new_tokens: 180, temperature: 0.3, top_p: 0.9, do_sample: false })
       const text = Array.isArray(out) ? out[0]?.generated_text ?? '' : out.generated_text ?? String(out)
-      // el pipeline devuelve prompt+completion; extrae JSON
       const rec = parseRecommendation(text)
       if(rec) {return rec}
-      // si no parsea, fallback con texto truncado
       return { type:'training_recommendation', exercise:ctx.ejercicio||'', action:'maintain', reason: text.slice(0,180) || 'Mantener carga y controlar técnica.', factors:[prompt.slice(0,60)], confidence:0.5 }
     }catch{
       return this.fallback.generateRecommendation(ctx)

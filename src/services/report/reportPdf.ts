@@ -57,49 +57,56 @@ function sectionTitle(page: PdfPage, y: number, title: string, hint?: string): n
 
 interface Kpi { label: string; value: string; sub?: string; color?: ReturnType<typeof rgb> }
 
-function kpiRow(page: PdfPage, y: number, items: Kpi[]): number {
+function kpiRow(pager: Pager, y: number, items: Kpi[]): number {
   const cols = Math.min(4, items.length)
   const gap = 10
-  const w = (page.usableWidth - gap * (cols - 1)) / cols
+  const w = (pager.current.usableWidth - gap * (cols - 1)) / cols
+  const rows = Math.ceil(items.length / cols)
+  const totalH = rows * 62 - 4
+  y = pager.ensure(totalH + 10, y)
   items.forEach((k, i) => {
     const col = i % cols
     const row = Math.floor(i / cols)
     const x = MARGIN + col * (w + gap)
     const top = y - row * 62
-    page.rect(x, top - 50, w, 50, { fill: BRAND.marble, stroke: BRAND.line, radius: 6 })
-    page.text(k.label.toUpperCase(), x + 10, top - 10, { size: 6.8, color: BRAND.inkSoft })
-    page.text(k.value, x + 10, top - 27, { size: 14, bold: true, color: k.color ?? BRAND.ink })
-    if (k.sub) { page.text(k.sub, x + 10, top - 39, { size: 7, color: BRAND.inkSoft, maxWidth: w - 20 }) }
+    pager.current.rect(x, top - 50, w, 50, { fill: BRAND.marble, stroke: BRAND.line, radius: 6 })
+    pager.current.text(k.label.toUpperCase(), x + 10, top - 10, { size: 6.8, color: BRAND.inkSoft })
+    pager.current.text(k.value, x + 10, top - 27, { size: 14, bold: true, color: k.color ?? BRAND.ink })
+    if (k.sub) { pager.current.text(k.sub, x + 10, top - 39, { size: 7, color: BRAND.inkSoft, maxWidth: w - 20 }) }
   })
-  const rows = Math.ceil(items.length / cols)
-  return y - rows * 62 + 4
+  return y - totalH
 }
 
-function table(page: PdfPage, y: number, headers: string[], rows: string[][], widths: number[]): number {
+function table(pager: Pager, y: number, headers: string[], rows: string[][], widths: number[]): number {
   const total = widths.reduce((a, b) => a + b, 0)
-  const scale = page.usableWidth / total
+  const scale = pager.current.usableWidth / total
   const cols = widths.map((w) => w * scale)
   const xs: number[] = []
   let acc = MARGIN
   for (const c of cols) { xs.push(acc); acc += c }
 
-  page.rect(MARGIN, y - 12, page.usableWidth, 16, { fill: rgb(0xef, 0xf1, 0xef) })
+  const headerH = 16
+  const rowH = 15
+  const totalH = headerH + rows.length * rowH + 6
+  y = pager.ensure(totalH + 10, y)
+
+  pager.current.rect(MARGIN, y - 12, pager.current.usableWidth, headerH, { fill: rgb(0xef, 0xf1, 0xef) })
   headers.forEach((h, i) => {
-    page.text(h, i === 0 ? xs[0] + 6 : xs[i] + cols[i] - 6, y - 1, {
+    pager.current.text(h, i === 0 ? xs[0] + 6 : xs[i] + cols[i] - 6, y - 1, {
       size: 7.5, bold: true, color: BRAND.inkSoft, align: i === 0 ? 'left' : 'right',
     })
   })
   let cy = y - 12
   rows.forEach((r, ri) => {
-    cy -= 15
-    if (ri % 2 === 1) { page.rect(MARGIN, cy, page.usableWidth, 15, { fill: rgb(0xfa, 0xfb, 0xfa) }) }
+    cy -= rowH
+    if (ri % 2 === 1) { pager.current.rect(MARGIN, cy, pager.current.usableWidth, rowH, { fill: rgb(0xfa, 0xfb, 0xfa) }) }
     r.forEach((cell, i) => {
       const text = cell.length > 34 ? `${cell.slice(0, 33)}…` : cell
-      page.text(text, i === 0 ? xs[0] + 6 : xs[i] + cols[i] - 6, cy + 10.5, {
+      pager.current.text(text, i === 0 ? xs[0] + 6 : xs[i] + cols[i] - 6, cy + 10.5, {
         size: 8, color: BRAND.ink, align: i === 0 ? 'left' : 'right',
       })
     })
-    page.line(MARGIN, cy, page.right, cy, BRAND.line, 0.4)
+    pager.current.line(MARGIN, cy, pager.current.right, cy, BRAND.line, 0.4)
   })
   return cy - 6
 }
@@ -193,7 +200,7 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
       ? { label: 'Gasto del ejercicio', value: `${formatNumber(gasto.totalKcal)} kcal`, sub: gasto.totalMinutes !== null ? `${formatNumber(gasto.totalMinutes)} min medidos` : 'Estimación MET' }
       : { label: 'Gasto del ejercicio', value: 'Sin datos', sub: 'Datos insuficientes para estimar', color: BRAND.inkSoft })
   }
-  y = kpiRow(first, y, kpis)
+  y = kpiRow(pager, y, kpis)
   y -= 6
 
   // ─── Entrenamiento ───
@@ -213,7 +220,7 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
     if (data.entrenamiento.rendimiento) { rows.push(['Volumen por sesión', `${formatNumber(data.entrenamiento.rendimiento.volumenPorSesion)} kg`]) }
     if (data.entrenamiento.duracionMin) { rows.push(['Duración total', `${data.entrenamiento.duracionMin} min`]) }
     if (gasto) { rows.push(['Gasto del ejercicio', gasto.totalKcal !== null ? `${Math.round(gasto.totalKcal)} kcal` : 'Sin datos suficientes para estimar']) }
-    y = table(pager.current, y, ['Indicador', 'Valor'], rows, [3, 1])
+    y = table(pager, y, ['Indicador', 'Valor'], rows, [3, 1])
     y -= 8
 
     const act = data.entrenamiento.diasActividad
@@ -300,7 +307,7 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
       formatNumber(p.reps),
       formatDecimal(p.rm),
     ])
-    y = table(pager.current, y, ['Ejercicio', 'Peso máx (kg)', 'Reps', '1RM (kg)'], rows, [3.2, 1, 0.8, 0.9])
+    y = table(pager, y, ['Ejercicio', 'Peso máx (kg)', 'Reps', '1RM (kg)'], rows, [3.2, 1, 0.8, 0.9])
     y -= 8
   }
 
@@ -316,7 +323,7 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
       p.fecha,
       p.enPeriodo ? 'En período' : '—',
     ])
-    y = table(pager.current, y, ['Ejercicio', 'Peso máx (kg)', 'Reps', '1RM (kg)', 'Fecha', 'Marca'], rows, [2.4, 0.9, 0.6, 0.8, 1.2, 1])
+    y = table(pager, y, ['Ejercicio', 'Peso máx (kg)', 'Reps', '1RM (kg)', 'Fecha', 'Marca'], rows, [2.4, 0.9, 0.6, 0.8, 1.2, 1])
     y -= 8
   }
 
@@ -343,17 +350,20 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
 
   // ─── Recuperación ───
   if (data.recuperacion?.scores.length) {
-    y = pager.ensure(160, y)
+    y = pager.ensure(200, y)
     y = sectionTitle(pager.current, y, 'Recuperación', 'Check-ins del período')
     const p = pager.current
     const w = contentWidth
     const avg = data.recuperacion.avgScore ?? 0
-    p.ring(MARGIN + 46, y - 52, 40, avg / 100, avg >= 70 ? BRAND.primary : avg >= 40 ? BRAND.macroFat : BRAND.danger, rgb(0xe6, 0xe9, 0xe7), 8)
-    p.text(String(Math.round(avg)), MARGIN + 46, y - 58, { size: 18, bold: true, align: 'center' })
-    p.text('/100', MARGIN + 46, y - 44, { size: 7.5, color: BRAND.inkSoft, align: 'center' })
-    p.text('Promedio del período', MARGIN + 46, y - 4, { size: 7.5, color: BRAND.inkSoft, align: 'center' })
 
-    // Serie de scores como barras compactas.
+    // Ring de promedio (izquierda)
+    const ringCY = y - 52
+    p.ring(MARGIN + 46, ringCY, 40, avg / 100, avg >= 70 ? BRAND.primary : avg >= 40 ? BRAND.macroFat : BRAND.danger, rgb(0xe6, 0xe9, 0xe7), 8)
+    p.text(String(Math.round(avg)), MARGIN + 46, ringCY - 6, { size: 18, bold: true, align: 'center' })
+    p.text('/100', MARGIN + 46, ringCY + 8, { size: 7.5, color: BRAND.inkSoft, align: 'center' })
+    p.text('Promedio del período', MARGIN + 46, ringCY + 22, { size: 7.5, color: BRAND.inkSoft, align: 'center' })
+
+    // Serie de scores como barras compactas (derecha)
     const chartX = MARGIN + 110
     const chartW = w - 110
     const last = data.recuperacion.scores.slice(-21)
@@ -378,7 +388,7 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
       ['Motivación (media)', formatDecimal(mean(data.recuperacion.motivacion), 1)],
       ['Incidencias de dolor', formatNumber(data.recuperacion.dolorIncidencias)],
     ]
-    y = table(p, y, ['Indicador', 'Valor'], rows, [3, 1])
+    y = table(pager, y, ['Indicador', 'Valor'], rows, [3, 1])
     y -= 8
   }
 
@@ -396,13 +406,13 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
     push('% grasa', data.mediciones.grasaPct)
     push('Masa muscular (kg)', data.mediciones.masaMuscularKg)
     for (const p of data.mediciones.perimetros ?? []) { push(`${p.clave} (cm)`, p) }
-    if (rows.length) { y = table(pager.current, y, ['Medida', 'Inicial', 'Final', 'Δ'], rows, [2.4, 1, 1, 2.2]) }
+    if (rows.length) { y = table(pager, y, ['Medida', 'Inicial', 'Final', 'Δ'], rows, [2.4, 1, 1, 2.2]) }
     y -= 8
   }
 
   // ─── Nutrición ───
   if (data.nutricion) {
-    y = pager.ensure(120, y)
+    y = pager.ensure(140, y)
     y = sectionTitle(pager.current, y, 'Nutrición', 'Promedios del período')
     const nu = data.nutricion
     const p = pager.current
@@ -413,8 +423,7 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
       { label: 'Carbohidratos', value: nu.carbohidratos, caption: 'g' },
       { label: 'Grasas', value: nu.grasas, caption: 'g' },
     ], MARGIN, y, contentWidth, { color: BRAND.primary, gap: 18 })
-    y -= 6
-    y -= 14
+    y -= 20
     p.rect(MARGIN, y, contentWidth, 8, { fill: rgb(0xe6, 0xf2, 0xfa), radius: 4 })
     const waterPct = Math.min(1, nu.hidratacionMl / 3000)
     p.rect(MARGIN, y, contentWidth * waterPct, 8, { fill: BRAND.water, radius: 4 })

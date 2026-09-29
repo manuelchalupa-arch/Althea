@@ -52,7 +52,7 @@ interface Seg {
   color: string;
 }
 const SEGS: Seg[] = [
-  { key: 'carbs', label: 'Carbohidratos', cls: 'is-carb', color: 'var(--althea-carb)' },
+  { key: 'carbs', label: 'Carbohidratos', cls: 'is-carb', color: 'var(--althea-primary)' },
   { key: 'protein', label: 'Proteínas', cls: 'is-protein', color: 'var(--althea-protein)' },
   { key: 'fat', label: 'Grasas', cls: 'is-fat', color: 'var(--althea-fat)' },
 ];

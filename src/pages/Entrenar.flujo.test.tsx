@@ -33,7 +33,7 @@ async function startSession() {
 }
 
 const nextExercise = () => fireEvent.click(screen.getByLabelText('Ejercicio siguiente'))
-const skipRest = () => fireEvent.click(screen.getAllByLabelText('Saltar descanso')[0])
+const finishRest = () => fireEvent.click(screen.getByText('-15s'))
 
 describe('Entrenar — OK, descanso y finalizado sin bloqueos', () => {
   beforeEach(async () => {
@@ -73,34 +73,42 @@ describe('Entrenar — OK, descanso y finalizado sin bloqueos', () => {
     expect(screen.queryByText('Editar')).not.toBeInTheDocument()
   }, 40000)
 
-  it('al confirmar NO se oculta Siguiente; el descanso se indica al avanzar y nunca reemplaza la navegación', async () => {
+  it('al confirmar la serie se inicia el descanso obligatorio y bloquea la navegación', async () => {
     await startSession()
     render(<MemoryRouter><Entrenar /></MemoryRouter>)
     await screen.findByLabelText('Ejercicio siguiente', undefined, { timeout: 10000 })
     await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 })
 
-    // Requisito A: confirmar la serie guarda y sigue permitiendo editar.
-    // NO dispara descanso ni reemplaza SIGUIENTE (navegación siempre operativa).
+    // Confirmar la serie guarda y marca el ejercicio como hecho
     fireEvent.click(screen.getByLabelText('Confirmar serie 1'))
     await waitFor(async () => {
       expect((await db.setRecords.toArray()).some(r => r.status === 'COMPLETED')).toBe(true)
     }, { timeout: 10000 })
-    // El ejercicio quedó marcado como hecho (estado `done`) recién entonces
     await screen.findByText(/Desmarcar ejercicio/, undefined, { timeout: 10000 })
-    expect(screen.queryByText(/Descanso activo/)).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Ejercicio siguiente')).toBeInTheDocument()
 
-    // Avanzar de ejercicio con el actual hecho inicia el descanso (indicador propio)
-    fireEvent.click(screen.getByLabelText('Ejercicio siguiente'))
+    // El descanso se inicia automáticamente al completar la serie
     await waitFor(() => {
       expect(screen.getByText(/Descanso activo/)).toBeInTheDocument()
     }, { timeout: 10000 })
-    // SIGUIENTE/ANTERIOR siguen presentes mientras descansa (nunca reemplazados)
-    expect(screen.getByLabelText('Ejercicio anterior')).not.toBeDisabled()
-    expect(screen.getByLabelText('Ejercicio siguiente')).toBeInTheDocument()
+
+    // La navegación hacia adelante está bloqueada durante el descanso
+    const nextBtn = screen.getByLabelText('Ejercicio siguiente')
+    fireEvent.click(nextBtn)
+    // El ejercicio actual no cambió (sigue en el mismo)
+    expect(screen.getByText(/Descanso activo/)).toBeInTheDocument()
+
+    // No hay botón para saltar el descanso
+    expect(screen.queryByLabelText('Saltar descanso')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Terminar descanso')).not.toBeInTheDocument()
+
+    // Forzar el descanso a 0 para simular que termina (usando -15s repetidamente)
+    // En la práctica, el temporizador llega a 0 solo
+    const adjustBtn = screen.getByText('-15s')
+    for(let i = 0; i < 10; i++) {
+      fireEvent.click(adjustBtn)
+    }
 
     // Terminado el descanso se puede seguir avanzando
-    skipRest()
     await waitFor(() => {
       expect(screen.queryByText(/Descanso activo/)).not.toBeInTheDocument()
     }, { timeout: 10000 })

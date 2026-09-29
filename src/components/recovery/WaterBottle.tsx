@@ -114,9 +114,9 @@ export function WaterBottle({ date, allowQuickAdd = true, compact = false, size,
   const bottlesDone = Math.floor(totalMl / unitMl)
   const bottlesGoal = goalMl > 0 ? Math.max(1, Math.round(goalMl / unitMl)) : 0
   const dim = size ? SIZES[size] : (compact ? SIZES.sm : SIZES.md)
-  // viewBox 0 0 100 200. Cuerpo de botella con cuello, hombro y base; el agua
-  // se recorta desde abajo con un clip cuyo alto depende del consumo real.
-  const waterTop = 200 - (pct / 100) * 168
+  // Geometría unificada con HydrationBottle: viewBox 0 0 100 200, agua desde y=58 hasta y=190.
+  const frac = goalMl > 0 ? Math.max(0, Math.min(totalMl / goalMl, 1)) : 0
+  const shift = (1 - frac) * 132
 
   return (
     <div
@@ -137,35 +137,42 @@ export function WaterBottle({ date, allowQuickAdd = true, compact = false, size,
       >
         <defs>
           <clipPath id="bottleBodyClip">
-            <path d="M42 8 L58 8 L58 26 Q74 34 74 54 L74 186 Q74 194 66 194 L34 194 Q26 194 26 186 L26 54 Q26 34 42 26 Z" />
+            <path d="M41 20 H59 V38 C59 50 78 54 78 72 V178 Q78 190 66 190 H34 Q22 190 22 178 V72 C22 54 41 50 41 38 Z" />
           </clipPath>
-          <linearGradient id="bottleGlass" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="var(--c-water)" stopOpacity="0.22" />
-            <stop offset="42%" stopColor="var(--c-water)" stopOpacity="0.07" />
-            <stop offset="100%" stopColor="var(--c-water)" stopOpacity="0.2" />
-          </linearGradient>
           <linearGradient id="bottleWater" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--c-water)" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="var(--c-water-deep)" stopOpacity="0.82" />
+            <stop offset="0" style={{ stopColor: 'var(--althea-hydration)', stopOpacity: 0.78 }} />
+            <stop offset="1" style={{ stopColor: 'var(--althea-hydration)', stopOpacity: 0.98 }} />
+          </linearGradient>
+          <linearGradient id="bottleGlass" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#fff" stopOpacity="0.5" />
+            <stop offset="0.16" stopColor="#fff" stopOpacity="0.06" />
+            <stop offset="0.7" stopColor="#fff" stopOpacity="0" />
+            <stop offset="1" stopColor="#fff" stopOpacity="0.32" />
           </linearGradient>
         </defs>
 
-        {/* Tapa */}
-        <rect x="38" y="0" width="24" height="10" rx="3" fill="var(--c-primary)" opacity="0.9" />
-        {/* Vidrio celeste translúcido */}
-        <path d="M42 8 L58 8 L58 26 Q74 34 74 54 L74 186 Q74 194 66 194 L34 194 Q26 194 26 186 L26 54 Q26 34 42 26 Z" fill="url(#bottleGlass)" />
-        {/* Agua (recortada al consumo real) */}
+        <ellipse cx="50" cy="193" rx="30" ry="3.4" fill="#000" opacity="0.14" />
+
         <g clipPath="url(#bottleBodyClip)">
-          <rect x="26" y={waterTop} width="48" height={200 - waterTop} fill="url(#bottleWater)" data-testid="water-bottle-fill" />
-          {pct > 0 && (
-            <ellipse cx="50" cy={waterTop} rx="24" ry="3" fill="var(--c-water)" opacity="0.8" />
-          )}
+          <path d="M41 20 H59 V38 C59 50 78 54 78 72 V178 Q78 190 66 190 H34 Q22 190 22 178 V72 C22 54 41 50 41 38 Z" fill="var(--althea-surface-2)" opacity="0.5" />
+          <g style={{ transform: `translateY(${shift}px)` }}>
+            <rect x="0" y="59" width="100" height="150" fill="url(#bottleWater)" data-testid="water-bottle-fill" />
+            <ellipse cx="50" cy="59" rx="29" ry="2.6" fill="#fff" opacity="0.34" />
+            <path d="M21 59 Q 50 62.4 79 59" fill="none" stroke="#fff" strokeOpacity="0.55" strokeWidth="1" />
+            <rect x="27" y="66" width="4" height="90" rx="2" fill="#fff" opacity="0.16" />
+          </g>
         </g>
-        {/* Contorno + marcas */}
-        <path d="M42 8 L58 8 L58 26 Q74 34 74 54 L74 186 Q74 194 66 194 L34 194 Q26 194 26 186 L26 54 Q26 34 42 26 Z" fill="none" stroke="var(--c-primary)" strokeWidth="1.6" opacity="0.6" />
-        {[70, 110, 150].map(y => (
-          <line key={y} x1="60" y1={y} x2="70" y2={y} stroke="var(--c-primary)" strokeWidth="1" opacity="0.35" />
-        ))}
+
+        <path d="M41 20 H59 V38 C59 50 78 54 78 72 V178 Q78 190 66 190 H34 Q22 190 22 178 V72 C22 54 41 50 41 38 Z" fill="url(#bottleGlass)" />
+        <path d="M41 20 H59 V38 C59 50 78 54 78 72 V178 Q78 190 66 190 H34 Q22 190 22 178 V72 C22 54 41 50 41 38 Z" fill="none" stroke="var(--althea-on-surface-muted)" strokeOpacity="0.55" strokeWidth="1.3" strokeLinejoin="round" />
+        <path d="M27 76 V172" stroke="#fff" strokeOpacity="0.7" strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M73 84 V150" stroke="#fff" strokeOpacity="0.4" strokeWidth="1.2" strokeLinecap="round" />
+        <path d="M45 26 V36" stroke="#fff" strokeOpacity="0.55" strokeWidth="1.4" strokeLinecap="round" />
+
+        <rect x="38" y="4" width="24" height="17" rx="3.5" fill="var(--althea-primary)" />
+        <path d="M42 4.5 V20.5 M46 4.5 V20.5 M50 4.5 V20.5 M54 4.5 V20.5 M58 4.5 V20.5" stroke="#000" strokeOpacity="0.16" strokeWidth="0.9" />
+        <rect x="38" y="4" width="24" height="3.6" rx="1.8" fill="#fff" opacity="0.18" />
+        <rect x="39.5" y="20" width="21" height="2.2" rx="1" fill="var(--althea-on-surface-muted)" opacity="0.45" />
       </svg>
 
       <div className={compact ? 'min-w-0' : 'w-full text-center'}>

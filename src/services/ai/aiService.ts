@@ -2,6 +2,7 @@ import type { AIProvider } from './aiProvider'
 import { QwenProvider, qwenProvider } from './qwenProvider'
 import { FallbackAIProvider } from './fallbackAIProvider'
 import { detectCapabilities } from './capabilities'
+import { generateUnifiedRecommendation } from './unifiedPipeline'
 
 // Fachada — la app solo habla con AIProvider
 class AIService implements AIProvider {
@@ -35,7 +36,7 @@ class AIService implements AIProvider {
     try{
       return await this.active.generateRecommendation(ctx)
     }catch{
-      return this.fallback.generateRecommendation(ctx)
+      return generateUnifiedRecommendation(ctx)
     }
   }
 }

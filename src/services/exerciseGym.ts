@@ -3,6 +3,8 @@
 // Repo: https://github.com/JahelCuadrado/ExerciseGymGifsDB
 // Unica fuente a usar según instrucción del usuario — wger y seeds locales deprecados
 
+import { fetchWithRetry } from './apiUtils'
+
 export const BASE = 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0'
 export const LANG = 'es' // siempre español
 
@@ -46,7 +48,7 @@ export type BodyPartEntry = { bodyPart:string; count:number; endpoint:string }
 export type CategoryEntry = { category:string; count:number; endpoint:string }
 
 async function getJSON<T>(url:string):Promise<T>{
-  const res = await fetch(url, { headers:{ Accept:'application/json' } })
+  const res = await fetchWithRetry(url, { headers:{ Accept:'application/json' } })
   if(!res.ok) {throw new Error(`ExerciseGym ${res.status} ${url}`)}
   return res.json() as Promise<T>
 }

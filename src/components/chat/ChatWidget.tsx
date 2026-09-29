@@ -3,8 +3,12 @@ import { useLocation, Link } from 'react-router-dom'
 import { X, Send, Trash2, Bot, User } from 'lucide-react'
 import { IconChatBubble } from '@/components/brand/FitnessIcons'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
-import { buildChatContext } from '@/services/ai/chatContext'
-import { buildLocalCoachReply } from '@/services/ai/chatLocalFallback'
+import {
+  prepareUnifiedContext,
+  buildUnifiedSystemPrompt,
+  composeUnifiedLocalReply,
+  validateUnifiedAnswer,
+} from '@/services/ai/unifiedPipeline'
 import { getActiveConversation, saveMessage, getMessages, clearAllChats, type ChatMessage } from '@/services/ai/chatHistory'
 import { getUsage, getResetInfo } from '@/services/ai/groqUsage'
 
@@ -72,9 +76,11 @@ export default function ChatWidget() {
 
   const runLocalReply = async (text: string) => {
     try {
-      const reply = await buildLocalCoachReply(text)
+      const prep = await prepareUnifiedContext(text)
+      const reply = await composeUnifiedLocalReply(text, prep)
       const assistantMsg = await saveMessage({
         conversationId, role: 'assistant', content: reply.text, createdAt: new Date().toISOString(), source: reply.source,
+        sources: reply.sourcesUsed.map(s => s.id),
       })
       setMessages(prev => [...prev, assistantMsg])
     } catch {
@@ -101,18 +107,14 @@ export default function ChatWidget() {
 
     if (!available) { await runLocalReply(text); return }
 
-    const context = await buildChatContext(pageContext)
+    const prep = await prepareUnifiedContext(text)
     const history: ChatCompletionMessage[] = messages.slice(-10).map(m => ({
       role: m.role as 'user' | 'assistant', content: m.content
     }))
 
-    const userWithContext = context
-      ? `[Contexto del usuario - ${pageContext}]\n${context}\n\n[Pregunta del usuario]\n${text}`
-      : text
-
     const apiMessages: ChatCompletionMessage[] = [
       ...history,
-      { role: 'user', content: userWithContext },
+      { role: 'user', content: text },
     ]
 
     setStreaming(true)
@@ -125,15 +127,17 @@ export default function ChatWidget() {
           setStreamText('')
           setStreaming(false)
           setUsage(getUsage())
+          const validated = validateUnifiedAnswer(fullText, prep.evidence)
           const assistantMsg = await saveMessage({
-            conversationId, role: 'assistant', content: fullText, createdAt: new Date().toISOString(), source: 'groq'
+            conversationId, role: 'assistant', content: validated.text, createdAt: new Date().toISOString(), source: 'groq',
+            sources: validated.sourcesUsed.map(s => s.id),
           })
           setMessages(prev => [...prev, assistantMsg])
         },
         onError: async () => {
           await runLocalReply(text)
         },
-      })
+      }, { systemPrompt: buildUnifiedSystemPrompt(prep) })
     } catch {
       await runLocalReply(text)
     }

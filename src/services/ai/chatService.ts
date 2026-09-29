@@ -1,5 +1,6 @@
 import { canMakeRequest, recordRequest } from './groqUsage'
 import { getGroqUrl, getGroqHeaders } from './groqConfig'
+import { fetchWithRetry } from '../apiUtils'
 
 const MODEL = 'openai/gpt-oss-20b'
 
@@ -76,7 +77,7 @@ export async function streamChat(
   const fullMessages = [systemMsg, ...messages]
 
   try {
-    const res = await fetch(getGroqUrl(), {
+    const res = await fetchWithRetry(getGroqUrl(), {
       method: 'POST',
       headers: getGroqHeaders(),
       body: JSON.stringify({
@@ -87,7 +88,7 @@ export async function streamChat(
         top_p: 0.9,
         stream: true,
       }),
-    })
+    }, { maxRetries: 1 })
 
     if (!res.ok) {
       const err = await res.text()

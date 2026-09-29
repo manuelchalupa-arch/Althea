@@ -9,11 +9,11 @@ import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import type { UserProfile, UserProfile as ProfileT } from '@/types'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
 import {
-  buildSystemPrompt,
-  composeLocalAnswer,
-  prepareAnswer,
-  validateAnswer,
-} from '@/services/ai/answerPipeline'
+  prepareUnifiedContext,
+  buildUnifiedSystemPrompt,
+  composeUnifiedLocalReply,
+  validateUnifiedAnswer,
+} from '@/services/ai/unifiedPipeline'
 import { getSourceById } from '@/services/ai/evidence'
 import { getActiveConversation, saveMessage, getMessages, clearConversation, type ChatMessage } from '@/services/ai/chatHistory'
 import { getUsage, getResetInfo } from '@/services/ai/groqUsage'
@@ -242,8 +242,8 @@ export default function Coach() {
 
   const runLocalReply = async (text: string) => {
     try {
-      const prep = await prepareAnswer(text, PAGE_CONTEXT)
-      const reply = await composeLocalAnswer(text, prep)
+      const prep = await prepareUnifiedContext(text)
+      const reply = await composeUnifiedLocalReply(text, prep)
       const assistantMsg = await saveMessage({
         conversationId, role: 'assistant', content: reply.text, createdAt: new Date().toISOString(),
         source: reply.source, sources: reply.sourcesUsed.map(s => s.id),
@@ -271,8 +271,8 @@ export default function Coach() {
     setStreaming(true)
     setSending(true)
     setStreamText('')
-    // Pipeline: intención → contexto real del usuario → evidencia recuperada.
-    const prep = await prepareAnswer(text, PAGE_CONTEXT)
+    // Pipeline unificado: intención → contexto real del usuario → evidencia recuperada.
+    const prep = await prepareUnifiedContext(text)
     const history: ChatCompletionMessage[] = messages
       .slice(-10)
       .filter(m => m.role === 'user' || m.role === 'assistant')
@@ -293,7 +293,7 @@ export default function Coach() {
             setStreamText('')
             setUsage(getUsage())
             // Validator: solo fuentes recuperadas y citadas quedan registradas.
-            const validated = validateAnswer(fullText, prep.hits)
+            const validated = validateUnifiedAnswer(fullText, prep.evidence)
             const assistantMsg = await saveMessage({
               conversationId, role: 'assistant', content: validated.text,
               createdAt: new Date().toISOString(), source: 'groq',
@@ -305,7 +305,7 @@ export default function Coach() {
             await runLocalReply(text)
           },
         },
-        { systemPrompt: buildSystemPrompt(prep) }
+        { systemPrompt: buildUnifiedSystemPrompt(prep) }
       )
     } catch {
       await runLocalReply(text)
