@@ -136,35 +136,67 @@ export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
         </div>
       </div>
 
-      {health && (
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-sm">
-            <span className="text-on-surface-variant">Última sincronización</span>
-            <span className="text-on-surface font-medium">{formatLastSyncTime(health.lastRemoteSyncAt)}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-on-surface-variant">Estado</span>
-            <span className="text-on-surface font-medium">{health.message}</span>
-          </div>
+      {/* CONEXIÓN */}
+      <div className="space-y-1.5">
+        <div className="font-label-caps text-[9px] uppercase text-on-surface-variant tracking-wider">Conexión</div>
+        <div className="flex justify-between text-sm">
+          <span className="text-on-surface-variant">Estado</span>
+          <span className="text-on-surface font-medium">{authState.isAuthenticated ? 'Autenticado' : 'Público'}</span>
         </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          ['Ejercicios', entityCounts.exercises],
-          ['Ingredientes', entityCounts.ingredients],
-          ['Rutinas', entityCounts.routines],
-          ['Entrenamientos', entityCounts.trainingSessions],
-          ['Nutrición', entityCounts.nutritionPlans],
-          ['Mediciones', entityCounts.measurements],
-        ].map(([label, count]) => (
-          <div key={label as string} className="rounded-lg bg-surface-container/50 border border-outline-variant/30 p-2.5">
-            <div className="font-label-caps text-[9px] uppercase text-on-surface-variant tracking-wider">{label as string}</div>
-            <div className="font-headline-md text-lg text-on-surface font-semibold">{count as number}</div>
+        {authState.wgerUsername && (
+          <div className="flex justify-between text-sm">
+            <span className="text-on-surface-variant">Usuario</span>
+            <span className="text-on-surface font-medium">{authState.wgerUsername}</span>
           </div>
-        ))}
+        )}
+        <div className="flex justify-between text-sm">
+          <span className="text-on-surface-variant">Vinculación</span>
+          <span className="text-on-surface font-medium">{authState.isLinked ? 'Vinculada' : 'No vinculada'}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-on-surface-variant">Escritura</span>
+          <span className="text-on-surface font-medium">{authState.canWrite ? 'Permitida' : 'Solo lectura'}</span>
+        </div>
       </div>
 
+      {/* SINCRONIZACIÓN */}
+      <div className="space-y-1.5">
+        <div className="font-label-caps text-[9px] uppercase text-on-surface-variant tracking-wider">Sincronización</div>
+        <div className="flex justify-between text-sm">
+          <span className="text-on-surface-variant">Última sync</span>
+          <span className="text-on-surface font-medium">{formatLastSyncTime(health?.lastRemoteSyncAt ?? null)}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-on-surface-variant">Última sync exitosa</span>
+          <span className="text-on-surface font-medium">{formatLastSyncTime(health?.lastSuccessfulSyncAt ?? null)}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-on-surface-variant">Estado actual</span>
+          <span className="text-on-surface font-medium">{health?.message ?? 'Desconocido'}</span>
+        </div>
+      </div>
+
+      {/* ENTIDADES */}
+      <div className="space-y-1.5">
+        <div className="font-label-caps text-[9px] uppercase text-on-surface-variant tracking-wider">Entidades</div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            ['Ejercicios', entityCounts.exercises],
+            ['Ingredientes', entityCounts.ingredients],
+            ['Rutinas', entityCounts.routines],
+            ['Entrenamientos', entityCounts.trainingSessions],
+            ['Nutrición', entityCounts.nutritionPlans],
+            ['Mediciones', entityCounts.measurements],
+          ].map(([label, count]) => (
+            <div key={label as string} className="rounded-lg bg-surface-container/50 border border-outline-variant/30 p-2.5">
+              <div className="font-label-caps text-[9px] uppercase text-on-surface-variant tracking-wider">{label as string}</div>
+              <div className="font-headline-md text-lg text-on-surface font-semibold">{count as number}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CONFLICTOS Y ERRORES */}
       <div className="flex gap-2 text-sm">
         <div className="flex-1 rounded-lg bg-surface-container/50 border border-outline-variant/30 p-2.5 text-center">
           <div className="font-label-caps text-[9px] uppercase text-on-surface-variant tracking-wider">Conflictos</div>
@@ -180,6 +212,7 @@ export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
         </div>
       </div>
 
+      {/* ACCIONES */}
       <div className="space-y-2">
         <button
           onClick={handleSyncNow}

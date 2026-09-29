@@ -68,6 +68,8 @@ export class TrainDB extends Dexie {
   notifLog!: Table<{ id: string; date: string;[k: string]: unknown }>
   unifiedNotifConfigs!: Table<{ id: string; type: string; title: string; enabled: boolean; time: string; times: string[]; days: boolean[]; recurrence: string; requiredAction: boolean; updatedAt: string }>
   requiredActionStates!: Table<{ id: string; configId: string; date: string; status: 'pending' | 'completed'; completedAt?: string; createdAt: string }>
+  externalAccountLinks!: Table<import('@/services/integrations/wger/wgerTypes').ExternalAccountLink>
+  externalEntityLinks!: Table<import('@/services/integrations/wger/wgerTypes').ExternalEntityLink>
   constructor() {
     super('trainPWA')
     this.version(1).stores({
@@ -185,6 +187,14 @@ export class TrainDB extends Dexie {
     this.version(20).stores({
       unifiedNotifConfigs: 'id, type, enabled',
       requiredActionStates: 'id, configId, date, status',
+    })
+    // v21: Vinculación externa — cuentas y entidades vinculadas a proveedores externos (WGER).
+    // Solo aditivo. Las tablas almacenan IDs de vinculación, nunca credenciales.
+    // externalAccountLinks: vincula usuario Althea con cuenta externa.
+    // externalEntityLinks: vincula entidad Althea con entidad externa.
+    this.version(21).stores({
+      externalAccountLinks: 'id, altheaUserId, externalProvider, externalUserId, status, linkedAt, lastSyncAt',
+      externalEntityLinks: 'id, altheaEntityId, externalProvider, externalEntityId, entityType, linkedAt, lastSyncAt',
     })
   }
 }

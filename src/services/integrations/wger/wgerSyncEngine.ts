@@ -16,11 +16,12 @@
 // - NO depender únicamente de timestamps: usar hashes para detectar cambios reales.
 
 import { db } from '@/services/storage/db'
-import { fetchRoutine, fetchRoutines, fetchDays, fetchSlots, fetchSlotEntries, fetchWeightConfig, fetchRepetitionsConfig, fetchSetsConfig, fetchRirConfig, fetchRestConfig } from './wgerClient'
-import { mapWgerRoutineToAlthea, type WgerRoutineWithDetails } from './wgerRoutineMapper'
+import { fetchRoutine, fetchRoutines, fetchDays, fetchSlots, fetchSlotEntries, fetchWeightConfig, fetchRepetitionsConfig, fetchSetsConfig, fetchRirConfig, fetchRestConfig, createRoutine, updateRoutine, deleteRoutine, createWorkout, updateWorkout, deleteWorkout, createNutritionPlan, updateNutritionPlan, deleteNutritionPlan, createMeasurement, updateMeasurement, deleteMeasurement } from './wgerClient'
+import { mapWgerRoutineToAlthea, mapAltheaRoutineToWger, type WgerRoutineWithDetails } from './wgerRoutineMapper'
 import { enqueueOperation, getPendingOperations, markOperationCompleted, markOperationFailed } from './wgerSyncQueue'
 import { detectConflict, resolveConflict, type SyncConflict } from './wgerConflictResolver'
 import { getSyncStatus, updateSyncStatus, type WgerSyncStatus } from './wgerHealth'
+import { getWgerAuthState } from './wgerAuth'
 
 // ─── Tipos ───
 
@@ -248,6 +249,7 @@ async function syncRoutinesFromWger(result: SyncResult, options: SyncOptions): P
 }
 
 // ─── Sincronización Althea → WGER (Push) ───
+// FASE 27: Push real con idempotencia y manejo de errores.
 
 export async function syncAltheaToWger(options: SyncOptions = {}): Promise<SyncResult> {
   const result: SyncResult = { success: true, synced: 0, failed: 0, conflicts: 0, errors: [] }
@@ -257,6 +259,11 @@ export async function syncAltheaToWger(options: SyncOptions = {}): Promise<SyncR
     return { ...result, success: false, errors: ['Sync already in progress'] }
   }
 
+  const authState = getWgerAuthState()
+  if (!authState.canWrite) {
+    return { ...result, success: false, errors: ['WGER write operations require authentication'] }
+  }
+
   updateSyncStatus('SYNCING')
 
   try {
@@ -264,14 +271,26 @@ export async function syncAltheaToWger(options: SyncOptions = {}): Promise<SyncR
 
     for (const op of pendingOps) {
       try {
-        if (op.operation === 'delete') {
-          // TODO: Implementar delete en WGER cuando haya auth
+        if (op.operation === 'CONFLICT') {
+          continue
+        }
+
+        const operation = op.operation as SyncOperation
+
+        // Idempotencia: verificar si ya fue sincronizado con el mismo hash
+        if (await isAlreadySynced(op)) {
+          await markOperationCompleted(op.id, { synced: true, idempotent: true })
+          result.synced++
+          continue
+        }
+
+        if (operation === 'delete') {
+          await executeDelete(op)
           await markOperationCompleted(op.id, { deleted: true })
           result.synced++
         } else {
-          // Para create/update, verificamos si hay conflicto
           const conflict = await detectConflict({
-            operation: op.operation as SyncOperation,
+            operation,
             entityType: op.entityType,
             localEntityId: op.localEntityId,
             remoteEntityId: op.remoteEntityId,
@@ -282,8 +301,8 @@ export async function syncAltheaToWger(options: SyncOptions = {}): Promise<SyncR
             continue
           }
 
-          // TODO: Implementar create/update en WGER cuando haya auth
-          await markOperationCompleted(op.id, { synced: true })
+          const remoteId = await executePush({ ...op, operation })
+          await markOperationCompleted(op.id, { synced: true, remoteId })
           result.synced++
         }
       } catch (err) {
@@ -301,6 +320,124 @@ export async function syncAltheaToWger(options: SyncOptions = {}): Promise<SyncR
   }
 
   return result
+}
+
+// ─── Idempotencia: verificar si ya fue sincronizado ───
+
+async function isAlreadySynced(op: { localEntityId: string; entityType: string; payload?: unknown }): Promise<boolean> {
+  const currentHash = op.payload && typeof op.payload === 'object' && 'hash' in op.payload
+    ? (op.payload as { hash: string }).hash
+    : null
+
+  if (!currentHash) {return false}
+
+  const existing = await db.syncQueue
+    .filter((item) =>
+      item.localEntityId === op.localEntityId &&
+      item.entityType === op.entityType &&
+      item.status === 'COMPLETED' &&
+      item.result && typeof item.result === 'object' && 'remoteId' in item.result,
+    )
+    .first()
+
+  if (!existing) {return false}
+
+  const existingHash = existing.payload && typeof existing.payload === 'object' && 'hash' in existing.payload
+    ? (existing.payload as { hash: string }).hash
+    : null
+
+  return existingHash === currentHash
+}
+
+// ─── Ejecutar push según tipo de entidad ───
+
+async function executePush(op: { operation: SyncOperation; entityType: string; localEntityId: string; remoteEntityId?: string; payload?: unknown }): Promise<string | number> {
+  const payload = op.payload as { data?: Record<string, unknown> } | undefined
+  const data = payload?.data ?? {}
+
+  switch (op.entityType) {
+    case 'routine':
+      return await pushRoutine(op, data)
+    case 'trainingSession':
+      return await pushWorkout(op, data)
+    case 'nutritionPlan':
+      return await pushNutritionPlan(op, data)
+    case 'measurement':
+      return await pushMeasurement(op, data)
+    default:
+      throw new Error(`Unsupported entity type for push: ${op.entityType}`)
+  }
+}
+
+async function pushRoutine(op: { operation: SyncOperation; remoteEntityId?: string }, data: Record<string, unknown>): Promise<number> {
+  if (op.operation === 'create') {
+    const response = await createRoutine(data)
+    return response.id
+  } else if (op.operation === 'update' && op.remoteEntityId) {
+    const response = await updateRoutine(Number(op.remoteEntityId), data)
+    return response.id
+  }
+  throw new Error(`Invalid operation for routine: ${op.operation}`)
+}
+
+async function pushWorkout(op: { operation: SyncOperation; remoteEntityId?: string }, data: Record<string, unknown>): Promise<number> {
+  if (op.operation === 'create') {
+    const response = await createWorkout(data) as { id: number }
+    return response.id
+  } else if (op.operation === 'update' && op.remoteEntityId) {
+    const response = await updateWorkout(Number(op.remoteEntityId), data) as { id: number }
+    return response.id
+  }
+  throw new Error(`Invalid operation for workout: ${op.operation}`)
+}
+
+async function pushNutritionPlan(op: { operation: SyncOperation; remoteEntityId?: string }, data: Record<string, unknown>): Promise<number> {
+  if (op.operation === 'create') {
+    const response = await createNutritionPlan(data) as { id: number }
+    return response.id
+  } else if (op.operation === 'update' && op.remoteEntityId) {
+    const response = await updateNutritionPlan(Number(op.remoteEntityId), data) as { id: number }
+    return response.id
+  }
+  throw new Error(`Invalid operation for nutrition plan: ${op.operation}`)
+}
+
+async function pushMeasurement(op: { operation: SyncOperation; remoteEntityId?: string }, data: Record<string, unknown>): Promise<number> {
+  if (op.operation === 'create') {
+    const response = await createMeasurement(data) as { id: number }
+    return response.id
+  } else if (op.operation === 'update' && op.remoteEntityId) {
+    const response = await updateMeasurement(Number(op.remoteEntityId), data) as { id: number }
+    return response.id
+  }
+  throw new Error(`Invalid operation for measurement: ${op.operation}`)
+}
+
+// ─── Ejecutar delete según tipo de entidad ───
+
+async function executeDelete(op: { entityType: string; remoteEntityId?: string }): Promise<void> {
+  if (!op.remoteEntityId) {
+    throw new Error('Cannot delete without remoteEntityId')
+  }
+
+  const remoteId = Number(op.remoteEntityId)
+
+  switch (op.entityType) {
+    case 'routine':
+      await deleteRoutine(remoteId)
+      break
+    case 'trainingSession':
+      await deleteWorkout(remoteId)
+      break
+    case 'nutritionPlan':
+      await deleteNutritionPlan(remoteId)
+      break
+    case 'measurement':
+      await deleteMeasurement(remoteId)
+      break
+    default:
+      throw new Error(`Unsupported entity type for delete: ${op.entityType}`)
+  }
 }
 
 // ─── Sincronización de entidad individual ───
@@ -434,4 +571,124 @@ export async function fetchAllWgerPages<T>(
   }
 
   return allResults
+}
+
+// ─── Sincronización incremental con cursor pagination (FASE 27) ───
+
+export interface SyncCursor {
+  entityType: SyncEntityType
+  lastSyncAt: string
+  lastId: number
+}
+
+export async function syncIncremental(options: SyncOptions = {}): Promise<SyncResult> {
+  const result: SyncResult = { success: true, synced: 0, failed: 0, conflicts: 0, errors: [] }
+
+  try {
+    const cursors = await getCursors()
+
+    for (const cursor of cursors) {
+      try {
+        const incrementalResult = await syncEntityIncremental(cursor, options)
+        result.synced += incrementalResult.synced
+        result.failed += incrementalResult.failed
+        result.conflicts += incrementalResult.conflicts
+        result.errors.push(...incrementalResult.errors)
+      } catch (err) {
+        result.failed++
+        result.errors.push(`incremental ${cursor.entityType}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    result.success = result.failed === 0
+  } catch (err) {
+    result.success = false
+    result.errors.push(err instanceof Error ? err.message : String(err))
+  }
+
+  return result
+}
+
+async function getCursors(): Promise<SyncCursor[]> {
+  const cursors: SyncCursor[] = []
+  const entityTypes: SyncEntityType[] = ['routine', 'trainingSession', 'nutritionPlan', 'measurement']
+
+  for (const entityType of entityTypes) {
+    const lastSync = await db.syncQueue
+      .filter((op) => op.entityType === entityType && op.status === 'COMPLETED')
+      .last()
+
+    cursors.push({
+      entityType,
+      lastSyncAt: lastSync?.lastAttemptAt || new Date(0).toISOString(),
+      lastId: lastSync?.result && typeof lastSync.result === 'object' && 'remoteId' in lastSync.result
+        ? Number((lastSync.result as { remoteId: string | number }).remoteId)
+        : 0,
+    })
+  }
+
+  return cursors
+}
+
+async function syncEntityIncremental(cursor: SyncCursor, options: SyncOptions): Promise<SyncResult> {
+  const result: SyncResult = { success: true, synced: 0, failed: 0, conflicts: 0, errors: [] }
+
+  const entityTypes = options.entityTypes || [cursor.entityType]
+  if (!entityTypes.includes(cursor.entityType)) {
+    return result
+  }
+
+  const pullResult = await syncWgerToAlthea({ entityTypes: [cursor.entityType], ...options })
+  result.synced += pullResult.synced
+  result.failed += pullResult.failed
+  result.conflicts += pullResult.conflicts
+  result.errors.push(...pullResult.errors)
+
+  return result
+}
+
+// ─── Reconexión / Offline (FASE 27) ───
+
+let wasOffline = false
+
+export function initOfflineSync(): void {
+  if (typeof window === 'undefined') {return}
+
+  window.addEventListener('online', async () => {
+    if (wasOffline) {
+      wasOffline = false
+      await syncAltheaToWger()
+    }
+  })
+
+  window.addEventListener('offline', () => {
+    wasOffline = true
+  })
+}
+
+export async function retryWithReconnection(fn: () => Promise<SyncResult>, maxRetries = 3): Promise<SyncResult> {
+  let lastResult: SyncResult = { success: false, synced: 0, failed: 0, conflicts: 0, errors: ['Not attempted'] }
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      lastResult = await fn()
+      if (lastResult.success || lastResult.failed === 0) {
+        return lastResult
+      }
+    } catch (err) {
+      lastResult = {
+        success: false,
+        synced: 0,
+        failed: 1,
+        conflicts: 0,
+        errors: [err instanceof Error ? err.message : String(err)],
+      }
+    }
+
+    if (i < maxRetries - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, i)))
+    }
+  }
+
+  return lastResult
 }

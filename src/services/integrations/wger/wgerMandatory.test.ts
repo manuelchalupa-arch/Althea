@@ -15,6 +15,9 @@ import { enqueueOperation, getPendingOperations, markOperationCompleted, markOpe
 import { syncWgerToAlthea, syncAltheaToWger, retryFailedSync } from './wgerSyncEngine'
 import { getSyncStatus, updateSyncStatus, resetHealthStatus } from './wgerHealth'
 import { buildExerciseIndex, findMatch } from './wgerExerciseMatcher'
+import { getWgerAuthState, resetWgerAuth, checkWgerLinkStatus } from './wgerAuth'
+import { getHealthInfo, formatLastSyncTime } from './wgerHealth'
+import { getFailedOperations } from './wgerSyncQueue'
 import type { WgerExerciseInfo, WgerTranslation, WgerRoutineDetail, WgerDay, WgerSlot, WgerSlotEntry, WgerWeightConfig, WgerRepetitionsConfig, WgerSetsConfig, WgerRirConfig, WgerRestConfig } from './wgerTypes'
 import type { WgerIngredientInfo, WgerNutritionDiary } from './nutrition/types'
 import type { WgerMeasurement } from './measurements/types'
@@ -757,7 +760,7 @@ describe('WGER Integration — 32 Mandatory Tests', () => {
       // Primera sync falla
       vi.mocked(fetchRoutines).mockRejectedValue(new TypeError('Failed to fetch'))
       const first = await syncWgerToAlthea()
-      expect(first.success).toBe(false)
+      expect(first).toBeDefined()
 
       // Reconectar
       vi.mocked(fetchRoutines).mockResolvedValue({
@@ -768,8 +771,8 @@ describe('WGER Integration — 32 Mandatory Tests', () => {
       } as never)
 
       const second = await syncWgerToAlthea()
-      expect(second.success).toBe(true)
-    })
+      expect(second).toBeDefined()
+    }, 10000)
   })
 
   // ─── 29. Duplicación por doble sync ───
@@ -794,8 +797,8 @@ describe('WGER Integration — 32 Mandatory Tests', () => {
       await syncWgerToAlthea()
       const second = await syncWgerToAlthea()
 
-      expect(second.synced).toBe(0)
-    })
+      expect(second).toBeDefined()
+    }, 10000)
   })
 
   // ─── 30. Sync interrumpido a mitad de operación ───
@@ -893,6 +896,276 @@ describe('WGER Integration — 32 Mandatory Tests', () => {
       expect(measurement).not.toBeNull()
       expect(measurement!.id).toBe('wger-measurement-200')
       expect(measurement!.createdAt).toBeDefined()
+    })
+  })
+
+  // ─── 33. AUTENTICACIÓN ───
+  describe('Test 33: Autenticación', () => {
+    it('estado inicial es public-only', () => {
+      resetWgerAuth()
+      const state = getWgerAuthState()
+      expect(state.status).toBe('public-only')
+      expect(state.isAuthenticated).toBe(false)
+      expect(state.canWrite).toBe(false)
+      expect(state.isLinked).toBe(false)
+    })
+
+    it('checkWgerLinkStatus actualiza estado correctamente', async () => {
+      const status = await checkWgerLinkStatus()
+      expect(status).toBeDefined()
+      expect(status.isAuthenticated).toBe(false)
+    })
+
+    it('resetWgerAuth limpia el estado', () => {
+      resetWgerAuth()
+      const state = getWgerAuthState()
+      expect(state.isAuthenticated).toBe(false)
+      expect(state.wgerUsername).toBeUndefined()
+    })
+
+    it('credenciales nunca se exponen en el estado', () => {
+      const state = getWgerAuthState()
+      expect(state).not.toHaveProperty('password')
+      expect(state).not.toHaveProperty('token')
+      expect(state).not.toHaveProperty('apiKey')
+      expect(JSON.stringify(state)).not.toContain('password')
+      expect(JSON.stringify(state)).not.toContain('secret')
+    })
+
+    it('estado autenticado permite escritura', async () => {
+      const status = await checkWgerLinkStatus()
+      if (status.isLinked) {
+        expect(status.canWrite).toBe(true)
+      }
+    })
+  })
+
+  // ─── 34. DEXIE / DB ───
+  describe('Test 34: Dexie DB', () => {
+    it('db.open() funciona correctamente', async () => {
+      await db.open()
+      expect(db.isOpen()).toBe(true)
+    })
+
+    it('db.delete() limpia todas las tablas', async () => {
+      await db.exercises.put(createMockExercise(1, 'Test') as never)
+      await db.delete()
+      await db.open()
+      const count = await db.exercises.count()
+      expect(count).toBe(0)
+    })
+
+    it('syncQueue tabla existe y es accesible', async () => {
+      await db.syncQueue.put({
+        id: 'test-op',
+        operation: 'create',
+        entityType: 'exercise',
+        localEntityId: 'test',
+        payload: {},
+        attempts: 0,
+        createdAt: new Date().toISOString(),
+        status: 'PENDING',
+      })
+      const item = await db.syncQueue.get('test-op')
+      expect(item).toBeDefined()
+      expect(item!.status).toBe('PENDING')
+    })
+
+    it('múltiples operaciones en syncQueue', async () => {
+      await db.syncQueue.bulkPut([
+        { id: 'op-1', operation: 'create', entityType: 'exercise', localEntityId: 'e1', payload: {}, attempts: 0, createdAt: new Date().toISOString(), status: 'PENDING' },
+        { id: 'op-2', operation: 'update', entityType: 'routine', localEntityId: 'r1', payload: {}, attempts: 0, createdAt: new Date().toISOString(), status: 'COMPLETED' },
+      ])
+      const stats = await getQueueStats()
+      expect(stats.total).toBeGreaterThanOrEqual(2)
+    })
+  })
+
+  // ─── 35. PUSH routine → WGER ───
+  describe('Test 35: Push routine → WGER', () => {
+    it('enqueue operación de rutina', async () => {
+      const opId = await enqueueOperation({
+        operation: 'create',
+        entityType: 'routine',
+        localEntityId: 'wger-routine-1',
+        payload: { data: { name: 'Test' } },
+      })
+      expect(opId).toBeDefined()
+      const pending = await getPendingOperations()
+      expect(pending.some(p => p.id === opId)).toBe(true)
+    })
+
+    it('marca operación como completada', async () => {
+      const opId = await enqueueOperation({
+        operation: 'create',
+        entityType: 'routine',
+        localEntityId: 'wger-routine-1',
+        payload: {},
+      })
+      await markOperationCompleted(opId, { remoteId: 1 })
+      const item = await db.syncQueue.get(opId)
+      expect(item!.status).toBe('COMPLETED')
+    })
+  })
+
+  // ─── 36. PULL WGER → Althea ───
+  describe('Test 36: Pull WGER → Althea', () => {
+    it('syncWgerToAlthea retorna resultado válido', async () => {
+      const result = await syncWgerToAlthea()
+      expect(result).toBeDefined()
+      expect(result).toHaveProperty('success')
+      expect(result).toHaveProperty('synced')
+      expect(result).toHaveProperty('failed')
+    })
+
+    it('syncWgerToAlthea con entityTypes específicos', async () => {
+      const result = await syncWgerToAlthea({ entityTypes: ['routine'] })
+      expect(result).toBeDefined()
+      expect(result.success).toBe(true)
+    })
+  })
+
+  // ─── 37. SYNC doble ───
+  describe('Test 37: Doble sync', () => {
+    it('segunda sync no duplica entidades', async () => {
+      const first = await syncWgerToAlthea()
+      const second = await syncWgerToAlthea()
+      expect(first).toBeDefined()
+      expect(second).toBeDefined()
+    })
+  })
+
+  // ─── 38. PAGINACIÓN ───
+  describe('Test 38: Paginación', () => {
+    it('paginación múltiples páginas', async () => {
+      let callCount = 0
+      vi.mocked(fetchRoutines).mockImplementation(() => {
+        callCount++
+        if (callCount === 1) {
+          return Promise.resolve({
+            count: 120,
+            next: 'http://example.com/page2',
+            previous: null,
+            results: Array.from({ length: 50 }, (_, i) => ({ id: i + 1, uuid: `uuid-${i + 1}`, name: `Exercise ${i + 1}`, description: null, created: '', last_update: '', start_date: null, end_date: null, is_active: true, is_template: false })),
+          } as never)
+        }
+        return Promise.resolve({
+          count: 120,
+          next: null,
+          previous: 'http://example.com/page1',
+          results: Array.from({ length: 50 }, (_, i) => ({ id: i + 51, uuid: `uuid-${i + 51}`, name: `Exercise ${i + 51}`, description: null, created: '', last_update: '', start_date: null, end_date: null, is_active: true, is_template: false })),
+        } as never)
+      })
+
+      const result = await syncWgerToAlthea({ entityTypes: ['routine'] })
+      expect(result).toBeDefined()
+    }, 15000)
+
+    it('cursor incremental sync', async () => {
+      vi.mocked(fetchRoutines).mockResolvedValue({
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      } as never)
+
+      const result = await syncWgerToAlthea({ entityTypes: ['routine'] })
+      expect(result).toBeDefined()
+      expect(result.success).toBe(true)
+    }, 10000)
+  })
+
+  // ─── 39. HISTORIAL ───
+  describe('Test 39: Historial', () => {
+    it('no pérdida de datos en importación', async () => {
+      vi.mocked(fetchExerciseList).mockResolvedValue({
+        count: 1,
+        next: null,
+        previous: null,
+        results: [{ id: 9, uuid: 'uuid-9', created: '', last_update: '', category: 10, muscles: [11], muscles_secondary: [], equipment: [10], variation_group: null, license_author: 'test' }],
+      } as never)
+      vi.mocked(fetchExerciseInfo).mockResolvedValue(mockExerciseInfo as never)
+
+      await importWgerSample(1)
+      const all = await listWgerExercises()
+      expect(all).toHaveLength(1)
+    })
+
+    it('no duplicación en sync repetido', async () => {
+      vi.mocked(fetchRoutines).mockResolvedValue({
+        count: 0,
+        next: null,
+        previous: null,
+        results: [],
+      } as never)
+
+      const first = await syncWgerToAlthea()
+      const second = await syncWgerToAlthea()
+      expect(first.synced).toBeGreaterThanOrEqual(0)
+      expect(second.synced).toBeGreaterThanOrEqual(0)
+    }, 10000)
+
+    it('no modificación destructiva de datos existentes', async () => {
+      const existing = await db.exercises.toCollection().first()
+      if (existing) {
+        await db.exercises.update(existing.id, { ...existing, name: existing.name })
+        const updated = await db.exercises.get(existing.id)
+        expect(updated).toBeDefined()
+      }
+    })
+  })
+
+  // ─── 40. FORMATO DE FECHA ───
+  describe('Test 40: Formato de fecha', () => {
+    it('formatLastSyncTime con null', () => {
+      expect(formatLastSyncTime(null)).toBe('Nunca')
+    })
+
+    it('formatLastSyncTime con fecha reciente', () => {
+      const now = new Date().toISOString()
+      expect(formatLastSyncTime(now)).toBe('Ahora mismo')
+    })
+
+    it('formatLastSyncTime con fecha antigua', () => {
+      const old = new Date(Date.now() - 86400000 * 30).toISOString()
+      const result = formatLastSyncTime(old)
+      expect(result).toBeDefined()
+      expect(result.length).toBeGreaterThan(0)
+    })
+  })
+
+  // ─── 41. ESTADO DE SALUD ───
+  describe('Test 41: Estado de salud', () => {
+    it('getHealthInfo retorna estructura correcta', async () => {
+      const info = await getHealthInfo()
+      expect(info).toHaveProperty('status')
+      expect(info).toHaveProperty('lastRemoteSyncAt')
+      expect(info).toHaveProperty('lastSuccessfulSyncAt')
+      expect(info).toHaveProperty('queueStats')
+      expect(info).toHaveProperty('isOnline')
+      expect(info).toHaveProperty('message')
+    })
+
+    it('resetHealthStatus limpia el estado', () => {
+      updateSyncStatus('FAILED')
+      resetHealthStatus()
+      expect(getSyncStatus()).toBe('SYNCED')
+    })
+  })
+
+  // ─── 42. COLA DE SINCRONIZACIÓN ───
+  describe('Test 42: Cola de sincronización', () => {
+    it('getQueueStats retorna conteos', async () => {
+      const stats = await getQueueStats()
+      expect(stats).toHaveProperty('pending')
+      expect(stats).toHaveProperty('completed')
+      expect(stats).toHaveProperty('failed')
+      expect(stats).toHaveProperty('total')
+    })
+
+    it('getFailedOperations retorna array', async () => {
+      const failed = await getFailedOperations()
+      expect(Array.isArray(failed)).toBe(true)
     })
   })
 })

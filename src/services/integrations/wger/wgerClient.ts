@@ -244,6 +244,142 @@ export function fetchRestConfig(
   return getJSON(`${BASE}/restconfig/?${params}`, signal)
 }
 
+// ─── Write Endpoints (FASE 27+) ───
+// POST/PUT/DELETE para push real Althea → WGER.
+// Requieren autenticación (token Bearer).
+
+export function createRoutine(
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<WgerRoutineDetail> {
+  return defaultClient.request<WgerRoutineDetail>('/routine/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }, accessToken)
+}
+
+export function updateRoutine(
+  id: number,
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<WgerRoutineDetail> {
+  return defaultClient.request<WgerRoutineDetail>(`/routine/${id}/`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }, accessToken)
+}
+
+export function deleteRoutine(
+  id: number,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<void> {
+  return defaultClient.request<void>(`/routine/${id}/`, {
+    method: 'DELETE',
+  }, accessToken)
+}
+
+export function createWorkout(
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<unknown> {
+  return defaultClient.request<unknown>('/workout/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }, accessToken)
+}
+
+export function updateWorkout(
+  id: number,
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<unknown> {
+  return defaultClient.request<unknown>(`/workout/${id}/`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }, accessToken)
+}
+
+export function deleteWorkout(
+  id: number,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<void> {
+  return defaultClient.request<void>(`/workout/${id}/`, {
+    method: 'DELETE',
+  }, accessToken)
+}
+
+export function createNutritionPlan(
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<unknown> {
+  return defaultClient.request<unknown>('/nutritionplan/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }, accessToken)
+}
+
+export function updateNutritionPlan(
+  id: number,
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<unknown> {
+  return defaultClient.request<unknown>(`/nutritionplan/${id}/`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }, accessToken)
+}
+
+export function deleteNutritionPlan(
+  id: number,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<void> {
+  return defaultClient.request<void>(`/nutritionplan/${id}/`, {
+    method: 'DELETE',
+  }, accessToken)
+}
+
+export function createMeasurement(
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<unknown> {
+  return defaultClient.request<unknown>('/measurement/', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }, accessToken)
+}
+
+export function updateMeasurement(
+  id: number,
+  data: Record<string, unknown>,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<unknown> {
+  return defaultClient.request<unknown>(`/measurement/${id}/`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }, accessToken)
+}
+
+export function deleteMeasurement(
+  id: number,
+  signal?: AbortSignal,
+  accessToken?: string,
+): Promise<void> {
+  return defaultClient.request<void>(`/measurement/${id}/`, {
+    method: 'DELETE',
+  }, accessToken)
+}
+
 // ─── Implementación de WgerIntegration ───
 // FASE 1: Toda interacción pasa por servicios. Nunca UI → WGER directamente.
 // FASE 24: API interna estable — interfaz unificada para toda la integración.
@@ -281,8 +417,8 @@ export const wgerIntegration: WgerIntegration = {
   listImported: listWgerExercises,
 
   // ─── Vinculación de entidades (FASE 2) ───
-  // TODO: Implementar cuando se cree la tabla externalEntityLinks en Dexie
-  linkEntity: async (altheaEntityId, externalEntityId, externalEntityUuid, entityType) => {
+  linkEntity: async (altheaEntityId: string, externalEntityId: string, externalEntityUuid: string, entityType: 'exercise' | 'routine' | 'ingredient') => {
+    const { db } = await import('@/services/storage/db')
     const link: ExternalEntityLink = {
       id: `link-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       altheaEntityId,
@@ -294,32 +430,35 @@ export const wgerIntegration: WgerIntegration = {
       lastSyncAt: null,
       metadata: {},
     }
-    // TODO: Persistir en db.externalEntityLinks
+    await db.externalEntityLinks.put(link)
     return link
   },
 
-  unlinkEntity: async (_linkId) => {
-    // TODO: Implementar cuando se cree la tabla externalEntityLinks en Dexie
+  unlinkEntity: async (linkId: string) => {
+    const { db } = await import('@/services/storage/db')
+    await db.externalEntityLinks.delete(linkId)
   },
 
-  getEntityLink: async (_altheaEntityId) => {
-    // TODO: Implementar cuando se cree la tabla externalEntityLinks en Dexie
-    return null
+  getEntityLink: async (altheaEntityId: string) => {
+    const { db } = await import('@/services/storage/db')
+    const result = await db.externalEntityLinks.where('altheaEntityId').equals(altheaEntityId).first()
+    return result ?? null
   },
 
-  getEntityLinkByExternal: async (_externalEntityId) => {
-    // TODO: Implementar cuando se cree la tabla externalEntityLinks en Dexie
-    return null
+  getEntityLinkByExternal: async (externalEntityId: string) => {
+    const { db } = await import('@/services/storage/db')
+    const result = await db.externalEntityLinks.where('externalEntityId').equals(externalEntityId).first()
+    return result ?? null
   },
 
   listEntityLinks: async () => {
-    // TODO: Implementar cuando se cree la tabla externalEntityLinks en Dexie
-    return []
+    const { db } = await import('@/services/storage/db')
+    return db.externalEntityLinks.toArray()
   },
 
   // ─── Vinculación de cuentas (FASE 2) ───
-  // TODO: Implementar cuando se cree la tabla externalAccountLinks en Dexie
-  linkAccount: async (altheaUserId, externalUserId, externalUsername) => {
+  linkAccount: async (altheaUserId: string, externalUserId: string, externalUsername: string) => {
+    const { db } = await import('@/services/storage/db')
     const link: ExternalAccountLink = {
       id: `acct-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       altheaUserId,
@@ -330,27 +469,30 @@ export const wgerIntegration: WgerIntegration = {
       lastSyncAt: null,
       status: 'active',
     }
-    // TODO: Persistir en db.externalAccountLinks
+    await db.externalAccountLinks.put(link)
     return link
   },
 
-  unlinkAccount: async (_linkId) => {
-    // TODO: Implementar cuando se cree la tabla externalAccountLinks en Dexie
+  unlinkAccount: async (linkId: string) => {
+    const { db } = await import('@/services/storage/db')
+    await db.externalAccountLinks.delete(linkId)
   },
 
-  getAccountLink: async (_altheaUserId) => {
-    // TODO: Implementar cuando se cree la tabla externalAccountLinks en Dexie
-    return null
+  getAccountLink: async (altheaUserId: string) => {
+    const { db } = await import('@/services/storage/db')
+    const result = await db.externalAccountLinks.where('altheaUserId').equals(altheaUserId).first()
+    return result ?? null
   },
 
-  getAccountLinkByExternal: async (_externalUserId) => {
-    // TODO: Implementar cuando se cree la tabla externalAccountLinks en Dexie
-    return null
+  getAccountLinkByExternal: async (externalUserId: string) => {
+    const { db } = await import('@/services/storage/db')
+    const result = await db.externalAccountLinks.where('externalUserId').equals(externalUserId).first()
+    return result ?? null
   },
 
   listAccountLinks: async () => {
-    // TODO: Implementar cuando se cree la tabla externalAccountLinks en Dexie
-    return []
+    const { db } = await import('@/services/storage/db')
+    return db.externalAccountLinks.toArray()
   },
 
   // ─── Autenticación (FASE 3) ───
