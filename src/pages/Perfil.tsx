@@ -7,6 +7,7 @@ import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { SyncStatusCard } from '@/components/sync/SyncStatusCard'
+import { WgerSyncPanel } from '@/components/sync/WgerSyncPanel'
 import { IconDumbbell, IconFire, IconBody, IconHeart, IconWater, IconUtensils, IconSleep, IconClipboard, IconLightning, IconTarget, IconUser, IconShield } from '@/components/brand/FitnessIcons'
 import { AltheaButton, AltheaBadge, AltheaSelect, AltheaEmpty, AltheaPanel, AltheaMetric } from '@/components/althea'
 import * as Gym from '@/services/exerciseGym'
@@ -686,6 +687,9 @@ export default function Perfil() {
 
       {/* ═══ SINCRONIZACIÓN ═══ */}
       <SyncStatusCard />
+
+      {/* ═══ WGER ═══ */}
+      <WgerSyncPanel />
 
       {/* ═══ CUENTA ═══ */}
       <div className="space-y-2">
