@@ -17,7 +17,7 @@ import { ModifyModal, ViewerModal, SwapModal, SkipReasonModal, CancelModal, Aban
 import { MOBILE_NAV_OFFSET } from '@/components/layout/AppNav'
 import { AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
 
-import { aiService } from '@/services/ai/aiService'
+
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
@@ -430,6 +430,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       // fatiga acumulada
       const totalDone = Object.keys(done).length
       ctx.fatiga = totalDone>=2 ? 'moderada' : ctx.fatiga
+      const { aiService } = await import('@/services/ai/aiService')
       const rec = await aiService.generateRecommendation(ctx).catch(()=> ({reason:`Vamos con ${nxt.weight ?? 0}kg × ${nxt.reps}.`, suggested_weight: nxt.weight ?? undefined}))
       setCoach(rec)
     }
@@ -652,6 +653,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     setSwapReason(''); setSwapComment('')
     try{ localStorage.removeItem(`exstate:${today}:${cur.exId}`) }catch{ /* noop */ }
     const ctx = await buildTrainingContext(newEx.id, newEx.name)
+    const { aiService } = await import('@/services/ai/aiService')
     const rec = await aiService.generateRecommendation(ctx).catch(()=> ({reason:`Vamos con ${cur.weight ?? 0}kg x ${cur.reps}.`, suggested_weight: cur.weight ?? undefined}))
     setCoach(rec)
   }
@@ -719,6 +721,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     
     // Refresh coach recommendation
     const ctx = await buildTrainingContext(variant.exerciseId, variant.name)
+    const { aiService } = await import('@/services/ai/aiService')
     const rec = await aiService.generateRecommendation(ctx).catch(() => ({ reason: `Vamos con ${cur.weight ?? 0}kg x ${cur.reps}.`, suggested_weight: cur.weight ?? undefined }))
     setCoach(rec)
   }, [cur, session, current, today, variantContext, exs, seIdByIndex, setCoach, setDone, setExs, setLogs])

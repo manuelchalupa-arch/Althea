@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate, formatAgendaDate } from '@/utils/cycle'
 import { getCanonicalCycle } from '@/services/planning/cycleVersions'
-import { aiService } from '@/services/ai/aiService'
+
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { detectCapabilities } from '@/services/ai/capabilities'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
