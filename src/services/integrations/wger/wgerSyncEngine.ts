@@ -16,12 +16,13 @@
 // - NO depender únicamente de timestamps: usar hashes para detectar cambios reales.
 
 import { db } from '@/services/storage/db'
-import { fetchRoutine, fetchRoutines, fetchDays, fetchSlots, fetchSlotEntries, fetchWeightConfig, fetchRepetitionsConfig, fetchSetsConfig, fetchRirConfig, fetchRestConfig, createRoutine, updateRoutine, deleteRoutine, createWorkout, updateWorkout, deleteWorkout, createNutritionPlan, updateNutritionPlan, deleteNutritionPlan, createMeasurement, updateMeasurement, deleteMeasurement } from './wgerClient'
+import { fetchRoutine, fetchRoutines, fetchDays, fetchSlots, fetchSlotEntries, fetchWeightConfig, fetchRepetitionsConfig, fetchSetsConfig, fetchRirConfig, fetchRestConfig, createRoutine, updateRoutine, deleteRoutine, createWorkout, updateWorkout, deleteWorkout, createNutritionPlan, updateNutritionPlan, deleteNutritionPlan, createMeasurement, updateMeasurement, deleteMeasurement, fetchExerciseList, fetchExerciseInfo, fetchIngredients, fetchNutritionPlans, fetchWorkoutSessions, fetchMeasurements, fetchAllPagesCursor } from './wgerClient'
 import { mapWgerRoutineToAlthea, mapAltheaRoutineToWger, type WgerRoutineWithDetails } from './wgerRoutineMapper'
 import { enqueueOperation, getPendingOperations, markOperationCompleted, markOperationFailed } from './wgerSyncQueue'
 import { detectConflict, resolveConflict, type SyncConflict } from './wgerConflictResolver'
 import { getSyncStatus, updateSyncStatus, type WgerSyncStatus } from './wgerHealth'
 import { getWgerAuthState } from './wgerAuth'
+import type { SyncResourceState } from './wgerTypes'
 
 // ─── Tipos ───
 
@@ -131,9 +132,17 @@ export async function syncWgerToAlthea(options: SyncOptions = {}): Promise<SyncR
     for (const entityType of entityTypes) {
       try {
         if (entityType === 'exercise') {
-          await syncExercisesFromWger(result, options)
+          await syncExercisesIncrementalFromWger(result, options)
         } else if (entityType === 'routine') {
-          await syncRoutinesFromWger(result, options)
+          await syncRoutinesIncrementalFromWger(result, options)
+        } else if (entityType === 'ingredient') {
+          await syncIngredientsIncrementalFromWger(result, options)
+        } else if (entityType === 'trainingSession') {
+          await syncTrainingSessionsIncrementalFromWger(result, options)
+        } else if (entityType === 'nutritionPlan') {
+          await syncNutritionPlansIncrementalFromWger(result, options)
+        } else if (entityType === 'measurement') {
+          await syncMeasurementsIncrementalFromWger(result, options)
         }
       } catch (err) {
         result.failed++
@@ -142,6 +151,7 @@ export async function syncWgerToAlthea(options: SyncOptions = {}): Promise<SyncR
     }
 
     updateSyncStatus(result.failed > 0 ? 'FAILED' : 'SYNCED')
+    result.success = result.failed === 0
   } catch (err) {
     updateSyncStatus('FAILED')
     result.success = false
@@ -149,6 +159,355 @@ export async function syncWgerToAlthea(options: SyncOptions = {}): Promise<SyncR
   }
 
   return result
+}
+
+async function syncExercisesIncrementalFromWger(result: SyncResult, options: SyncOptions): Promise<void> {
+  const state = await getOrCreateResourceState('exercise')
+  const lastUpdateGte = state.lastSuccessfulSyncAt || undefined
+
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchExerciseList({ limit, offset, language: 2 }, options.signal)
+    hasMore = list.next !== null
+
+    for (const item of list.results) {
+      try {
+        if (lastUpdateGte && item.last_update <= lastUpdateGte) {
+          continue
+        }
+
+        const info = await fetchExerciseInfo(item.id, options.signal)
+        const hash = computeHash(info)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-exercise-${item.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'exercise',
+          localEntityId: `wger-exercise-${item.id}`,
+          remoteEntityId: String(item.id),
+          payload: { data: info, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: item.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`exercise ${item.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+  state.lastSuccessfulSyncAt = new Date().toISOString()
+  state.updatedAt = new Date().toISOString()
+  await saveResourceState(state)
+}
+
+async function syncRoutinesIncrementalFromWger(result: SyncResult, options: SyncOptions): Promise<void> {
+  const state = await getOrCreateResourceState('routine')
+  const lastUpdateGte = state.lastSuccessfulSyncAt || undefined
+
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchRoutines({ limit, offset }, options.signal)
+    hasMore = list.next !== null
+
+    for (const routine of list.results) {
+      try {
+        if (lastUpdateGte && routine.last_update <= lastUpdateGte) {
+          continue
+        }
+
+        const detail = await fetchRoutineWithDetails(routine.id)
+        if (!detail) {continue}
+
+        const hash = computeHash(detail)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-routine-${routine.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const altheaRoutine = mapWgerRoutineToAlthea(detail, () => null)
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'routine',
+          localEntityId: `wger-routine-${routine.id}`,
+          remoteEntityId: String(routine.id),
+          payload: { data: altheaRoutine, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: routine.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`routine ${routine.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+  state.lastSuccessfulSyncAt = new Date().toISOString()
+  state.updatedAt = new Date().toISOString()
+  await saveResourceState(state)
+}
+
+async function syncIngredientsIncrementalFromWger(result: SyncResult, options: SyncOptions): Promise<void> {
+  const state = await getOrCreateResourceState('ingredient')
+  const lastUpdateGte = state.lastSuccessfulSyncAt || undefined
+
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchIngredients({ limit, offset, lastUpdateGte }, options.signal)
+    hasMore = list.next !== null
+
+    for (const item of list.results) {
+      try {
+        const hash = computeHash(item)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-ingredient-${item.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'ingredient',
+          localEntityId: `wger-ingredient-${item.id}`,
+          remoteEntityId: String(item.id),
+          payload: { data: item, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: item.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`ingredient ${item.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+  state.lastSuccessfulSyncAt = new Date().toISOString()
+  state.updatedAt = new Date().toISOString()
+  await saveResourceState(state)
+}
+
+async function syncTrainingSessionsIncrementalFromWger(result: SyncResult, options: SyncOptions): Promise<void> {
+  const state = await getOrCreateResourceState('trainingSession')
+  const lastUpdateGte = state.lastSuccessfulSyncAt || undefined
+
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchWorkoutSessions({ limit, offset, lastUpdateGte }, options.signal)
+    hasMore = list.next !== null
+
+    for (const session of list.results) {
+      try {
+        const hash = computeHash(session)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-workout-${session.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'trainingSession',
+          localEntityId: `wger-workout-${session.id}`,
+          remoteEntityId: String(session.id),
+          payload: { data: session, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: session.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`workout session ${session.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+  state.lastSuccessfulSyncAt = new Date().toISOString()
+  state.updatedAt = new Date().toISOString()
+  await saveResourceState(state)
+}
+
+async function syncNutritionPlansIncrementalFromWger(result: SyncResult, options: SyncOptions): Promise<void> {
+  const state = await getOrCreateResourceState('nutritionPlan')
+  const lastUpdateGte = state.lastSuccessfulSyncAt || undefined
+
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchNutritionPlans({ limit, offset, lastUpdateGte }, options.signal)
+    hasMore = list.next !== null
+
+    for (const plan of list.results) {
+      try {
+        const hash = computeHash(plan)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-nutritionplan-${plan.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'nutritionPlan',
+          localEntityId: `wger-nutritionplan-${plan.id}`,
+          remoteEntityId: String(plan.id),
+          payload: { data: plan, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: plan.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`nutrition plan ${plan.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+  state.lastSuccessfulSyncAt = new Date().toISOString()
+  state.updatedAt = new Date().toISOString()
+  await saveResourceState(state)
+}
+
+async function syncMeasurementsIncrementalFromWger(result: SyncResult, options: SyncOptions): Promise<void> {
+  const state = await getOrCreateResourceState('measurement')
+  const lastUpdateGte = state.lastSuccessfulSyncAt || undefined
+
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchMeasurements({ limit, offset }, options.signal)
+    hasMore = list.next !== null
+
+    for (const measurement of list.results) {
+      try {
+        const hash = computeHash(measurement)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-measurement-${measurement.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'measurement',
+          localEntityId: `wger-measurement-${measurement.id}`,
+          remoteEntityId: String(measurement.id),
+          payload: { data: measurement, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: measurement.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`measurement ${measurement.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+  state.lastSuccessfulSyncAt = new Date().toISOString()
+  state.updatedAt = new Date().toISOString()
+  await saveResourceState(state)
 }
 
 async function syncExercisesFromWger(result: SyncResult, options: SyncOptions): Promise<void> {
@@ -267,7 +626,11 @@ export async function syncAltheaToWger(options: SyncOptions = {}): Promise<SyncR
   updateSyncStatus('SYNCING')
 
   try {
-    const pendingOps = await getPendingOperations()
+    const allPendingOps = await getPendingOperations()
+    const entityTypes = options.entityTypes
+    const pendingOps = entityTypes
+      ? allPendingOps.filter((op) => entityTypes.includes(op.entityType as SyncEntityType))
+      : allPendingOps
 
     for (const op of pendingOps) {
       try {
@@ -277,7 +640,6 @@ export async function syncAltheaToWger(options: SyncOptions = {}): Promise<SyncR
 
         const operation = op.operation as SyncOperation
 
-        // Idempotencia: verificar si ya fue sincronizado con el mismo hash
         if (await isAlreadySynced(op)) {
           await markOperationCompleted(op.id, { synced: true, idempotent: true })
           result.synced++
@@ -296,7 +658,7 @@ export async function syncAltheaToWger(options: SyncOptions = {}): Promise<SyncR
             remoteEntityId: op.remoteEntityId,
             payload: op.payload,
           })
-          if (conflict) {
+          if (conflict.hasConflict) {
             result.conflicts++
             continue
           }
@@ -313,6 +675,7 @@ export async function syncAltheaToWger(options: SyncOptions = {}): Promise<SyncR
     }
 
     updateSyncStatus(result.failed > 0 ? 'FAILED' : 'SYNCED')
+    result.success = result.failed === 0
   } catch (err) {
     updateSyncStatus('FAILED')
     result.success = false
@@ -559,35 +922,117 @@ export async function fetchAllWgerPages<T>(
   let hasMore = true
 
   while (hasMore && page < maxPages) {
+    if (options.signal?.aborted) {
+      break
+    }
+
     const response = await fetcher({ limit, offset })
     allResults.push(...response.results)
     hasMore = response.next !== null
     offset += limit
     page++
-
-    if (options.signal?.aborted) {
-      break
-    }
   }
 
   return allResults
 }
 
-// ─── Sincronización incremental con cursor pagination (FASE 27) ───
+// ─── Sincronización incremental con cursor pagination (FASE 27+) ───
 
 export interface SyncCursor {
   entityType: SyncEntityType
   lastSyncAt: string
   lastId: number
+  cursor: string | null
 }
 
+const SYNC_RESOURCE_TYPES: SyncEntityType[] = [
+  'exercise',
+  'ingredient',
+  'routine',
+  'trainingSession',
+  'nutritionPlan',
+  'measurement',
+]
+
+/**
+ * Obtiene el estado de sincronización por recurso.
+ * Si no existe, crea uno con valores por defecto.
+ */
+async function getOrCreateResourceState(entityType: SyncEntityType): Promise<SyncResourceState> {
+  const existing = await db.syncQueue.get(`sync-state-${entityType}`)
+  if (existing?.payload && typeof existing.payload === 'object') {
+    const p = existing.payload as SyncResourceState
+    return {
+      entityType: p.entityType || entityType,
+      lastSuccessfulSyncAt: p.lastSuccessfulSyncAt || null,
+      lastCursor: p.lastCursor || null,
+      lastId: p.lastId || 0,
+      totalSynced: p.totalSynced || 0,
+      updatedAt: p.updatedAt || new Date().toISOString(),
+    }
+  }
+
+  return {
+    entityType,
+    lastSuccessfulSyncAt: null,
+    lastCursor: null,
+    lastId: 0,
+    totalSynced: 0,
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+/**
+ * Guarda el estado de sincronización por recurso.
+ */
+async function saveResourceState(state: SyncResourceState): Promise<void> {
+  await db.syncQueue.put({
+    id: `sync-state-${state.entityType}`,
+    operation: 'update',
+    entityType: state.entityType as SyncEntityType,
+    localEntityId: `sync-state-${state.entityType}`,
+    payload: state,
+    attempts: 0,
+    createdAt: new Date().toISOString(),
+    status: 'COMPLETED',
+  })
+}
+
+/**
+ * Obtiene los cursores de sincronización para todos los recursos.
+ */
+async function getCursors(): Promise<SyncCursor[]> {
+  const cursors: SyncCursor[] = []
+
+  for (const entityType of SYNC_RESOURCE_TYPES) {
+    const state = await getOrCreateResourceState(entityType)
+    cursors.push({
+      entityType,
+      lastSyncAt: state.lastSuccessfulSyncAt || new Date(0).toISOString(),
+      lastId: state.lastId,
+      cursor: state.lastCursor,
+    })
+  }
+
+  return cursors
+}
+
+/**
+ * Sincronización incremental con cursor pagination.
+ * Solo descarga registros modificados desde la última sync.
+ */
 export async function syncIncremental(options: SyncOptions = {}): Promise<SyncResult> {
   const result: SyncResult = { success: true, synced: 0, failed: 0, conflicts: 0, errors: [] }
 
   try {
     const cursors = await getCursors()
+    const entityTypes = options.entityTypes || SYNC_RESOURCE_TYPES
 
     for (const cursor of cursors) {
+      if (!entityTypes.includes(cursor.entityType)) {
+        continue
+      }
+
       try {
         const incrementalResult = await syncEntityIncremental(cursor, options)
         result.synced += incrementalResult.synced
@@ -609,42 +1054,409 @@ export async function syncIncremental(options: SyncOptions = {}): Promise<SyncRe
   return result
 }
 
-async function getCursors(): Promise<SyncCursor[]> {
-  const cursors: SyncCursor[] = []
-  const entityTypes: SyncEntityType[] = ['routine', 'trainingSession', 'nutritionPlan', 'measurement']
-
-  for (const entityType of entityTypes) {
-    const lastSync = await db.syncQueue
-      .filter((op) => op.entityType === entityType && op.status === 'COMPLETED')
-      .last()
-
-    cursors.push({
-      entityType,
-      lastSyncAt: lastSync?.lastAttemptAt || new Date(0).toISOString(),
-      lastId: lastSync?.result && typeof lastSync.result === 'object' && 'remoteId' in lastSync.result
-        ? Number((lastSync.result as { remoteId: string | number }).remoteId)
-        : 0,
-    })
-  }
-
-  return cursors
-}
-
+/**
+ * Sincroniza un recurso incrementalmente.
+ * Usa cursor pagination y filtros por fecha para no descargar toda la base.
+ */
 async function syncEntityIncremental(cursor: SyncCursor, options: SyncOptions): Promise<SyncResult> {
   const result: SyncResult = { success: true, synced: 0, failed: 0, conflicts: 0, errors: [] }
 
-  const entityTypes = options.entityTypes || [cursor.entityType]
-  if (!entityTypes.includes(cursor.entityType)) {
-    return result
+  const state = await getOrCreateResourceState(cursor.entityType)
+  const lastUpdateGte = state.lastSuccessfulSyncAt || undefined
+
+  try {
+    switch (cursor.entityType) {
+      case 'exercise':
+        await syncExercisesIncremental(state, lastUpdateGte, result, options)
+        break
+      case 'ingredient':
+        await syncIngredientsIncremental(state, lastUpdateGte, result, options)
+        break
+      case 'routine':
+        await syncRoutinesIncremental(state, lastUpdateGte, result, options)
+        break
+      case 'trainingSession':
+        await syncTrainingSessionsIncremental(state, lastUpdateGte, result, options)
+        break
+      case 'nutritionPlan':
+        await syncNutritionPlansIncremental(state, lastUpdateGte, result, options)
+        break
+      case 'measurement':
+        await syncMeasurementsIncremental(state, lastUpdateGte, result, options)
+        break
+    }
+
+    state.lastSuccessfulSyncAt = new Date().toISOString()
+    state.updatedAt = new Date().toISOString()
+    await saveResourceState(state)
+  } catch (err) {
+    result.failed++
+    result.errors.push(`${cursor.entityType}: ${err instanceof Error ? err.message : String(err)}`)
   }
 
-  const pullResult = await syncWgerToAlthea({ entityTypes: [cursor.entityType], ...options })
-  result.synced += pullResult.synced
-  result.failed += pullResult.failed
-  result.conflicts += pullResult.conflicts
-  result.errors.push(...pullResult.errors)
-
   return result
+}
+
+/**
+ * Sincroniza ejercicios incrementalmente.
+ * Usa last_update__gte para filtrar solo registros modificados.
+ */
+async function syncExercisesIncremental(
+  state: SyncResourceState,
+  lastUpdateGte: string | undefined,
+  result: SyncResult,
+  options: SyncOptions,
+): Promise<void> {
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchExerciseList({ limit, offset, language: 2 }, options.signal)
+    hasMore = list.next !== null
+
+    for (const item of list.results) {
+      try {
+        if (lastUpdateGte && item.last_update <= lastUpdateGte) {
+          continue
+        }
+
+        const info = await fetchExerciseInfo(item.id, options.signal)
+        const hash = computeHash(info)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-exercise-${item.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'exercise',
+          localEntityId: `wger-exercise-${item.id}`,
+          remoteEntityId: String(item.id),
+          payload: { data: info, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: item.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`exercise ${item.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+}
+
+/**
+ * Sincroniza ingredientes incrementalmente.
+ */
+async function syncIngredientsIncremental(
+  state: SyncResourceState,
+  lastUpdateGte: string | undefined,
+  result: SyncResult,
+  options: SyncOptions,
+): Promise<void> {
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchIngredients({ limit, offset, lastUpdateGte }, options.signal)
+    hasMore = list.next !== null
+
+    for (const item of list.results) {
+      try {
+        const hash = computeHash(item)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-ingredient-${item.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'ingredient',
+          localEntityId: `wger-ingredient-${item.id}`,
+          remoteEntityId: String(item.id),
+          payload: { data: item, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: item.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`ingredient ${item.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+}
+
+/**
+ * Sincroniza rutinas incrementalmente.
+ */
+async function syncRoutinesIncremental(
+  state: SyncResourceState,
+  lastUpdateGte: string | undefined,
+  result: SyncResult,
+  options: SyncOptions,
+): Promise<void> {
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchRoutines({ limit, offset }, options.signal)
+    hasMore = list.next !== null
+
+    for (const routine of list.results) {
+      try {
+        if (lastUpdateGte && routine.last_update <= lastUpdateGte) {
+          continue
+        }
+
+        const detail = await fetchRoutineWithDetails(routine.id)
+        if (!detail) {continue}
+
+        const hash = computeHash(detail)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-routine-${routine.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const altheaRoutine = mapWgerRoutineToAlthea(detail, () => null)
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'routine',
+          localEntityId: `wger-routine-${routine.id}`,
+          remoteEntityId: String(routine.id),
+          payload: { data: altheaRoutine, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: routine.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`routine ${routine.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+}
+
+/**
+ * Sincroniza sesiones de entrenamiento incrementalmente.
+ */
+async function syncTrainingSessionsIncremental(
+  state: SyncResourceState,
+  lastUpdateGte: string | undefined,
+  result: SyncResult,
+  options: SyncOptions,
+): Promise<void> {
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchWorkoutSessions({ limit, offset, lastUpdateGte }, options.signal)
+    hasMore = list.next !== null
+
+    for (const session of list.results) {
+      try {
+        const hash = computeHash(session)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-workout-${session.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'trainingSession',
+          localEntityId: `wger-workout-${session.id}`,
+          remoteEntityId: String(session.id),
+          payload: { data: session, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: session.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`workout session ${session.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+}
+
+/**
+ * Sincroniza planes de nutrición incrementalmente.
+ */
+async function syncNutritionPlansIncremental(
+  state: SyncResourceState,
+  lastUpdateGte: string | undefined,
+  result: SyncResult,
+  options: SyncOptions,
+): Promise<void> {
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchNutritionPlans({ limit, offset, lastUpdateGte }, options.signal)
+    hasMore = list.next !== null
+
+    for (const plan of list.results) {
+      try {
+        const hash = computeHash(plan)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-nutritionplan-${plan.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'nutritionPlan',
+          localEntityId: `wger-nutritionplan-${plan.id}`,
+          remoteEntityId: String(plan.id),
+          payload: { data: plan, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: plan.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`nutrition plan ${plan.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
+}
+
+/**
+ * Sincroniza mediciones incrementalmente.
+ */
+async function syncMeasurementsIncremental(
+  state: SyncResourceState,
+  lastUpdateGte: string | undefined,
+  result: SyncResult,
+  options: SyncOptions,
+): Promise<void> {
+  const limit = 50
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const list = await fetchMeasurements({ limit, offset }, options.signal)
+    hasMore = list.next !== null
+
+    for (const measurement of list.results) {
+      try {
+        const hash = computeHash(measurement)
+
+        const existing = await db.syncQueue
+          .filter((op) => op.localEntityId === `wger-measurement-${measurement.id}` && op.status === 'COMPLETED')
+          .first()
+
+        if (existing?.payload && typeof existing.payload === 'object' && 'hash' in existing.payload) {
+          if ((existing.payload as { hash: string }).hash === hash) {
+            continue
+          }
+        }
+
+        const opId = await enqueueOperation({
+          operation: existing ? 'update' : 'create',
+          entityType: 'measurement',
+          localEntityId: `wger-measurement-${measurement.id}`,
+          remoteEntityId: String(measurement.id),
+          payload: { data: measurement, hash, source: 'wger' },
+        })
+
+        await markOperationCompleted(opId, { remoteId: measurement.id, hash })
+        state.totalSynced++
+        result.synced++
+      } catch (err) {
+        result.failed++
+        result.errors.push(`measurement ${measurement.id}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    offset += limit
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  state.lastId = offset
 }
 
 // ─── Reconexión / Offline (FASE 27) ───

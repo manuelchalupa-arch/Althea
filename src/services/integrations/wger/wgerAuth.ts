@@ -1,5 +1,4 @@
 // wgerAuth — Manejo seguro de credenciales WGER.
-// FASE 3: Autenticación segura.
 //
 // REGLAS:
 // - NO almacenar username/password de WGER en Dexie
@@ -13,17 +12,9 @@
 //
 // ARQUITECTURA:
 // - El frontend NUNCA ve ni almacena credenciales WGER.
-// - Firebase Auth autentica al usuario de Althea.
-// - Las credenciales WGER se almacenan en Firestore (server-side).
-// - Las operaciones autenticadas se ejecutan via Cloud Functions.
-//
-// LIMITACIÓN ACTUAL:
-// La API de WGER es pública para GET (lectura). No se requiere autenticación
-// para acceder a ejercicios, músculos, equipamiento, etc.
-//
-// Para operaciones autenticadas (crear rutinas, registrar entrenamientos):
-// - Se requiere capa server-side/proxy (Cloud Functions)
-// - Estado actual: solo read-only público + vinculación de cuentas
+// - El Cloudflare Worker maneja la autenticación y setea cookies HttpOnly.
+// - El frontend solo llama a los endpoints del Worker.
+// - El Worker inyecta el token en requests a WGER.
 
 import { getWgerLinkStatus, linkWgerAccount, unlinkWgerAccount } from './wgerServerAuth'
 
@@ -76,7 +67,7 @@ export async function checkWgerLinkStatus(): Promise<WgerAuthState> {
 
 /**
  * Vincula la cuenta WGER del usuario actual.
- * Las credenciales se almacenan en Firestore (server-side).
+ * Las credenciales se envían al Worker que las verifica y setea cookies HttpOnly.
  */
 export async function authenticateWger(username: string, password: string): Promise<void> {
   const result = await linkWgerAccount({ username, password })
@@ -90,6 +81,7 @@ export async function authenticateWger(username: string, password: string): Prom
 
 /**
  * Desvincula la cuenta WGER del usuario actual.
+ * Elimina las cookies HttpOnly del Worker.
  */
 export async function deauthenticateWger(): Promise<void> {
   const result = await unlinkWgerAccount()

@@ -246,3 +246,22 @@ export interface ExternalEntityLink {
 //   - nutrition/types.ts (WgerIngredientInfo, WgerNutritionPlan, WgerMeal, WgerMealItem, WgerNutritionDiary)
 //   - measurements/types.ts (WgerMeasurementCategory, WgerMeasurement)
 //   - stats/types.ts (WgerRoutineStructure, WgerRoutineDateSequence, WgerRoutineStats)
+
+// ─── Sync Cursor Types (FASE 27+) ───
+// Para sincronización incremental con cursor pagination.
+
+export interface SyncCursorState {
+  entityType: string
+  lastSyncAt: string
+  lastId: number
+  cursor: string | null
+}
+
+export interface SyncResourceState {
+  entityType: string
+  lastSuccessfulSyncAt: string | null
+  lastCursor: string | null
+  lastId: number
+  totalSynced: number
+  updatedAt: string
+}

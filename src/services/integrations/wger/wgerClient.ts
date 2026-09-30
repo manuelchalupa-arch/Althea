@@ -26,6 +26,10 @@ import type {
   ExternalAccountLink,
   ExternalEntityLink,
 } from './wgerTypes'
+import type { WgerIngredientListResponse, WgerIngredientInfo } from './nutrition/types'
+import type { WgerNutritionPlanListResponse, WgerNutritionPlan } from './nutrition/types'
+import type { WgerWorkoutSessionListResponse, WgerWorkoutSession } from './training/types'
+import type { WgerMeasurementListResponse, WgerMeasurement } from './measurements/types'
 import type { WgerIntegration, IntegrationHealth, FullSyncResult } from './wgerIntegration'
 import type { SyncResult } from './wgerSyncEngine'
 import { getWgerAuthState, isWgerAuthenticated, getWgerAuthStatus } from './wgerAuth'
@@ -98,6 +102,66 @@ const defaultClient = new WgerClient(BASE)
 async function getJSON<T>(url: string, signal?: AbortSignal): Promise<T> {
   const path = url.replace(BASE, '')
   return defaultClient.request<T>(path, { signal })
+}
+
+// ─── Cursor Pagination Helper (FASE 27+) ───
+// Soporta paginación basada en cursor (next/previous) y offset/limit.
+// Si el endpoint retorna `next` como URL, la sigue automáticamente.
+
+export interface CursorPaginationOptions {
+  limit?: number
+  maxPages?: number
+  signal?: AbortSignal
+  lastUpdateGte?: string
+}
+
+export interface CursorPage<T> {
+  results: T[]
+  next: string | null
+  previous: string | null
+  count: number
+}
+
+/**
+ * Fetch all pages using cursor-based pagination.
+ * Sigue el campo `next` de la respuesta hasta que sea null.
+ */
+export async function fetchAllPagesCursor<T>(
+  fetcher: (opts: { limit: number; offset: number; lastUpdateGte?: string }, signal?: AbortSignal) => Promise<CursorPage<T>>,
+  options: CursorPaginationOptions = {},
+): Promise<T[]> {
+  const limit = options.limit || 50
+  const maxPages = options.maxPages || 100
+  const allResults: T[] = []
+  let offset = 0
+  let page = 0
+  let hasMore = true
+
+  while (hasMore && page < maxPages) {
+    const response = await fetcher({ limit, offset, lastUpdateGte: options.lastUpdateGte }, options.signal)
+    allResults.push(...response.results)
+    hasMore = response.next !== null
+    offset += limit
+    page++
+
+    if (options.signal?.aborted) {
+      break
+    }
+  }
+
+  return allResults
+}
+
+/**
+ * Fetch a single page with cursor info.
+ * Útil para sync incremental donde se necesita el cursor para la próxima sync.
+ */
+export async function fetchPageCursor<T>(
+  fetcher: (opts: { limit: number; offset: number; lastUpdateGte?: string }, signal?: AbortSignal) => Promise<CursorPage<T>>,
+  options: CursorPaginationOptions = {},
+): Promise<CursorPage<T>> {
+  const limit = options.limit || 50
+  return fetcher({ limit, offset: 0, lastUpdateGte: options.lastUpdateGte }, options.signal)
 }
 
 // ─── Endpoints ───
@@ -242,6 +306,88 @@ export function fetchRestConfig(
   if (opts.limit) {params.set('limit', String(opts.limit))}
   if (opts.offset) {params.set('offset', String(opts.offset))}
   return getJSON(`${BASE}/restconfig/?${params}`, signal)
+}
+
+// ─── Ingredient Endpoints ───
+// GET /ingredient/?id={id}&limit={limit}&offset={offset}
+
+export function fetchIngredients(
+  opts: { id?: number; limit?: number; offset?: number; lastUpdateGte?: string } = {},
+  signal?: AbortSignal,
+): Promise<WgerIngredientListResponse> {
+  const params = new URLSearchParams({ format: 'json' })
+  if (opts.id) {params.set('id', String(opts.id))}
+  if (opts.limit) {params.set('limit', String(opts.limit))}
+  if (opts.offset) {params.set('offset', String(opts.offset))}
+  if (opts.lastUpdateGte) {params.set('last_update__gte', opts.lastUpdateGte)}
+  return getJSON(`${BASE}/ingredient/?${params}`, signal)
+}
+
+export function fetchIngredient(
+  id: number,
+  signal?: AbortSignal,
+): Promise<WgerIngredientInfo> {
+  return getJSON(`${BASE}/ingredient/${id}/?format=json`, signal)
+}
+
+// ─── Nutrition Plan Endpoints ───
+// GET /nutritionplan/?id={id}&limit={limit}&offset={offset}
+
+export function fetchNutritionPlans(
+  opts: { id?: number; limit?: number; offset?: number; lastUpdateGte?: string } = {},
+  signal?: AbortSignal,
+): Promise<WgerNutritionPlanListResponse> {
+  const params = new URLSearchParams({ format: 'json' })
+  if (opts.id) {params.set('id', String(opts.id))}
+  if (opts.limit) {params.set('limit', String(opts.limit))}
+  if (opts.offset) {params.set('offset', String(opts.offset))}
+  if (opts.lastUpdateGte) {params.set('last_update__gte', opts.lastUpdateGte)}
+  return getJSON(`${BASE}/nutritionplan/?${params}`, signal)
+}
+
+export function fetchNutritionPlan(
+  id: number,
+  signal?: AbortSignal,
+): Promise<WgerNutritionPlan> {
+  return getJSON(`${BASE}/nutritionplan/${id}/?format=json`, signal)
+}
+
+// ─── Workout Session Endpoints ───
+// GET /workoutsession/?workout={id}&date={date}&limit={limit}&offset={offset}
+
+export function fetchWorkoutSessions(
+  opts: { workout?: number; date?: string; limit?: number; offset?: number; lastUpdateGte?: string } = {},
+  signal?: AbortSignal,
+): Promise<WgerWorkoutSessionListResponse> {
+  const params = new URLSearchParams({ format: 'json' })
+  if (opts.workout) {params.set('workout', String(opts.workout))}
+  if (opts.date) {params.set('date', opts.date)}
+  if (opts.limit) {params.set('limit', String(opts.limit))}
+  if (opts.offset) {params.set('offset', String(opts.offset))}
+  if (opts.lastUpdateGte) {params.set('last_update__gte', opts.lastUpdateGte)}
+  return getJSON(`${BASE}/workoutsession/?${params}`, signal)
+}
+
+export function fetchWorkoutSession(
+  id: number,
+  signal?: AbortSignal,
+): Promise<WgerWorkoutSession> {
+  return getJSON(`${BASE}/workoutsession/${id}/?format=json`, signal)
+}
+
+// ─── Measurement Endpoints ───
+// GET /measurement/?category={id}&date={date}&limit={limit}&offset={offset}
+
+export function fetchMeasurements(
+  opts: { category?: number; date?: string; limit?: number; offset?: number } = {},
+  signal?: AbortSignal,
+): Promise<WgerMeasurementListResponse> {
+  const params = new URLSearchParams({ format: 'json' })
+  if (opts.category) {params.set('category', String(opts.category))}
+  if (opts.date) {params.set('date', opts.date)}
+  if (opts.limit) {params.set('limit', String(opts.limit))}
+  if (opts.offset) {params.set('offset', String(opts.offset))}
+  return getJSON(`${BASE}/measurement/?${params}`, signal)
 }
 
 // ─── Write Endpoints (FASE 27+) ───

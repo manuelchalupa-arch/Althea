@@ -3,10 +3,8 @@ main = "src/index.js"
 compatibility_date = "2025-09-01"
 
 [vars]
-# URL pública del endpoint de Groq (no es secreto).
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-# Origen permitido para CORS. En producción usá tu dominio real, ej: "https://althea.app".
 CORS_ORIGIN = "*"
 
-# Secret (NUNCA en este archivo ni en el frontend):
+# Secrets (NUNCA en este archivo ni en el frontend):
 #   npx wrangler secret put GROQ_API_KEY

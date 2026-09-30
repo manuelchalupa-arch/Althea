@@ -1,11 +1,10 @@
-// wgerServerAuth — Autenticación WGER server-side via Firebase.
-// FASE 3: Autenticación segura.
+// wgerServerAuth — Autenticación WGER via Cloudflare Worker.
 //
 // ARQUITECTURA:
 // - El frontend NUNCA ve ni almacena credenciales WGER.
-// - Firebase Auth autentica al usuario de Althea.
-// - Las credenciales WGER se almacenan en Firestore (server-side) con reglas de seguridad.
-// - El frontend solicita operaciones al backend, que ejecuta con las credenciales.
+// - El Cloudflare Worker maneja la autenticación y setea cookies HttpOnly.
+// - El frontend solo llama a los endpoints del Worker.
+// - El Worker inyecta el token en requests a WGER.
 //
 // REGLAS DE SEGURIDAD:
 // - NO guardar password WGER en localStorage
@@ -15,24 +14,8 @@
 // - NO guardar refresh token en frontend
 // - NO guardar secretos en variables VITE_*
 // - NO exponer credenciales en bundles
-//
-// LIMITACIÓN ACTUAL:
-// La API de WGER es pública para GET (lectura). No se requiere autenticación
-// para acceder a ejercicios, músculos, equipamiento, etc.
-//
-// Para operaciones autenticadas (crear rutinas, registrar entrenamientos):
-// - Se requiere capa server-side/proxy
-// - Estado actual: solo read-only público
-// - Las credenciales se almacenan en Firestore para uso futuro con Cloud Functions
 
-import {
-  doc,
-  getDoc,
-  setDoc,
-  deleteDoc,
-  serverTimestamp,
-} from 'firebase/firestore'
-import { firebaseDb, isFirebaseConfigured } from '@/services/firebase/config'
+import { isFirebaseConfigured } from '@/services/firebase/config'
 import { currentUser } from '@/services/firebase/auth'
 
 // ─── Tipos ───
@@ -56,14 +39,7 @@ export interface WgerLinkStatus {
 
 // ─── Constantes ───
 
-const COLLECTION = 'wger_credentials'
-const DOC_PREFIX = 'wger_'
-
-// ─── Funciones internas ───
-
-function getDocId(userId: string): string {
-  return `${DOC_PREFIX}${userId}`
-}
+const WORKER_BASE = '/api/wger'
 
 // ─── API pública ───
 
@@ -82,15 +58,16 @@ export async function getWgerLinkStatus(): Promise<WgerLinkStatus> {
   }
 
   try {
-    const docRef = doc(firebaseDb(), COLLECTION, getDocId(user.uid))
-    const docSnap = await getDoc(docRef)
+    const response = await fetch(`${WORKER_BASE}/user`, {
+      credentials: 'include',
+    })
 
-    if (docSnap.exists()) {
-      const data = docSnap.data()
+    if (response.ok) {
+      const data = await response.json()
       return {
         isLinked: true,
         wgerUsername: data.username,
-        linkedAt: data.linkedAt?.toDate?.()?.toISOString() || data.linkedAt,
+        linkedAt: new Date().toISOString(),
       }
     }
 
@@ -103,7 +80,7 @@ export async function getWgerLinkStatus(): Promise<WgerLinkStatus> {
 
 /**
  * Vincula las credenciales WGER del usuario actual.
- * Las credenciales se almacenan en Firestore (server-side).
+ * Las credenciales se envían al Worker que las verifica y setea cookies HttpOnly.
  * El frontend NO almacena las credenciales localmente.
  */
 export async function linkWgerAccount(credentials: WgerCredentials): Promise<WgerAuthResult> {
@@ -122,7 +99,6 @@ export async function linkWgerAccount(credentials: WgerCredentials): Promise<Wge
     }
   }
 
-  // Validar inputs
   if (!credentials.username?.trim() || !credentials.password?.trim()) {
     return {
       success: false,
@@ -131,23 +107,23 @@ export async function linkWgerAccount(credentials: WgerCredentials): Promise<Wge
   }
 
   try {
-    // Verificar que las credenciales sean válidas haciendo una request a WGER
-    const isValid = await verifyWgerCredentials(credentials)
-    if (!isValid) {
+    const response = await fetch(`${WORKER_BASE}/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: credentials.username.trim(),
+        password: credentials.password,
+      }),
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
       return {
         success: false,
-        message: 'Las credenciales de WGER no son válidas.',
+        message: data.error || 'Las credenciales de WGER no son válidas.',
       }
     }
-
-    // Almacenar en Firestore (server-side)
-    const docRef = doc(firebaseDb(), COLLECTION, getDocId(user.uid))
-    await setDoc(docRef, {
-      username: credentials.username.trim(),
-      password: credentials.password, // Se almacenan server-side, nunca en frontend
-      linkedAt: serverTimestamp(),
-      userId: user.uid,
-    })
 
     return {
       success: true,
@@ -164,7 +140,7 @@ export async function linkWgerAccount(credentials: WgerCredentials): Promise<Wge
 
 /**
  * Desvincula la cuenta WGER del usuario actual.
- * Elimina las credenciales de Firestore.
+ * Elimina las cookies HttpOnly del Worker.
  */
 export async function unlinkWgerAccount(): Promise<WgerAuthResult> {
   if (!isFirebaseConfigured()) {
@@ -183,8 +159,17 @@ export async function unlinkWgerAccount(): Promise<WgerAuthResult> {
   }
 
   try {
-    const docRef = doc(firebaseDb(), COLLECTION, getDocId(user.uid))
-    await deleteDoc(docRef)
+    const response = await fetch(`${WORKER_BASE}/token`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: 'Error al desvincular la cuenta.',
+      }
+    }
 
     return {
       success: true,
@@ -200,52 +185,54 @@ export async function unlinkWgerAccount(): Promise<WgerAuthResult> {
 }
 
 /**
- * Verifica las credenciales WGER haciendo una request a la API.
- * Esta función se ejecuta en el frontend pero NO almacena las credenciales.
+ * Refresca el token de acceso WGER si es necesario.
+ * El Worker maneja la lógica de refresh automáticamente.
  */
-async function verifyWgerCredentials(credentials: WgerCredentials): Promise<boolean> {
+export async function refreshWgerToken(): Promise<WgerAuthResult> {
   try {
-    const response = await fetch('https://wger.de/api/v2/user/', {
-      headers: {
-        'Authorization': `Basic ${btoa(`${credentials.username}:${credentials.password}`)}`,
-        'Accept': 'application/json',
-      },
+    const response = await fetch(`${WORKER_BASE}/refresh`, {
+      method: 'POST',
+      credentials: 'include',
     })
 
-    return response.ok
+    if (!response.ok) {
+      return {
+        success: false,
+        message: 'No se pudo refrescar el token.',
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Token refrescado correctamente.',
+    }
   } catch (error) {
-    console.error('[wgerServerAuth] Error verifying credentials:', error)
-    return false
+    console.error('[wgerServerAuth] Error refreshing token:', error)
+    return {
+      success: false,
+      message: 'Error al refrescar el token.',
+    }
   }
 }
 
 /**
- * Obtiene el token de acceso WGER para el usuario actual.
- * Este token es de corta duración y se obtiene del backend.
- *
- * NOTA: Esta función requiere un backend server-side (Cloud Functions).
- * Por ahora, devuelve un error indicando que no está implementado.
- */
-export async function getWgerAccessToken(): Promise<string> {
-  throw new Error(
-    'WGER access token requires server-side implementation. ' +
-    'Use Firebase Cloud Functions to implement this endpoint.'
-  )
-}
-
-/**
- * Ejecuta una operación autenticada contra WGER.
- * Esta función requiere un backend server-side (Cloud Functions).
- *
- * NOTA: Esta función requiere un backend server-side (Cloud Functions).
- * Por ahora, devuelve un error indicando que no está implementado.
+ * Ejecuta una operación autenticada contra WGER via el Worker proxy.
+ * El Worker inyecta el token automáticamente desde la cookie HttpOnly.
  */
 export async function executeWgerOperation<T>(
   operation: string,
   payload: unknown,
 ): Promise<T> {
-  throw new Error(
-    `WGER operation "${operation}" requires server-side implementation. ` +
-    'Use Firebase Cloud Functions to implement this endpoint.'
-  )
+  const response = await fetch(`${WORKER_BASE}/proxy/${operation}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`WGER operation failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<T>
 }
