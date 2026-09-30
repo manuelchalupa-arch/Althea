@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom'
 import { ThemeToggle } from './ThemeToggle'
 import BrandIcon from './BrandIcon'
+import { AltheaAvatar } from './AltheaAvatar'
 
 export type TempleSection =
   | 'inicio' | 'entrenar' | 'nutricion' | 'progreso' | 'mas'
@@ -91,7 +92,7 @@ export function AppHeader() {
           <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-primary" /> Coach activo
         </span>
         <div className="w-9 h-9 rounded-full bg-surface-container-high border border-outline-variant/50 overflow-hidden flex items-center justify-center text-on-surface-variant font-serif" aria-label="Perfil">
-          <BrandIcon name="profile" size={36} className="w-full h-full object-cover" />
+          <AltheaAvatar context="avatar" size={36} alt="Perfil" />
         </div>
         <ThemeToggle />
       </div>

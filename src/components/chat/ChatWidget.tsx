@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import { X, Send, Trash2, Bot, User } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
+import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 import { IconChatBubble } from '@/components/brand/FitnessIcons'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
 import {
@@ -177,7 +178,7 @@ export default function ChatWidget() {
           title="Coach"
           className="fixed z-50 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-4 w-12 h-12 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high md:bottom-8 md:right-24"
         >
-          <BrandIcon name="coach" size={30} className="rounded-full object-cover" />
+          <AltheaAvatar context="coach" size={40} alt="Abrir Coach" />
         </Link>
       )}
 
@@ -221,7 +222,7 @@ export default function ChatWidget() {
               )}
               {messages.length === 0 && (
                 <div className="text-center py-8">
-                  <BrandIcon name="coach" size={40} className="mx-auto rounded-full object-cover mb-2" />
+                  <span className="inline-block mb-2"><AltheaAvatar context="empty-state" size={96} alt="Althea" /></span>
                   <p className="text-on-surface text-sm">{available ? '¿En qué puedo ayudarte?' : 'Respondo con tus datos guardados.'}</p>
                 </div>
               )}

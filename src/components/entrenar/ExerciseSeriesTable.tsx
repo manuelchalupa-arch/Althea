@@ -167,10 +167,19 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
   // Al cambiar de ejercicio, las marcas "editado a mano" no aplican más.
   useEffect(()=>{ dirtyRef.current = {w:new Set(), r:new Set()} }, [exerciseId])
 
-  const parseKg = (v:string):number|null=>{
-    const n = Number(v)
-    if(isNaN(n) || v === '') {return null}
-    return Math.round(n*10)/10
+  type WeightValue = number | null;
+
+  const parseKg = (value: string): WeightValue => {
+    const normalized = value.trim().replace(',', '.');
+    if (!normalized) { return null }
+
+    const parsed = Number(normalized);
+
+    if (!Number.isFinite(parsed) || parsed === 0) {
+      return null;
+    }
+
+    return parsed;
   }
 
   // Cambia la unidad visible. Solo afecta la presentación: el estado en kg no se

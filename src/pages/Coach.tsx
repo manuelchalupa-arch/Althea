@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Send, Trash2, ChevronDown, ChevronUp, Bot } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
+import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 import { db } from '@/services/storage/db'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { METHOD_COACHING_STYLES, resolveCoachTone, type CoachTone } from '@/services/ai/coachPersonality'
@@ -360,7 +361,7 @@ export default function Coach() {
           <AltheaCard padding="none" className="flex flex-col h-[62vh] min-h-[440px] md:h-[560px] overflow-hidden">
             <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-outline-variant shrink-0">
               <div className="w-9 h-9 rounded-full bg-secondary/20 border border-secondary/30 overflow-hidden flex items-center justify-center shrink-0">
-                <BrandIcon name="coach" size={36} className="w-full h-full object-cover" />
+                <AltheaAvatar context="coach" size={36} alt="Coach Althea" />
               </div>
               <div className="min-w-0 text-left">
                 <div className="font-headline-sm text-sm text-on-surface truncate">Althea — Coach IA</div>
