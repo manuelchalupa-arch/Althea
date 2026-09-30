@@ -129,11 +129,17 @@ export const MAS_GROUPS: MasGroup[] = [
   },
 ]
 
-// Manifiesto de recursos que debe proveer el usuario (§15): nombre → ruta esperada.
+// Registro de nombres semánticos (§14-16, §19): nombre → etiqueta y definición
+// de render (SVG custom inline o fallback Lucide). El set raster anterior en
+// /assets se eliminó por no tener consumidores; `iconSrc` devuelve null para
+// no generar fetches 404.
 export const ICON_MANIFEST: { name: string; path: string; label: string }[] =
   Object.values(ICONS).map((d) => ({ name: d.name, path: `assets/icons/${d.group}/${d.file}`, label: d.label }))
 
 export function iconSrc(name: string): string | null {
-  const def = (ICONS as Record<string, BrandIconDef>)[name]
-  return def ? `/assets/icons/${def.group}/${def.file}` : null
+  // El set raster en /assets no existe en el repositorio (los SVG sueltos se
+  // eliminaron por no tener consumidores): devolver null evita un fetch 404 y
+  // BrandIcon usa el SVG custom inline o el fallback Lucide, sin cambio visual.
+  void name
+  return null
 }

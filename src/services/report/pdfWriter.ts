@@ -3,11 +3,16 @@
  *
  * Por qué propio y no una librería: la app es offline, no queremos sumar peso al
  * bundle ni dependencias que auditar. Con lo que el informe necesita (texto con
- * acentos, líneas, rectángulos, barras y anillos) el formato PDF 1.4 es estable
- * y pequeño. Todo se mide en puntos (1 pt = 1/72"), A4 = 595.28 × 841.89 pt.
+ * acentos, líneas, rectángulos, barras, anillos e imágenes PNG) el formato
+ * PDF 1.4 es estable y pequeño. Todo se mide en puntos (1 pt = 1/72"),
+ * A4 = 595.28 × 841.89 pt.
  *
  * El texto se codifica en WinAnsi (cp1252), la variante que usa Helvetica en
  * PDF, así que acentos y ñ se ven correctos sin embeber fuentes.
+ *
+ * Las imágenes se embeben en crudo (sin compresión): un busto de 96×96 ocupa
+ * ~37 KB. Se evita así cualquier dependencia de compresión y `build()` sigue
+ * siendo síncrono. Solo PNG de 8 bits RGB/RGBA no entrelazado.
  */
 
 export const A4 = { width: 595.28, height: 841.89 } as const
@@ -115,6 +120,131 @@ export interface RectOptions {
 }
 
 export interface BarDatum { label: string; value: number; caption?: string }
+
+/**
+ * PNG decodificado a píxeles crudos, listo para embeber como XObject.
+ * Solo 8 bits RGB/RGBA no entrelazado (lo que exportan los assets de Althea).
+ */
+export interface DecodedPng {
+  width: number
+  height: number
+  /** RGB crudo, 3 bytes por píxel, fila por fila desde arriba. */
+  rgb: Uint8Array
+  /** Alfa crudo, 1 byte por píxel; null si el PNG no tiene canal alfa. */
+  alpha: Uint8Array | null
+}
+
+function paethPredictor(a: number, b: number, c: number): number {
+  const p = a + b - c
+  const pa = Math.abs(p - a)
+  const pb = Math.abs(p - b)
+  const pc = Math.abs(p - c)
+  if (pa <= pb && pa <= pc) { return a }
+  return pb <= pc ? b : c
+}
+
+/** Infla datos zlib (IDAT) usando la API estándar del runtime, sin dependencias. */
+async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
+  const ds = new DecompressionStream('deflate')
+  const writer = ds.writable.getWriter()
+  const reader = ds.readable.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  const reading = (async (): Promise<void> => {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) { return }
+      chunks.push(value)
+      total += value.length
+    }
+  })()
+  await writer.write(data as unknown as ArrayBuffer)
+  await writer.close()
+  await reading
+  const out = new Uint8Array(total)
+  let pos = 0
+  for (const c of chunks) { out.set(c, pos); pos += c.length }
+  return out
+}
+
+/**
+ * Decodifica un PNG a píxeles crudos. Devuelve null si no es un PNG soportado
+ * (firma inválida, no 8 bits, no RGB/RGBA, entrelazado o datos corruptos).
+ * Nunca lanza: el llamante decide el fallback (informe sin imagen).
+ */
+export async function decodePng(bytes: Uint8Array): Promise<DecodedPng | null> {
+  try {
+    const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+    if (bytes.length < 33) { return null }
+    for (let i = 0; i < 8; i++) { if (bytes[i] !== sig[i]) { return null } }
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    let pos = 8
+    let width = 0
+    let height = 0
+    let bitDepth = 0
+    let colorType = 0
+    let interlace = 0
+    const idat: Uint8Array[] = []
+    let idatLen = 0
+    while (pos + 12 <= bytes.length) {
+      const len = dv.getUint32(pos)
+      const type = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7])
+      if (type === 'IHDR') {
+        width = dv.getUint32(pos + 8)
+        height = dv.getUint32(pos + 12)
+        bitDepth = bytes[pos + 16]
+        colorType = bytes[pos + 17]
+        interlace = bytes[pos + 20]
+      } else if (type === 'IDAT') {
+        idat.push(bytes.subarray(pos + 8, pos + 8 + len))
+        idatLen += len
+      } else if (type === 'IEND') {
+        break
+      }
+      pos += 12 + len
+    }
+    if (bitDepth !== 8 || (colorType !== 2 && colorType !== 6) || interlace !== 0) { return null }
+    if (width <= 0 || height <= 0 || width > 4096 || height > 4096) { return null }
+    const channels = colorType === 6 ? 4 : 3
+    const raw = new Uint8Array(idatLen)
+    let p = 0
+    for (const c of idat) { raw.set(c, p); p += c.length }
+    const inflated = await inflateRaw(raw)
+    const stride = width * channels
+    if (inflated.length < (stride + 1) * height) { return null }
+    const rgb = new Uint8Array(width * height * 3)
+    const alpha = channels === 4 ? new Uint8Array(width * height) : null
+    const prev = new Uint8Array(stride)
+    const cur = new Uint8Array(stride)
+    let ip = 0
+    for (let y = 0; y < height; y++) {
+      const filter = inflated[ip++]
+      if (filter > 4) { return null }
+      for (let i = 0; i < stride; i++) {
+        const v = inflated[ip++]
+        const a = i >= channels ? cur[i - channels] : 0
+        const b = prev[i]
+        const c = i >= channels ? prev[i - channels] : 0
+        let r = v
+        if (filter === 1) { r = (v + a) & 0xff }
+        else if (filter === 2) { r = (v + b) & 0xff }
+        else if (filter === 3) { r = (v + ((a + b) >> 1)) & 0xff }
+        else if (filter === 4) { r = (v + paethPredictor(a, b, c)) & 0xff }
+        cur[i] = r
+      }
+      for (let x = 0; x < width; x++) {
+        const o = (y * width + x) * 3
+        const s = x * channels
+        rgb[o] = cur[s]
+        rgb[o + 1] = cur[s + 1]
+        rgb[o + 2] = cur[s + 2]
+        if (alpha) { alpha[y * width + x] = cur[s + 3] }
+      }
+      prev.set(cur)
+    }
+    return { width, height, rgb, alpha }
+  } catch { return null }
+}
 
 export function formatNumber(v: number): string {
   return Math.round(v).toLocaleString('es-AR')
@@ -251,6 +381,11 @@ export class PdfPage {
     if (clamped > 0) { arc(start, start + Math.PI * 2 * clamped, color) }
   }
 
+  /** Dibuja una imagen registrada con `PdfDocument.addImage` (origen abajo-izquierda). */
+  image(name: string, x: number, y: number, w: number, h: number): void {
+    this.ops.push('q', `${n(w)} 0 0 ${n(h)} ${n(x)} ${n(y)} cm`, `${name} Do`, 'Q')
+  }
+
   /** Barras horizontales con etiqueta a la izquierda y valor a la derecha. */
   bars(data: BarDatum[], x: number, y: number, width: number, opts: {
     barHeight?: number
@@ -290,6 +425,7 @@ export interface PdfMeta {
 export class PdfDocument {
   private pages: PdfPage[] = []
   readonly margin: number
+  private pendingImages: DecodedPng[] = []
 
   constructor(private readonly meta: PdfMeta, opts: { margin?: number } = {}) {
     this.margin = opts.margin ?? 42
@@ -303,6 +439,15 @@ export class PdfDocument {
 
   get pageCount(): number { return this.pages.length }
 
+  /**
+   * Registra una imagen para usarla con `PdfPage.image`. Devuelve su nombre de
+   * recurso (`/Im1`, `/Im2`, …). Debe llamarse antes de `build()`.
+   */
+  addImage(png: DecodedPng): string {
+    this.pendingImages.push(png)
+    return `/Im${this.pendingImages.length}`
+  }
+
   /** Ensambla el archivo completo y devuelve un Blob descargable. */
   build(): Blob {
     if (this.pages.length === 0) { this.addPage() }
@@ -314,10 +459,19 @@ export class PdfDocument {
       chunks.push(bytes)
       length += bytes.length
     }
+    const pushBytes = (bytes: Uint8Array) => {
+      chunks.push(bytes)
+      length += bytes.length
+    }
 
-    const objects: string[] = []
+    interface RawObject { header: string; data: Uint8Array; footer: string }
+    const objects: Array<string | RawObject> = []
     const addObject = (body: string) => {
       objects.push(body)
+      return objects.length
+    }
+    const addRawObject = (header: string, data: Uint8Array, footer: string) => {
+      objects.push({ header, data, footer })
       return objects.length
     }
 
@@ -325,6 +479,29 @@ export class PdfDocument {
 
     const fontRegular = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>')
     const fontBold = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>')
+    // Imágenes (RGB + máscara alfa cuando el PNG la trae), antes de las páginas.
+    const imageObjNums: number[] = []
+    this.pendingImages.forEach((png) => {
+      let smask = ''
+      if (png.alpha) {
+        const smNum = addRawObject(
+          `<< /Type /XObject /Subtype /Image /Width ${png.width} /Height ${png.height} `
+          + `/ColorSpace /DeviceGray /BitsPerComponent 8 /Length ${png.alpha.length} >>\nstream\n`,
+          png.alpha,
+          '\nendstream',
+        )
+        smask = ` /SMask ${smNum} 0 R`
+      }
+      imageObjNums.push(addRawObject(
+        `<< /Type /XObject /Subtype /Image /Width ${png.width} /Height ${png.height} `
+        + `/ColorSpace /DeviceRGB /BitsPerComponent 8${smask} /Length ${png.rgb.length} >>\nstream\n`,
+        png.rgb,
+        '\nendstream',
+      ))
+    })
+    const xobject = imageObjNums.length > 0
+      ? ` /XObject << ${imageObjNums.map((num, i) => `/Im${i + 1} ${num} 0 R`).join(' ')} >>`
+      : ''
     // Objetos siguientes: 2 por página (contenido + página), luego Pages.
     const pagesObjNum = objects.length + this.pages.length * 2 + 1
 
@@ -334,7 +511,7 @@ export class PdfDocument {
       const streamNum = addObject(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`)
       kids.push(addObject(
         `<< /Type /Page /Parent ${pagesObjNum} 0 R /MediaBox [0 0 ${n(A4.width)} ${n(A4.height)}] `
-        + `/Resources << /Font << /F1 ${fontRegular} 0 R /F2 ${fontBold} 0 R >> >> /Contents ${streamNum} 0 R >>`,
+        + `/Resources << /Font << /F1 ${fontRegular} 0 R /F2 ${fontBold} 0 R >>${xobject} >> /Contents ${streamNum} 0 R >>`,
       ))
     }
     addObject(`<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] /Count ${kids.length} >>`)
@@ -348,7 +525,14 @@ export class PdfDocument {
     const offsets: number[] = []
     for (let i = 0; i < objects.length; i++) {
       offsets.push(length)
-      push(`${i + 1} 0 obj\n${objects[i]}\nendobj\n`)
+      const obj = objects[i]
+      if (typeof obj === 'string') {
+        push(`${i + 1} 0 obj\n${obj}\nendobj\n`)
+      } else {
+        push(`${i + 1} 0 obj\n${obj.header}`)
+        pushBytes(obj.data)
+        push(obj.footer + `\nendobj\n`)
+      }
     }
 
     const xrefStart = length

@@ -3,7 +3,7 @@ import {
   generateReport, isCompleteReport, categoriesForSection, REPORT_SECTIONS,
   type ReportSelection, type ReportData, type ReportCategory,
 } from '@/services/report/reportService'
-import { downloadReportPdf } from '@/services/report/reportPdf'
+import { downloadReportPdfWithBust } from '@/services/report/reportPdf'
 
 type SectionId = 'mediciones' | 'entrenamiento' | 'nutricion' | 'recuperacion'
 
@@ -61,12 +61,12 @@ export function ReportModal({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   /** El PDF se arma en el dispositivo: sin red, sin impresión y sin librerías. */
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!report) {return}
     setDownloading(true)
     setDownloadError(null)
     try {
-      setDownloaded(downloadReportPdf(report))
+      setDownloaded(await downloadReportPdfWithBust(report))
     } catch (e: unknown) {
       setDownloadError(e instanceof Error ? e.message : String(e))
     } finally {

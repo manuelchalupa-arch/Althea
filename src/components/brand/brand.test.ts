@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ICONS, NAV_ITEMS, MAS_GROUPS, ICON_MANIFEST, iconSrc, type NavItem } from './icons'
+import { ICONS, NAV_ITEMS, MAS_GROUPS, ICON_MANIFEST, type NavItem } from './icons'
 import { sigilForSection, sectionForPath, type TempleSection } from './temple'
 
 const SEMANTIC = /^[a-z0-9-]+\.(svg|png)$/
@@ -23,8 +23,14 @@ describe('manifiesto de iconos (§14-16, §19)', () => {
     const masNames = MAS_GROUPS.flatMap((g) => g.items.map((i) => i.icon))
     for (const n of masNames) expect(ICONS[n], String(n)).toBeTruthy()
   })
-  it('toda entrada de nav/menú resuelve a un archivo', () => {
-    const check = (n: NavItem['icon'] | string) => expect(iconSrc(String(n))).toMatch(/^\/assets\/icons\//)
+  it('toda entrada de nav/menú resuelve a un icono renderizable (custom o lucide)', () => {
+    // El set raster en /assets se eliminó por no tener consumidores: BrandIcon
+    // renderiza el SVG custom inline o el fallback Lucide, nunca un 404.
+    const check = (n: NavItem['icon'] | string) => {
+      const def = ICONS[String(n)]
+      expect(def, String(n)).toBeTruthy()
+      expect(def.custom ?? def.lucide, String(n)).toBeTruthy()
+    }
     NAV_ITEMS.forEach((i) => check(i.icon))
     MAS_GROUPS.forEach((g) => g.items.forEach((i) => check(i.icon)))
   })

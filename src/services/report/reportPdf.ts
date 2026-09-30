@@ -3,8 +3,8 @@
  * usando el escritor vectorial propio. Sin dependencias, sin red y sin imprimir.
  */
 import {
-  BRAND, PdfDocument, downloadBlob, formatDecimal, formatNumber, rgb,
-  type BarDatum, type PdfPage,
+  BRAND, PdfDocument, decodePng, downloadBlob, formatDecimal, formatNumber, rgb,
+  type BarDatum, type DecodedPng, type PdfPage,
 } from './pdfWriter'
 import type { ReportData } from './reportService'
 import { todayKey } from '@/utils/dates'
@@ -24,12 +24,16 @@ function drawMark(page: PdfPage, x: number, y: number, size: number): void {
   page.rect(x + k * 0.79, y + size * 0.76, w * 0.78, w * 0.78, { fill: BRAND.primarySoft })
 }
 
-function header(page: PdfPage, title: string, subtitle: string, range: string): number {
+function header(page: PdfPage, title: string, subtitle: string, range: string, bustName?: string | null): number {
   drawMark(page, MARGIN, page.height - MARGIN - 34, 34)
   page.text('ALTHEA', MARGIN + 44, page.height - MARGIN - 14, { size: 13, bold: true, color: BRAND.primary })
   page.text('GYM NOTEBOOK', MARGIN + 44, page.height - MARGIN - 27, { size: 7.5, color: BRAND.inkSoft })
-  page.text(title, page.right, page.height - MARGIN - 14, { size: 12, bold: true, align: 'right' })
-  page.text(subtitle, page.right, page.height - MARGIN - 27, { size: 8, color: BRAND.inkSoft, align: 'right' })
+  // Busto en la cabecera (34×34, misma altura que la marca): el título y el
+  // subtítulo terminan 44 pt antes del borde para no superponerse nunca.
+  const right = bustName ? page.right - 44 : page.right
+  if (bustName) { page.image(bustName, page.right - 34, page.height - MARGIN - 34, 34, 34) }
+  page.text(title, right, page.height - MARGIN - 14, { size: 12, bold: true, align: 'right' })
+  page.text(subtitle, right, page.height - MARGIN - 27, { size: 8, color: BRAND.inkSoft, align: 'right' })
   page.line(MARGIN, page.height - MARGIN - 42, page.right, page.height - MARGIN - 42, BRAND.line, 1)
   page.text(`Período: ${range}`, MARGIN, page.height - MARGIN - 58, { size: 8.5, color: BRAND.inkSoft })
   return page.height - MARGIN - 74
@@ -143,13 +147,14 @@ class Pager {
   }
 }
 
-export function buildReportPdf(data: ReportData, opts: { today?: string } = {}): Blob {
+export function buildReportPdf(data: ReportData, opts: { today?: string; bust?: DecodedPng | null } = {}): Blob {
   const today = opts.today ?? todayKey()
   const generated = `Generado el ${today.split('-').reverse().join('/')}`
   const doc = new PdfDocument({
     title: `Althea - Informe ${data.periodLabel}`,
     subject: `Resumen de entrenamiento ${data.range.start} a ${data.range.end}`,
   })
+  const bustName = opts.bust ? doc.addImage(opts.bust) : null
   const first = doc.addPage()
   const range = `${data.periodLabel} · ${data.range.start} → ${data.range.end}`
   const pager = new Pager(doc, (p) => {
@@ -161,7 +166,7 @@ export function buildReportPdf(data: ReportData, opts: { today?: string } = {}):
   pager.pages.push(first)
   const contentWidth = first.usableWidth
 
-  let y = header(first, 'Informe de entrenamiento', data.completo ? 'Informe completo' : 'Informe parcial', range)
+  let y = header(first, 'Informe de entrenamiento', data.completo ? 'Informe completo' : 'Informe parcial', range, bustName)
 
   if (data.isEmpty) {
     first.text('Período vacío: no hay datos reales registrados en este rango.', MARGIN, y, { size: 10, color: BRAND.inkSoft, maxWidth: contentWidth })
@@ -461,6 +466,33 @@ export function reportFileName(data: ReportData, today = todayKey()): string {
 export function downloadReportPdf(data: ReportData, opts: { today?: string } = {}): string {
   const today = opts.today ?? todayKey()
   const blob = buildReportPdf(data, { today })
+  const name = reportFileName(data, today)
+  downloadBlob(blob, name)
+  return name
+}
+
+/** Ruta pública del busto usado en la cabecera del informe. */
+export const REPORT_BUST_URL = '/assets/brand/althea-header-96.png'
+
+/**
+ * Carga el busto de la cabecera. Nunca lanza: si el asset no está disponible
+ * (offline sin caché, build sin el archivo), devuelve null y el informe se
+ * genera igual, solo sin la imagen.
+ */
+export async function loadReportBust(): Promise<DecodedPng | null> {
+  try {
+    if (typeof fetch === 'undefined') { return null }
+    const res = await fetch(REPORT_BUST_URL)
+    if (!res.ok) { return null }
+    return await decodePng(new Uint8Array(await res.arrayBuffer()))
+  } catch { return null }
+}
+
+/** Genera y descarga el informe con el busto en la cabecera (con fallback). */
+export async function downloadReportPdfWithBust(data: ReportData, opts: { today?: string } = {}): Promise<string> {
+  const today = opts.today ?? todayKey()
+  const bust = await loadReportBust()
+  const blob = buildReportPdf(data, { today, bust })
   const name = reportFileName(data, today)
   downloadBlob(blob, name)
   return name

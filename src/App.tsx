@@ -4,6 +4,7 @@ import AppNav from '@/components/layout/AppNav'
 import ChatWidget from '@/components/chat/ChatWidget'
 import { RequiredActionGate } from '@/components/notifications/RequiredActionGate'
 import { AppHeader, TempleBackdrop } from '@/components/brand/temple'
+import { MeanderFrieze } from '@/components/brand/MeanderFrieze'
 import { useEffect, useState, lazy } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db } from '@/services/storage/db'
@@ -208,6 +209,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
     <RequiredActionGate>
       <TempleBackdrop />
       {!hideNav && <AppHeader />}
+      {!hideNav && <MeanderFrieze height={3} color="rgb(var(--c-gold-rgb) / 0.4)" className="md:ml-16 lg:ml-[var(--navw)]" />}
       <div className="md:ml-16 lg:ml-[var(--navw)] relative z-10 max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-6 pt-4 pb-24 md:pb-10 transition-[margin-left] duration-200">
       <Routes>
         <Route path="/login" element={<LazyPage><Login onDone={() => navigate('/', { replace: true })} /></LazyPage>} />
