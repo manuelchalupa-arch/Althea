@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import { ThemeToggle } from './ThemeToggle'
+import BrandIcon from './BrandIcon'
 
 export type TempleSection =
   | 'inicio' | 'entrenar' | 'nutricion' | 'progreso' | 'mas'
@@ -72,7 +73,9 @@ export function AppHeader() {
     <header className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 h-16 w-full bg-surface/85 backdrop-blur-xl border-b border-outline-variant/50 supports-[backdrop-filter]:bg-surface/75 transition-colors">
       {/* Izquierda: identidad + contexto */}
       <div className="flex items-center gap-3 min-w-0">
-        <span className="temple-mark shrink-0" aria-hidden="true">Α</span>
+        <span className="shrink-0 w-8 h-8 rounded-full overflow-hidden ring-1 ring-primary/25 bg-surface-container-high" aria-hidden="true">
+          <BrandIcon name="logo" size={32} className="w-full h-full object-cover" />
+        </span>
         <div className="leading-none">
           <span className="font-headline block text-[15px] font-semibold tracking-[0.22em] text-on-surface">ALTHEA</span>
           <span className="label-olymp mt-1 block text-on-surface-variant hidden sm:block">{SECTION_TITLES[section]}</span>
@@ -87,7 +90,9 @@ export function AppHeader() {
         <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-medium">
           <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-primary" /> Coach activo
         </span>
-        <div className="w-9 h-9 rounded-full bg-surface-container-high border border-outline-variant/50 flex items-center justify-center text-on-surface-variant font-serif" aria-label="Perfil">A</div>
+        <div className="w-9 h-9 rounded-full bg-surface-container-high border border-outline-variant/50 overflow-hidden flex items-center justify-center text-on-surface-variant font-serif" aria-label="Perfil">
+          <BrandIcon name="profile" size={36} className="w-full h-full object-cover" />
+        </div>
         <ThemeToggle />
       </div>
     </header>

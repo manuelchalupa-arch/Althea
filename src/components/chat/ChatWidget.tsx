@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import { X, Send, Trash2, Bot, User } from 'lucide-react'
+import BrandIcon from '@/components/brand/BrandIcon'
 import { IconChatBubble } from '@/components/brand/FitnessIcons'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
 import {
@@ -176,7 +177,7 @@ export default function ChatWidget() {
           title="Coach"
           className="fixed z-50 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-4 w-12 h-12 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high md:bottom-8 md:right-24"
         >
-          <Bot size={18} />
+          <BrandIcon name="coach" size={30} className="rounded-full object-cover" />
         </Link>
       )}
 
@@ -187,7 +188,7 @@ export default function ChatWidget() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant bg-surface">
               <div className="flex items-center gap-2">
-                <Bot size={18} className="text-secondary" />
+                <span className="w-7 h-7 rounded-full overflow-hidden shrink-0"><BrandIcon name="coach" size={28} className="w-full h-full object-cover" /></span>
                 <div>
                   <div className="text-body font-medium text-sm">Althea</div>
                   <div className="text-aux text-[10px] flex items-center gap-1.5">
@@ -220,7 +221,7 @@ export default function ChatWidget() {
               )}
               {messages.length === 0 && (
                 <div className="text-center py-8">
-                  <Bot size={32} className="mx-auto text-on-surface-variant mb-2" />
+                  <BrandIcon name="coach" size={40} className="mx-auto rounded-full object-cover mb-2" />
                   <p className="text-on-surface text-sm">{available ? '¿En qué puedo ayudarte?' : 'Respondo con tus datos guardados.'}</p>
                 </div>
               )}

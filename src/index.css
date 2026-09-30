@@ -62,11 +62,14 @@
 
 /* ---- Macronutrientes: círculo central de Nutrición ----
    Verde oscuro (carbohidratos), coral (proteínas) y
-   verde musgo (grasas). El círculo los usa con alpha para
-   el look semitransparente. Sin amarillo dominante. */
+   amarillo (grasas). El círculo los usa con alpha para
+   el look semitransparente. */
   --c-macro-carbs-rgb: 93 107 68;
   --c-macro-protein-rgb: 165 83 58;
-  --c-macro-fat-rgb: 87 177 137;
+  --c-macro-fat-rgb: 214 168 58;
+
+  /* ---- Dorado: únicamente ornamental (monograma, detalles de marca) ---- */
+  --c-gold-rgb: 176 141 63;
 
   /* ---- Hidratación: azul celeste semitransparente (agua) ---- */
   --c-water: rgb(100 181 246);
@@ -127,7 +130,7 @@
   --danger: 183 45 36;
 
   /* ---- Tipografía ---- */
-  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'Inter', system-ui, sans-serif;
   --text-leading-tight: 1.15;
   --text-leading-snug: 1.35;
@@ -231,7 +234,10 @@
      el fondo de granito sin salir de la identidad verde de Althea. */
   --c-macro-carbs-rgb: 110 197 160;
   --c-macro-protein-rgb: 226 133 108;
-   --c-macro-fat-rgb: 110 197 160;
+  --c-macro-fat-rgb: 224 189 99;
+
+  /* Dorado en modo oscuro: levemente más luminoso, sigue siendo ornamental. */
+  --c-gold-rgb: 200 162 78;
 
   /* Hidratación en modo oscuro: agua más luminosa para leerse sobre fondo oscuro. */
   --c-water: rgb(128 198 250);

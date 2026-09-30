@@ -64,7 +64,11 @@ export const MUSCLE_SHAPES: Record<MusclePathView, MuscleShape[]> = {
     },
     {
       id: 'anterior-deltoid',
-      paths: ['M76 46 C83 47 88 53 88 62 C88 69 85 73 81 73 C77 73 75 69 75 62 C75 54 74 48 76 46 Z'],
+      paths: ['M76 46 C80 47 83 53 83 62 C83 69 81 73 78 73 C75 72 74 68 74 62 C74 54 74 48 76 46 Z'],
+    },
+    {
+      id: 'lateral-deltoid',
+      paths: ['M82 47 C87 49 90 55 90 63 C90 70 87 74 83 74 C81 73 80 70 80 63 C80 55 80 49 82 47 Z'],
     },
     {
       id: 'biceps-brachii',
@@ -84,7 +88,11 @@ export const MUSCLE_SHAPES: Record<MusclePathView, MuscleShape[]> = {
     },
     {
       id: 'quadriceps',
-      paths: ['M61 118 C71 119 77 126 78 138 C78 148 77 156 76 163 L65 163 C64 153 63 140 62 130 Z'],
+      paths: ['M63 118 C72 119 77 126 78 138 C78 148 77 156 76 163 L67 163 C66 153 65 140 64 130 Z'],
+    },
+    {
+      id: 'adductors',
+      paths: ['M60 118 C64 119 67 125 68 135 C68 143 67 149 66 154 L61 154 C60 145 60 132 60 122 Z'],
     },
     {
       id: 'tibialis-anterior',
@@ -101,12 +109,16 @@ export const MUSCLE_SHAPES: Record<MusclePathView, MuscleShape[]> = {
       paths: ['M60 63 C69 63 77 68 80 77 C81 87 79 96 76 103 C71 107 65 107 60 104 Z'],
     },
     {
+      id: 'rhomboids',
+      paths: ['M61 59 C68 60 73 63 75 68 C72 71 67 72 63 71 C61 67 60 63 61 59 Z'],
+    },
+    {
       id: 'spinal-erectors',
       paths: ['M60 64 L67 66 C68 78 68 94 67 106 L60 106 Z'],
     },
     {
       id: 'posterior-deltoid',
-      paths: ['M76 46 C83 47 88 53 88 62 C88 69 85 73 81 73 C77 73 75 69 75 62 C75 54 74 48 76 46 Z'],
+      paths: ['M76 46 C80 47 83 53 83 62 C83 69 81 73 78 73 C75 72 74 68 74 62 C74 54 74 48 76 46 Z'],
     },
     {
       id: 'triceps-brachii',

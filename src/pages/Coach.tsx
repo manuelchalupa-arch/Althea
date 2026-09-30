@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Bot, Brain, Send, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Send, Trash2, ChevronDown, ChevronUp, Bot } from 'lucide-react'
+import BrandIcon from '@/components/brand/BrandIcon'
 import { db } from '@/services/storage/db'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { METHOD_COACHING_STYLES, resolveCoachTone, type CoachTone } from '@/services/ai/coachPersonality'
@@ -346,7 +347,7 @@ export default function Coach() {
     <div>
       <header className="flex items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-2">
-          <Brain size={20} className="text-primary" />
+          <BrandIcon name="coach" size={24} className="rounded-full object-cover" />
           <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Coach IA</h1>
         </div>
         <AltheaBadge variant={available ? 'secondary' : 'outline'} dot={available} dotColor={available ? 'bg-secondary' : undefined} className="h-7">
@@ -358,8 +359,8 @@ export default function Coach() {
         <div className="lg:col-span-8 space-y-3">
           <AltheaCard padding="none" className="flex flex-col h-[62vh] min-h-[440px] md:h-[560px] overflow-hidden">
             <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-outline-variant shrink-0">
-              <div className="w-9 h-9 rounded-full bg-secondary/20 border border-secondary/30 flex items-center justify-center shrink-0">
-                <Bot size={16} className="text-secondary" />
+              <div className="w-9 h-9 rounded-full bg-secondary/20 border border-secondary/30 overflow-hidden flex items-center justify-center shrink-0">
+                <BrandIcon name="coach" size={36} className="w-full h-full object-cover" />
               </div>
               <div className="min-w-0 text-left">
                 <div className="font-headline-sm text-sm text-on-surface truncate">Althea — Coach IA</div>
@@ -452,9 +453,9 @@ export default function Coach() {
                           <p className="font-body-md text-sm text-on-surface-variant">
                             Escribiendo<span className="sr-only">…</span>
                             <span className="inline-flex gap-1 ml-1" aria-hidden="true">
-                              <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-bounce" />
-                              <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-bounce" style={{ animationDelay: '150ms' }} />
-                              <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-bounce" style={{ animationDelay: '300ms' }} />
+                              <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" style={{ animationDelay: '200ms' }} />
+                              <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" style={{ animationDelay: '400ms' }} />
                             </span>
                           </p>
                         )}

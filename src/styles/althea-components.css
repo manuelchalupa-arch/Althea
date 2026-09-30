@@ -332,7 +332,7 @@
 .althea-plate__legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--althea-space-2); width: 100%; font-family: var(--althea-font-ui); font-size: var(--althea-fs-body-sm); }
 .althea-plate__legend li { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: var(--althea-space-2); color: var(--althea-on-surface); }
 .althea-plate__dot { width: 10px; height: 10px; border-radius: 50%; }
-.althea-plate__legend .is-carb { background: var(--althea-carb); }
+.althea-plate__legend .is-carb { background: var(--althea-primary); }
 .althea-plate__legend .is-protein { background: var(--althea-protein); }
 .althea-plate__legend .is-fat { background: var(--althea-fat); }
 .althea-plate__legend small { color: var(--althea-on-surface-muted); font-variant-numeric: tabular-nums; }
