@@ -8,8 +8,8 @@ import {
 } from '@/services/integrations/wger/wgerHealth'
 import { getQueueStats, getFailedOperations, type QueueStats } from '@/services/integrations/wger/wgerSyncQueue'
 import { getPendingConflicts, type SyncConflict } from '@/services/integrations/wger/wgerConflictResolver'
-import { syncWgerToAlthea, retryFailedSync } from '@/services/integrations/wger/wgerSyncEngine'
-import { getWgerAuthState, resetWgerAuth } from '@/services/integrations/wger/wgerAuth'
+import { syncWgerToAlthea, retryFailedSync, type SyncEntityType } from '@/services/integrations/wger/wgerSyncEngine'
+import { getWgerAuthState, checkWgerLinkStatus, deauthenticateWger, resetWgerAuth, type WgerAuthState } from '@/services/integrations/wger/wgerAuth'
 import { db } from '@/services/storage/db'
 
 interface WgerSyncPanelProps {
@@ -25,6 +25,7 @@ export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
   const [retrying, setRetrying] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [showDisconnect, setShowDisconnect] = useState(false)
+  const [authState, setAuthState] = useState<WgerAuthState>(() => getWgerAuthState())
   const [entityCounts, setEntityCounts] = useState({
     exercises: 0,
     ingredients: 0,
@@ -46,6 +47,10 @@ export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
       setQueueStats(qs)
       setConflicts(c)
       setFailedOps(fo.length)
+      // El estado de autenticación puede cambiar fuera del panel: se revalida
+      // contra el servidor; si no hay conexión se conserva el último conocido.
+      await checkWgerLinkStatus().catch(() => null)
+      setAuthState(getWgerAuthState())
     } catch { /* noop */ }
   }, [])
 
@@ -79,7 +84,9 @@ export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
     setMessage(null)
     setSyncing(true)
     try {
-      const result = await syncWgerToAlthea()
+      // Sincronización completa: las 6 entidades que muestra el panel.
+      const entityTypes: SyncEntityType[] = ['exercise', 'routine', 'ingredient', 'trainingSession', 'nutritionPlan', 'measurement']
+      const result = await syncWgerToAlthea({ entityTypes })
       await refresh()
       await refreshEntityCounts()
       if (result.success) {
@@ -96,6 +103,11 @@ export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
 
   const handleRetryErrors = async () => {
     setMessage(null)
+    // Los reintentos escriben en WGER: sin cuenta vinculada siempre fallarían.
+    if (!getWgerAuthState().canWrite) {
+      setMessage('Los reintentos de escritura requieren vincular la cuenta WGER primero.')
+      return
+    }
     setRetrying(true)
     try {
       const result = await retryFailedSync()
@@ -113,14 +125,25 @@ export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
   }
 
   const handleDisconnect = async () => {
-    resetWgerAuth()
-    resetHealthStatus()
-    await refresh()
-    setShowDisconnect(false)
-    setMessage('WGER desconectado. Los datos locales se conservan.')
+    try {
+      await deauthenticateWger()
+      resetHealthStatus()
+      await refresh()
+      setAuthState(getWgerAuthState())
+      setShowDisconnect(false)
+      setMessage('WGER desconectado. Los datos locales se conservan.')
+    } catch {
+      // Sin conexión al Worker: se limpia solo el estado local. La cookie
+      // remota expira sola; los datos locales se conservan igual.
+      resetWgerAuth()
+      resetHealthStatus()
+      await refresh()
+      setAuthState(getWgerAuthState())
+      setShowDisconnect(false)
+      setMessage('Desconectado localmente (sin conexión al servidor). Los datos locales se conservan.')
+    }
   }
 
-  const authState = getWgerAuthState()
   const isConnected = authState.isAuthenticated || health?.status === 'SYNCED' || health?.status === 'SYNCING'
 
   const statusLabel = isConnected ? 'Conectado' : 'No conectado'

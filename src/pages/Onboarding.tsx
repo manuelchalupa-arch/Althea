@@ -202,6 +202,7 @@ export default function Onboarding(){
           objPrincipal.includes('movilidad')?'movilidad': objPrincipal.includes('recomposición')?'recomposicion':'mantenimiento'
 
     const profile:any = await db.userProfile.get('me') || { id:'me', createdAt: new Date().toISOString() }
+    const initialCycle = profile.cycle || { startDate: todayKey(), trainingDays:[{n:1,name:'Pecho + tríceps'},{n:2,name:'Espalda + bíceps'},{n:3,name:'Piernas'},{n:4,name:'Hombros + abdomen'}], weekMap:[null,1,2,null,3,4,null] }
     await db.userProfile.put({
       ...profile,
       displayName: nombre,
@@ -234,8 +235,13 @@ export default function Onboarding(){
       coachIntensity,
       onboardingDone: true,
       updatedAt: new Date().toISOString(),
-      cycle: profile.cycle || { startDate: todayKey(), trainingDays:[{n:1,name:'Pecho + tríceps'},{n:2,name:'Espalda + bíceps'},{n:3,name:'Piernas'},{n:4,name:'Hombros + abdomen'}], weekMap:[null,1,2,null,3,4,null] }
+      cycle: initialCycle,
     } as any)
+    // Escritura canónica de la planificación inicial (no-op si ya existe igual).
+    try {
+      const { savePlanning } = await import('@/services/planning/cycleVersions')
+      await savePlanning({ cycle: initialCycle, note: 'Planificación inicial (onboarding)' })
+    } catch { /* la planificación legacy ya quedó guardada arriba */ }
     if (weightNum || heightNum) {
       await db.table('bodyMeasurements').put({ id:`init-${Date.now()}`, localDate: todayKey(), weightKg: weightNum, heightCm: heightNum, createdAt: new Date().toISOString() }).catch(()=>{})
     }

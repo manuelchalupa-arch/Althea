@@ -374,7 +374,7 @@ function buildScoreLines(ctx: AIContext): string[] {
 
 /**
  * Genera recomendación de entrenamiento usando el pipeline unificado.
- * Usa Qwen si está disponible, si no usa fallback determinístico.
+ * Usa el motor determinístico local con contexto real e historial.
  */
 export async function generateUnifiedRecommendation(ctx: AIContext): Promise<AIRecommendation> {
   // Safety check primero

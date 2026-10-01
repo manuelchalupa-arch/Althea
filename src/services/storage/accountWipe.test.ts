@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from './db'
-import { clearUserDataOnAccountDelete } from './accountWipe'
+import { clearUserDataOnAccountDelete, shouldWipeOnAccountSwitch, rememberAccountUid, LAST_UID_KEY } from './accountWipe'
 
 describe('accountWipe — borrado selectivo al eliminar cuenta', () => {
   beforeEach(async () => {
@@ -78,5 +78,34 @@ describe('accountWipe — borrado selectivo al eliminar cuenta', () => {
     } as never)
     expect(await db.trainingSessions.count()).toBe(1)
     expect(localStorage.getItem('althea:theme')).toBe('dark')
+  })
+})
+
+describe('accountWipe — cambio de cuenta sin contaminación cruzada', () => {
+  it('primer login (sin uid previo) no limpia', () => {
+    expect(shouldWipeOnAccountSwitch(null, 'uid-nuevo')).toBe(false)
+  })
+
+  it('mismo uid no limpia', () => {
+    expect(shouldWipeOnAccountSwitch('uid-a', 'uid-a')).toBe(false)
+  })
+
+  it('uid distinto sí limpia', () => {
+    expect(shouldWipeOnAccountSwitch('uid-anterior', 'uid-nuevo')).toBe(true)
+  })
+
+  it('rememberAccountUid persiste el uid y tolera storage bloqueado', () => {
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, v) },
+      removeItem: (k: string) => { store.delete(k) },
+      clear: () => { store.clear() },
+      key: (i: number) => [...store.keys()][i] ?? null,
+      get length() { return store.size },
+    } as Storage
+    rememberAccountUid('uid-x', storage)
+    expect(storage.getItem(LAST_UID_KEY)).toBe('uid-x')
+    expect(() => rememberAccountUid('uid-y', null)).not.toThrow()
   })
 })

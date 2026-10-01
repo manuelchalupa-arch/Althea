@@ -60,14 +60,6 @@ export default defineConfig({
           if (id.includes('node_modules/dexie')) {
             return 'vendor-state'
           }
-          // Charts - split recharts
-          if (id.includes('node_modules/recharts')) {
-            return 'vendor-charts'
-          }
-          // Heavy AI/ML
-          if (id.includes('node_modules/@huggingface/transformers')) {
-            return 'vendor-transformers'
-          }
           // Firebase (el SDK vive en @firebase/*, no en firebase/*)
           if (id.includes('node_modules/@firebase') || id.includes('node_modules/firebase')) {
             return 'vendor-firebase'
@@ -99,6 +91,5 @@ export default defineConfig({
   // Optimize dependencies
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', 'dexie'],
-    exclude: ['@huggingface/transformers']
   }
 })

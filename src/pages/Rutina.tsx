@@ -209,12 +209,8 @@ export default function RutinaPage(){
     setActiveId(id)
     loadVersions(id)
     import('@/services/storage/routineStore').then(({ setActiveRoutineId }) => setActiveRoutineId(id))
-    // sync cycle
-    const r = routines.find(x=>x.id===id)
-    if(r) {db.userProfile.get('me').then(async p=>{
-      const base: UserProfile = p ?? { id:'me', goal:'hipertrofia', trainingGoal:'hypertrophy', level:'intermedio', availableDays:[1,3,5], trainingTime:'18:00', equipment:['barra'], units:{weight:'kg',liquid:'ml'}, lang:'es', coachIntensity:'profesional', onboardingDone:true, hydrationGoalMl:2500, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
-      await db.userProfile.put({ ...base, cycle: r.cycle, updatedAt: new Date().toISOString() })
-    })}
+    // La planificación canónica vive en cycleVersions; profile.cycle es solo
+    // snapshot legacy de lectura (no se sincroniza ni se crea perfil acá).
   }
   const createNew = ()=>{
     if(routines.length>=MAX_ROUTINES){

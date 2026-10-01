@@ -77,7 +77,8 @@ function LazyPage({ children }: { children: React.ReactNode }) {
 
 async function isTrainingDayLocal(dateStr:string): Promise<boolean> {
   try{
-    // Los cambios manuales de día (override) mandan sobre la planificación.
+    // Los cambios manuales de día (override) mandan sobre la planificación:
+    // es una decisión explícita del usuario, no un fallback.
     const { getOverrideDay } = await import('@/services/storage/sessionOverrideStore')
     const override = await getOverrideDay(dateStr).catch(()=>null)
     if(override !== null && override !== undefined) {return true}
@@ -87,10 +88,11 @@ async function isTrainingDayLocal(dateStr:string): Promise<boolean> {
     const active = raw?.find((r:any)=>r.id===activeId) || raw?.[0]
     const pv = await getActiveVersion(PROFILE_SCOPE).catch(()=>null)
     const cyc = pv?.cycle ?? active?.cycle
-    if(!cyc?.weekMap) {return true}
+    // Sin planificación o con error de lectura: desconocido NO es entrenamiento.
+    if(!cyc?.weekMap) {return false}
     const dow = weekdayOfKey(dateStr)
     return (cyc.weekMap[dow] ?? null) !== null
-  }catch{ return true }
+  }catch{ return false }
 }
 
 function Layout() {
@@ -136,6 +138,24 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
     import('@/services/firebase/auth').then(({ onUser }) => {
       if (alive) {onUser((u) => {
         if (!alive) {return}
+        // Cambio de cuenta en el mismo navegador: los datos locales pertenecen
+        // al usuario anterior. Se limpian para que no contaminen al nuevo
+        // (misma utilidad que eliminación de cuenta; preserva preferencias UI).
+        // Primer login (sin uid previo): se conservan (datos anónimos propios).
+        if (u) {
+          void (async () => {
+            try {
+              const { shouldWipeOnAccountSwitch, rememberAccountUid } = await import('@/services/storage/accountWipe')
+              const lastUid = localStorage.getItem('althea:lastUid')
+              if (shouldWipeOnAccountSwitch(lastUid, u.uid)) {
+                const { clearUserDataOnAccountDelete } = await import('@/services/storage/accountWipe')
+                clearUserDataOnAccountDelete().catch(() => {}).finally(() => { rememberAccountUid(u.uid) })
+              } else if (!lastUid) {
+                rememberAccountUid(u.uid)
+              }
+            } catch { /* noop: jamás bloquear el login */ }
+          })()
+        }
         setNeedsLogin(!u)
         setAuthChecked(true)
       })}

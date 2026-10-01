@@ -5,7 +5,6 @@ import { getCycleFromProfile, getTrainingDayForDate, formatAgendaDate } from '@/
 import { getCanonicalCycle } from '@/services/planning/cycleVersions'
 
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
-import { detectCapabilities } from '@/services/ai/capabilities'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import type { CycleConfig } from '@/utils/cycle'
@@ -854,7 +853,7 @@ export default function Inicio(){
               {cycle.trainingDays.map((d:any)=>{
                 const dayDate = new Date((cycle as any).startDate || todayStr)
                 dayDate.setDate(dayDate.getDate() + (d.n - 1) + (weekOffset * 7))
-                const dateStr = dayDate.toISOString().slice(0,10)
+                const dateStr = toLocalDateKey(dayDate)
                 const isToday = dateStr === todayStr
                 const isPast = new Date(dateStr) < new Date(todayStr)
                 return (

@@ -27,7 +27,7 @@ import type { SyncResourceState } from './wgerTypes'
 // ─── Tipos ───
 
 export type SyncDirection = 'wger-to-althea' | 'althea-to-wger' | 'bidirectional'
-export type SyncEntityType = 'exercise' | 'routine' | 'ingredient' | 'trainingSession' | 'nutritionPlan' | 'measurement' | 'trainingSession' | 'nutritionPlan' | 'measurement'
+export type SyncEntityType = 'exercise' | 'routine' | 'ingredient' | 'trainingSession' | 'nutritionPlan' | 'measurement'
 export type SyncOperation = 'create' | 'update' | 'delete'
 
 export interface SyncResult {
@@ -508,103 +508,6 @@ async function syncMeasurementsIncrementalFromWger(result: SyncResult, options: 
   state.lastSuccessfulSyncAt = new Date().toISOString()
   state.updatedAt = new Date().toISOString()
   await saveResourceState(state)
-}
-
-async function syncExercisesFromWger(result: SyncResult, options: SyncOptions): Promise<void> {
-  const links = await db.syncQueue
-    .filter((op) => op.entityType === 'exercise' && op.status === 'COMPLETED')
-    .toArray()
-
-  const existingHashes = new Map<string, string>()
-  for (const link of links) {
-    if (link.localEntityId && link.payload?.hash) {
-      existingHashes.set(link.localEntityId, link.payload.hash)
-    }
-  }
-
-  let offset = 0
-  const limit = 50
-  let hasMore = true
-
-  while (hasMore) {
-    const list = await fetchRoutines({ limit, offset })
-    hasMore = list.next !== null
-
-    for (const routine of list.results) {
-      try {
-        const detail = await fetchRoutineWithDetails(routine.id)
-        if (!detail) {continue}
-
-        const hash = computeHash(detail)
-
-        if (existingHashes.get(`wger-routine-${routine.id}`) === hash) {
-          continue
-        }
-
-        const altheaRoutine = mapWgerRoutineToAlthea(detail, () => null)
-        const opId = await enqueueOperation({
-          operation: 'create',
-          entityType: 'routine',
-          localEntityId: `wger-routine-${routine.id}`,
-          remoteEntityId: String(routine.id),
-          payload: { data: altheaRoutine, hash, source: 'wger' },
-        })
-
-        await markOperationCompleted(opId, { remoteId: routine.id, hash })
-        result.synced++
-      } catch (err) {
-        result.failed++
-        result.errors.push(`routine ${routine.id}: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    }
-
-    offset += limit
-  }
-}
-
-async function syncRoutinesFromWger(result: SyncResult, options: SyncOptions): Promise<void> {
-  let offset = 0
-  const limit = 50
-  let hasMore = true
-
-  while (hasMore) {
-    const list = await fetchRoutines({ limit, offset })
-    hasMore = list.next !== null
-
-    for (const routine of list.results) {
-      try {
-        const detail = await fetchRoutineWithDetails(routine.id)
-        if (!detail) {continue}
-
-        const hash = computeHash(detail)
-
-        const existing = await db.syncQueue
-          .filter((op) => op.localEntityId === `wger-routine-${routine.id}` && op.status === 'COMPLETED')
-          .first()
-
-        if (existing?.payload?.hash === hash) {
-          continue
-        }
-
-        const altheaRoutine = mapWgerRoutineToAlthea(detail, () => null)
-        const opId = await enqueueOperation({
-          operation: existing ? 'update' : 'create',
-          entityType: 'routine',
-          localEntityId: `wger-routine-${routine.id}`,
-          remoteEntityId: String(routine.id),
-          payload: { data: altheaRoutine, hash, source: 'wger' },
-        })
-
-        await markOperationCompleted(opId, { remoteId: routine.id, hash })
-        result.synced++
-      } catch (err) {
-        result.failed++
-        result.errors.push(`routine ${routine.id}: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    }
-
-    offset += limit
-  }
 }
 
 // ─── Sincronización Althea → WGER (Push) ───

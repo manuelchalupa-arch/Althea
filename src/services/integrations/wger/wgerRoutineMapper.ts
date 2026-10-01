@@ -12,6 +12,7 @@ import type {
   WgerRirConfig,
   WgerRestConfig,
 } from './wgerTypes'
+import { todayKey } from '@/utils/dates'
 
 export interface WgerRoutineWithDetails {
   routine: WgerRoutineDetail
@@ -78,7 +79,7 @@ export function mapWgerRoutineToAlthea(
     updatedAt: routine.last_update,
     rotationDays: 30,
     cycle: {
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: todayKey(),
       trainingDays: days.map((d) => ({ n: d.day, name: d.name })),
       weekMap: [],
     },

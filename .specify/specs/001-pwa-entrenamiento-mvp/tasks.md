@@ -10,7 +10,7 @@ Cierre documentado en `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md`
 ## Phase 1: Setup (Shared Infrastructure)
 
 - [x] T001 Crear estructura proyecto `train-pwa/` con Vite+React+TS (vite.config.ts con PWA, tailwind.config.js, tsconfig.json)
-- [x] T002 [P] Instalar dependencias: dexie, zustand, vite-plugin-pwa, recharts, react-router-dom, date-fns, lucide-react, zod, @dnd-kit/sortable, uuid — real: instalados dexie, vite-plugin-pwa, recharts, react-router-dom, lucide-react, zod, uuid (+ firebase, @huggingface/transformers). `zustand`, `date-fns` y `@dnd-kit/sortable` sustituidos por almacenamiento propio, `src/utils/dates.ts` y reorden con ↑/↓
+- [x] T002 [P] Instalar dependencias: dexie, zustand, vite-plugin-pwa, recharts, react-router-dom, date-fns, lucide-react, zod, @dnd-kit/sortable, uuid — real: instalados dexie, vite-plugin-pwa, recharts, react-router-dom, lucide-react, zod, uuid (+ firebase, @huggingface/transformers). `zustand`, `date-fns` y `@dnd-kit/sortable` sustituidos por almacenamiento propio, `src/utils/dates.ts` y reorden con ↑/↓ (2026-10-01: @huggingface/transformers y recharts eliminados por no tener importador; el Coach usa Groq via proxy + fallback local.)
 - [x] T003 [P] Configurar Tailwind + ESLint + manifest.webmanifest + icons 192/512
 
 ## Phase 2: Foundational (Bloqueante)

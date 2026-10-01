@@ -142,7 +142,8 @@ export function localDayIdx(d: Date = new Date()): number {
 export function dueNotifications(
   cfgs: NotifConfig[],
   now: Date,
-  isTrainingDay: (dateStr: string) => boolean = () => true,
+  // Desconocido NO es día de entrenamiento: sin callback no se notifica esa clase.
+  isTrainingDay: (dateStr: string) => boolean = () => false,
   fired: Set<string> = new Set(),
 ): NotifConfig[] {
   const date = localDateStr(now)
@@ -216,7 +217,8 @@ async function buildGates(): Promise<GateContext> {
 // Nunca crea datos de dominio: solo notifica. No pide permiso (solo Perfil lo pide).
 export async function checkAndFire(
   onOpen: (kind: NotifKind) => void = () => {},
-  isTrainingDay: (dateStr: string) => boolean | Promise<boolean> = () => true,
+  // Desconocido NO es día de entrenamiento (un error jamás equivale a entrenar).
+  isTrainingDay: (dateStr: string) => boolean | Promise<boolean> = () => false,
 ): Promise<string[]> {
   const cfgs = await loadConfigs()
   const now = new Date()

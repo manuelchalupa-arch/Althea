@@ -37,9 +37,10 @@ describe('flujo custom extremo a extremo (Casos 5–8)', () => {
     })
     // 4. historial recuperable por exerciseId meses después (Caso 7)
     const last = await getLastSerieWithSource(custom.id, 1)
-    expect(last.isSeed).toBe(false)
-    expect(last.weight).toBe(25)
-    expect(last.reps).toBe(10)
+    expect(last).not.toBeNull()
+    expect(last!.isSeed).toBe(false)
+    expect(last!.weight).toBe(25)
+    expect(last!.reps).toBe(10)
     // 5. progreso por parte lo contabiliza (Caso 8)
     const map = await overlayCustomParts({})
     expect(map[custom.id]).toBe('chest')
@@ -73,8 +74,9 @@ describe('flujo custom extremo a extremo (Casos 5–8)', () => {
     expect(await deleteCustomExercise(withHist.id)).toBe('archived')
     // Histórico intacto y recuperable por exerciseId
     const last = await getLastSerieWithSource(withHist.id, 1)
-    expect(last.isSeed).toBe(false)
-    expect(last.weight).toBe(40)
+    expect(last).not.toBeNull()
+    expect(last!.isSeed).toBe(false)
+    expect(last!.weight).toBe(40)
     // Sin historial → borrado físico
     const fresh = await createCustomExercise({
       name: 'Temporal', bodyPart: 'chest', muscle: 'pectorals',

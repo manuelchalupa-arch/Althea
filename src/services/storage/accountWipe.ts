@@ -1,5 +1,21 @@
 import { db } from './db'
 
+/** Clave donde se recuerda el último uid autenticado (nunca se borra). */
+export const LAST_UID_KEY = 'althea:lastUid'
+
+/**
+ * ¿Hay que limpiar datos locales ante este login? Solo cuando ya había un
+ * uid distinto recordado (cambio de cuenta). Primer login o mismo uid: no.
+ */
+export function shouldWipeOnAccountSwitch(lastUid: string | null, newUid: string): boolean {
+  return !!lastUid && lastUid !== newUid
+}
+
+/** Recuerda el uid autenticado actual (tolerante a storage bloqueado). */
+export function rememberAccountUid(uid: string, storage: Storage | null = globalThis.localStorage): void {
+  try { storage?.setItem(LAST_UID_KEY, uid) } catch { /* noop */ }
+}
+
 /** Claves de UI que NUNCA se borran (preferencias, no datos de usuario). */
 export const PRESERVED_KEYS = [
   'althea:theme',

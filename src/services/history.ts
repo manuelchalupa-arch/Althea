@@ -144,21 +144,13 @@ export async function getLastExecutionByExercise(exerciseId: string){
   }
 }
 
-export function generateSeedSerie(exerciseId: string, setNumber: number){
-  // Seed determinístico por ID_ejercicio + setNumber, siempre múltiplos de 5 en kilogramos
-  const hash = Array.from(exerciseId).reduce((a,c)=> a + c.charCodeAt(0), 0) + setNumber*7
-  const base = 20 + (hash % 12)*5 // 20..80 múltiplo 5
-  const weight = Math.round(base/5)*5
-  const reps = 8 + (hash % 5) // 8-12
-  return { weight, reps, createdAt: new Date(Date.now() - 86400000).toISOString(), isSeed: true }
-}
-
+/**
+ * Última serie real de un ejercicio. Sin registros reales devuelve null
+ * ("sin datos"): nunca se inventan pesos, repeticiones ni fechas.
+ */
 export async function getLastSerieWithSource(exerciseId: string, setNumber: number){
   const logs = (await unifiedCompletedSets(exerciseId)).filter(l=> l.setNumber===setNumber)
-  if(logs.length===0){
-    const seed = generateSeedSerie(exerciseId, setNumber)
-    return { ...seed, isSeed: true, source: 'seed' }
-  }
+  if(logs.length===0){ return null }
   logs.sort((a,b)=> new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   return { ...logs[0], isSeed: false, source: 'real' }
 }

@@ -1,5 +1,5 @@
-// System Prompt entrenado para Qwen3-0.6B-ONNX — único cerebro contextual
-// Entrenamiento = instrucción + few-shot, no fine-tune completo en navegador (requeriría GPU server y LoRA)
+// System Prompt del Coach — único cerebro contextual (Groq vía proxy con
+// fallback determinístico local). Instrucción + few-shot, no fine-tune.
 
 import { getMethod } from './trainingMethodsDB'
 import type { TrainingMethodId } from './trainingMethods'

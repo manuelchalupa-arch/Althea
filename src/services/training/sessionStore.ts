@@ -50,11 +50,28 @@ export async function getSession(sessionId: string): Promise<TrainingSession | n
 
 export async function getActiveSession(): Promise<TrainingSession | null> {
   const id = getActiveSessionId();
-  if (!id) {return null;}
+  if (!id) { return await findOrphanActiveSession(); }
   const s = await getSession(id);
-  if (!s) { setActiveSessionId(null); return null; }
+  if (!s) { setActiveSessionId(null); return await findOrphanActiveSession(); }
   if (FINAL_STATES.includes(s.sessionStatus)) { setActiveSessionId(null); return null; }
   return s;
+}
+
+/**
+ * Rescate de sesión huérfana: si no hay id activo en storage pero Dexie
+ * conserva una sesión en estado activo (p. ej. storage parcial), se readopta
+ * la más reciente en vez de crear una duplicada al continuar entrenando.
+ */
+async function findOrphanActiveSession(): Promise<TrainingSession | null> {
+  try {
+    const all = await db.trainingSessions.toArray().catch(() => []);
+    const orphan = (all as TrainingSession[])
+      .filter((s) => isActiveSessionStatus(s.sessionStatus))
+      .sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))[0] ?? null;
+    if (!orphan) { return null; }
+    setActiveSessionId(orphan.sessionId);
+    return orphan;
+  } catch { return null; }
 }
 
 export async function logEvent(

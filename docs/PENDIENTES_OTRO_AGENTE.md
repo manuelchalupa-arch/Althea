@@ -4,18 +4,17 @@ Todo lo automatizable localmente está cerrado y en verde (tsc 0, tests 132/1208
 
 ## P1. Umbrales T032: Performance ≥85 y JS inicial <150 KB gzip (BLOQUEADO por arquitectura)
 
-**Estado medido (Lighthouse 11.7.1, misma metodología que §14 de `ALTHEA_FINAL_CLOSURE.md`):**
-PWA 100/100 · Performance 72/100 (FCP 2,9 s · LCP 6,5 s · TBT 10 ms · CLS 0 · SI 2,9 s · TTI 4,6 s).
+**Estado medido final (Lighthouse 11.7.1, misma metodología que §14 de `ALTHEA_FINAL_CLOSURE.md`, re-medido 2026-10-01 tras el cierre definitivo):**
+PWA 100/100 · Performance 72/100 (FCP 2,9–3,0 s · LCP 6,5 s · TBT 10–20 ms · CLS 0 · SI 2,9–3,0 s · TTI 4,6–4,9 s).
 JS inicial ≈280 KB gzip, piso arquitectónico medido por chunk:
 `vendor-react` 44.7 + `vendor-router` 13.5 + `vendor-state`(dexie) 31.6 + `vendor-firebase` 140 + `index` 73.9 (+ icons/utils).
 
-**Ya intentado y verificado:**
-- `@huggingface/transformers` solo por import dinámico (chunk separado 119.6 KB, fuera del inicio).
-- `aiService` en Inicio/Entrenar por `import()` dinámico.
+**Optimizaciones realizadas en código (verificadas):**
+- `@huggingface/transformers` y `recharts` eliminados del proyecto (cero importadores): chunk `vendor-transformers` (119.6 KB) y wasm ONNX fuera de `dist`; precache 87→86 entradas.
+- `aiService` en Inicio/Entrenar por `import()` dinámico (obsoleto tras la remoción: el módulo liviano resultante se importa estático sin costo).
 - Corregida la clasificación `@firebase/*` → `vendor-firebase` (antes caía en `vendor-other`).
-- Re-medición 2026-10-01: Performance 72 (antes 75, ruido de medición), LCP JS-bound (sin imágenes pesadas en Inicio).
 
-**Para resolverlo (otro agente):** diferir la inicialización de Firebase (auth/messaging/sync) hasta después del primer paint y/o diferir Dexie del arranque, o recortar dependencias. Riesgo: cambia el boot (gating de login, offline-first) — requiere decisión de producto + re-verificación funcional completa + re-medir con `npx -y lighthouse@11` contra `npm run preview`.
+**Qué queda y por qué no es razonablemente reducible:** el LCP (6,5 s en Moto G4 simulado) está dominado por parse/compilación del JS inicial; Firebase solo (140 KB) consume casi todo el presupuesto de 150 KB y es necesario en el arranque (auth gating, messaging, sync). Alcanzar los umbrales exigiría diferir Firebase/Dexie del arranque, lo que cambia el boot offline-first y el gating de login: reestructuración desproporcionada con riesgo funcional. No se modificó por estabilidad.
 
 ## P2. Validación WGER con credenciales reales (requiere cuenta externa)
 
