@@ -1,0 +1,3 @@
+# Netlify SPA fallback: todas las rutas de React Router sirven index.html.
+# (Equivalente al rewrite "**" -> /index.html de firebase.json)
+/*    /index.html   200
