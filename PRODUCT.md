@@ -40,7 +40,7 @@ Nombre `Althea`, paleta actual mármol/blanco roto/grises cálidos/negro-grafito
  - Datos: `src/services/storage/db.ts` v20, `src/data/exercises.json` (10 ejercicios locales, catálogo real remoto `ExerciseGymGifsDB`), `ExerciseGymGifsDB` v1.1.0, catálogo Wger sincronizable
  - Tests: 124 archivos de test / 1041 tests declarados / 1041 ejecutados / 1041 aprobados / 0 fallidos (gates: `tsc` 0 errores, `vitest` verde, `build` PASS, `lint` **exit 0 — 0 errores / 0 warnings**; los 166 warnings históricos fueron corregidos el 2026-09-28 sin tocar la config de ESLint)
  - Informes: `docs/INFORMES_PDF.md` (modos, contenido, fuente única de gasto)
- - Lighthouse (2026-09-28, LH 11.7.1 sobre `npm run preview`): **PWA 100/100 ✓**, Performance 75/100 (SC-001 pide ≥85), JS inicial ≈400 KB gzip (objetivo <150 KB) → T032 **PARCIAL**; ver `docs/history/althea/ALTHEA_FINAL_CLOSURE.md` §14
+ - Lighthouse (LH 11.7.1 sobre `npm run preview`, re-medido 2026-10-01): **PWA 100/100 ✓**, Performance 72/100, JS inicial ≈280 KB gzip → T032 **cerrada con bloqueador arquitectónico documentado**; ver `docs/PENDIENTES_OTRO_AGENTE.md` P1
  - Credenciales: verificación local completa en `docs/history/althea/ALTHEA_FINAL_CLOSURE.md` §13; pendientes sólo 2 revocaciones externas (§11)
  - Cierre: `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md` (decisiones y sustituciones)
 - Demo: tablas con `isDemo` flag, identificables

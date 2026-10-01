@@ -68,8 +68,8 @@ export default defineConfig({
           if (id.includes('node_modules/@huggingface/transformers')) {
             return 'vendor-transformers'
           }
-          // Firebase
-          if (id.includes('node_modules/firebase')) {
+          // Firebase (el SDK vive en @firebase/*, no en firebase/*)
+          if (id.includes('node_modules/@firebase') || id.includes('node_modules/firebase')) {
             return 'vendor-firebase'
           }
           // Utils
