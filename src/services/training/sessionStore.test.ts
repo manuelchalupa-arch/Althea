@@ -52,6 +52,23 @@ describe('store central (§4, §10, §17, §18)', () => {
     expect(active?.sessionId).toBe(s.sessionId)
   })
 
+  it('readopta sesión huérfana si se pierde el id activo (no duplica)', async () => {
+    const s = await createSession({
+      routineId: 'r1', plannedDay: 1, actualDay: 1,
+      calendarDate: '2026-09-10', plannedExercises: planned,
+    })
+    // Pérdida parcial de storage: Dexie conserva la sesión activa.
+    localStorage.removeItem('althea:session:activeId')
+    const rescued = await getActiveSession()
+    expect(rescued?.sessionId).toBe(s.sessionId)
+    // Continuar entrenando no crea una segunda sesión.
+    const again = await createSession({
+      routineId: 'r1', plannedDay: 1, actualDay: 1,
+      calendarDate: '2026-09-10', plannedExercises: planned,
+    })
+    expect(again.sessionId).toBe(s.sessionId)
+  })
+
   it('rechaza READY -> COMPLETED y exige pasar por COMPLETING', async () => {
     const s = await createSession({
       routineId: 'r1', plannedDay: 1, actualDay: 1,
