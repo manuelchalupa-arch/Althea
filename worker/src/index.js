@@ -23,13 +23,15 @@
  *      puede elegir modelo, URL, headers ni campos extra.
  *   6. Timeout: AbortController en toda llamada saliente => 504.
  *   7. Errores: nunca se devuelve el cuerpo upstream ni stack traces.
- *   8. Rate limit: dos capas.
- *        a) KV namespace (distributed, best-effort global) cuando
- *           `RATE_LIMIT` está enlazado. Es la capa que realmente limita coste.
- *        b) Fallback in-memory por isolate cuando no hay binding.
- *      La capa (b) NO es un boundary de seguridad en un edge distribuido:
- *      se documenta como degradada, nunca como garantía.
+ *   8. Rate limit: tres capas, se usa la más fuerte disponible y se declara
+ *      cuál se usó en `X-RateLimit-Mode`.
+ *        a) Durable Object (strongly consistent, boundary de seguridad real).
+ *        b) KV namespace (eventualmente consistente; degrada de (a)).
+ *        c) Memoria del isolate (sin garantía; sólo desarrollo).
+ *      Ninguna capa degrada en silencio: el modo va siempre en la respuesta.
  */
+
+import { checkRateLimit } from './rate-limiter.js'
 
 // ───────────────────────────────────────────────────────────────────────────
 // Límites (valores documentados a propósito; ver docs/INFRAESTRUCTURA.md)
@@ -62,14 +64,22 @@ const MAX_MESSAGES = 40
 const MAX_CONTENT_CHARS = 12_000
 const ALLOWED_ROLES = new Set(['system', 'user', 'assistant'])
 
-/** Rate limit por defecto del endpoint Groq (capa KV). */
+// ─────────────────────────────────────────────────────────────────────────────
+// Rate limiting
+// ─────────────────────────────────────────────────────────────────────────────
+// La implementación vive en ./rate-limiter.js (capa DO + KV + memoria).
+// Se re-exporta aquí porque el entry point es lo que Wrangler despliega.
+
+export { checkRateLimit, resetMemoryRateLimits, RateLimiter, RATE_LIMIT_MODE } from './rate-limiter.js'
+
+/** Rate limit por defecto del endpoint Groq (capa DO/KV). */
 const RATE_LIMIT = {
   max: 20, // requests
   windowSeconds: 60, // por minuto
   keyPrefix: 'rl:groq',
 }
 
-/** Rate limit WGER (capa KV) — más holgado, es tráfico de sincronización. */
+/** Rate limit WGER (capa DO/KV) — más holgado, es tráfico de sincronización. */
 const WGER_RATE_LIMIT = {
   max: 60,
   windowSeconds: 60,
@@ -284,99 +294,8 @@ export function validateChatPayload(body) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Rate limiting
+// Rate limiting — ver ./rate-limiter.js
 // ───────────────────────────────────────────────────────────────────────────
-
-/**
- * Capa distribuida: KV namespace.
- *
- * LIMITACIÓN HONESTA: KV de Cloudflare es eventualmente consistente, así
- * que esto NO es un contador exacto. Sirve para frenar abuso trivial y
- * limitar coste accidental, no para garantizar un techo estricto. Para un
- * techo estricto la opción correcta es una Durable Object (contador
- * serializado) o una WAF Rate Limiting Rule — ver docs/INFRAESTRUCTURA.md §6.
- * @returns {Promise<{ ok: boolean, limit: number, remaining: number, resetSeconds: number }>}
- */
-async function rateLimitKv(kv, key, cfg, nowMs) {
-  const bucket = Math.floor(nowMs / 1000 / cfg.windowSeconds)
-  const storageKey = `${cfg.keyPrefix}:${bucket}:${key}`
-  let count = 0
-  try {
-    const raw = await kv.get(storageKey)
-    if (raw !== null) {
-      const parsed = Number.parseInt(raw, 10)
-      if (Number.isFinite(parsed)) count = parsed
-    }
-  } catch {
-    // KV caído: fail-OPEN a propósito. Un fallo de rate limiting no debe
-    // dejar al Coach sin IA, pero TAMPOCO se claima protección: se registra.
-    return { ok: true, limit: cfg.max, remaining: cfg.max, resetSeconds: cfg.windowSeconds, degraded: true }
-  }
-
-  if (count >= cfg.max) {
-    const resetSeconds = cfg.windowSeconds - Math.floor((nowMs / 1000) % cfg.windowSeconds)
-    return { ok: false, limit: cfg.max, remaining: 0, resetSeconds }
-  }
-
-  // Best-effort write. El TTL cubre la ventana + margen de clock skew.
-  try {
-    await kv.put(storageKey, String(count + 1), { expirationTtl: cfg.windowSeconds * 2 })
-  } catch {
-    // sin escrituras => sin incremento. Fail-open ya cubierto arriba.
-  }
-
-  return {
-    ok: true,
-    limit: cfg.max,
-    remaining: Math.max(0, cfg.max - (count + 1)),
-    resetSeconds: cfg.windowSeconds,
-  }
-}
-
-/** Fallback in-memory por isolate. NO es boundary de seguridad (edge distribuido). */
-const memoryBuckets = new Map()
-
-/**
- * Limpia el fallback in-memory. Existe sólo para tests: deja el módulo en un
- * estado conocido. En el edge real cada isolate arranca con su Map vacío.
- */
-export function resetMemoryRateLimits() {
-  memoryBuckets.clear()
-}
-
-async function rateLimitMemory(key, cfg, nowMs) {
-  const bucket = Math.floor(nowMs / 1000 / cfg.windowSeconds)
-  const storageKey = `${cfg.keyPrefix}:${bucket}:${key}`
-  const count = (memoryBuckets.get(storageKey) || 0) + 1
-  memoryBuckets.set(storageKey, count)
-
-  // Poda oportunista para no crecer sin límite.
-  if (memoryBuckets.size > 5000) {
-    for (const k of memoryBuckets.keys()) {
-      if (!k.startsWith(`${cfg.keyPrefix}:${bucket}:`)) memoryBuckets.delete(k)
-    }
-  }
-
-  const resetSeconds = cfg.windowSeconds - Math.floor((nowMs / 1000) % cfg.windowSeconds)
-  if (count > cfg.max) {
-    return { ok: false, limit: cfg.max, remaining: 0, resetSeconds }
-  }
-  return { ok: true, limit: cfg.max, remaining: cfg.max - count, resetSeconds }
-}
-
-/**
- * Rate limit con degradación explícita.
- * @returns {Promise<{ ok: boolean, limit: number, remaining: number, resetSeconds: number, degraded: boolean, kvUsed: boolean }>}
- */
-export async function checkRateLimit(env, key, cfg, nowMs) {
-  const kv = env && env.RATE_LIMIT
-  if (kv && typeof kv.get === 'function') {
-    const r = await rateLimitKv(kv, key, cfg, nowMs)
-    return { ...r, degraded: !!r.degraded, kvUsed: true }
-  }
-  const r = await rateLimitMemory(key, cfg, nowMs)
-  return { ...r, degraded: true, kvUsed: false }
-}
 
 /** Identidad para rate limit: IP del cliente (CF la normaliza). */
 function clientKey(request) {
@@ -608,7 +527,7 @@ async function handleGroq(request, env, cors, timeoutMs) {
     'X-RateLimit-Limit': String(rl.limit),
     'X-RateLimit-Remaining': String(rl.remaining),
     'X-RateLimit-Reset': String(rl.resetSeconds),
-    'X-RateLimit-Mode': rl.kvUsed ? 'kv' : 'memory-degraded',
+    'X-RateLimit-Mode': rl.mode,
   }
   if (!rl.ok) {
     return errorResponse(429, 'rate_limited', { ...rlHeaders, 'Retry-After': String(rl.resetSeconds) })

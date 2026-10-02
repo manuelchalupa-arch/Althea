@@ -20,7 +20,18 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_TIMEOUT_MS = "60000"
 WGER_TIMEOUT_MS = "15000"
 
-# Rate limit distribuido. Crear el namespace y pegar el id:
+# Rate limit. Capa 1 (preferida): Durable Object, contador strongly consistent.
+# Es la unica que es boundary de seguridad real en el edge distribuido.
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RateLimiter"]
+
+# Capa 2 (degradacion): KV namespace. Eventualmente consistente; frena abuso
+# trivial pero NO es un techo estricto.
 #   npx wrangler kv namespace create RATE_LIMIT -c wrangler.staging.toml
 [[kv_namespaces]]
 binding = "RATE_LIMIT"

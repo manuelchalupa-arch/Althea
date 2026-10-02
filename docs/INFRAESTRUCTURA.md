@@ -137,26 +137,43 @@ variables de entorno ni mensajes con detalle de infra.
 
 ### 3.8 Rate limit / abuse control
 
-Dos capas, con honestidad explícita:
+Tres capas. Se usa siempre **la más fuerte disponible** y la respuesta declara
+cuál se usó (`X-RateLimit-Mode`). Ninguna degrada en silencio.
 
-| Capa | Mecanismo | Garantía |
-|---|---|---|
-| Distribuida | KV namespace (binding `RATE_LIMIT`) | Best-effort. KV es eventualmente consistente ⇒ **no** es un contador exacto. |
-| Fallback | In-memory por isolate | **NO** es boundary de seguridad en un edge distribuido. |
+| # | Capa | Mecanismo | Garantía | Modo |
+|---|---|---|---|---|
+| 1 | **Durable Object** | binding `RATE_LIMITER`, clase `RateLimiter` | **Strongly consistent.** Un isolate por clave ⇒ las peticiones de esa clave se serializan. Única capa que es un boundary de seguridad real en el edge distribuido. | `durable-object` |
+| 2 | KV namespace | binding `RATE_LIMIT` | Eventualmente consistente. Frena abuso trivial y coste accidental, pero **no** es un techo: dos isolates pueden leer antes de escribir. | `kv` |
+| 3 | Memoria del isolate | `Map` en el módulo | **Ninguna** en un edge multi-isolate. Solo para desarrollo sin bindings. | `memory-degraded` |
 
 - Groq: **20 req / 60 s** por IP (`CF-Connecting-IP`).
-- WGER: **60 req / 60 s** por IP.
+- WGER: **60 req / 60 s** por IP (tráfico de sincronización, más holgado).
 - Al exceder → **429** + `Retry-After`, `X-RateLimit-Limit`,
   `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
-- `X-RateLimit-Mode: kv | memory-degraded` — la respuesta **declara** con qué
-  capa se respondió, para no presentar el fallback como protección real.
-- Si KV falla → fail-**open** (el Coach no se cae por un fallo de rate limit).
+- Si la capa 1 falla → degrada a la 2, marcada `degraded: true` y
+  `X-RateLimit-Mode: kv`. Sin binding alguno → capa 3.
+- Si KV está caído → fail-**open** (el Coach no se cae por un fallo de rate
+  limit), también marcado `degraded`.
 
-**Limitación que no se debe maquillar:** para un techo estricto hace falta
-una Durable Object (contador serializado) o una WAF Rate Limiting Rule de
-Cloudflare. El código y los wrangler configs dejan la KV preparada, pero
-**mientras no se despliegue con el binding, el rate limit real es el
-degradado.** No se afirma protección robusta sin ese deploy.
+**Ventana fija y su límite conocido:** el contador guarda `{ count, resetAt }`.
+Una petición justo en el borde puede ver la ventana nueva antes de tiempo y
+gastar hasta 2× el límite en un instante. Es el trade-off consciente de un
+contador sin estado global compartido.
+
+**Refuerzo recomendado fuera del repo** (requiere cuenta): una WAF Rate
+Limiting Rule sobre la ruta del Worker actúa en el borde, **antes** de que la
+petición llegue al código, y cubre también el coste de cómputo. El rate limit
+de la capa 1 protege el gasto de Groq; la WAF protege al Worker. Son
+complementarios, no sustitutos.
+
+**Lo que sigue siendo del propietario:** el binding de la Durable Object se
+materializa al desplegar (`npx wrangler deploy` aplica la migración `v1`).
+Hasta ese deploy la capa 1 no existe en el edge y el modo real es `kv` o
+`memory-degraded`. El código está completo y testeado; la validación es
+**STAGING-VALIDATED, no CODE-VERIFIED**.
+
+Tests: `worker/src/rate-limiter.test.ts` (17) ejercitan la Durable Object
+contra un storage falso y la cadena DO → KV → memoria.
 
 Configuración extra recomendada en Cloudflare (fuera del repo, requiere
 cuenta): WAF Rate Limiting Rule sobre la ruta del Worker, y Alerts de coste.
@@ -314,6 +331,44 @@ Todo lo siguiente requiere credenciales/proyectos del owner (§30):
 9. Ejecutar los smoke tests y las pruebas reales de Auth/Firestore/CORS/Groq
 
 Sin estos pasos, `STAGING-READY = FALSE` aunque el código esté completo.
+
+### Guard de CSP en CI
+
+`src/config/hostingHeaders.test.ts` (13 tests) mantiene la CSP de
+`firebase.json` coherente con los origins que la app usa en runtime, y
+comprueba en los dos sentidos:
+
+- todo origin en runtime está en `connect-src`;
+- todo origin declarado en código sigue existiendo (impide acumular hosts
+  muertos);
+- la CSP está en `/index.html` y no en `**`;
+- sin wildcard en `connect-src`, `object-src 'none'`, `base-uri 'self'`,
+  `frame-ancestors 'self'`, `upgrade-insecure-requests`;
+- `script-src` sin `unsafe-inline`, y `index.html` sin `<script>` inline;
+- headers de Hosting: nosniff, referrer-policy, HSTS, X-Frame-Options;
+- `index.html`, `sw.js` y `workbox-*.js` sin caché (necesario para el update
+  de la PWA) y `/assets/**` inmutable.
+
+Comprobado que **falla** si se quita un origin en uso: al eliminar `wger.de`
+de `connect-src` el test reporta el origin ausente. Sin este guard, esa rotura
+sólo aparecería en el entorno desplegado.
+
+> Añadir un cliente externo nuevo obliga a tocar dos sitios: la CSP y la lista
+> `RUNTIME_ORIGINS` del test. Eso es intencionado.
+
+### Qué NO queda pendiente en código
+
+Todo lo que esta sección lista es del propietario porque necesita sus cuentas,
+sus project ids o sus credenciales. En código **no** queda pendiente:
+
+- Worker: CORS fail-closed, métodos, Content-Type, body limit, validación de
+  payload, timeout, sanitización de errores y rate limiting en tres capas con
+  Durable Object — implementados y con 73 tests (`worker/src`).
+- Separación staging/production para Firebase y Cloudflare, con guard de deploy
+  fail-closed verificado en 4 escenarios.
+- CSP y headers de Hosting, con guard de CI contra regresiones.
+- `.env*` ignorados; `.env.example` documenta ambos entornos.
+- Rollback documentado por artefacto (§7).
 
 ---
 

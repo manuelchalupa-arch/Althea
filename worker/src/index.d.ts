@@ -17,7 +17,11 @@ export interface WorkerEnv {
   GROQ_TIMEOUT_MS?: string
   /** Timeout de las llamadas WGER en ms. Default 15000. */
   WGER_TIMEOUT_MS?: string
-  /** Binding KV opcional para el rate limit distribuido. */
+  /** Capa 1 del rate limit: namespace de Durable Objects (strongly consistent). */
+  RATE_LIMITER?: {
+    getByName(name: string): { fetch(input: string, init?: RequestInit): Promise<Response> }
+  }
+  /** Capa 2 del rate limit: KV namespace (eventualmente consistente). */
   RATE_LIMIT?: {
     get(key: string): Promise<string | null>
     put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>
@@ -35,10 +39,10 @@ export interface RateLimitResult {
   limit: number
   remaining: number
   resetSeconds: number
-  /** true si el resultado no es fiable como control (KV caído o sin binding). */
+  /** true si el resultado no es fiable como control (capa degradada o caída). */
   degraded?: boolean
-  /** true si se usó la capa KV distribuida. */
-  kvUsed?: boolean
+  /** Capa usada: 'durable-object' | 'kv' | 'memory-degraded'. */
+  mode?: string
 }
 
 export type ValidationResult =
@@ -75,6 +79,29 @@ export declare function checkRateLimit(
 ): Promise<RateLimitResult>
 
 export declare function resetMemoryRateLimits(): void
+
+export declare const RATE_LIMIT_MODE: {
+  DURABLE_OBJECT: 'durable-object'
+  KV: 'kv'
+  MEMORY: 'memory-degraded'
+  NONE: 'unavailable'
+}
+
+/** Durable Object contador de ventana fija. La capa fuerte del rate limit. */
+export declare class RateLimiter {
+  constructor(state: {
+    storage: {
+      get(key: string): Promise<unknown>
+      put(key: string, value: unknown): Promise<void>
+      delete(key: string): Promise<void>
+      list(opts?: unknown): Promise<Map<string, unknown>>
+      setAlarm(timestamp: number): Promise<void>
+      deleteAlarm(): Promise<void>
+    }
+  })
+  fetch(request: Request): Promise<Response>
+  alarm(state: unknown, timestamp: number): Promise<void>
+}
 
 export declare function fetchWithTimeout(
   url: string,
