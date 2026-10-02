@@ -1,0 +1,31 @@
+# ALTHEA — Worker PRODUCTION
+#
+# Uso (explícito, requiere autorización explícita del propietario):
+#   cd worker
+#   npx wrangler deploy -c wrangler.production.toml
+#   npx wrangler secret put GROQ_API_KEY -c wrangler.production.toml
+#
+# PROHIBIDO ejecutar este deploy sin autorización del propietario (§29 del
+# prompt de cierre). El secret GROQ_API_KEY de producción es DISTINTO del de
+# staging.
+
+name = "althea-proxy-production"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[vars]
+# Origin real de producción. Debe incluir todos los hosts que sirven el
+# frontend de producción, separados por coma (allowlist exacta, sin *).
+CORS_ORIGIN = "https://althea.app,https://www.althea.app"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_TIMEOUT_MS = "60000"
+WGER_TIMEOUT_MS = "15000"
+
+# Rate limit distribuido. Namespace SEPARADO del de staging:
+#   npx wrangler kv namespace create RATE_LIMIT -c wrangler.production.toml
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "REEMPLAZAR_KV_NAMESPACE_ID_PRODUCTION"
+
+# Secrets (server-side, NUNCA en el frontend ni en Git):
+#   npx wrangler secret put GROQ_API_KEY -c wrangler.production.toml

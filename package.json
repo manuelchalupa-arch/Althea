@@ -13,7 +13,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check:release": "node scripts/check-release.mjs",
-    "seed:exercises": "echo \"seed exercises via src/data/exercises.json\""
+    "seed:exercises": "echo \"seed exercises via src/data/exercises.json\"",
+    "deploy:hosting:staging": "npm run build && node scripts/deploy-hosting.mjs staging",
+    "deploy:hosting:production": "npm run build && node scripts/deploy-hosting.mjs production",
+    "worker:deploy:staging": "cd worker && npx wrangler deploy -c wrangler.staging.toml",
+    "worker:deploy:production": "cd worker && npx wrangler deploy -c wrangler.production.toml",
+    "worker:secret:staging": "cd worker && npx wrangler secret put GROQ_API_KEY -c wrangler.staging.toml",
+    "worker:secret:production": "cd worker && npx wrangler secret put GROQ_API_KEY -c wrangler.production.toml",
+    "worker:kv:staging": "cd worker && npx wrangler kv namespace create RATE_LIMIT -c wrangler.staging.toml",
+    "worker:kv:production": "cd worker && npx wrangler kv namespace create RATE_LIMIT -c wrangler.production.toml"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

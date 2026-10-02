@@ -1,0 +1,20 @@
+{
+  "//": "PLANTILLA. Copiar a .firebaserc y reemplazar los project ids REALES. NO commitear si se prefers no exponer ids (aunque no son secretos). Ver docs/INFRAESTRUCTURA.md §5.",
+  "projects": {
+    "default": "REEMPLAZAR_FIREBASE_STAGING_PROJECT_ID",
+    "staging": "REEMPLAZAR_FIREBASE_STAGING_PROJECT_ID",
+    "production": "REEMPLAZAR_FIREBASE_PRODUCTION_PROJECT_ID"
+  },
+  "targets": {
+    "REEMPLAZAR_FIREBASE_STAGING_PROJECT_ID": {
+      "hosting": {
+        "staging": "REEMPLAZAR_STAGING_HOSTING_SITE_ID"
+      }
+    },
+    "REEMPLAZAR_FIREBASE_PRODUCTION_PROJECT_ID": {
+      "hosting": {
+        "production": "REEMPLAZAR_PRODUCTION_HOSTING_SITE_ID"
+      }
+    }
+  }
+}
