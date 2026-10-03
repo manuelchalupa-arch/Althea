@@ -13,16 +13,16 @@
             "value": "accelerometer=(self), camera=(), geolocation=(self), gyroscope=(), magnetometer=(), microphone=(self), payment=(), usb=()"
           },
           { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-          { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" }
+          { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://cdn.jsdelivr.net https://*.workers.dev https://wger.de https://nutricion-api-arg.fly.dev; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+          }
         ]
       },
       {
         "source": "/index.html",
         "headers": [
-          {
-            "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://cdn.jsdelivr.net https://*.workers.dev https://wger.de https://nutricion-api-arg.fly.dev; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
-          },
           { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
         ]
       },

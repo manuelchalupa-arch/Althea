@@ -14,8 +14,11 @@ compatibility_date = "2025-09-01"
 
 [vars]
 # Fail-closed: si CORS_ORIGIN falta, el Worker responde 500 (no hay fallback a *).
-# Reemplazar por el origin real de staging ANTES del primer deploy.
-CORS_ORIGIN = "https://STAGING_PROJECT_ID.web.app"
+# Origen de staging: dominio por defecto de Firebase Hosting para un proyecto
+# llamado `althea-staging`. Si tu project id de staging es otro, cambiá esta
+# línea por https://<STAGING_PROJECT_ID>.web.app antes de usar el Coach.
+# Debe seguir siendo DISTINTO del de producción.
+CORS_ORIGIN = "https://althea-staging.web.app"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_TIMEOUT_MS = "60000"
 WGER_TIMEOUT_MS = "15000"
@@ -32,10 +35,10 @@ new_sqlite_classes = ["RateLimiter"]
 
 # Capa 2 (degradacion): KV namespace. Eventualmente consistente; frena abuso
 # trivial pero NO es un techo estricto.
-#   npx wrangler kv namespace create RATE_LIMIT -c wrangler.staging.toml
+# Namespace CREADO: 0f643e89b72743f197bd851c4dd9146e (cuenta staging).
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
-id = "REEMPLAZAR_KV_NAMESPACE_ID_STAGING"
+id = "0f643e89b72743f197bd851c4dd9146e"
 
 # Secrets (server-side, NUNCA en el frontend ni en Git):
 #   npx wrangler secret put GROQ_API_KEY -c wrangler.staging.toml

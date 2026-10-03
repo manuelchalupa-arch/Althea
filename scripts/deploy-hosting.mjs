@@ -45,13 +45,61 @@ if (projectId.includes('REEMPLAZAR') || projectId.startsWith('STAGING_PROJECT_ID
   process.exit(1)
 }
 
-if (env === 'production' && process.env.ALTHEA_ALLOW_PRODUCTION_DEPLOY !== '1') {
-  console.error(
-    '[deploy-hosting] FAIL-CLOSED: deploy de PRODUCCIÓN requiere autorización explícita.\n' +
-      '  Re-exportá ALTHEA_ALLOW_PRODUCTION_DEPLOY=1 sólo cuando el propietario lo autorice.\n' +
-      '  (Regla §29: nunca producción automática.)',
-  )
-  process.exit(1)
+/**
+ * Un deploy de staging NO puede caer en el proyecto de producción.
+ *
+ * `FIREBASE_PROJECT_ID` alcanza por sí solo: si alguien exporta el id de
+ * producción y llama al script de staging por error, el deploy iría a
+ * producción sin que nada lo detenga. Se exige además que el proyecto
+ * coincida con el declarado como staging.
+ */
+function assertStagingProject(id) {
+  const expected = process.env.FIREBASE_STAGING_PROJECT_ID
+  if (!expected || !expected.trim()) {
+    console.error(
+      '[deploy-hosting] FAIL-CLOSED: falta FIREBASE_STAGING_PROJECT_ID.\n' +
+        '  Un deploy de staging debe declarar explícitamente cuál es el proyecto de staging.\n' +
+        '  Sin esta comprobación, un FIREBASE_PROJECT_ID equivocado podría\n' +
+        '  desplegar staging sobre producción.',
+    )
+    process.exit(1)
+  }
+  if (id !== expected.trim()) {
+    console.error(
+      `[deploy-hosting] FAIL-CLOSED: se pidió staging pero el proyecto es "${id}"\n` +
+        `  y el declarado como staging es "${expected.trim()}".\n` +
+        '  Se aborta para no mezclar ambientes.',
+    )
+    process.exit(1)
+  }
+}
+
+/**
+ * Producción exige autorización explícita. Nunca se activa sola.
+ */
+function assertProductionAuthorization() {
+  if (process.env.ALTHEA_ALLOW_PRODUCTION_DEPLOY !== '1') {
+    console.error(
+      '[deploy-hosting] FAIL-CLOSED: deploy de PRODUCCIÓN requiere autorización explícita.\n' +
+        '  Re-exportá ALTHEA_ALLOW_PRODUCTION_DEPLOY=1 sólo cuando el propietario lo autorice.\n' +
+        '  (Regla §29: nunca producción automática.)',
+    )
+    process.exit(1)
+  }
+}
+
+if (env === 'staging') {
+  assertStagingProject(projectId)
+} else {
+  assertProductionAuthorization()
+  const expectedProd = process.env.FIREBASE_PRODUCTION_PROJECT_ID
+  if (expectedProd && expectedProd.trim() && projectId !== expectedProd.trim()) {
+    console.error(
+      `[deploy-hosting] FAIL-CLOSED: se pidió producción con "${projectId}"\n` +
+        `  pero FIREBASE_PRODUCTION_PROJECT_ID es "${expectedProd.trim()}".`,
+    )
+    process.exit(1)
+  }
 }
 
 // SITE_ID explícito cuando el owner define multi-site; si no, se usa el default

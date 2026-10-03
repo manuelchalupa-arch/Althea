@@ -30,9 +30,17 @@ interface FirebaseConfig {
 
 function readCsp(): string {
   const config = JSON.parse(readFileSync(FIREBASE_JSON, 'utf8')) as FirebaseConfig
-  const indexBlock = config.hosting.headers?.find((h) => h.source === '/index.html')
-  const csp = indexBlock?.headers.find((h) => h.key === 'Content-Security-Policy')?.value
-  expect(csp, 'debe existir una CSP en firebase.json para /index.html').toBeTruthy()
+  // La CSP debe estar en el bloque `**`, NO sólo en `/index.html`.
+  //
+  // Motivo: una petición a `/` se sirve desde index.html, pero las cabeceras
+  // de Firebase Hosting se asocian a la RUTA pedida. Si la CSP viviera sólo
+  // en `/index.html`, la carga inicial de la app (que se pide como `/`) podría
+  // servirse sin CSP. Ponerla en `**` la garantiza en cualquier caso; el
+  // navegador ignora la CSP en respuestas que no son documentos, así que no
+  // afecta a los assets.
+  const global = config.hosting.headers?.find((h) => h.source === '**')
+  const csp = global?.headers.find((h) => h.key === 'Content-Security-Policy')?.value
+  expect(csp, 'debe existir una CSP en el bloque ** de firebase.json').toBeTruthy()
   return csp as string
 }
 
@@ -101,12 +109,14 @@ const RUNTIME_ORIGINS: Array<{ host: string; porque: string; enCodigo: boolean }
 describe('CSP de Firebase Hosting', () => {
   const csp = readCsp()
 
-  it('está definida en el bloque /index.html, no en **', () => {
+  it('la CSP está en el bloque ** para que aplique también a la carga inicial en /', () => {
     const config = JSON.parse(readFileSync(FIREBASE_JSON, 'utf8')) as FirebaseConfig
     const cspBlocks = (config.hosting.headers ?? [])
       .filter((h) => h.headers.some((x) => x.key === 'Content-Security-Policy'))
       .map((h) => h.source)
-    expect(cspBlocks).toEqual(['/index.html'])
+    // Si además aparece en /index.html sería redundante, pero lo toleramos.
+    // Lo que no se permite es que SÓLO esté en /index.html.
+    expect(cspBlocks).toContain('**')
   })
 
   it('nunca usa un wildcard en connect-src', () => {

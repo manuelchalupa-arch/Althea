@@ -29,6 +29,22 @@ Navegador
 Regla dura: el frontend **nunca** habla con `api.groq.com`. La única clave
 privada del proyecto (`GROQ_API_KEY`) existe sólo como secret del Worker.
 
+### Estado real del Worker de staging (verificado en vivo)
+
+| Dato | Valor |
+|---|---|
+| Worker | `althea-proxy-staging` |
+| URL | `https://althea-proxy-staging.manuelchalupa.workers.dev` |
+| Version ID del deploy | `f38181b8-0a9e-4f2a-9231-0dbd853d8ed6` |
+| KV namespace (capa 2) | `0f643e89b72743f197bd851c4dd9146e` |
+| Durable Object (capa 1) | `RateLimiter` — enlazada y confirmada en el deploy |
+| `CORS_ORIGIN` | `https://althea-staging.web.app` |
+| `GROQ_API_KEY` | **FALTA** — el Worker responde 503 fail-closed |
+
+El Worker de staging se desplegó y se verificó **contra el servicio real**
+(28 comprobaciones, ver §10). Lo único que no se ha podido exercised es el
+tramo final hacia Groq, que necesita el secret.
+
 ---
 
 ## 2. Variables de entorno
@@ -381,3 +397,135 @@ sus project ids o sus credenciales. En código **no** queda pendiente:
 
 Debe revocarlas/rotarlas el owner en las consolas de los proveedores. No se
 afirma revocación sin comprobarla allí.
+
+---
+
+## 10. Validación live ejecutada
+
+Todo lo de esta sección se ejecutó **contra el Worker desplegado**, no contra
+código ni tests unitarios. Reproducible con:
+
+```bash
+npm run staging:worker:live-check -- <WORKER_URL> <ALLOWED_ORIGIN>
+```
+
+Resultado: **28 PASS / 0 FAIL / 4 NOT VALIDATED**.
+
+| Grupo | Comprobado | Resultado |
+|---|---|---|
+| CORS | OPTIONS con origin permitido → 204 + ACAO correcto | PASS |
+| CORS | OPTIONS con origin no permitido → 403 | PASS |
+| CORS | POST con origin no permitido → 403 | PASS |
+| CORS | el 403 no filtra información interna | PASS |
+| Métodos | GET / PUT / PATCH / DELETE → 405 | PASS |
+| Métodos | 405 incluye `Allow: POST, OPTIONS` | PASS |
+| Content-Type | sin header y `text/plain` → 415 | PASS |
+| Content-Type | `application/json; charset=utf-8` aceptado | PASS |
+| Body limit | > 64 KB → 413 | PASS |
+| Payload | campo inesperado (`api_key`) → 422 | PASS |
+| Payload | rol no permitido → 422 | PASS |
+| Payload | > 40 mensajes → 422 | PASS |
+| Payload | array vacío → 422 | PASS |
+| Payload | `model`/`temperature` del cliente no rompen el proxy | PASS |
+| Secret | sin `GROQ_API_KEY` → 503 fail-closed, sin revelar la clave | PASS |
+| Rate limit | se alcanza el límite → 429 | PASS |
+| Rate limit | `Retry-After` + `X-RateLimit-*` presentes | PASS |
+| Rate limit | **`X-RateLimit-Mode: durable-object`** | PASS |
+
+Ese último punto es el importante: confirma que la capa fuerte del rate limit
+(Durable Object) está **realmente activa en el edge**, no sólo compilada. La
+capa degradada en memoria sigue existiendo para desarrollo, pero en staging la
+respuesta demuestra que no es la que está respondiendo.
+
+### Lo que NO se pudo validar
+
+| Comprobación | Motivo |
+|---|---|
+| Respuesta 200 con contenido del modelo | falta `GROQ_API_KEY` |
+| Timeout upstream → 504 | falta `GROQ_API_KEY` |
+| Error upstream → 502 sanitizado | falta `GROQ_API_KEY` |
+| `frontend → Worker → Groq → frontend` | falta `GROQ_API_KEY` y el frontend en staging |
+
+---
+
+## 11. Corrección de la CSP: de `/index.html` a `**`
+
+La CSP estaba declarada sólo en el bloque `source: "/index.html"`. Eso es un
+riesgo real: Firebase Hosting asocia las cabeceras a la **ruta pedida**, y la
+carga inicial de la app se pide como `/`, no como `/index.html`. Con la CSP
+sólo en `/index.html`, la visita inicial a `https://<proyecto>.web.app/`
+podía servirse **sin CSP**, y en ese caso toda la allowlist de `connect-src`
+—incluida la corrección de WGER y Codulia— no se aplicaba.
+
+Movida al bloque `**`. El navegador ignora la CSP en respuestas que no son
+documentos, así que no afecta a los assets, y a cambio la política queda
+garantizada en cualquier forma de entrada.
+
+Verificado: una petición a `/` ahora recibe la CSP. El test
+`src/config/hostingHeaders.test.ts` lo fija para que no vuelva a pasar.
+
+---
+
+## 12. Baseline de performance (medido, no citado)
+
+Medido sobre `dist/` recién construido:
+
+| Métrica | Valor |
+|---|---|
+| Initial JS (declarado en `index.html`) | **169.2 KB gzip** |
+| Objetivo T032 | < 150 KB gzip |
+| Total JS | 59 chunks, 2130.1 KB raw / 582.7 KB gzip |
+| Mayor chunk | `vendor-firebase` 634.4 KB raw / **140.0 KB gzip** (no está en el set inicial) |
+| Lighthouse Performance | 72 (sin remedir) |
+| PWA | 100 |
+
+El set inicial lo componen `index` (74.0), `vendor-react` (44.7),
+`vendor-state` (31.6), `vendor-router` (13.5), `vendor-icons` (4.8) y
+`vendor-utils` (0.6).
+
+**T032 NO se cumple: 169.2 KB gzip > 150 KB.** Se registra como
+`DOCUMENTED PERFORMANCE DEBT`. No se abre una refactorización global por esto:
+`vendor-firebase` ya está fuera del set inicial, y mover Dexie/Auth fuera del
+arranque es una decisión de producto con riesgo funcional, no un ajuste de
+build. Detalle en `docs/PENDIENTES_OTRO_AGENTE.md` (P1).
+
+---
+
+## 13. Automatización añadida
+
+| Script | Para qué |
+|---|---|
+| `scripts/staging-preflight.mjs` | 27 comprobaciones locales: archivos, CSP, rewrites, reglas, separación de ambientes, placeholders, secretos, `.env*`, CLI, datos ficticios. Salida 0/1/2. |
+| `scripts/worker-staging-preflight.mjs` | Config del Worker, CLI y sesión de Cloudflare, y presencia del secret (nunca su valor). |
+| `scripts/worker-live-check.mjs` | Matriz de seguridad contra el Worker **desplegado**. |
+| `scripts/firestore-isolation-e2e.mjs` | Aislamiento A/B contra Firestore real usando sólo la config web pública. |
+| `scripts/hosting-route-check.mjs` | Rutas, fallback SPA, assets y cabeceras contra Hosting real. |
+
+```bash
+npm run staging:preflight
+npm run worker:staging:preflight
+npm run staging:worker:live-check -- <WORKER_URL> <ALLOWED_ORIGIN>
+npm run staging:firestore:e2e
+npm run staging:hosting:check -- <HOSTING_URL>
+```
+
+Todos usan el mismo contrato de salida: **0 = PASS, 1 = FAIL (repo),
+2 = BLOCKED (owner)**. Ninguno imprime secretos.
+
+Nota sobre `hosting-route-check.mjs`: las rutas se **leen de `src/App.tsx`**,
+no de una lista escrita a mano. `/inicio` y `/historial` parecen rutas pero no
+lo son — Inicio vive en `/` y no existe ruta de historial — y una lista fija
+habría reportado 404 falsos sobre una app que funciona.
+
+### Guards de deploy reforzados
+
+`scripts/deploy-hosting.mjs` ahora exige, además de `FIREBASE_PROJECT_ID`:
+
+- `assertStagingProject()` — un deploy de staging debe coincidir con
+  `FIREBASE_STAGING_PROJECT_ID`. Sin esto, un `FIREBASE_PROJECT_ID` equivocado
+  desplegaría staging sobre producción sin que nada lo detenga.
+- `assertProductionAuthorization()` — producción exige
+  `ALTHEA_ALLOW_PRODUCTION_DEPLOY=1`.
+
+Verificado en 5 escenarios: sin ambiente, sin `PROJECT_ID`, placeholder,
+staging→producción y producción sin autorización. Los cinco abortan.

@@ -21,7 +21,13 @@
     "worker:secret:staging": "cd worker && npx wrangler secret put GROQ_API_KEY -c wrangler.staging.toml",
     "worker:secret:production": "cd worker && npx wrangler secret put GROQ_API_KEY -c wrangler.production.toml",
     "worker:kv:staging": "cd worker && npx wrangler kv namespace create RATE_LIMIT -c wrangler.staging.toml",
-    "worker:kv:production": "cd worker && npx wrangler kv namespace create RATE_LIMIT -c wrangler.production.toml"
+    "worker:kv:production": "cd worker && npx wrangler kv namespace create RATE_LIMIT -c wrangler.production.toml",
+    "staging:preflight": "node scripts/staging-preflight.mjs",
+    "worker:staging:preflight": "node scripts/worker-staging-preflight.mjs",
+    "staging:worker:live-check": "node scripts/worker-live-check.mjs",
+    "staging:firestore:e2e": "node scripts/firestore-isolation-e2e.mjs",
+    "staging:hosting:check": "node scripts/hosting-route-check.mjs",
+    "staging:verify:all": "npm run staging:preflight && npm run worker:staging:preflight"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
