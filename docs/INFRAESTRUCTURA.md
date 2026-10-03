@@ -466,28 +466,76 @@ Verificado: una petición a `/` ahora recibe la CSP. El test
 
 ---
 
-## 12. Baseline de performance (medido, no citado)
+## 12. Performance — T032 RESUELTO
 
-Medido sobre `dist/` recién construido:
+### El defecto real
 
-| Métrica | Valor |
+`src/App.tsx` importaba `ChatWidget` de forma **estática**. `ChatWidget` importa
+`chatService` y `unifiedPipeline`, que arrastran todo el subsistema de IA:
+
+```
+App.tsx (estático) → ChatWidget → chatService → unifiedPipeline
+                   → systemPrompt → contextBuilder → methodSelector
+                   → trainingMethodsDB (22.5 KB) + nutritionMethodsDB (30.9 KB)
+```
+
+Todo eso aterrizaba en el **chunk inicial**, aunque el primer render no usa
+nada de eso: el chat es un FAB y sólo se necesita cuando alguien abre el chat.
+
+Las páginas ya estaban en `lazy()` y Firebase ya se cargaba con `import()`
+dinámico, así que no había nada que hacer ahí. Firebase (140 KB gzip) ya estaba
+**fuera** del set inicial.
+
+### La corrección
+
+Una línea de diferencia — `lazy()` en lugar de import estático — más un
+`<Suspense>`. Sin tocar arquitectura de datos, sin cambiar Dexie, sin quitar
+funcionalidad.
+
+```tsx
+const ChatWidget = lazy(() => import('@/components/chat/ChatWidget'))
+```
+
+### Resultado medido
+
+| | Antes | Después | Δ |
+|---|---|---|---|
+| Initial JS gzip | 169.2 KB | **128.6 KB** | **−40.6 KB (−24%)** |
+| Presupuesto T032 | < 150 KB | — | **CUMPLE** |
+| Chunk de entrada | 244.5 KB raw | 164.4 KB raw | −80 KB |
+
+Detalle del set inicial tras el cambio:
+
+| Chunk | gzip |
 |---|---|
-| Initial JS (declarado en `index.html`) | **169.2 KB gzip** |
-| Objetivo T032 | < 150 KB gzip |
-| Total JS | 59 chunks, 2130.1 KB raw / 582.7 KB gzip |
-| Mayor chunk | `vendor-firebase` 634.4 KB raw / **140.0 KB gzip** (no está en el set inicial) |
-| Lighthouse Performance | 72 (sin remedir) |
-| PWA | 100 |
+| `index` | 42.2 KB |
+| `vendor-react` | 44.7 KB |
+| `vendor-state` (Dexie) | 31.6 KB |
+| `vendor-router` | 13.5 KB |
+| `vendor-icons` | 4.8 KB |
+| `vendor-utils` | 0.6 KB |
+| **Total** | **128.6 KB** |
 
-El set inicial lo componen `index` (74.0), `vendor-react` (44.7),
-`vendor-state` (31.6), `vendor-router` (13.5), `vendor-icons` (4.8) y
-`vendor-utils` (0.6).
+Largest chunk del proyecto sigue siendo `vendor-firebase` (140 KB gzip), pero ya
+no bloquea el arranque.
 
-**T032 NO se cumple: 169.2 KB gzip > 150 KB.** Se registra como
-`DOCUMENTED PERFORMANCE DEBT`. No se abre una refactorización global por esto:
-`vendor-firebase` ya está fuera del set inicial, y mover Dexie/Auth fuera del
-arranque es una decisión de producto con riesgo funcional, no un ajuste de
-build. Detalle en `docs/PENDIENTES_OTRO_AGENTE.md` (P1).
+### Por qué los bytes restantes son necesarios
+
+- `vendor-react` 44.7 KB — React + ReactDOM. Insustituible sin reescribir.
+- `vendor-state` 31.6 KB — **Dexie**, importado estáticamente por
+  `src/services/storage/db`. Diferirlo exigiría cambiar la arquitectura de
+  datos (offline-first), que está explícitamente fuera de alcance.
+- `vendor-router` 13.5 KB — React Router, ya code-split por ruta.
+
+### Guardia de regresión
+
+`src/config/bundleBudget.test.ts` (6 tests) falla si alguien vuelve a importar
+ChatWidget o la cadena de IA estáticamente, y mide el presupuesto real sobre
+`dist/`. Verificado que **falla** al revertir el `lazy()`.
+
+```bash
+npm test -- src/config/bundleBudget.test.ts
+```
 
 ---
 

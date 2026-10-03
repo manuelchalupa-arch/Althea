@@ -24,10 +24,14 @@
     "worker:kv:production": "cd worker && npx wrangler kv namespace create RATE_LIMIT -c wrangler.production.toml",
     "staging:preflight": "node scripts/staging-preflight.mjs",
     "worker:staging:preflight": "node scripts/worker-staging-preflight.mjs",
+    "staging:validate": "node scripts/staging/validate-staging.mjs",
+    "staging:pwa:check": "node scripts/staging/pwa-check.mjs",
+    "staging:http:smoke": "node scripts/staging/http-smoke.mjs",
+    "staging:auth:e2e": "node scripts/staging/auth-e2e.mjs",
     "staging:worker:live-check": "node scripts/worker-live-check.mjs",
     "staging:firestore:e2e": "node scripts/firestore-isolation-e2e.mjs",
     "staging:hosting:check": "node scripts/hosting-route-check.mjs",
-    "staging:verify:all": "npm run staging:preflight && npm run worker:staging:preflight"
+    "staging:verify:all": "node scripts/staging/validate-staging.mjs && node scripts/staging/pwa-check.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

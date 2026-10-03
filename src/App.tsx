@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { Suspense } from 'react'
 import AppNav from '@/components/layout/AppNav'
-import ChatWidget from '@/components/chat/ChatWidget'
 import { RequiredActionGate } from '@/components/notifications/RequiredActionGate'
 import { AppHeader, TempleBackdrop } from '@/components/brand/temple'
 import { MeanderFrieze } from '@/components/brand/MeanderFrieze'
@@ -53,6 +52,12 @@ const Nutricion = lazy(() => import('@/pages/Nutricion'))
 const Recuperacion = lazy(() => import('@/pages/Recuperacion'))
 const Perfil = lazy(() => import('@/pages/Perfil'))
 const Login = lazy(() => import('@/pages/Login'))
+// El chat es un FAB que está montado siempre, pero arrastra detrás todo el
+// subsistema de IA (chatService → unifiedPipeline → systemPrompt → contextBuilder
+// → *MethodsDB), que son ~150 KB de JS que el primer render no usa. Con import
+// estático esa cadena entra en el chunk inicial. Se difiere: el FAB aparece
+// tras cargar su chunk, sin bloquear el resto de la app.
+const ChatWidget = lazy(() => import('@/components/chat/ChatWidget'))
 
 // Fallback component for lazy loading
 function PageLoader() {
@@ -250,7 +255,11 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
       </Routes>
       </div>
       {!hideNav && <AppNav/>}
-      {!hideNav && <ChatWidget/>}
+      {!hideNav && (
+        <Suspense fallback={null}>
+          <ChatWidget/>
+        </Suspense>
+      )}
       {updateReady && <div className="fixed top-2 left-2 right-2 z-50 bg-tertiary text-on-tertiary text-sm p-3 rounded-xl text-center shadow-al-md">Nueva versión disponible — recargá la app</div>}
       <OnlineBanner/>
       </RequiredActionGate>
