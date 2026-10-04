@@ -21,9 +21,10 @@
     },
     "license": "private (sin LICENSE en el repo)",
     "productionDeploy": false,
-    "productionReady": false
+    "productionReady": false,
+    "lastUpdated": "2026-10-04",
+    "lastUpdateNote": "Actualizado tras: eliminacion de los valores de VITE_GROQ_API_KEY y VITE_NINJA_API_KEY en .env.local, y borrado de la carpeta ALTHEA_VISUAL_SYSTEM_FINAL/ del disco."
   },
-
   "identity": {
     "product": "Cuaderno de gimnasio offline-first con dominio de entrenamiento, nutrición, recuperación y Coach IA.",
     "audience": "Persona que entrena de forma regular en gimnasio, de principiante a avanzado, que quiere guiar su entrenamiento sin depender de un entrenador personal y sin depender de conexion.",
@@ -40,7 +41,6 @@
       "Revisar evolucion (progreso, informes, adherencia)"
     ]
   },
-
   "techStack": {
     "runtime": {
       "language": "TypeScript 5.7",
@@ -79,7 +79,6 @@
       "axios": "no se usa"
     }
   },
-
   "architecture": {
     "principles": [
       "Dexie es la fuente canonica del dominio; UI nunca escribe numeros calculados a mano.",
@@ -114,7 +113,6 @@
     ],
     "dataFlow": "UI -> Store (Dexie) -> Servicio de calculo ->derivado en memoria -> UI"
   },
-
   "routing": {
     "router": "BrowserRouter + React.lazy por pagina",
     "allPagesLazyLoaded": true,
@@ -256,7 +254,6 @@
       "onboardingRedirect": "Si userProfile 'me' tiene onboardingDone=false o no tiene email, navega a /onboarding."
     }
   },
-
   "navigation": {
     "component": "src/components/layout/AppNav.tsx",
     "itemSource": ["src/components/brand/icons.ts (NAV_ITEMS, MAS_GROUPS)"],
@@ -279,27 +276,58 @@
     },
     "primaryItemsFilter": "primaryItems = NAV_ITEMS filtrado por iconos [home, nutrition, progress] + 'training' solo si hay sesion activa.",
     "resolvedPrimary": [
-      { "label": "Inicio", "to": "/", "icon": "home/inicio" },
+      {
+        "label": "Inicio",
+        "to": "/",
+        "icon": "home/inicio"
+      },
       {
         "label": "Entrenar",
         "to": "/entrenar",
         "icon": "training/entrenar",
         "condition": "solo con sesion activa"
       },
-      { "label": "Nutrición", "to": "/nutricion", "icon": "nutrition/nutricion" },
-      { "label": "Progreso", "to": "/progresos", "icon": "progress/progreso" }
+      {
+        "label": "Nutrición",
+        "to": "/nutricion",
+        "icon": "nutrition/nutricion"
+      },
+      {
+        "label": "Progreso",
+        "to": "/progresos",
+        "icon": "progress/progreso"
+      }
     ],
     "modules": [
-      { "label": "Ejercicios y músculos", "to": "/biblioteca", "icon": "library/biblioteca" },
-      { "label": "Rutinas", "to": "/rutinas", "icon": "routines/rutinas" },
-      { "label": "Calendario y recuperación", "to": "/calendario", "icon": "calendar/calendario" },
-      { "label": "Coach y objetivos", "to": "/coach", "icon": "coach/coach" },
-      { "label": "Perfil y configuración", "to": "/perfil", "icon": "profile/perfil" }
+      {
+        "label": "Ejercicios y músculos",
+        "to": "/biblioteca",
+        "icon": "library/biblioteca"
+      },
+      {
+        "label": "Rutinas",
+        "to": "/rutinas",
+        "icon": "routines/rutinas"
+      },
+      {
+        "label": "Calendario y recuperación",
+        "to": "/calendario",
+        "icon": "calendar/calendario"
+      },
+      {
+        "label": "Coach y objetivos",
+        "to": "/coach",
+        "icon": "coach/coach"
+      },
+      {
+        "label": "Perfil y configuración",
+        "to": "/perfil",
+        "icon": "profile/perfil"
+      }
     ],
     "suppressedDuplicates": ["Nutrición", "Progreso y estadísticas"],
     "accessibility": "Cada entrada usa NavLink con title y aria-label; activeId compara pathname exacto."
   },
-
   "pages": {
     "$lineCountNote": "lines = conteo fisico del archivo (split por LF, incluye la ultima linea vacia si el archivo termina en salto de linea).",
     "Login": {
@@ -373,7 +401,6 @@
       "purpose": "Sub-componente (no ruta) para crear/editar ejercicio custom."
     }
   },
-
   "dataLayer": {
     "orm": "Dexie 4",
     "databaseName": "trainPWA",
@@ -391,7 +418,12 @@
         "primaryKey": "id",
         "indexes": ["groupMain", "equipment", "level", "pattern", "*tags"]
       },
-      { "name": "routines", "version": 1, "primaryKey": "id", "indexes": ["createdAt"] },
+      {
+        "name": "routines",
+        "version": 1,
+        "primaryKey": "id",
+        "indexes": ["createdAt"]
+      },
       {
         "name": "routineDays",
         "version": 1,
@@ -418,8 +450,18 @@
         "indexes": ["sessionId", "exerciseId", "createdAt"],
         "note": "legacy"
       },
-      { "name": "recoveryChecks", "version": 1, "primaryKey": "id", "indexes": ["localDate"] },
-      { "name": "hydrationLogs", "version": 1, "primaryKey": "id", "indexes": ["localDate"] },
+      {
+        "name": "recoveryChecks",
+        "version": 1,
+        "primaryKey": "id",
+        "indexes": ["localDate"]
+      },
+      {
+        "name": "hydrationLogs",
+        "version": 1,
+        "primaryKey": "id",
+        "indexes": ["localDate"]
+      },
       {
         "name": "userProfile",
         "version": 1,
@@ -427,7 +469,12 @@
         "indexes": [],
         "note": "clave fija 'me'"
       },
-      { "name": "syncQueue", "version": 1, "primaryKey": "id", "indexes": ["status", "createdAt"] },
+      {
+        "name": "syncQueue",
+        "version": 1,
+        "primaryKey": "id",
+        "indexes": ["status", "createdAt"]
+      },
       {
         "name": "bodyMeasurements",
         "version": 2,
@@ -513,7 +560,12 @@
         "primaryKey": "id",
         "indexes": ["timestamp", "type", "createdAt"]
       },
-      { "name": "scoreSnapshots", "version": 7, "primaryKey": "id", "indexes": ["date", "score"] },
+      {
+        "name": "scoreSnapshots",
+        "version": 7,
+        "primaryKey": "id",
+        "indexes": ["date", "score"]
+      },
       {
         "name": "exerciseKnowledge",
         "version": 7,
@@ -565,11 +617,36 @@
         "primaryKey": "id",
         "indexes": ["date", "exerciseId"]
       },
-      { "name": "sessionChanges", "version": 13, "primaryKey": "id", "indexes": ["date"] },
-      { "name": "sessionObservations", "version": 13, "primaryKey": "id", "indexes": ["date"] },
-      { "name": "exerciseGymCache", "version": 13, "primaryKey": "key", "indexes": [] },
-      { "name": "migrationStatus", "version": 13, "primaryKey": "id", "indexes": [] },
-      { "name": "onboardingDrafts", "version": 14, "primaryKey": "id", "indexes": ["updatedAt"] },
+      {
+        "name": "sessionChanges",
+        "version": 13,
+        "primaryKey": "id",
+        "indexes": ["date"]
+      },
+      {
+        "name": "sessionObservations",
+        "version": 13,
+        "primaryKey": "id",
+        "indexes": ["date"]
+      },
+      {
+        "name": "exerciseGymCache",
+        "version": 13,
+        "primaryKey": "key",
+        "indexes": []
+      },
+      {
+        "name": "migrationStatus",
+        "version": 13,
+        "primaryKey": "id",
+        "indexes": []
+      },
+      {
+        "name": "onboardingDrafts",
+        "version": 14,
+        "primaryKey": "id",
+        "indexes": ["updatedAt"]
+      },
       {
         "name": "painLogs",
         "version": 15,
@@ -582,8 +659,18 @@
         "primaryKey": "id",
         "indexes": ["scope", "status", "effectiveFrom"]
       },
-      { "name": "notifConfigs", "version": 18, "primaryKey": "id", "indexes": [] },
-      { "name": "notifLog", "version": 18, "primaryKey": "id", "indexes": ["date"] },
+      {
+        "name": "notifConfigs",
+        "version": 18,
+        "primaryKey": "id",
+        "indexes": []
+      },
+      {
+        "name": "notifLog",
+        "version": 18,
+        "primaryKey": "id",
+        "indexes": ["date"]
+      },
       {
         "name": "hydrationBottles",
         "version": 19,
@@ -702,7 +789,6 @@
       }
     ]
   },
-
   "domains": {
     "training": {
       "officialModelFile": "src/services/training/domain.ts",
@@ -890,13 +976,23 @@
         "deterministic": true,
         "sources": ["groq", "local"]
       },
-      "provider": { "file": "src/services/ai/fallbackAIProvider.ts", "name": "Determinístico" },
+      "provider": {
+        "file": "src/services/ai/fallbackAIProvider.ts",
+        "name": "Determinístico"
+      },
       "rateLimit": {
         "file": "src/services/ai/groqUsage.ts",
         "storage": "localStorage['groq:usage']",
-        "freeTier": { "rpm": 30, "tpm": 8000, "rpd": 1000 }
+        "freeTier": {
+          "rpm": 30,
+          "tpm": 8000,
+          "rpd": 1000
+        }
       },
-      "intents": { "file": "src/services/ai/intentRouter.ts", "deterministic": true },
+      "intents": {
+        "file": "src/services/ai/intentRouter.ts",
+        "deterministic": true
+      },
       "personality": {
         "file": "src/services/ai/coachPersonality.ts",
         "tones": ["PADELERO", "ABUELITOS", "ARNOLD", "PSYCHO"]
@@ -918,7 +1014,10 @@
           "file": "src/services/ai/compatibilityEngine.ts",
           "purpose": "checkCompatibility, getAdjustedVolume"
         },
-        { "file": "src/services/ai/goalEngine.ts", "purpose": "resolveGoal, getGoalLabel" }
+        {
+          "file": "src/services/ai/goalEngine.ts",
+          "purpose": "resolveGoal, getGoalLabel"
+        }
       ],
       "analysis": [
         {
@@ -1060,7 +1159,6 @@
       "gate": "RequiredActionGate envuelve la app en src/App.tsx"
     }
   },
-
   "types": {
     "file": "src/types/index.ts",
     "lines": 182,
@@ -1130,7 +1228,6 @@
     },
     "deprecationNote": "Session, SetLog, LegacyTrainingSession, LegacyExerciseRecord son capa legacy de solo lectura; la nomenclatura oficial vive en src/services/training/domain.ts y se re-exporta desde types/index.ts."
   },
-
   "integrations": {
     "policy": "Ninguna integracion externa es fuente de verdad. Todas enriquecen; el dominio sigue operando sin ellas.",
     "exerciseGymGifsDB": {
@@ -1180,7 +1277,6 @@
       "calorieNinjas": "sin clientes, sin claves, sin llamadas (eliminado historicamente)"
     }
   },
-
   "infrastructure": {
     "cloudflareWorker": {
       "directory": "worker/",
@@ -1207,7 +1303,11 @@
           "path": "/api/wger/token",
           "behavior": "Proxy a POST https://wger.de/api/v2/auth/token/ con user/pass; cookie wger_token Max-Age=86400"
         },
-        { "method": "DELETE", "path": "/api/wger/token", "behavior": "Limpia cookie (Max-Age=0)" },
+        {
+          "method": "DELETE",
+          "path": "/api/wger/token",
+          "behavior": "Limpia cookie (Max-Age=0)"
+        },
         {
           "method": "POST",
           "path": "/api/wger/refresh",
@@ -1300,8 +1400,16 @@
         "chain": ["durable-object", "kv", "memory-degraded"],
         "algorithm": "Ventana fija",
         "limits": {
-          "groq": { "max": 20, "windowSeconds": 60, "keyPrefix": "rl:groq" },
-          "wger": { "max": 60, "windowSeconds": 60, "keyPrefix": "rl:wger" }
+          "groq": {
+            "max": 20,
+            "windowSeconds": 60,
+            "keyPrefix": "rl:groq"
+          },
+          "wger": {
+            "max": 60,
+            "windowSeconds": 60,
+            "keyPrefix": "rl:wger"
+          }
         },
         "durableObject": {
           "name": "RateLimiter",
@@ -1361,10 +1469,22 @@
           "default": "https://api.groq.com/openai/v1/chat/completions",
           "ifMissing": "usa default"
         },
-        "GROQ_TIMEOUT_MS": { "kind": "var opcional", "default": 60000 },
-        "WGER_TIMEOUT_MS": { "kind": "var opcional", "default": 15000 },
-        "RATE_LIMITER": { "kind": "DO binding", "ifMissing": "degrada a KV" },
-        "RATE_LIMIT": { "kind": "KV binding", "ifMissing": "degrada a memory (memory-degraded)" }
+        "GROQ_TIMEOUT_MS": {
+          "kind": "var opcional",
+          "default": 60000
+        },
+        "WGER_TIMEOUT_MS": {
+          "kind": "var opcional",
+          "default": 15000
+        },
+        "RATE_LIMITER": {
+          "kind": "DO binding",
+          "ifMissing": "degrada a KV"
+        },
+        "RATE_LIMIT": {
+          "kind": "KV binding",
+          "ifMissing": "degrada a memory (memory-degraded)"
+        }
       },
       "hardcodedServerConstants": {
         "GROQ_MODEL": "openai/gpt-oss-20b",
@@ -1380,7 +1500,12 @@
       "publicDir": "dist",
       "source": "firebase.json",
       "headersSource": "** (global, incluye /)",
-      "rewrites": [{ "source": "**", "destination": "/index.html" }],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
       "netlifyFallback": "public/_redirects -> /* /index.html 200",
       "securityHeaders": {
         "X-Content-Type-Options": "nosniff",
@@ -1397,20 +1522,31 @@
         "connectSrcWorkersDev": "requerido por el proxy Groq"
       },
       "cacheRules": [
-        { "source": "/index.html", "header": "Cache-Control: no-cache, no-store, must-revalidate" },
-        { "source": "/assets/**", "header": "Cache-Control: public, max-age=31536000, immutable" },
-        { "source": "/sw.js", "header": "Cache-Control: no-cache, no-store, must-revalidate" },
+        {
+          "source": "/index.html",
+          "header": "Cache-Control: no-cache, no-store, must-revalidate"
+        },
+        {
+          "source": "/assets/**",
+          "header": "Cache-Control: public, max-age=31536000, immutable"
+        },
+        {
+          "source": "/sw.js",
+          "header": "Cache-Control: no-cache, no-store, must-revalidate"
+        },
         {
           "source": "/workbox-*.js",
           "header": "Cache-Control: no-cache, no-store, must-revalidate"
         },
-        { "source": "/manifest.webmanifest", "header": "Content-Type: application/manifest+json" }
+        {
+          "source": "/manifest.webmanifest",
+          "header": "Content-Type: application/manifest+json"
+        }
       ],
       "firestoreRules": "firestore.rules",
       "firebaserc": "NO existe (solo .firebaserc.example)"
     }
   },
-
   "security": {
     "firestoreRules": {
       "file": "firestore.rules",
@@ -1447,8 +1583,12 @@
       "vitePrefixedVarsInDotEnvLocal": {
         "vars": ["VITE_GROQ_API_KEY", "VITE_NINJA_API_KEY"],
         "readByAppCode": false,
-        "risk": "Estan prefijadas con VITE_ (Vite las inlinearia en un build con ese .env cargado) pero ningun codigo las lee. Son claves muertas y el riesgo mas alto encontrado en la auditoria.",
-        "recommendation": "Rotar y eliminar de .env.local."
+        "status": "RESUELTO_LOCALMENTE",
+        "resolvedOn": "2026-10-04",
+        "previousState": "Estaban prefijadas con VITE_ en .env.local (Vite las inlinearia en un build con ese archivo cargado) pese a que ningun codigo las lee. Sus valores fueron eliminados del disco.",
+        "currentState": "Los valores ya no estan en disco. .env.local quedo sin asignaciones: solo conserva los nombres de variable sueltos, sin \"=\", que ningun parser de dotenv resuelve y ningun codigo lee.",
+        "residualRisk": "Borrar el archivo NO revoca las claves: siguen siendo validas en los consoles de Groq y CalorieNinjas. La revocacion es una accion externa pendiente.",
+        "remainingAction": "Revocar en console.groq.com (clave gsk_) y en la consola de CalorieNinjas."
       },
       "declaredButUnread": ["VITE_CALORIE_NINJAS_KEY", "VITE_GROQ_SECRET", "VITE_CLOUDFLARE_TOKEN"],
       "forbiddenByPolicy": ["VITE_WGER_* (nunca creados; credenciales WGER solo via Worker)"]
@@ -1464,7 +1604,6 @@
       "productionGate": "ALTHEA_ALLOW_PRODUCTION_DEPLOY debe ser exactamente '1'"
     }
   },
-
   "pwa": {
     "manifestFile": "public/manifest.webmanifest",
     "generatedByPlugin": false,
@@ -1614,7 +1753,6 @@
       "firebase-messaging-sw.js": "1.4 KB"
     }
   },
-
   "designSystem": {
     "tokenFiles": [
       "src/styles/althea-tokens.css (159)",
@@ -1634,7 +1772,11 @@
       "systemThemeOption": false,
       "textScale": {
         "key": "localStorage['althea:textscale']",
-        "options": { "s": "87.5%", "m": "100% (default)", "l": "112.5%" }
+        "options": {
+          "s": "87.5%",
+          "m": "100% (default)",
+          "l": "112.5%"
+        }
       }
     },
     "typography": {
@@ -1642,7 +1784,10 @@
         "font": "'Playfair Display', ui-serif, Georgia, serif",
         "role": "marca, titulos, numeros protagonistas"
       },
-      "ui": { "font": "'Inter', ui-sans-serif, -apple-system, sans-serif", "role": "datos, UI" },
+      "ui": {
+        "font": "'Inter', ui-sans-serif, -apple-system, sans-serif",
+        "role": "datos, UI"
+      },
       "thirdFont": "ninguna",
       "tailwindAliases": {
         "headline": ["Playfair Display", "Georgia", "serif"],
@@ -1657,7 +1802,10 @@
         "body-sm": "0.75rem",
         "label": "0.6875rem"
       },
-      "lineHeights": { "display": 1.15, "body": 1.5 }
+      "lineHeights": {
+        "display": 1.15,
+        "body": 1.5
+      }
     },
     "colorLight": {
       "primary": "#1B4332",
@@ -1774,7 +1922,6 @@
       "note": "Vetas de marmol por gradiente CSS (sin imagenes); fret divider en SVG data-URI con el oro de marca"
     }
   },
-
   "data": {
     "directory": "src/data",
     "files": [
@@ -1784,7 +1931,11 @@
         "records": "10 ejercicios",
         "shape": "id, name (es), alias (en), groupMain, groupsSecondary[], equipment, level, pattern, description, instructions[], variantIds[], muscles[], restrictions[], tags[]"
       },
-      { "path": "src/data/knowledge/index.ts", "sizeKb": 0.4, "records": "barrel de 6 JSONs" },
+      {
+        "path": "src/data/knowledge/index.ts",
+        "sizeKb": 0.4,
+        "records": "barrel de 6 JSONs"
+      },
       {
         "path": "src/data/knowledge/hypertrophy.json",
         "sizeKb": 3.7,
@@ -1822,13 +1973,16 @@
         "title": "Movilidad y Flexibilidad"
       }
     ],
-    "knowledgeBase": { "documents": 6, "totalChunks": 31, "persistedTo": "db.knowledgeDocuments" },
+    "knowledgeBase": {
+      "documents": 6,
+      "totalChunks": 31,
+      "persistedTo": "db.knowledgeDocuments"
+    },
     "externalCatalog": {
       "name": "ExerciseGymGifsDB",
       "note": "El catalogo real llega de la API; los 10 ejercicios locales son semilla/huerfanos de fallback."
     }
   },
-
   "environmentVariables": {
     "publicBundled": [
       {
@@ -1909,8 +2063,14 @@
         "readAt": ["scripts/worker-staging-preflight.mjs:92", "scripts/staging-preflight.mjs:249"],
         "purpose": "SECRET; solo status, nunca impreso"
       },
-      { "name": "CLOUDFLARE_ACCOUNT_ID", "readAt": "scripts/worker-staging-preflight.mjs:102" },
-      { "name": "STAGING_URL", "readAt": "scripts/staging/http-smoke.mjs:27" },
+      {
+        "name": "CLOUDFLARE_ACCOUNT_ID",
+        "readAt": "scripts/worker-staging-preflight.mjs:102"
+      },
+      {
+        "name": "STAGING_URL",
+        "readAt": "scripts/staging/http-smoke.mjs:27"
+      },
       {
         "name": "STAGING_WORKER_URL",
         "readAt": "scripts/staging/http-smoke.mjs:29",
@@ -1937,21 +2097,30 @@
       }
     ],
     "envFiles": {
-      ".env.example": { "present": true, "vars": "las 8 VITE_* con valores placeholder" },
+      ".env.example": {
+        "present": true,
+        "vars": "las 8 VITE_* con valores placeholder"
+      },
       ".env.local": {
         "present": true,
-        "vars": [
-          "VITE_GROQ_API_KEY (NO leida por codigo)",
-          "VITE_NINJA_API_KEY (NO leida por codigo)"
-        ],
+        "assignmentCount": 0,
+        "leftover": "Solo los nombres VITE_GROQ_API_KEY y VITE_NINJA_API_KEY sin \"=\" ni valor.",
+        "values": "eliminados el 2026-10-04",
+        "readByAppCode": false,
+        "gitignored": true,
+        "note": "Sin asignaciones no aporta nada al build. La IA remota no depende de este archivo: sale de .env.production (VITE_GROQ_PROXY_URL) o del secret GROQ_API_KEY del Worker."
+      },
+      ".env.production": {
+        "present": true,
+        "vars": ["VITE_GROQ_PROXY_URL"],
         "gitignored": true
       },
-      ".env.production": { "present": true, "vars": ["VITE_GROQ_PROXY_URL"], "gitignored": true },
-      ".env.staging": { "present": false }
+      ".env.staging": {
+        "present": false
+      }
     },
     "note": "No hay referencias a import.meta.env ni process.env dentro de worker/ o scripts/ (worker usa env del binding)."
   },
-
   "sync": {
     "philosophy": "Dexie es autoritativo; el remoto es backup.",
     "remoteModel": "users/{uid}/{coleccion}/{docId} con merge por id estable",
@@ -1977,7 +2146,6 @@
       "log": "wgerSyncLog.ts"
     }
   },
-
   "firebase": {
     "auth": {
       "file": "src/services/firebase/auth.ts",
@@ -2003,7 +2171,6 @@
       "secondServiceWorker": "/firebase-messaging-sw.js"
     }
   },
-
   "testing": {
     "runner": "Vitest 5",
     "script": "npm run test (vitest run)",
@@ -2021,14 +2188,38 @@
       "totalItBlocks": 1301,
       "totalDescribeBlocks": 333,
       "byDirectory": {
-        "src/services": { "files": 83, "itBlocks": 936 },
-        "src/pages": { "files": 19, "itBlocks": 58 },
-        "src/components": { "files": 17, "itBlocks": 110 },
-        "src/utils": { "files": 7, "itBlocks": 64 },
-        "src/test": { "files": 3, "itBlocks": 35 },
-        "src/config": { "files": 2, "itBlocks": 19 },
-        "src/features": { "files": 2, "itBlocks": 8 },
-        "worker": { "files": 2, "itBlocks": 70 }
+        "src/services": {
+          "files": 83,
+          "itBlocks": 936
+        },
+        "src/pages": {
+          "files": 19,
+          "itBlocks": 58
+        },
+        "src/components": {
+          "files": 17,
+          "itBlocks": 110
+        },
+        "src/utils": {
+          "files": 7,
+          "itBlocks": 64
+        },
+        "src/test": {
+          "files": 3,
+          "itBlocks": 35
+        },
+        "src/config": {
+          "files": 2,
+          "itBlocks": 19
+        },
+        "src/features": {
+          "files": 2,
+          "itBlocks": 8
+        },
+        "worker": {
+          "files": 2,
+          "itBlocks": 70
+        }
       },
       "scriptsHaveUnitTests": false
     },
@@ -2059,7 +2250,6 @@
       ]
     }
   },
-
   "buildAndPerformance": {
     "buildScript": "npm run build (tsc && vite build)",
     "minifier": "esbuild",
@@ -2081,7 +2271,7 @@
       "budgetKB": 150,
       "budgetMet": true,
       "vendorFirebaseRawKB": 634.4,
-      "vendorFirebaseGzipKB": 140.0,
+      "vendorFirebaseGzipKB": 140,
       "vendorReactRawKB": 139.7,
       "vendorReactGzipKB": 44.7,
       "vendorStateGzipKB": 31.6,
@@ -2098,7 +2288,6 @@
       "objetivo T032: initial JS < 150 KB gzip"
     ]
   },
-
   "npmScripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -2129,7 +2318,6 @@
     "staging:hosting:check": "node scripts/hosting-route-check.mjs",
     "staging:verify:all": "node scripts/staging/validate-staging.mjs && node scripts/staging/pwa-check.mjs"
   },
-
   "qualityGates": {
     "commands": [
       "git diff --check",
@@ -2151,7 +2339,6 @@
     },
     "preCommitHooks": "husky + lint-staged (eslint --fix + prettier --write en ts/tsx/js/jsx/json/css/md)"
   },
-
   "git": {
     "defaultBranch": "main",
     "convention": "Conventional Commits (feat/fix/security/infra/perf/chore/refactor/test/doc)",
@@ -2175,9 +2362,11 @@
       "*.exe",
       "worker/.wrangler/",
       "ALTHEA_VISUAL_SYSTEM_FINAL/ (artefacto de entrega, 0 archivos unicos)"
+    ],
+    "notes": [
+      "ALTHEA_VISUAL_SYSTEM_FINAL/ se agrego a .gitignore y a eslint.config.mjs (ESLint no respeta .gitignore y lintaba sus 60 duplicados). La carpeta fue borrada del disco el 2026-10-04; ambas reglas se conservan como proteccion."
     ]
   },
-
   "knownIssues": [
     {
       "id": "redirect-to-unmatched-route",
@@ -2234,9 +2423,11 @@
     },
     {
       "id": "dead-env-keys-in-dotenv-local",
-      "severity": "security",
-      "detail": ".env.local contiene VITE_GROQ_API_KEY y VITE_NINJA_API_KEY. Ningun codigo las lee, pero al estar prefijadas con VITE_ un build con ese archivo cargado las inlinearia en el bundle. Claves muertas y mayor riesgo de la auditoria. Recomendacion: rotar y eliminar.",
-      "file": ".env.local"
+      "severity": "resuelto",
+      "detail": "RESUELTO (parcial). .env.local contenia VITE_GROQ_API_KEY y VITE_NINJA_API_KEY. Ningun codigo las leia, pero al estar prefijadas con VITE_ un build con ese archivo cargado las inlinearia en el bundle. Los valores fueron eliminados del disco; quedan solo los nombres de variable sin asignacion. PENDIENTE: revocar las claves en los consoles de Groq y CalorieNinjas, porque borrarlas localmente no las invalida.",
+      "file": ".env.local",
+      "status": "valores eliminados del disco el 2026-10-04",
+      "residualAction": "Revocacion en consolas externas (Groq, CalorieNinjas)."
     },
     {
       "id": "includeassets-glob-noop",
@@ -2251,13 +2442,18 @@
       "file": "src/services/storage/accountWipe.ts"
     }
   ],
-
   "externalBlockers": {
     "note": "Acciones que requieren cuentas o consolas externas. No verificables desde el repo.",
     "stagingPreflightStatus": "BLOCKED - OWNER ACTION REQUIRED (todo lo local correcto)",
     "missing": [
-      { "id": "FIREBASE_STAGING_PROJECT_ID", "blocks": "deploy de hosting staging" },
-      { "id": "FIREBASE_PRODUCTION_PROJECT_ID", "blocks": "deploy de hosting produccion" },
+      {
+        "id": "FIREBASE_STAGING_PROJECT_ID",
+        "blocks": "deploy de hosting staging"
+      },
+      {
+        "id": "FIREBASE_PRODUCTION_PROJECT_ID",
+        "blocks": "deploy de hosting produccion"
+      },
       {
         "id": "VITE_GROQ_PROXY_URL",
         "blocks": "IA remota del Coach (cae al fallback local deterministico)"
@@ -2266,7 +2462,10 @@
         "id": "GROQ_API_KEY (secret del Worker)",
         "blocks": "proxy Groq; verificado fail-closed 503 proxy_not_configured"
       },
-      { "id": "CLOUDFLARE_ACCOUNT_ID", "blocks": "preflight del Worker" },
+      {
+        "id": "CLOUDFLARE_ACCOUNT_ID",
+        "blocks": "preflight del Worker"
+      },
       {
         "id": "WGER_TEST_USERNAME / WGER_TEST_PASSWORD",
         "blocks": "12 tests E2E de WGER + smoke http-smoke"
@@ -2286,7 +2485,6 @@
     ],
     "notValidated": "scripts/staging/pwa-check.mjs declara explicitamente NOT VALIDATED para el flujo de update del PWA."
   },
-
   "unverified": [
     "icon-512.png vs icon-512-maskable.png: mismo tamano (111.8 KB) pero no se hashearion; no se puede afirmar que el maskable difiera.",
     "CORS_ORIGIN de staging (https://althea-staging.web.app) es un placeholder derivado por convencion; no verificado contra un proyecto Firebase vivo.",
