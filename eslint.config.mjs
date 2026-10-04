@@ -1,5 +1,5 @@
 export default [
-  { ignores: ['dist/', 'node_modules/', '*.config.*', '*.d.ts', '*.wasm', 'public/', 'worker/'] },
+  { ignores: ['dist/', 'node_modules/', '*.config.*', '*.d.ts', '*.wasm', 'public/', 'worker/', 'ALTHEA_VISUAL_SYSTEM_FINAL/'] },
   {
     files: ['src/**/*.{ts,tsx}'],
     languageOptions: {

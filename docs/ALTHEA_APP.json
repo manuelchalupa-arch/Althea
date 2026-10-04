@@ -1,0 +1,2300 @@
+{
+  "$comment": "Manifiesto descriptivo de la app Althea. Generado leyendo el codigo fuente; todo dato aqui fue verificado en un archivo. Los items marcados como 'unverified' o listados en knownIssues NO estan confirmados y no deben asumirse como verdad.",
+  "meta": {
+    "name": "Althea",
+    "fullName": "Althea — Palaestra Virtue",
+    "packageName": "althea",
+    "version": "1.0.0",
+    "appVersionConstant": "0.21.0",
+    "tagline": "Gym Notebook — offline-first",
+    "manifestDescription": "Tu cuaderno de gimnasio offline: series, nutrición, recuperación, coach IA local",
+    "language": "es",
+    "locale": "es-AR",
+    "generatedOn": "2026-10-04",
+    "repository": {
+      "host": "github.com",
+      "owner": "manuelchalupa-arch",
+      "name": "Althea",
+      "remote": "https://github.com/manuelchalupa-arch/Althea.git",
+      "defaultBranch": "main",
+      "commitAtGeneration": "e739269"
+    },
+    "license": "private (sin LICENSE en el repo)",
+    "productionDeploy": false,
+    "productionReady": false
+  },
+
+  "identity": {
+    "product": "Cuaderno de gimnasio offline-first con dominio de entrenamiento, nutrición, recuperación y Coach IA.",
+    "audience": "Persona que entrena de forma regular en gimnasio, de principiante a avanzado, que quiere guiar su entrenamiento sin depender de un entrenador personal y sin depender de conexion.",
+    "positioning": [
+      "Offline-first real: la base de datos local es la fuente canonica y la app opera 100% sin red.",
+      "Sin datos ficticios: cuando falta informacion, la app lo dice en lugar de inventar numeros.",
+      "Sin APIs externas de nutricion: todos los calculos nutricional se resuelven localmente.",
+      "Una sola fuente de verdad: los derives se recalculan, no se persisten como hechos."
+    ],
+    "primaryUseMoments": [
+      "Antes del entrenamiento (que toca hoy)",
+      "Durante el entrenamiento (registrar series, descansos, dolor)",
+      "Despues del entrenamiento (cerrar sesion, check-in de recuperacion)",
+      "Revisar evolucion (progreso, informes, adherencia)"
+    ]
+  },
+
+  "techStack": {
+    "runtime": {
+      "language": "TypeScript 5.7",
+      "moduleSystem": "ESM",
+      "target": "es2020",
+      "uiLibrary": "React 18.3.1",
+      "dom": "ReactDOM 18.3.1",
+      "router": "react-router-dom 7.1.1",
+      "buildTool": "Vite 6",
+      "css": "TailwindCSS 3.4.17 + CSS Modules/plain CSS",
+      "stateManagement": "Hooks + contextos de React; sin Redux/Zustand",
+      "localPersistence": "Dexie 4 (IndexedDB)",
+      "cloudPersistence": "Firebase 12 (Firestore + Auth + FCM)",
+      "edge": "Cloudflare Workers (proxy Groq + proxy WGER)",
+      "validation": "Zod 3.23",
+      "icons": "lucide-react",
+      "ids": "uuid 11",
+      "testRunner": "Vitest 5",
+      "pwaPlugin": "vite-plugin-pwa 0.21.1"
+    },
+    "dependencies": [
+      "react@^18.3.1",
+      "react-dom@^18.3.1",
+      "react-router-dom@^7.1.1",
+      "dexie@^4.0.11",
+      "firebase@^12.19.0",
+      "zod@^3.23.8",
+      "lucide-react@^0.468.0",
+      "uuid@^11.0.3"
+    ],
+    "dependencyNotes": "No hay cliente HTTP dedicado: se usa fetch nativo. No hay librerias de PDF: el informe se genera con un escritor PDF propio sin dependencias.",
+    "removedDependencies": {
+      "onnxruntime-web": "eliminado",
+      "@xenova/transformers": "eliminado",
+      "qwen": "eliminado",
+      "axios": "no se usa"
+    }
+  },
+
+  "architecture": {
+    "principles": [
+      "Dexie es la fuente canonica del dominio; UI nunca escribe numeros calculados a mano.",
+      "Derive -> Servicio -> Calculo -> UI (nunca UI -> numeros escritos).",
+      "Los datos derivados se recalculan desde los registros; no se persisten como verdad (PRs, 1RM, volumen, gasto calorico).",
+      "Una sesion activa por usuario como maximo.",
+      "Cuando no hay dato suficiente, se dice explicitamente; no se rellena con ceros ni estimas ocultas.",
+      "Las migraciones son aditivas y no destructivas: nunca se borra una tabla Dexie existente.",
+      "El aislamiento de usuario se resuelve con wipe-on-account-switch (local) y reglas de rutas (remoto)."
+    ],
+    "layers": [
+      {
+        "name": "UI",
+        "path": "src/pages, src/components",
+        "responsibility": "Presentacion e interaccion; no contiene logica de dominio."
+      },
+      {
+        "name": "Servicios",
+        "path": "src/services",
+        "responsibility": "Logica de dominio, calculos, integraciones, persistencia remota."
+      },
+      {
+        "name": "Storage",
+        "path": "src/services/storage",
+        "responsibility": "CRUD sobre Dexie, versionado, export/import, migraciones."
+      },
+      {
+        "name": "Datos",
+        "path": "src/data, Dexie",
+        "responsibility": "Datos estaticos de build y base local."
+      }
+    ],
+    "dataFlow": "UI -> Store (Dexie) -> Servicio de calculo ->derivado en memoria -> UI"
+  },
+
+  "routing": {
+    "router": "BrowserRouter + React.lazy por pagina",
+    "allPagesLazyLoaded": true,
+    "lazyWrapper": "LazyPage (Suspense) en src/App.tsx",
+    "globalErrorBoundary": "src/components/ErrorBoundary.tsx (componentName=App) envuelve BrowserRouter",
+    "catchAllRoute": null,
+    "routes": [
+      {
+        "path": "/login",
+        "page": "Login",
+        "file": "src/pages/Login.tsx",
+        "lazy": true,
+        "auth": "public",
+        "nav": "hidden",
+        "note": "Permite entrar o continuar sin cuenta (modo offline)."
+      },
+      {
+        "path": "/",
+        "page": "Inicio",
+        "file": "src/pages/Inicio.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "primary"
+      },
+      {
+        "path": "/entrenar",
+        "page": "Entrenar",
+        "file": "src/pages/Entrenar.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "conditional (solo con sesion activa)",
+        "errorBoundary": "EntrenarErrorBoundary",
+        "redirect": "Navigate to /inicio si no hay sesion activa"
+      },
+      {
+        "path": "/progresos",
+        "page": "Progreso",
+        "file": "src/pages/Progreso.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "primary",
+        "errorBoundary": "ProgresoErrorBoundary"
+      },
+      {
+        "path": "/progreso",
+        "page": "Progreso",
+        "file": "src/pages/Progreso.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "alias",
+        "errorBoundary": "ProgresoErrorBoundary"
+      },
+      {
+        "path": "/coach",
+        "page": "Coach",
+        "file": "src/pages/Coach.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "module",
+        "errorBoundary": "CoachErrorBoundary"
+      },
+      {
+        "path": "/mas",
+        "page": "Mas",
+        "file": "src/pages/Mas.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "primary (Mas)"
+      },
+      {
+        "path": "/onboarding",
+        "file": "src/pages/Onboarding.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "hidden",
+        "note": "Wizard; se redirige aqui si onboardingDone es false."
+      },
+      {
+        "path": "/biblioteca",
+        "page": "Biblioteca",
+        "file": "src/pages/Biblioteca.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "module"
+      },
+      {
+        "path": "/rutina",
+        "page": "Rutina",
+        "file": "src/pages/Rutina.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "conditional (solo con sesion activa)"
+      },
+      {
+        "path": "/rutinas",
+        "page": "Rutina",
+        "file": "src/pages/Rutina.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "module (alias)"
+      },
+      {
+        "path": "/calendario",
+        "page": "Calendario",
+        "file": "src/pages/Calendario.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "module"
+      },
+      {
+        "path": "/nutricion",
+        "page": "Nutricion",
+        "file": "src/pages/Nutricion.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "primary",
+        "errorBoundary": "NutricionErrorBoundary"
+      },
+      {
+        "path": "/recuperacion",
+        "page": "Recuperacion",
+        "file": "src/pages/Recuperacion.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "not-in-nav (solo desde Mas y notificaciones)"
+      },
+      {
+        "path": "/perfil",
+        "page": "Perfil",
+        "file": "src/pages/Perfil.tsx",
+        "lazy": true,
+        "auth": "required",
+        "nav": "module"
+      }
+    ],
+    "authGate": {
+      "mechanism": "Si Firebase esta configurado, no esta en modo offline y no hay usuario, se renderiza Login en lugar de las rutas.",
+      "offlineBypass": "Sin Firebase configurado o con modo offline activo, needsLogin se fuerza a false y la app opera 100% local.",
+      "onboardingRedirect": "Si userProfile 'me' tiene onboardingDone=false o no tiene email, navega a /onboarding."
+    }
+  },
+
+  "navigation": {
+    "component": "src/components/layout/AppNav.tsx",
+    "itemSource": ["src/components/brand/icons.ts (NAV_ITEMS, MAS_GROUPS)"],
+    "breakpoints": {
+      "desktop_lg": {
+        "type": "sidebar",
+        "shows": ["brand", "primaryItems", "modulos (5)", "Contraer"],
+        "collapsePersistedIn": "localStorage['althea:nav-collapsed']"
+      },
+      "tablet_md": {
+        "type": "rail 64px icon-only",
+        "shows": ["brand", "primaryItems", "primeros 4 modulos"],
+        "note": "El rail de tablet NO incluye /perfil (solo muestra los primeros 4 modulos)."
+      },
+      "mobile": {
+        "type": "bottom-bar",
+        "shows": ["primaryItems", "Mas"],
+        "note": "No incluye /calendario; no incluye /recuperacion."
+      }
+    },
+    "primaryItemsFilter": "primaryItems = NAV_ITEMS filtrado por iconos [home, nutrition, progress] + 'training' solo si hay sesion activa.",
+    "resolvedPrimary": [
+      { "label": "Inicio", "to": "/", "icon": "home/inicio" },
+      {
+        "label": "Entrenar",
+        "to": "/entrenar",
+        "icon": "training/entrenar",
+        "condition": "solo con sesion activa"
+      },
+      { "label": "Nutrición", "to": "/nutricion", "icon": "nutrition/nutricion" },
+      { "label": "Progreso", "to": "/progresos", "icon": "progress/progreso" }
+    ],
+    "modules": [
+      { "label": "Ejercicios y músculos", "to": "/biblioteca", "icon": "library/biblioteca" },
+      { "label": "Rutinas", "to": "/rutinas", "icon": "routines/rutinas" },
+      { "label": "Calendario y recuperación", "to": "/calendario", "icon": "calendar/calendario" },
+      { "label": "Coach y objetivos", "to": "/coach", "icon": "coach/coach" },
+      { "label": "Perfil y configuración", "to": "/perfil", "icon": "profile/perfil" }
+    ],
+    "suppressedDuplicates": ["Nutrición", "Progreso y estadísticas"],
+    "accessibility": "Cada entrada usa NavLink con title y aria-label; activeId compara pathname exacto."
+  },
+
+  "pages": {
+    "$lineCountNote": "lines = conteo fisico del archivo (split por LF, incluye la ultima linea vacia si el archivo termina en salto de linea).",
+    "Login": {
+      "file": "src/pages/Login.tsx",
+      "lines": 113,
+      "purpose": "Auth email/password con modos in/up/reset; validacion en cliente; boton 'Continuar sin cuenta' (modo offline)."
+    },
+    "Inicio": {
+      "file": "src/pages/Inicio.tsx",
+      "lines": 891,
+      "purpose": "Dashboard: saludo, que toca hoy (ciclo canonico), micro ciclo de 7 dias con volumen, KPIs, gasto energetico (hoy/semana), hidratacion, override de dia, aviso de revision de rutina."
+    },
+    "Entrenar": {
+      "file": "src/pages/Entrenar.tsx",
+      "lines": 1691,
+      "purpose": "Ejecucion de sesion: log de series, temporizador de descanso obligatorio, viewer GIF, alertas de dolor, pausar/reanudar, cierre y resultado."
+    },
+    "Progreso": {
+      "file": "src/pages/Progreso.tsx",
+      "lines": 540,
+      "purpose": "Informe por periodo: selector de periodo/rango, KPIs, volumen semanal, comparacion por grupo muscular, mapa muscular lazy, accion PDF."
+    },
+    "Coach": {
+      "file": "src/pages/Coach.tsx",
+      "lines": 687,
+      "purpose": "Chat IA con streaming, prompts rapidos, selector de tono, vista de metodo, tarjetas de insight."
+    },
+    "Mas": {
+      "file": "src/pages/Mas.tsx",
+      "lines": 260,
+      "purpose": "Hub: KPIs resumen, top 1RM, grid de accesos a modulos, config de recordatorios."
+    },
+    "Onboarding": {
+      "file": "src/pages/Onboarding.tsx",
+      "lines": 479,
+      "purpose": "Wizard: objetivo, nivel, dias, equipamiento, cuando/cuanto, Coach, perfil, ejercicios excluidos. Valida con Zod; draft en Dexie."
+    },
+    "Biblioteca": {
+      "file": "src/pages/Biblioteca.tsx",
+      "lines": 380,
+      "purpose": "Catalogo de ejercicios: filtros, busqueda tolerante, detalle, favoritos, ejercicios custom, importacion de muestras WGER."
+    },
+    "Rutina": {
+      "file": "src/pages/Rutina.tsx",
+      "lines": 1271,
+      "purpose": "Gestion de rutinas: crear, editar por dia/ejercicio/serie, descanso/tempo/RIR/RPE, versionado + diff, generar rutina con IA."
+    },
+    "Calendario": {
+      "file": "src/pages/Calendario.tsx",
+      "lines": 385,
+      "purpose": "Calendario mensual: resumen, proximas sesiones, tips, detalle por dia con gasto energetico, check-in de recuperacion, override de dia."
+    },
+    "Nutricion": {
+      "file": "src/pages/Nutricion.tsx",
+      "lines": 715,
+      "purpose": "Nutricion del dia: objetivo vs consumo, CRUD de comidas, hidratacion, sugerencias del motor, alimentos frecuentes. Todo local, sin APIs externas."
+    },
+    "Recuperacion": {
+      "file": "src/pages/Recuperacion.tsx",
+      "lines": 316,
+      "purpose": "Check-in de recuperacion, estado/evolucion, score, recomendaciones (sin auto-modificar rutina), hidratacion con botellas."
+    },
+    "Perfil": {
+      "file": "src/pages/Perfil.tsx",
+      "lines": 797,
+      "purpose": "Perfil y ajustes: identidad, metricas corporales, objetivo, Coach, ejercicios excluidos, notificaciones, preferencias, sync, panel WGER."
+    },
+    "LibraryCustomForm": {
+      "file": "src/pages/BibliotecaCustomForm.tsx",
+      "lines": 223,
+      "purpose": "Sub-componente (no ruta) para crear/editar ejercicio custom."
+    }
+  },
+
+  "dataLayer": {
+    "orm": "Dexie 4",
+    "databaseName": "trainPWA",
+    "schemaClass": "TrainDB",
+    "singleton": "export const db = new TrainDB()",
+    "currentSchemaVersion": 21,
+    "tableCount": 48,
+    "profileKeyConvention": "userProfile usa siempre la clave fija 'me'.",
+    "onboardingDraftKey": "'onboarding-draft'",
+    "seeding": "ensureSeeded() siembra db.exercises desde src/data/exercises.json si la tabla esta vacia.",
+    "tables": [
+      {
+        "name": "exercises",
+        "version": 1,
+        "primaryKey": "id",
+        "indexes": ["groupMain", "equipment", "level", "pattern", "*tags"]
+      },
+      { "name": "routines", "version": 1, "primaryKey": "id", "indexes": ["createdAt"] },
+      {
+        "name": "routineDays",
+        "version": 1,
+        "primaryKey": "id",
+        "indexes": ["routineId", "weekday"]
+      },
+      {
+        "name": "routineExercises",
+        "version": 1,
+        "primaryKey": "id",
+        "indexes": ["routineDayId", "exerciseId", "order"]
+      },
+      {
+        "name": "sessions",
+        "version": 1,
+        "primaryKey": "id",
+        "indexes": ["localDate", "createdAt"],
+        "note": "capa fisica legacy de solo lectura"
+      },
+      {
+        "name": "setLogs",
+        "version": 1,
+        "primaryKey": "id",
+        "indexes": ["sessionId", "exerciseId", "createdAt"],
+        "note": "legacy"
+      },
+      { "name": "recoveryChecks", "version": 1, "primaryKey": "id", "indexes": ["localDate"] },
+      { "name": "hydrationLogs", "version": 1, "primaryKey": "id", "indexes": ["localDate"] },
+      {
+        "name": "userProfile",
+        "version": 1,
+        "primaryKey": "id",
+        "indexes": [],
+        "note": "clave fija 'me'"
+      },
+      { "name": "syncQueue", "version": 1, "primaryKey": "id", "indexes": ["status", "createdAt"] },
+      {
+        "name": "bodyMeasurements",
+        "version": 2,
+        "primaryKey": "id",
+        "indexes": ["localDate", "createdAt"]
+      },
+      {
+        "name": "coachMemory",
+        "version": 3,
+        "primaryKey": "id",
+        "indexes": ["date", "type", "createdAt"]
+      },
+      {
+        "name": "weeklySequences",
+        "version": 4,
+        "primaryKey": "id",
+        "indexes": ["cycleId", "weekNumber"]
+      },
+      {
+        "name": "trainingSessions",
+        "version": 4,
+        "primaryKey": "id",
+        "indexes": ["calendarDate", "routineId"],
+        "note": "model oficial de sesion; widened en v16 con sessionId"
+      },
+      {
+        "name": "exerciseRecords",
+        "version": 4,
+        "primaryKey": "id",
+        "indexes": ["sessionId", "exerciseId"]
+      },
+      {
+        "name": "sessionExercises",
+        "version": 5,
+        "primaryKey": "sessionExerciseId",
+        "indexes": ["sessionId", "exerciseId"]
+      },
+      {
+        "name": "setRecords",
+        "version": 5,
+        "primaryKey": "setRecordId",
+        "indexes": ["sessionId", "sessionExerciseId", "exerciseId"]
+      },
+      {
+        "name": "sessionEvents",
+        "version": 5,
+        "primaryKey": "eventId",
+        "indexes": ["sessionId", "type", "timestamp"]
+      },
+      {
+        "name": "postWorkoutSurveys",
+        "version": 5,
+        "primaryKey": "surveyId",
+        "indexes": ["sessionId", "calendarDate"]
+      },
+      {
+        "name": "negativeSets",
+        "version": 5,
+        "primaryKey": "negativeSetId",
+        "indexes": ["sessionId", "sessionExerciseId"]
+      },
+      {
+        "name": "exerciseObservations",
+        "version": 5,
+        "primaryKey": "observationId",
+        "indexes": ["sessionId", "sessionExerciseId"]
+      },
+      {
+        "name": "customExercises",
+        "version": 6,
+        "primaryKey": "id",
+        "indexes": ["muscle", "bodyPart"]
+      },
+      {
+        "name": "knowledgeDocuments",
+        "version": 7,
+        "primaryKey": "id",
+        "indexes": ["topic", "evidenceLevel", "updatedAt"]
+      },
+      {
+        "name": "decisionLog",
+        "version": 7,
+        "primaryKey": "id",
+        "indexes": ["timestamp", "type", "createdAt"]
+      },
+      { "name": "scoreSnapshots", "version": 7, "primaryKey": "id", "indexes": ["date", "score"] },
+      {
+        "name": "exerciseKnowledge",
+        "version": 7,
+        "primaryKey": "id",
+        "indexes": ["muscle", "movementPattern", "difficulty"],
+        "note": "indice renombrado en v12"
+      },
+      {
+        "name": "chatMessages",
+        "version": 8,
+        "primaryKey": "id",
+        "indexes": ["conversationId", "role", "createdAt"]
+      },
+      {
+        "name": "chatConversations",
+        "version": 8,
+        "primaryKey": "id",
+        "indexes": ["pageContext", "createdAt", "updatedAt"]
+      },
+      {
+        "name": "routineStore",
+        "version": 9,
+        "primaryKey": "id",
+        "indexes": ["createdAt", "updatedAt"],
+        "note": "puntero de rutina activa + filas comparten tabla"
+      },
+      {
+        "name": "nutritionDiary",
+        "version": 10,
+        "primaryKey": "id",
+        "indexes": ["date", "mealType", "addedAt"]
+      },
+      {
+        "name": "nutritionAdherence",
+        "version": 10,
+        "primaryKey": "id",
+        "indexes": ["methodId", "date", "createdAt"]
+      },
+      {
+        "name": "sessionOverrides",
+        "version": 11,
+        "primaryKey": "date",
+        "indexes": [],
+        "note": "unica PK no-id del schema"
+      },
+      {
+        "name": "exerciseState",
+        "version": 13,
+        "primaryKey": "id",
+        "indexes": ["date", "exerciseId"]
+      },
+      { "name": "sessionChanges", "version": 13, "primaryKey": "id", "indexes": ["date"] },
+      { "name": "sessionObservations", "version": 13, "primaryKey": "id", "indexes": ["date"] },
+      { "name": "exerciseGymCache", "version": 13, "primaryKey": "key", "indexes": [] },
+      { "name": "migrationStatus", "version": 13, "primaryKey": "id", "indexes": [] },
+      { "name": "onboardingDrafts", "version": 14, "primaryKey": "id", "indexes": ["updatedAt"] },
+      {
+        "name": "painLogs",
+        "version": 15,
+        "primaryKey": "id",
+        "indexes": ["localDate", "exerciseId", "level", "createdAt"]
+      },
+      {
+        "name": "cycleVersions",
+        "version": 17,
+        "primaryKey": "id",
+        "indexes": ["scope", "status", "effectiveFrom"]
+      },
+      { "name": "notifConfigs", "version": 18, "primaryKey": "id", "indexes": [] },
+      { "name": "notifLog", "version": 18, "primaryKey": "id", "indexes": ["date"] },
+      {
+        "name": "hydrationBottles",
+        "version": 19,
+        "primaryKey": "id",
+        "indexes": ["active", "order"]
+      },
+      {
+        "name": "hydrationBottleLogs",
+        "version": 19,
+        "primaryKey": "id",
+        "indexes": ["localDate", "bottleId", "time"]
+      },
+      {
+        "name": "unifiedNotifConfigs",
+        "version": 20,
+        "primaryKey": "id",
+        "indexes": ["type", "enabled"]
+      },
+      {
+        "name": "requiredActionStates",
+        "version": 20,
+        "primaryKey": "id",
+        "indexes": ["configId", "date", "status"]
+      },
+      {
+        "name": "externalAccountLinks",
+        "version": 21,
+        "primaryKey": "id",
+        "indexes": [
+          "altheaUserId",
+          "externalProvider",
+          "externalUserId",
+          "status",
+          "linkedAt",
+          "lastSyncAt"
+        ],
+        "note": "solo IDs de vinculación, nunca credenciales"
+      },
+      {
+        "name": "externalEntityLinks",
+        "version": 21,
+        "primaryKey": "id",
+        "indexes": [
+          "altheaEntityId",
+          "externalProvider",
+          "externalEntityId",
+          "entityType",
+          "linkedAt",
+          "lastSyncAt"
+        ]
+      }
+    ],
+    "migrations": {
+      "onlyUpgradeHook": "v2 en bodyMeasurements; solo cuenta filas, no transforma datos.",
+      "strategy": "Migraciones aditivas con copy-sin-borrar. La migracion de datos real es perezosa y vive en modulos aparte.",
+      "migrationModules": [
+        {
+          "file": "src/services/training/migrate.ts",
+          "does": "sessions/setLogs legacy -> modelo oficial (copia, no borra)"
+        },
+        {
+          "file": "src/services/storage/routineStore.ts",
+          "does": "localStorage 'rutinas:list' -> Dexie"
+        },
+        {
+          "file": "src/services/storage/diaryStore.ts",
+          "does": "localStorage 'nutri:diario_v2:*', 'nutrition:adherence' -> Dexie"
+        },
+        {
+          "file": "src/services/storage/sessionOverrideStore.ts",
+          "does": "localStorage 'session:override:*' -> Dexie"
+        },
+        {
+          "file": "src/services/storage/migrateLocalStorage.ts",
+          "does": "migración final one-shot; incluye verifyMigration() y cleanupLegacyLocalStorage()"
+        }
+      ],
+      "nonDestructive": true
+    },
+    "otherStorageModules": [
+      {
+        "file": "src/services/storage/routineStore.ts",
+        "purpose": "SSOT de rutinas; getAllRoutines, saveRoutineVersioned, listRoutineVersions, diffRoutines; MAX_ROUTINES=5"
+      },
+      {
+        "file": "src/services/storage/diaryStore.ts",
+        "purpose": "CRUD de diario nutricional + registros de adherencia + migraciones"
+      },
+      {
+        "file": "src/services/storage/sessionOverrideStore.ts",
+        "purpose": "Overrides manuales de dia de entrenamiento"
+      },
+      {
+        "file": "src/services/storage/exportImport.ts",
+        "purpose": "Motor real de export/import; EXPORT_FORMAT_VERSION=2; JSON y CSV; preview, merge/replace, verificacion"
+      },
+      {
+        "file": "src/services/storage/export.ts",
+        "purpose": "Fachada fina sobre exportImport + exportPDF()"
+      },
+      {
+        "file": "src/services/storage/migrateLocalStorage.ts",
+        "purpose": "Migración one-shot de localStorage restante a Dexie"
+      },
+      {
+        "file": "src/services/storage/demoData.ts",
+        "purpose": "Carga/borra/estado del dataset demo coherente (DEMO_ROUTINE_ID='demo-routine-1')"
+      },
+      {
+        "file": "src/services/storage/seeder.ts",
+        "purpose": "seedCoherentHistory() (4 semanas coherentes) y wipeDatabase(); no toca el perfil"
+      },
+      {
+        "file": "src/services/storage/accountWipe.ts",
+        "purpose": " Higiene en cambio/baja de cuenta; shouldWipeOnAccountSwitch, rememberAccountUid, clearUserDataOnAccountDelete"
+      }
+    ]
+  },
+
+  "domains": {
+    "training": {
+      "officialModelFile": "src/services/training/domain.ts",
+      "officialTypes": [
+        "TrainingSession",
+        "SessionExercise",
+        "SetRecord",
+        "SessionEvent",
+        "SetType",
+        "SessionStatus",
+        "SessionExerciseStatus",
+        "SetRecordStatus",
+        "NegativeSet",
+        "ExerciseObservation",
+        "ExerciseReplacement",
+        "PostWorkoutSurvey",
+        "PlannedSetSnapshot",
+        "MuscleTrainingMetric",
+        "DayChange",
+        "ExerciseHistoryEntry"
+      ],
+      "legacyReadOnlyTypes": ["Session", "SetLog", "LegacyTrainingSession", "LegacyExerciseRecord"],
+      "sessionStatusFlow": "PLANNED -> COMPLETED | PARTIAL | CANCELLED",
+      "singleActiveSession": true,
+      "statusesCountingAsTrainingDay": ["COMPLETED", "PARTIAL"],
+      "keyServices": [
+        {
+          "file": "src/services/training/sessionStore.ts",
+          "purpose": "Unico camino permitido para mutar TrainingSession"
+        },
+        {
+          "file": "src/services/training/metrics.ts",
+          "purpose": "Metricas recalculables; no hay segunda fuente"
+        },
+        {
+          "file": "src/services/training/sessionMetrics.ts",
+          "purpose": "Dias de entrenamiento efectivos; 1 dia = 1 sesion"
+        },
+        {
+          "file": "src/services/training/prs.ts",
+          "purpose": "PR y 1RM (Epley) recalculados desde setRecords; nunca persistidos como hechos"
+        },
+        {
+          "file": "src/services/training/exerciseEnergy.ts",
+          "purpose": "UNICA fuente de verdad del gasto calorico de ejercicio (Inicio, Calendario, PDF)"
+        },
+        {
+          "file": "src/services/training/setPlanner.ts",
+          "purpose": "Generacion de plan por serie segun setType (PYRAMID, ASCENDING, ...)"
+        },
+        {
+          "file": "src/services/training/exerciseSearch.ts",
+          "purpose": "Busqueda tolerante (case, acentos, singular/plural, ES/EN, alias)"
+        },
+        {
+          "file": "src/services/training/exerciseFilter.ts",
+          "purpose": "Mapeo grupo amplio -> musculo (GROUP_MUSCLES)"
+        },
+        {
+          "file": "src/services/training/muscleAttribution.ts",
+          "purpose": "Atribucion muscular real; precedencia usuario->local->ExerciseGym->null, nunca inventado"
+        },
+        {
+          "file": "src/services/training/muscleGeometry.ts",
+          "purpose": "Paths SVG por musculo, desacoplados de datos"
+        },
+        {
+          "file": "src/services/training/muscleGroups.ts",
+          "purpose": "Comparacion semanal de volumen por grupo (PECHO/ESPALDA/PIERNAS/BRAZOS/HOMBROS)"
+        },
+        {
+          "file": "src/services/training/similarity.ts",
+          "purpose": "Similitud de ejercicio para reemplazo inteligente"
+        },
+        {
+          "file": "src/services/training/customExercises.ts",
+          "purpose": "Ejercicios creados por el usuario (USER_CREATED)"
+        },
+        {
+          "file": "src/services/training/migrate.ts",
+          "purpose": "Migracion legacy -> oficial, copia sin borrar"
+        }
+      ]
+    },
+    "nutrition": {
+      "localOnly": true,
+      "externalApis": [],
+      "status": "Dominio completo y funcional SIN proveedor externo.",
+      "calculations": {
+        "file": "src/utils/nutrition.ts",
+        "functions": ["calcIMC", "calcTMB", "calcTDEE", "calorieGoal", "proteinRange"],
+        "types": ["ActivityLevel"],
+        "goalMapping": {
+          "perdida_grasa": "TDEE * 0.85 (deficit ~15%)",
+          "hipertrofia_fuerza": "TDEE * 1.10 (superavit ~10%)",
+          "mantenimiento": "TDEE"
+        },
+        "proteinRangeDefault": "1.6 - 2.2 g/kg"
+      },
+      "services": [
+        {
+          "file": "src/services/nutrition/foodComposition.ts",
+          "purpose": "TABLA LOCAL de composicion de alimentos (valores por 100 g, tablas de composicion publicadas). Permite operar sin ninguna API externa."
+        },
+        {
+          "file": "src/services/nutrition/mealInterpretation.ts",
+          "purpose": "Meal Understanding: texto libre -> componentes/cantidades/ambiguedades"
+        },
+        {
+          "file": "src/services/nutrition/recipeInterpreter.ts",
+          "purpose": "Adaptador MealInterpretation <-> DishDraft plano; interpretDish, computeDishTotals, setIngredientGrams, dishFromEntry"
+        },
+        {
+          "file": "src/services/nutrition/macroService.ts",
+          "purpose": "MacroTotals/MacroGoals y calculos construidos sobre src/utils/nutrition"
+        }
+      ],
+      "aiModules": [
+        {
+          "file": "src/services/ai/nutritionEngine.ts",
+          "purpose": "analyzeNutrition, buildNutritionSuggestions"
+        },
+        {
+          "file": "src/services/ai/nutritionMethods.ts",
+          "purpose": "NutritionMethodId, NutritionCategory, EvidenceLevel, NutritionGoal, TrainingType, NutritionMethod, NutritionCompatibility, NutritionMethodRecommendation"
+        },
+        {
+          "file": "src/services/ai/nutritionMethodsDB.ts",
+          "purpose": "NUTRITION_METHODS knowledge base + getNutritionMethod"
+        },
+        {
+          "file": "src/services/ai/nutritionSafety.ts",
+          "purpose": "checkMedicalConditions, checkPregnancy, checkTCA, checkAgeRisks, checkDangerousCombinations, checkNutritionSafety"
+        },
+        {
+          "file": "src/services/ai/adherenceTracker.ts",
+          "purpose": "recordAdherence, getAdherenceTrend, detectAdherenceProblems, calculateAutomaticAdherence"
+        }
+      ],
+      "ui": {
+        "page": "Nutricion",
+        "components": ["DishComposer", "MacroPlate", "HydrationBottle"],
+        "flow": "Escribir plato -> Interpretar -> Revisar desglose -> Guardar; CRUD de comidas; objetivo vs consumo; hidratacion; alimentos frecuentes"
+      },
+      "removedProviders": {
+        "calorieNinjas": "ya no existe en runtime (eliminado historicamente en 7f3c687)",
+        "codulia": "cliente HTTP src/services/codulia.ts eliminado; ningun consumidor; app 100% local",
+        "nutricionApiArgFlyDev": "0 llamadas; removido de CSP, host checks y system/context prompts"
+      }
+    },
+    "recovery": {
+      "keyFiles": [
+        {
+          "file": "src/services/recovery/recoveryService.ts",
+          "purpose": "Lecturas de hidratacion y check-in de recuperacion"
+        },
+        {
+          "file": "src/services/recovery/hydrationBottles.ts",
+          "purpose": "Botellas: configuracion y registros (BottleConfig, capacityMl)"
+        },
+        {
+          "file": "src/services/ai/recoveryAnalyzer.ts",
+          "purpose": "analyzeRecovery(): sueno, energia, fatiga acumulada, correlacion"
+        }
+      ],
+      "page": "Recuperacion"
+    },
+    "coachAi": {
+      "entryPoints": [
+        "src/services/ai/aiService.ts (fachada)",
+        "src/services/ai/unifiedPipeline.ts (flujo unico)"
+      ],
+      "providerInterface": {
+        "file": "src/services/ai/aiProvider.ts",
+        "types": ["AIProvider", "AIRecommendation", "AIContext"]
+      },
+      "remote": {
+        "file": "src/services/ai/chatService.ts",
+        "model": "openai/gpt-oss-20b",
+        "viaProxy": "VITE_GROQ_PROXY_URL (Cloudflare Worker)",
+        "keyInFrontend": false
+      },
+      "localFallback": {
+        "file": "src/services/ai/chatLocalFallback.ts",
+        "deterministic": true,
+        "sources": ["groq", "local"]
+      },
+      "provider": { "file": "src/services/ai/fallbackAIProvider.ts", "name": "Determinístico" },
+      "rateLimit": {
+        "file": "src/services/ai/groqUsage.ts",
+        "storage": "localStorage['groq:usage']",
+        "freeTier": { "rpm": 30, "tpm": 8000, "rpd": 1000 }
+      },
+      "intents": { "file": "src/services/ai/intentRouter.ts", "deterministic": true },
+      "personality": {
+        "file": "src/services/ai/coachPersonality.ts",
+        "tones": ["PADELERO", "ABUELITOS", "ARNOLD", "PSYCHO"]
+      },
+      "methods": [
+        {
+          "file": "src/services/ai/trainingMethodsDB.ts",
+          "provides": "TRAINING_METHODS knowledge base"
+        },
+        {
+          "file": "src/services/ai/trainingMethods.ts",
+          "provides": "tipos TrainingMethod, MethodCompatibility, MethodCategory"
+        },
+        {
+          "file": "src/services/ai/methodSelector.ts",
+          "purpose": "selectMethods(profile, recentVolume, recentFatigue) -> MethodRecommendation"
+        },
+        {
+          "file": "src/services/ai/compatibilityEngine.ts",
+          "purpose": "checkCompatibility, getAdjustedVolume"
+        },
+        { "file": "src/services/ai/goalEngine.ts", "purpose": "resolveGoal, getGoalLabel" }
+      ],
+      "analysis": [
+        {
+          "file": "src/services/ai/progressAnalyzer.ts",
+          "purpose": "tendencias, mesetas, correlacion, prediccion; MIN_EXERCISE_LOGS=8, MIN_GLOBAL_SESSIONS=6"
+        },
+        {
+          "file": "src/services/ai/patternLearning.ts",
+          "purpose": "aprende de series completadas + consenso 1RM"
+        },
+        {
+          "file": "src/services/ai/globalScore.ts",
+          "purpose": "score 0-100; computeGlobalScore, getScoreHistory"
+        },
+        {
+          "file": "src/services/ai/coachInsights.ts",
+          "purpose": "analizadores deterministas puros; null + razon si falta evidencia"
+        }
+      ],
+      "memory": [
+        {
+          "file": "src/services/ai/coachMemory.ts",
+          "purpose": "memoria estructurada en db.coachMemory (decisiones y Q&A, no conversaciones)"
+        },
+        {
+          "file": "src/services/ai/decisionLogger.ts",
+          "purpose": "registro estructurado en db.decisionLog"
+        },
+        {
+          "file": "src/services/ai/chatHistory.ts",
+          "purpose": "conversaciones y mensajes en Dexie"
+        }
+      ],
+      "knowledge": [
+        {
+          "file": "src/services/ai/knowledgeBase.ts",
+          "purpose": "RAG simplificado sobre documentos en db.knowledgeDocuments"
+        },
+        {
+          "file": "src/services/ai/evidence.ts",
+          "purpose": "biblioteca y recuperacion de evidencia; evidenceForPrompt"
+        },
+        {
+          "file": "src/services/ai/exerciseKnowledge.ts",
+          "purpose": "enriquecimiento biomechanico de ejercicios"
+        }
+      ],
+      "safety": {
+        "file": "src/services/ai/safetyLayer.ts",
+        "purpose": "check(ctx) -> SafetyCheck; alertas de supervision profesional"
+      },
+      "generation": [
+        {
+          "file": "src/services/ai/routineBuilderIA.ts",
+          "purpose": "generateRoutineWithAI, isRoutineAIAvailable, getRateLimitInfo"
+        },
+        {
+          "file": "src/services/ai/substitutionEngine.ts",
+          "purpose": "findAlternatives por multi-factor"
+        },
+        {
+          "file": "src/services/ai/variantService.ts",
+          "purpose": "wrapper de sustituciones; variantes por dolor"
+        },
+        {
+          "file": "src/services/ai/recommendationParser.ts",
+          "purpose": "parsea texto LLM a AIRecommendation contra allowedActions"
+        }
+      ],
+      "expense": {
+        "file": "src/services/ai/metExpenditure.ts",
+        "purpose": "Gasto por MET (Compendium 2024); kcal/min = MET x 3.5 x peso(kg) / 200; MET_DATA, SCIENTIFIC_SOURCES"
+      },
+      "prompts": [
+        {
+          "file": "src/services/ai/systemPrompt.ts",
+          "purpose": "SYSTEM_PROMPT (es-AR/LatAm); perfiles de objetivo, instrucciones de experiencia, reglas de veracidad, tono"
+        },
+        {
+          "file": "src/services/ai/contextBuilder.ts",
+          "purpose": "buildTrainingContext, buildPrompt"
+        },
+        {
+          "file": "src/services/ai/answerPipeline.ts",
+          "purpose": "prepareAnswer, buildSystemPrompt, validateAnswer, composeLocalAnswer"
+        }
+      ]
+    },
+    "planning": {
+      "keyFile": "src/services/planning/cycleVersions.ts",
+      "purpose": "Planificacion versionada; al cambiar la planificacion futura el pasado no se modifica.",
+      "exports": ["CycleVersion", "getActiveVersion", "PROFILE_SCOPE"],
+      "tables": ["cycleVersions", "weeklySequences"]
+    },
+    "reports": {
+      "keyFiles": [
+        {
+          "file": "src/services/report/pdfWriter.ts",
+          "purpose": "Escritor PDF vectorial minimo SIN dependencias; texto con acentos, lineas, rects, barras, anillos, PNG; A4 595.28x841.89 pt"
+        },
+        {
+          "file": "src/services/report/reportPdf.ts",
+          "purpose": "Construye el documento desde ReportData (sin red, sin imprimir)"
+        },
+        {
+          "file": "src/services/report/reportService.ts",
+          "purpose": "Ensambla datos reales del informe desde Dexie"
+        }
+      ],
+      "pdfDependencyFree": true,
+      "component": "src/components/report/ReportModal.tsx"
+    },
+    "notifications": {
+      "keyFiles": [
+        {
+          "file": "src/services/notifications/scheduler.ts",
+          "purpose": "Planificador en hora local (sin servidor); dedup por hora; fuente canonica db.notifConfigs + db.notifLog"
+        },
+        {
+          "file": "src/services/notifications/unifiedNotifications.ts",
+          "purpose": "NotifType = comer|agua|recuperacion|entrenamiento|preparar_habitacion|otro"
+        },
+        {
+          "file": "src/services/notifications/requiredActionService.ts",
+          "purpose": "Acciones requeridas pending/completed en db.requiredActionStates"
+        },
+        {
+          "file": "src/services/notifications/push.ts",
+          "purpose": "Entrega in-app via Notification API; nunca pide permiso por su cuenta"
+        }
+      ],
+      "types": [
+        "NotifKind",
+        "PushType",
+        "UnifiedNotifConfig",
+        "RequiredActionState",
+        "RequiredStatus"
+      ],
+      "gate": "RequiredActionGate envuelve la app en src/App.tsx"
+    }
+  },
+
+  "types": {
+    "file": "src/types/index.ts",
+    "lines": 182,
+    "unions": {
+      "TrainingGoal": ["strength", "fat_loss", "hypertrophy", "mobility", "general_health"],
+      "ExperienceLevel": ["beginner", "intermediate", "advanced"],
+      "MuscleGroup": [
+        "pecho",
+        "espalda",
+        "hombros",
+        "biceps",
+        "triceps",
+        "cuadriceps",
+        "femorales",
+        "gluteos",
+        "gemelos",
+        "abdomen",
+        "cuerpo_completo"
+      ],
+      "Equipment": [
+        "barra",
+        "mancuernas",
+        "maquina",
+        "polea",
+        "peso_corporal",
+        "banda",
+        "kettlebell",
+        "otro"
+      ],
+      "MovementPattern": ["push", "pull", "squat", "hinge", "lunge", "carry", "core", "full"],
+      "Goal": {
+        "values": [
+          "fuerza",
+          "hipertrofia",
+          "resistencia",
+          "perdida_peso",
+          "recomposicion",
+          "mantenimiento",
+          "personalizado",
+          "movilidad"
+        ],
+        "status": "deprecated; usar UserProfile.trainingGoal"
+      },
+      "Level": ["principiante", "intermedio", "avanzado"],
+      "CoachIntensity": ["profesional", "motivacional", "duro", "extremo"],
+      "SessionStatus": ["PLANNED", "COMPLETED", "PARTIAL", "CANCELLED"],
+      "SetType": ["NORMAL", "PYRAMID", "ASCENDING", "DESCENDING"],
+      "RecoveryCheck.color": ["green", "yellow", "red"],
+      "PainLog.level": ["none", "mild", "moderate", "severe"]
+    },
+    "interfaces": {
+      "Exercise": "catalogo: name/alias, groupMain + groupsSecondary, equipment, level, pattern, muscles, instructions, variantIds, restrictions, tags",
+      "Routine": "cabecera de rutina (id, name, description, createdAt/updatedAt, archived)",
+      "RoutineDay": "dia de la semana dentro de una rutina (routineId + weekday + name)",
+      "RoutineExercise": "ejercicio planeado (order, targetSets/Reps/Weight, restSec, RIR, RPE, tempo, notes)",
+      "RecoveryCheck": "check-in diario: energy, fatigue, stress, sleep, soreness, motivation, mood, digestion, hydration, score, color, RPE, pain area, notes",
+      "HydrationLog": "localDate, amountMl, time, isDemo",
+      "PainLog": "level, zona, exerciseId?, momento, notas",
+      "UserProfile": "documento unico (id 'me'): objetivo, nivel, disponibilidad, unidades, coachTone/coachMethodView, onboardingDone, hydrationGoalMl, cycle, trainingGoal, schedule, nutritionPrefs, bodyComposition, identidad, peso/altura/grasa/masa magra/IMC, targetWeight, limitaciones, activityLevel, healthConditions, sessionDurationMin",
+      "BodyMeasurement": "peso, altura, grasa, masa magra, perimetros (pecho/cintura/cadera), isDemo",
+      "WeeklySequence": "cycleId, weekNumber, startDate, plannedDays, completedDays, partialDays",
+      "TrainingSession": "modelo oficial (re-exportado desde training/domain.ts)",
+      "SetRecord": "registro real de serie (setRecordId, sessionExerciseId, exerciseId, setType, actualReps, actualWeight, status, completedAt)",
+      "SessionExercise": "ejercicio dentro de una sesion con su estado y snapshot planeado",
+      "SessionEvent": "evento de sesion (eventId, type, timestamp)",
+      "PostWorkoutSurvey": "encuesta post-entreno (surveyId, sessionId, calendarDate)"
+    },
+    "deprecationNote": "Session, SetLog, LegacyTrainingSession, LegacyExerciseRecord son capa legacy de solo lectura; la nomenclatura oficial vive en src/services/training/domain.ts y se re-exporta desde types/index.ts."
+  },
+
+  "integrations": {
+    "policy": "Ninguna integracion externa es fuente de verdad. Todas enriquecen; el dominio sigue operando sin ellas.",
+    "exerciseGymGifsDB": {
+      "role": "FUENTE UNICA de catalogo de ejercicios segun su propio header",
+      "url": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0",
+      "file": "src/services/exerciseGym.ts",
+      "endpoints": [
+        "/api/es/muscles.json",
+        "/api/es/muscles/{muscle}.json",
+        "/api/es/equipment/{equipment}.json",
+        "/api/es/bodyparts/{bodypart}.json",
+        "/api/es/categories/{category}.json",
+        "/api/es/exercises/{muscle}/{slug}.json"
+      ],
+      "deprecatedSources": ["wger como catalogo primario", "semilla local como catalogo primario"],
+      "cache": "db.exerciseGymCache"
+    },
+    "wger": {
+      "role": "Enriquecimiento externo opcional: rutinas, ejercicios, sesiones, measurements. NUNCA reemplaza la biblioteca local.",
+      "files": "src/services/integrations/wger/",
+      "subdirs": ["training", "nutrition", "measurements", "stats"],
+      "client": "wgerClient.ts (HTTP /api/v2/ con timeout)",
+      "auth": "wgerServerAuth.ts via Cloudflare Worker (el frontend nunca ve credenciales; cookies HttpOnly)",
+      "mapper": "wgerMapper.ts (WgerExerciseInfo -> Exercise; mantiene altheaId separado de wgerId)",
+      "adapter": "wgerAdapter.ts importa muestras WGER (20-50 ejercicios)",
+      "sync": "wgerSyncEngine.ts bidireccional con conflictos, inbox/outbox, reintentos, rate limit",
+      "license": "wgerLicense.ts (licencia/atribucion CC-BY-SA)",
+      "cspAllowed": true
+    },
+    "groq": {
+      "role": "IA remota del Coach, siempre via proxy Worker",
+      "model": "openai/gpt-oss-20b",
+      "maxTokens": 512,
+      "temperature": 0.7,
+      "topP": 0.9,
+      "stream": true,
+      "keyInFrontend": false,
+      "keyLocation": "Cloudflare Worker secret GROQ_API_KEY"
+    },
+    "usdaFoodData": {
+      "role": "Fuente cientifica citada por metExpenditure (no integracion activa)",
+      "url": "https://fdc.nal.usda.gov/api-guide/"
+    },
+    "removedIntegrations": {
+      "codulia": "src/services/codulia.ts eliminado (cliente HTTP puro a nutricion-api-arg.fly.dev); 0 consumidores",
+      "nutricionApiArgFlyDev": "0 llamadas; removido de CSP, host-checks, systemPrompt y contextBuilder",
+      "calorieNinjas": "sin clientes, sin claves, sin llamadas (eliminado historicamente)"
+    }
+  },
+
+  "infrastructure": {
+    "cloudflareWorker": {
+      "directory": "worker/",
+      "files": [
+        "src/index.js",
+        "src/rate-limiter.js",
+        "src/index.d.ts",
+        "src/rate-limiter.d.ts",
+        "src/index.test.ts",
+        "src/rate-limiter.test.ts",
+        "wrangler.staging.toml",
+        "wrangler.production.toml"
+      ],
+      "language": "JavaScript (no TS)",
+      "hasPackageJson": false,
+      "routes": [
+        {
+          "method": "OPTIONS",
+          "path": "any",
+          "behavior": "204 + CORS; 403 forbidden_origin si el origen no resuelve"
+        },
+        {
+          "method": "POST",
+          "path": "/api/wger/token",
+          "behavior": "Proxy a POST https://wger.de/api/v2/auth/token/ con user/pass; cookie wger_token Max-Age=86400"
+        },
+        { "method": "DELETE", "path": "/api/wger/token", "behavior": "Limpia cookie (Max-Age=0)" },
+        {
+          "method": "POST",
+          "path": "/api/wger/refresh",
+          "behavior": "Usa cookie wger_refresh; POST .../auth/token/refresh/; renueva wger_token"
+        },
+        {
+          "method": "GET",
+          "path": "/api/wger/user",
+          "behavior": "Requiere wger_token; GET https://wger.de/api/v2/user/; re-emite solo JSON parseado"
+        },
+        {
+          "method": "GET",
+          "path": "/api/wger/proxy/{path}",
+          "behavior": "Requiere cookie; {path} validado contra regex WGER_ALLOWED_PATH si no 403 path_not_allowed"
+        },
+        {
+          "method": "POST",
+          "path": "any non-WGER path",
+          "behavior": "handleGroq(): proxy a GROQ_URL"
+        }
+      ],
+      "noHealthEndpoint": true,
+      "securityControls": {
+        "cors": {
+          "failClosed": true,
+          "allowlistEnv": "CORS_ORIGIN",
+          "wildcardStarReturnsEmptyAllowlist": true,
+          "emptyAllowlistResponse": "500 cors_not_configured",
+          "headers": [
+            "Access-Control-Allow-Origin (eco exacta)",
+            "Allow-Methods: POST, OPTIONS",
+            "Allow-Headers: Content-Type",
+            "Max-Age: 86400",
+            "Allow-Credentials: true",
+            "Vary: Origin"
+          ]
+        },
+        "methodAllowlist": {
+          "nonWger": "POST + OPTIONS; otro -> 405 con Allow",
+          "wger": "405 por ruta sin match, Allow: GET, POST, DELETE, OPTIONS"
+        },
+        "bodyLimit": {
+          "groqMaxBytes": 65536,
+          "wgerMaxBytes": 8192,
+          "twoBarriers": [
+            "Content-Length header check",
+            "streaming reader con cancelacion al superar el limite"
+          ],
+          "overflowResponse": 413,
+          "headerEchoed": "X-Max-Body-Bytes: 65536 (Groq)"
+        },
+        "contentTypeValidation": {
+          "required": "application/json exacto (sin parametros)",
+          "failureResponse": "415 unsupported_media_type"
+        },
+        "payloadSchema": {
+          "topLevelAllowedKeys": [
+            "messages",
+            "model",
+            "max_tokens",
+            "temperature",
+            "top_p",
+            "stream"
+          ],
+          "unexpectedField": "422 unexpected_field",
+          "clientModelEtcIgnored": true,
+          "maxMessages": 40,
+          "maxContentChars": 12000,
+          "allowedRoles": ["system", "user", "assistant"]
+        },
+        "timeouts": {
+          "groqMs": 60000,
+          "wgerMs": 15000,
+          "mechanism": "AbortController + setTimeout + clearTimeout en finally",
+          "onTimeout": "504 upstream_timeout",
+          "onOtherFetchError": "502 upstream_error"
+        },
+        "sanitization": {
+          "upstreamBodyForwarded": false,
+          "upstreamHeadersForwarded": false,
+          "errorBodyShape": "{error: <codigo corto>}",
+          "noStackTraces": true,
+          "noHtmlEscapingOfMessageContent": true
+        },
+        "cookieHardening": "wger_token; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age",
+        "authHeaderServerControlled": true
+      },
+      "rateLimiting": {
+        "identity": "CF-Connecting-IP (fallback 'unknown' => un bucket compartido)",
+        "chain": ["durable-object", "kv", "memory-degraded"],
+        "algorithm": "Ventana fija",
+        "limits": {
+          "groq": { "max": 20, "windowSeconds": 60, "keyPrefix": "rl:groq" },
+          "wger": { "max": 60, "windowSeconds": 60, "keyPrefix": "rl:wger" }
+        },
+        "durableObject": {
+          "name": "RateLimiter",
+          "storageKey": "counter:{keyPrefix}:{key}",
+          "oneDOPerKey": true,
+          "alarmCleanup": true
+        },
+        "kvBehavior": "fail-OPEN en error de kv.get (decision deliberada); siempre reporta degraded por consistencia eventual",
+        "memoryBehavior": "Map a nivel de isolate; prune oportunista cuando size>5000; siempre degraded",
+        "responseHeaders": [
+          "X-RateLimit-Limit",
+          "X-RateLimit-Remaining",
+          "X-RateLimit-Reset",
+          "X-RateLimit-Mode",
+          "Retry-After (en 429)"
+        ]
+      },
+      "environments": {
+        "staging": {
+          "file": "worker/wrangler.staging.toml",
+          "name": "althea-proxy-staging",
+          "compatibilityDate": "2025-09-01",
+          "corsOrigin": "https://althea-staging.web.app",
+          "kvNamespaceId": "0f643e89b72743f197bd851c4dd9146e",
+          "kvStatus": "namespace real (comentario del archivo lo confirma)",
+          "corsOriginStatus": "PLACEHOLDER derivado por convencion del nombre de proyecto; no verificado contra un proyecto Firebase vivo",
+          "doBinding": "RATE_LIMITER",
+          "doMigration": "tag v1, new_sqlite_classes=[RateLimiter]"
+        },
+        "production": {
+          "file": "worker/wrangler.production.toml",
+          "name": "althea-proxy-production",
+          "compatibilityDate": "2025-09-01",
+          "corsOrigin": "https://althea.app,https://www.althea.app",
+          "corsOriginStatus": "UNVERIFIED que esos dominios existan/sean propios",
+          "kvNamespaceId": "REEMPLAZAR_KV_NAMESPACE_ID_PRODUCTION",
+          "kvStatus": "PLACEHOLDER explicito; KV de produccion NO aprovisionado",
+          "doBinding": "RATE_LIMITER",
+          "doMigration": "tag v1, new_sqlite_classes=[RateLimiter]"
+        }
+      },
+      "envVars": {
+        "CORS_ORIGIN": {
+          "kind": "var publica",
+          "file": "worker/wrangler.*.toml [vars]",
+          "usedBy": "index.js:629",
+          "ifMissing": "500 cors_not_configured (fail-closed)"
+        },
+        "GROQ_API_KEY": {
+          "kind": "SECRET (wrangler secret put)",
+          "usedBy": "index.js:566-570 -> Authorization: Bearer",
+          "ifMissing": "503 proxy_not_configured",
+          "isOnlySecretInProject": true
+        },
+        "GROQ_URL": {
+          "kind": "var opcional",
+          "default": "https://api.groq.com/openai/v1/chat/completions",
+          "ifMissing": "usa default"
+        },
+        "GROQ_TIMEOUT_MS": { "kind": "var opcional", "default": 60000 },
+        "WGER_TIMEOUT_MS": { "kind": "var opcional", "default": 15000 },
+        "RATE_LIMITER": { "kind": "DO binding", "ifMissing": "degrada a KV" },
+        "RATE_LIMIT": { "kind": "KV binding", "ifMissing": "degrada a memory (memory-degraded)" }
+      },
+      "hardcodedServerConstants": {
+        "GROQ_MODEL": "openai/gpt-oss-20b",
+        "GROQ_MAX_TOKENS": 512,
+        "GROQ_TEMPERATURE": 0.7,
+        "GROQ_TOP_P": 0.9,
+        "WGER_BASE": "https://wger.de/api/v2",
+        "stream": true
+      }
+    },
+    "hosting": {
+      "platform": "Firebase Hosting",
+      "publicDir": "dist",
+      "source": "firebase.json",
+      "headersSource": "** (global, incluye /)",
+      "rewrites": [{ "source": "**", "destination": "/index.html" }],
+      "netlifyFallback": "public/_redirects -> /* /index.html 200",
+      "securityHeaders": {
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Permissions-Policy": "accelerometer=(self), camera=(), geolocation=(self), gyroscope=(), magnetometer=(), microphone=(self), payment=(), usb=()",
+        "X-Frame-Options": "SAMEORIGIN",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://cdn.jsdelivr.net https://*.workers.dev https://wger.de; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+      },
+      "cspNotable": {
+        "styleSrcUnsafeInline": "requerido por Tailwind/emotion inline styles",
+        "wgerDe": "CONSERVADO (WGER sigue en uso)",
+        "nutricionApiArgFlyDev": "ELIMINADO de connect-src",
+        "connectSrcWorkersDev": "requerido por el proxy Groq"
+      },
+      "cacheRules": [
+        { "source": "/index.html", "header": "Cache-Control: no-cache, no-store, must-revalidate" },
+        { "source": "/assets/**", "header": "Cache-Control: public, max-age=31536000, immutable" },
+        { "source": "/sw.js", "header": "Cache-Control: no-cache, no-store, must-revalidate" },
+        {
+          "source": "/workbox-*.js",
+          "header": "Cache-Control: no-cache, no-store, must-revalidate"
+        },
+        { "source": "/manifest.webmanifest", "header": "Content-Type: application/manifest+json" }
+      ],
+      "firestoreRules": "firestore.rules",
+      "firebaserc": "NO existe (solo .firebaserc.example)"
+    }
+  },
+
+  "security": {
+    "firestoreRules": {
+      "file": "firestore.rules",
+      "rulesVersion": 2,
+      "lines": 14,
+      "allow": "read, write en /users/{uid}/{document=**} si request.auth != null && request.auth.uid == uid",
+      "deny": "catch-all match /{document=**} => allow read, write: if false",
+      "implications": [
+        "Cada usuario accede SOLO a su subarbol users/{uid}.",
+        "Sin autenticacion: no hay lectura ni escritura.",
+        "Todo fuera de /users/{uid}/ esta denegado incondicionalmente, incluido el doc /users y /users/{uid} mismo (el wildcard requiere un segmento mas).",
+        "No hay reglas create/update/delete especificas, ni validacion de campos, ni roles/admin, ni TTL."
+      ]
+    },
+    "uidIsolation": {
+      "local": "No hay keying por uid en Dexie. Se resuelve con wipe-on-account-switch (accountWipe.ts) usando localStorage['althea:lastUid'].",
+      "remote": "users/{uid}/{coleccion}/{docId} (services/firebase/sync.ts); verificado por src/services/firebase/isolation.test.ts"
+    },
+    "accountWipe": {
+      "file": "src/services/storage/accountWipe.ts",
+      "exports": [
+        "LAST_UID_KEY",
+        "shouldWipeOnAccountSwitch",
+        "rememberAccountUid",
+        "PRESERVED_KEYS",
+        "USER_DATA_PREFIXES",
+        "clearUserDataOnAccountDelete"
+      ],
+      "purgesLegacyKey": "codulia_api_key (limpia claves de proveedores retirados del dispositivo)"
+    },
+    "secretPolicy": {
+      "onlyPrivateKeyInProject": "GROQ_API_KEY, y vive EXCLUSIVAMENTE como secret del Cloudflare Worker",
+      "frontendNeverHasGroqKey": true,
+      "vitePrefixedVarsInDotEnvLocal": {
+        "vars": ["VITE_GROQ_API_KEY", "VITE_NINJA_API_KEY"],
+        "readByAppCode": false,
+        "risk": "Estan prefijadas con VITE_ (Vite las inlinearia en un build con ese .env cargado) pero ningun codigo las lee. Son claves muertas y el riesgo mas alto encontrado en la auditoria.",
+        "recommendation": "Rotar y eliminar de .env.local."
+      },
+      "declaredButUnread": ["VITE_CALORIE_NINJAS_KEY", "VITE_GROQ_SECRET", "VITE_CLOUDFLARE_TOKEN"],
+      "forbiddenByPolicy": ["VITE_WGER_* (nunca creados; credenciales WGER solo via Worker)"]
+    },
+    "releaseGate": {
+      "script": "scripts/check-release.mjs",
+      "purpose": "Escanea dist/ por claves embebidas (patrones Groq gsk_, VITE_GROQ_API_KEY, api.groq.com, X-Api-Key con valor, VITE_NINJA_API_KEY, VITE_CALORIE_NINJAS_KEY)",
+      "lastRun": "OK - sin claves en 115 archivos"
+    },
+    "deployGuards": {
+      "script": "scripts/deploy-hosting.mjs",
+      "failClosed": "process.exit(1) si falta FIREBASE_PROJECT_ID",
+      "productionGate": "ALTHEA_ALLOW_PRODUCTION_DEPLOY debe ser exactamente '1'"
+    }
+  },
+
+  "pwa": {
+    "manifestFile": "public/manifest.webmanifest",
+    "generatedByPlugin": false,
+    "vitePluginConfig": "manifest: false (el manifest es hand-written)",
+    "manifest": {
+      "name": "Althea — Gym Notebook",
+      "short_name": "Althea",
+      "description": "Tu cuaderno de gimnasio offline: series, nutrición, recuperación, coach IA local",
+      "start_url": "/?source=pwa",
+      "scope": "/",
+      "display": "standalone",
+      "display_override": ["window-controls-overlay", "standalone"],
+      "orientation": "portrait",
+      "theme_color": "#1D4B38",
+      "background_color": "#F6F7F5",
+      "lang": "es",
+      "screenshots": [],
+      "categories": null,
+      "id": null
+    },
+    "icons": [
+      {
+        "src": "/icons/althea-mark.svg",
+        "sizes": "any",
+        "type": "image/svg+xml",
+        "purpose": "any"
+      },
+      {
+        "src": "/icons/icon-192.png",
+        "sizes": "192x192",
+        "type": "image/png",
+        "purpose": "any",
+        "measured": "192x192, 17.5 KB"
+      },
+      {
+        "src": "/icons/icon-512.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any",
+        "measured": "512x512, 111.8 KB"
+      },
+      {
+        "src": "/icons/icon-512-maskable.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "maskable",
+        "measured": "512x512, 111.8 KB",
+        "unverified": "mismo tamano que el plano; no se hashearion para confirmar que difieren"
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "Registrar serie",
+        "short_name": null,
+        "url": "/entrenar?source=shortcut",
+        "description": "Ir directo a registro de entrenamiento"
+      },
+      {
+        "name": "Agua +250ml",
+        "short_name": null,
+        "url": "/?action=water250&source=shortcut",
+        "description": "Registrar hidratación rápida"
+      }
+    ],
+    "serviceWorker": {
+      "registerType": "prompt (nunca auto-aplica)",
+      "updatePromptUI": "controllerchange en src/App.tsx:217-218 muestra toast 'Nueva version disponible'",
+      "precachePatterns": ["**/*.{js,css,html,svg,png,woff2}"],
+      "precacheIgnores": ["**/*.wasm"],
+      "maxCacheFileBytes": 31457280,
+      "runtimeCaching": [
+        {
+          "pattern": "fonts.googleapis.com",
+          "strategy": "CacheFirst",
+          "cacheName": "google-fonts-cache",
+          "maxEntries": 10,
+          "maxAge": "1 year"
+        },
+        {
+          "pattern": "cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB/",
+          "strategy": "StaleWhileRevalidate",
+          "cacheName": "exgym-api",
+          "maxEntries": 200,
+          "maxAge": "7 days",
+          "statuses": [0, 200]
+        },
+        {
+          "pattern": "cdn.jsdelivr.net/*.gif",
+          "strategy": "CacheFirst",
+          "cacheName": "exgym-gifs",
+          "maxEntries": 300,
+          "maxAge": "30 days",
+          "statuses": [0, 200]
+        },
+        {
+          "pattern": "*.wasm",
+          "strategy": "CacheFirst",
+          "cacheName": "wasm-cache",
+          "maxEntries": 10,
+          "maxAge": "30 days",
+          "statuses": [0, 200]
+        },
+        {
+          "pattern": "*.workers.dev",
+          "strategy": "NetworkOnly",
+          "cacheName": "groq-proxy",
+          "reason": "el proxy Groq nunca se cachea"
+        }
+      ],
+      "registrations": [
+        "plugin-injected registerSW.js",
+        "manual en src/main.tsx:13-17",
+        "segundo SW para FCM: /firebase-messaging-sw.js (services/firebase/messaging.ts:46)"
+      ],
+      "knownDuplicateRegistration": "El plugin inyecta registerSW.js y main.tsx tambien registra /sw.js manualmente -> doble registro en el build."
+    },
+    "indexHtml": {
+      "lang": "es",
+      "viewport": "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover",
+      "themeColorMeta": "#F7F3EC",
+      "themeColorMismatch": "index.html declara #F7F3EC pero manifest.theme_color es #1D4B38 (valores distintos en dos archivos publicados)",
+      "description": "ALTHEA — Palaestra Virtue · PWA offline-first",
+      "title": "ALTHEA — Palaestra Virtue",
+      "manifestLink": "/manifest.webmanifest",
+      "favicon": "/assets/brand/monogram.svg",
+      "appleTouchIcon": "/assets/brand/apple-touch-icon-180.png",
+      "fonts": [
+        "Playfair+Display:wght@500;600;700",
+        "Inter:wght@400;500;600;700",
+        "Material+Symbols+Outlined:wght,FILL@100..700,0..1"
+      ],
+      "preconnect": ["https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+      "absentTags": [
+        "apple-mobile-web-app-capable",
+        "apple-mobile-web-app-status-bar-style",
+        "apple-mobile-web-app-title",
+        "mobile-web-app-capable",
+        "mask-icon",
+        "noscript",
+        "theme-color variant for dark mode"
+      ]
+    },
+    "buildArtifacts": {
+      "sw.js": "7.5 KB",
+      "workbox": "22.1 KB",
+      "registerSW.js": "0.1 KB",
+      "firebase-messaging-sw.js": "1.4 KB"
+    }
+  },
+
+  "designSystem": {
+    "tokenFiles": [
+      "src/styles/althea-tokens.css (159)",
+      "src/styles/althea-components.css (387)",
+      "src/styles/althea-brand.css (107)",
+      "src/index.css (867)"
+    ],
+    "twoTokenSystems": {
+      "altheaPrefix": "--althea-* (althea-tokens.css)",
+      "cPrefix": "--c-* (src/index.css, consumidas por Tailwind)",
+      "conflict": "src/index.css declara --c-* en un :root temprano (L16-183) y LOS REDECLARA en un :root posterior (L623-744) que gana por cascada."
+    },
+    "themes": {
+      "supported": ["light (default)", "dark"],
+      "activation": "src/utils/appearance.ts; clase .dark en <html>; tailwind.config.js darkMode:'class'",
+      "defaultTheme": "light",
+      "systemThemeOption": false,
+      "textScale": {
+        "key": "localStorage['althea:textscale']",
+        "options": { "s": "87.5%", "m": "100% (default)", "l": "112.5%" }
+      }
+    },
+    "typography": {
+      "display": {
+        "font": "'Playfair Display', ui-serif, Georgia, serif",
+        "role": "marca, titulos, numeros protagonistas"
+      },
+      "ui": { "font": "'Inter', ui-sans-serif, -apple-system, sans-serif", "role": "datos, UI" },
+      "thirdFont": "ninguna",
+      "tailwindAliases": {
+        "headline": ["Playfair Display", "Georgia", "serif"],
+        "body": ["Inter", "system-ui", "sans-serif"]
+      },
+      "scale": {
+        "display-xl": "2.75rem",
+        "display-lg": "2rem",
+        "display-md": "1.5rem",
+        "body-lg": "1rem",
+        "body-md": "0.875rem",
+        "body-sm": "0.75rem",
+        "label": "0.6875rem"
+      },
+      "lineHeights": { "display": 1.15, "body": 1.5 }
+    },
+    "colorLight": {
+      "primary": "#1B4332",
+      "primaryHover": "#143526",
+      "primarySoft": "#E7EFE9",
+      "onPrimary": "#F7F5F0",
+      "marble": "#FBFAF7",
+      "surface": "#FBFAF7",
+      "surface2": "#F4F2EC",
+      "surface3": "#ECE9E1",
+      "onSurface": "#1A1B17",
+      "onSurfaceMuted": "#63645C",
+      "outline": "#DEDACF",
+      "gold": "#B08D3F",
+      "macroCarbs": "#C98A3E",
+      "macroProtein": "#8E3B3B",
+      "macroFat": "#C9A63E",
+      "hydration": "#4A9FBF",
+      "water": "rgb(100 181 246)",
+      "warning": "#B8863B",
+      "error": "#A13F3F",
+      "success": "#1B4332",
+      "muscleLow": "#B0524B",
+      "muscleMid": "#C9A23E",
+      "muscleHigh": "#3F7A52",
+      "muscleIdle": "#DCD8CC"
+    },
+    "colorDark": {
+      "primary": "#2F7A54",
+      "primaryHover": "#3C9367",
+      "onPrimary": "#F7F5F0",
+      "surface": "#101211",
+      "surface2": "#171A18",
+      "surface3": "#20241F",
+      "onSurface": "#F1F0EA",
+      "onSurfaceMuted": "#9C9C90",
+      "outline": "#2A2D27",
+      "gold": "#C8A24E",
+      "macroCarbs": "#D9A05C",
+      "macroProtein": "#B25D5D",
+      "macroFat": "#D6C066",
+      "hydration": "#6BB8D6",
+      "water": "rgb(128 198 250)",
+      "warning": "#D6A85C",
+      "error": "#C25B5B",
+      "success": "#2F7A54",
+      "muscleLow": "#C25B5B",
+      "muscleMid": "#D6C066",
+      "muscleHigh": "#4E9B6C",
+      "muscleIdle": "#2A2D27"
+    },
+    "spacing": {
+      "1": "4px",
+      "2": "8px",
+      "3": "12px",
+      "4": "16px",
+      "5": "20px",
+      "6": "24px",
+      "8": "32px",
+      "10": "40px",
+      "xs": "0.25rem",
+      "sm": "0.5rem",
+      "md": "1rem",
+      "lg": "1.5rem",
+      "xl": "2.5rem",
+      "2xl": "2rem",
+      "3xl": "56px"
+    },
+    "radius": {
+      "sm": "8px",
+      "md": "12px",
+      "lg": "18px",
+      "xl": "24px",
+      "pill": "9999px",
+      "tailwindDefault": "8px"
+    },
+    "motion": {
+      "easeOut": "cubic-bezier(0.23, 1, 0.32, 1)",
+      "easeInOut": "cubic-bezier(0.77, 0, 0.175, 1)",
+      "easeStandard": "ease",
+      "durationPress": "120ms",
+      "durationFast": "160ms",
+      "durationBase": "200ms",
+      "durationSlow": "280ms"
+    },
+    "grid": {
+      "columnsDesktop": 12,
+      "containerMax": "1280px",
+      "containerMaxFirstBlock": "1200px (declarado dos veces)",
+      "navWidth": "256px",
+      "navWidthCollapsed": "64px"
+    },
+    "shadow": {
+      "panelLight": "0 1px 3px rgba(18,26,20,0.05), 0 1px 1px rgba(18,26,20,0.04)",
+      "panelHoverLight": "0 2px 8px rgba(18,26,20,0.08)",
+      "panelDark": "0 1px 3px rgba(0,0,0,0.3), 0 1px 1px rgba(0,0,0,0.24)",
+      "panelHoverDark": "0 4px 14px rgba(0,0,0,0.4)",
+      "tiers": ["sm", "md", "lg"]
+    },
+    "decorativeLayer": {
+      "file": "src/styles/althea-brand.css",
+      "classes": [
+        "althea-marble",
+        "althea-marble-2",
+        "althea-fret-divider",
+        "althea-gold-rule",
+        "althea-gold-corner",
+        "althea-wordmark",
+        "althea-wordmark-tagline",
+        "althea-bust-img",
+        "althea-avatar-ring",
+        "althea-empty-watermark"
+      ],
+      "note": "Vetas de marmol por gradiente CSS (sin imagenes); fret divider en SVG data-URI con el oro de marca"
+    }
+  },
+
+  "data": {
+    "directory": "src/data",
+    "files": [
+      {
+        "path": "src/data/exercises.json",
+        "sizeKb": 3.7,
+        "records": "10 ejercicios",
+        "shape": "id, name (es), alias (en), groupMain, groupsSecondary[], equipment, level, pattern, description, instructions[], variantIds[], muscles[], restrictions[], tags[]"
+      },
+      { "path": "src/data/knowledge/index.ts", "sizeKb": 0.4, "records": "barrel de 6 JSONs" },
+      {
+        "path": "src/data/knowledge/hypertrophy.json",
+        "sizeKb": 3.7,
+        "chunks": 6,
+        "title": "Principios de Hipertrofia muscular"
+      },
+      {
+        "path": "src/data/knowledge/strength.json",
+        "sizeKb": 2.5,
+        "chunks": 5,
+        "title": "Fuerza y Progresión"
+      },
+      {
+        "path": "src/data/knowledge/nutrition.json",
+        "sizeKb": 2.8,
+        "chunks": 5,
+        "title": "Nutrición Deportiva"
+      },
+      {
+        "path": "src/data/knowledge/recovery.json",
+        "sizeKb": 2.9,
+        "chunks": 5,
+        "title": "Recuperación y Descanso"
+      },
+      {
+        "path": "src/data/knowledge/fat_loss.json",
+        "sizeKb": 2.8,
+        "chunks": 5,
+        "title": "Pérdida de Grasa"
+      },
+      {
+        "path": "src/data/knowledge/mobility.json",
+        "sizeKb": 2.7,
+        "chunks": 5,
+        "title": "Movilidad y Flexibilidad"
+      }
+    ],
+    "knowledgeBase": { "documents": 6, "totalChunks": 31, "persistedTo": "db.knowledgeDocuments" },
+    "externalCatalog": {
+      "name": "ExerciseGymGifsDB",
+      "note": "El catalogo real llega de la API; los 10 ejercicios locales son semilla/huerfanos de fallback."
+    }
+  },
+
+  "environmentVariables": {
+    "publicBundled": [
+      {
+        "name": "VITE_GROQ_PROXY_URL",
+        "readAt": [
+          "src/services/ai/groqConfig.ts:2",
+          "src/services/ai/chatService.ts:53",
+          "src/services/ai/routineBuilderIA.ts:42"
+        ],
+        "purpose": "URL del proxy Worker; tambien actua como feature gate de IA remota",
+        "secret": false
+      },
+      {
+        "name": "VITE_FIREBASE_API_KEY",
+        "readAt": "src/services/firebase/config.ts:10",
+        "secret": false,
+        "note": "clave de cliente Firebase publica por diseno"
+      },
+      {
+        "name": "VITE_FIREBASE_AUTH_DOMAIN",
+        "readAt": "src/services/firebase/config.ts:11",
+        "secret": false
+      },
+      {
+        "name": "VITE_FIREBASE_PROJECT_ID",
+        "readAt": "src/services/firebase/config.ts:12",
+        "secret": false
+      },
+      {
+        "name": "VITE_FIREBASE_STORAGE_BUCKET",
+        "readAt": "src/services/firebase/config.ts:13",
+        "secret": false
+      },
+      {
+        "name": "VITE_FIREBASE_MESSAGING_SENDER_ID",
+        "readAt": "src/services/firebase/config.ts:14",
+        "secret": false
+      },
+      {
+        "name": "VITE_FIREBASE_APP_ID",
+        "readAt": "src/services/firebase/config.ts:15",
+        "secret": false
+      },
+      {
+        "name": "VITE_FIREBASE_VAPID_KEY",
+        "readAt": "src/services/firebase/messaging.ts:12",
+        "secret": false,
+        "note": "clave publica VAPID para Web Push"
+      }
+    ],
+    "typingContract": {
+      "file": "src/vite-env.d.ts",
+      "rule": "Leer siempre como import.meta.env.VITE_X; sin casts ni lectura del objeto entero. Prohibido declarar VITE_GROQ_API_KEY o cualquier secreto."
+    },
+    "scriptsOnly": [
+      {
+        "name": "FIREBASE_PROJECT_ID",
+        "readAt": "scripts/deploy-hosting.mjs:28",
+        "purpose": "fail-closed si falta"
+      },
+      {
+        "name": "FIREBASE_STAGING_PROJECT_ID / FIREBASE_PRODUCTION_PROJECT_ID",
+        "readAt": "scripts/deploy-hosting.mjs:57,95",
+        "purpose": "assert de project id esperado"
+      },
+      {
+        "name": "FIREBASE_STAGING_SITE_ID / FIREBASE_PRODUCTION_SITE_ID",
+        "readAt": "scripts/deploy-hosting.mjs:107",
+        "purpose": "site id por env"
+      },
+      {
+        "name": "ALTHEA_ALLOW_PRODUCTION_DEPLOY",
+        "readAt": "scripts/deploy-hosting.mjs:81",
+        "purpose": "debe ser exactamente '1' para deploy de produccion"
+      },
+      {
+        "name": "GROQ_API_KEY",
+        "readAt": ["scripts/worker-staging-preflight.mjs:92", "scripts/staging-preflight.mjs:249"],
+        "purpose": "SECRET; solo status, nunca impreso"
+      },
+      { "name": "CLOUDFLARE_ACCOUNT_ID", "readAt": "scripts/worker-staging-preflight.mjs:102" },
+      { "name": "STAGING_URL", "readAt": "scripts/staging/http-smoke.mjs:27" },
+      {
+        "name": "STAGING_WORKER_URL",
+        "readAt": "scripts/staging/http-smoke.mjs:29",
+        "fallback": "VITE_GROQ_PROXY_URL"
+      },
+      {
+        "name": "STAGING_ALLOWED_ORIGIN",
+        "readAt": "scripts/staging/http-smoke.mjs:37",
+        "purpose": "header Origin para smoke tests"
+      },
+      {
+        "name": "WGER_TEST_USERNAME / WGER_TEST_PASSWORD",
+        "readAt": [
+          "scripts/staging-preflight.mjs:317-318",
+          "src/services/integrations/wger/wgerIntegration.test.ts:17-18"
+        ],
+        "purpose": "credenciales para E2E real de WGER",
+        "secret": true
+      },
+      {
+        "name": "WGER_TEST_BASE_URL",
+        "readAt": "src/services/integrations/wger/wgerIntegration.test.ts:16",
+        "default": "https://wger.de/api/v2"
+      }
+    ],
+    "envFiles": {
+      ".env.example": { "present": true, "vars": "las 8 VITE_* con valores placeholder" },
+      ".env.local": {
+        "present": true,
+        "vars": [
+          "VITE_GROQ_API_KEY (NO leida por codigo)",
+          "VITE_NINJA_API_KEY (NO leida por codigo)"
+        ],
+        "gitignored": true
+      },
+      ".env.production": { "present": true, "vars": ["VITE_GROQ_PROXY_URL"], "gitignored": true },
+      ".env.staging": { "present": false }
+    },
+    "note": "No hay referencias a import.meta.env ni process.env dentro de worker/ o scripts/ (worker usa env del binding)."
+  },
+
+  "sync": {
+    "philosophy": "Dexie es autoritativo; el remoto es backup.",
+    "remoteModel": "users/{uid}/{coleccion}/{docId} con merge por id estable",
+    "queue": {
+      "file": "src/services/sync/opQueue.ts",
+      "table": "db.syncQueue",
+      "opsArePointers": "punteros (tabla + clave), no snapshots",
+      "deterministicId": "${table}:${key} (re-encolar no duplica)"
+    },
+    "engine": {
+      "file": "src/services/sync/engine.ts",
+      "behaviors": [
+        "relee la fila fresca al sincronizar",
+        "idempotente por doc id + merge",
+        "nunca borra una op antes de confirmar exito"
+      ],
+      "entry": "processQueue(uid, remote) desde src/App.tsx:207-209"
+    },
+    "wgerSync": {
+      "engine": "wgerSyncEngine.ts",
+      "queue": "wgerSyncQueue.ts (outbox/inbox offline-safe)",
+      "conflicts": "wgerConflictResolver.ts (nunca auto-elimina una fuente)",
+      "log": "wgerSyncLog.ts"
+    }
+  },
+
+  "firebase": {
+    "auth": {
+      "file": "src/services/firebase/auth.ts",
+      "modes": ["email/password", "reset"],
+      "persistence": "browserLocalPersistence",
+      "offlineMode": "setOfflineMode(true) permite operar sin cuenta"
+    },
+    "config": {
+      "file": "src/services/firebase/config.ts",
+      "readsEnvMemberByMember": true,
+      "isFirebaseConfigured": true,
+      "disabledWithoutConfig": true
+    },
+    "firestore": {
+      "file": "src/services/firebase/sync.ts",
+      "remoteAdapter": "firestoreRemote(uid)",
+      "demoRows": "no se sincronizan filas demo"
+    },
+    "messaging": {
+      "file": "src/services/firebase/messaging.ts",
+      "tokenPath": "users/{uid}/meta/tokens",
+      "localKey": "localStorage['althea:fcmToken']",
+      "secondServiceWorker": "/firebase-messaging-sw.js"
+    }
+  },
+
+  "testing": {
+    "runner": "Vitest 5",
+    "script": "npm run test (vitest run)",
+    "config": "vitest.config.ts (no auditado en detalle)",
+    "currentVerifiedState": {
+      "runDate": "2026-10-04",
+      "testFiles": 135,
+      "testsPassing": 1303,
+      "testsSkipped": 12,
+      "skipReason": "tests E2E de WGER requieren WGER_TEST_USERNAME/PASSWORD"
+    },
+    "staticInventory": {
+      "note": "Conteo de bloques it() por analisis de archivos (no es el conteo de vitest).",
+      "totalTestFiles": 135,
+      "totalItBlocks": 1301,
+      "totalDescribeBlocks": 333,
+      "byDirectory": {
+        "src/services": { "files": 83, "itBlocks": 936 },
+        "src/pages": { "files": 19, "itBlocks": 58 },
+        "src/components": { "files": 17, "itBlocks": 110 },
+        "src/utils": { "files": 7, "itBlocks": 64 },
+        "src/test": { "files": 3, "itBlocks": 35 },
+        "src/config": { "files": 2, "itBlocks": 19 },
+        "src/features": { "files": 2, "itBlocks": 8 },
+        "worker": { "files": 2, "itBlocks": 70 }
+      },
+      "scriptsHaveUnitTests": false
+    },
+    "testFocusAreas": [
+      "Aislamiento de datos y no-invencion (muchos tests verifican que la app NO inventa numeros)",
+      "Migraciones localStorage -> Dexie (incluye casos de dia local)",
+      "Dominio nutricional completo (TMB/TDEE/objetivos/macros/composicion de alimentos)",
+      "Integracion WGER (69 tests de integracion + offline + comparacion de fuentes)",
+      "Seguridad del Worker (70 tests: CORS, rate limit, body limit, payload, fail-closed)",
+      "Accesibilidad (tests a11y dedicated en componentes Althea)",
+      "CSP y host headers (regression guard)",
+      "Recuperacion leida solo de Dexie (espejo legacy ignorado)"
+    ],
+    "externalValidationScripts": {
+      "note": "11 runners .mjs que hacen process.exit(1) en fallo; no son specs de vitest.",
+      "scripts": [
+        "check-release.mjs",
+        "deploy-hosting.mjs",
+        "firestore-isolation-e2e.mjs",
+        "hosting-route-check.mjs",
+        "staging-preflight.mjs",
+        "worker-live-check.mjs",
+        "worker-staging-preflight.mjs",
+        "staging/validate-staging.mjs",
+        "staging/pwa-check.mjs",
+        "staging/http-smoke.mjs",
+        "staging/auth-e2e.mjs"
+      ]
+    }
+  },
+
+  "buildAndPerformance": {
+    "buildScript": "npm run build (tsc && vite build)",
+    "minifier": "esbuild",
+    "target": "es2020",
+    "cssCodeSplit": true,
+    "chunkSizeWarningLimitKB": 500,
+    "manualChunks": {
+      "vendor-react": "react, react-dom, scheduler",
+      "vendor-router": "react-router",
+      "vendor-state": "dexie",
+      "vendor-firebase": "@firebase/* y firebase/*",
+      "vendor-utils": "uuid",
+      "vendor-icons": "lucide-react",
+      "vendor-other": "resto de node_modules"
+    },
+    "measuredBundle": {
+      "note": "Medido en el build de esta sesion (2026-10-04).",
+      "initialJsGzipKB": 128.6,
+      "budgetKB": 150,
+      "budgetMet": true,
+      "vendorFirebaseRawKB": 634.4,
+      "vendorFirebaseGzipKB": 140.0,
+      "vendorReactRawKB": 139.7,
+      "vendorReactGzipKB": 44.7,
+      "vendorStateGzipKB": 31.6,
+      "vendorRouterGzipKB": 13.5,
+      "precacheEntries": 98,
+      "precacheSizeKiB": 5827.25,
+      "firebaseIsLargestChunk": true,
+      "firebaseDeferred": "vendor-firebase se carga aparte; la app opera sin Firebase"
+    },
+    "performanceDecisions": [
+      "Todas las paginas con React.lazy + Suspense (LazyPage)",
+      "ChatWidget con lazy() para diferir la cadena de IA",
+      "vendor-firebase separado del bundle inicial",
+      "objetivo T032: initial JS < 150 KB gzip"
+    ]
+  },
+
+  "npmScripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview --port 5173",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,css,md}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check:release": "node scripts/check-release.mjs",
+    "seed:exercises": "echo \"seed exercises via src/data/exercises.json\"",
+    "deploy:hosting:staging": "npm run build && node scripts/deploy-hosting.mjs staging",
+    "deploy:hosting:production": "npm run build && node scripts/deploy-hosting.mjs production",
+    "worker:deploy:staging": "cd worker && npx wrangler deploy -c wrangler.staging.toml",
+    "worker:deploy:production": "cd worker && npx wrangler deploy -c wrangler.production.toml",
+    "worker:secret:staging": "cd worker && npx wrangler secret put GROQ_API_KEY -c wrangler.staging.toml",
+    "worker:secret:production": "cd worker && npx wrangler secret put GROQ_API_KEY -c wrangler.production.toml",
+    "worker:kv:staging": "cd worker && npx wrangler kv namespace create RATE_LIMIT -c wrangler.staging.toml",
+    "worker:kv:production": "cd worker && npx wrangler kv namespace create RATE_LIMIT -c wrangler.production.toml",
+    "staging:preflight": "node scripts/staging-preflight.mjs",
+    "worker:staging:preflight": "node scripts/worker-staging-preflight.mjs",
+    "staging:validate": "node scripts/staging/validate-staging.mjs",
+    "staging:pwa:check": "node scripts/staging/pwa-check.mjs",
+    "staging:http:smoke": "node scripts/staging/http-smoke.mjs",
+    "staging:auth:e2e": "node scripts/staging/auth-e2e.mjs",
+    "staging:worker:live-check": "node scripts/worker-live-check.mjs",
+    "staging:firestore:e2e": "node scripts/firestore-isolation-e2e.mjs",
+    "staging:hosting:check": "node scripts/hosting-route-check.mjs",
+    "staging:verify:all": "node scripts/staging/validate-staging.mjs && node scripts/staging/pwa-check.mjs"
+  },
+
+  "qualityGates": {
+    "commands": [
+      "git diff --check",
+      "npx tsc --noEmit",
+      "npm run lint (max-warnings 0)",
+      "npm test",
+      "npm run build",
+      "npm run check:release"
+    ],
+    "lastVerifiedState": {
+      "date": "2026-10-04",
+      "diffCheck": "PASS",
+      "tsc": "PASS (0 errores)",
+      "lint": "PASS (0, max-warnings 0)",
+      "tests": "PASS (135 archivos / 1303 passing / 12 skipped)",
+      "build": "PASS",
+      "checkRelease": "PASS (115 archivos, sin claves embebidas)",
+      "bundleBudget": "PASS (128.6 KB < 150 KB gzip)"
+    },
+    "preCommitHooks": "husky + lint-staged (eslint --fix + prettier --write en ts/tsx/js/jsx/json/css/md)"
+  },
+
+  "git": {
+    "defaultBranch": "main",
+    "convention": "Conventional Commits (feat/fix/security/infra/perf/chore/refactor/test/doc)",
+    "recentCommits": [
+      "e739269 chore: ignore delivery artifact folder ALTHEA_VISUAL_SYSTEM_FINAL",
+      "5ebebf9 refactor: remove external nutrition API, keep local nutrition domain",
+      "4831796 perf: meet T032 budget by deferring chat AI chain + staging validators",
+      "40cd9aa infra: staging automation, live worker validation, CSP scope fix",
+      "c176ec3 security: durable-object rate limit and CSP regression guard",
+      "349182e security: harden worker and staging infrastructure"
+    ],
+    "gitignoreHighlights": [
+      "node_modules",
+      "dist",
+      ".env*",
+      ".agents/",
+      ".opencode/",
+      ".codex/",
+      ".review/",
+      ".impeccable/",
+      "*.exe",
+      "worker/.wrangler/",
+      "ALTHEA_VISUAL_SYSTEM_FINAL/ (artefacto de entrega, 0 archivos unicos)"
+    ]
+  },
+
+  "knownIssues": [
+    {
+      "id": "redirect-to-unmatched-route",
+      "severity": "bug",
+      "detail": "src/pages/Entrenar.tsx:1183 hace Navigate to '/inicio', pero /inicio NO es una ruta declarada (la home es '/'). Un usuario sin sesion activa cae en una URL sin match.",
+      "file": "src/pages/Entrenar.tsx:1183"
+    },
+    {
+      "id": "no-catch-all-route",
+      "severity": "mejora",
+      "detail": "src/App.tsx no declara path='*'. Una URL desconocida renderiza el shell con <Routes> vacio (nav visible, sin contenido)."
+    },
+    {
+      "id": "theme-color-mismatch",
+      "severity": "bug",
+      "detail": "manifest.webmanifest declara theme_color #1D4B38 pero index.html declara <meta theme-color> #F7F3EC. Dos valores distintos en dos archivos publicados.",
+      "file": "public/manifest.webmanifest, index.html"
+    },
+    {
+      "id": "duplicate-sw-registration",
+      "severity": "mejora",
+      "detail": "vite-plugin-pwa inyecta registerSW.js y ademas src/main.tsx:13-17 registra /sw.js manualmente. Doble registro en el build.",
+      "file": "src/main.tsx:13-17"
+    },
+    {
+      "id": "cors-allow-methods-inconsistent",
+      "severity": "bug",
+      "detail": "worker/src/index.js:141 emite Access-Control-Allow-Methods 'POST, OPTIONS' mientras el 405 de WGER (L659) emite Allow 'GET, POST, DELETE, OPTIONS'. Los dos strings no coinciden.",
+      "file": "worker/src/index.js:141,659"
+    },
+    {
+      "id": "wger-429-missing-mode-header",
+      "severity": "cosmetico",
+      "detail": "El 429 de WGER no incluye X-RateLimit-Mode (el de Groq si).",
+      "file": "worker/src/index.js:404-410"
+    },
+    {
+      "id": "duplicate-token-root-blocks",
+      "severity": "deuda-tecnica",
+      "detail": "src/index.css declara --c-* en un :root temprano (L16-183) y los redeclara en otro posterior (L623-744) que gana por cascada. Tokens muertos y confusion de mantenimiento.",
+      "file": "src/index.css"
+    },
+    {
+      "id": "button-token-comment-contradiction",
+      "severity": "deuda-tecnica",
+      "detail": "El comentario de src/index.css (~L160) afirma que el verde del boton primario es identico en ambos modos, pero el :root posterior (L728-731) y .dark (L851-854) redefinen esos valores de forma distinta.",
+      "file": "src/index.css"
+    },
+    {
+      "id": "nav-reachability-gaps",
+      "severity": "bug",
+      "detail": "/recuperacion no esta en la nav (solo desde Mas y notificaciones). /calendario no esta en la barra mobile ni en primaryItems (solo en el grupo Modulos de desktop). El rail de tablet no incluye /perfil.",
+      "file": "src/components/layout/AppNav.tsx"
+    },
+    {
+      "id": "dead-env-keys-in-dotenv-local",
+      "severity": "security",
+      "detail": ".env.local contiene VITE_GROQ_API_KEY y VITE_NINJA_API_KEY. Ningun codigo las lee, pero al estar prefijadas con VITE_ un build con ese archivo cargado las inlinearia en el bundle. Claves muertas y mayor riesgo de la auditoria. Recomendacion: rotar y eliminar.",
+      "file": ".env.local"
+    },
+    {
+      "id": "includeassets-glob-noop",
+      "severity": "cosmetico",
+      "detail": "vite.config.ts incluye 'assets/icons/**/*.png' en includeAssets, pero la carpeta real es public/assets/brand/. El patron no coincide con nada.",
+      "file": "vite.config.ts:12"
+    },
+    {
+      "id": "missing-uid-indexing-in-dexie",
+      "severity": "arquitectura",
+      "detail": "No hay keying por uid en las tablas Dexie (userProfile siempre clave 'me'). El aislamiento local depende de wipe-on-account-switch; si el wipe falla, datos de dos cuentas coexisten localmente.",
+      "file": "src/services/storage/accountWipe.ts"
+    }
+  ],
+
+  "externalBlockers": {
+    "note": "Acciones que requieren cuentas o consolas externas. No verificables desde el repo.",
+    "stagingPreflightStatus": "BLOCKED - OWNER ACTION REQUIRED (todo lo local correcto)",
+    "missing": [
+      { "id": "FIREBASE_STAGING_PROJECT_ID", "blocks": "deploy de hosting staging" },
+      { "id": "FIREBASE_PRODUCTION_PROJECT_ID", "blocks": "deploy de hosting produccion" },
+      {
+        "id": "VITE_GROQ_PROXY_URL",
+        "blocks": "IA remota del Coach (cae al fallback local deterministico)"
+      },
+      {
+        "id": "GROQ_API_KEY (secret del Worker)",
+        "blocks": "proxy Groq; verificado fail-closed 503 proxy_not_configured"
+      },
+      { "id": "CLOUDFLARE_ACCOUNT_ID", "blocks": "preflight del Worker" },
+      {
+        "id": "WGER_TEST_USERNAME / WGER_TEST_PASSWORD",
+        "blocks": "12 tests E2E de WGER + smoke http-smoke"
+      },
+      {
+        "id": "PRODUCTION_KV_ID",
+        "blocks": "rate limit durable en produccion (placeholder REEMPLAZAR_KV_NAMESPACE_ID_PRODUCTION)"
+      }
+    ],
+    "requiresConsoleAccess": [
+      "Rotar/revocar la clave historica de Groq",
+      "Rotar/revocar la clave historica de CalorieNinjas (fuera del repo; ya sin uso en runtime)",
+      "Confirmar que althea.app / www.althea.app existan y sean propios (CORS de produccion loslos afirma)",
+      "Aprovisionar el KV namespace de produccion",
+      "Billing y monitoring real de Cloudflare",
+      "Notificacion de update entre dos versiones en un dispositivo real"
+    ],
+    "notValidated": "scripts/staging/pwa-check.mjs declara explicitamente NOT VALIDATED para el flujo de update del PWA."
+  },
+
+  "unverified": [
+    "icon-512.png vs icon-512-maskable.png: mismo tamano (111.8 KB) pero no se hashearion; no se puede afirmar que el maskable difiera.",
+    "CORS_ORIGIN de staging (https://althea-staging.web.app) es un placeholder derivado por convencion; no verificado contra un proyecto Firebase vivo.",
+    "CORS_ORIGIN de produccion (althea.app / www.althea.app): existencia y propiedad no verificadas.",
+    "Si el Worker esta efectivamente deployado y si GRO_API_KEY esta seteada en algun entorno: no determinable desde el source.",
+    "Valor de VITE_GROQ_PROXY_URL en .env.production: no impreso; su host no verificado contra althea-proxy-production.",
+    "src/styles/althea-components.css (387 lineas) solo se leyeron los primeros 80; no se puede afirmar que no tenga hex hardcodeados.",
+    "vitest.config.ts no fue leido; include/environment no confirmados. El conteo estatico de tests no es el conteo reportado por vitest.",
+    "Acentos en src/data/knowledge/*.json se viéron como mojibake en la lectura del agente; a nivel de bytes no verificado. Si son mojibake real serian bugs visibles al usuario."
+  ]
+}
