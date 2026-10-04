@@ -3,7 +3,7 @@
 // Estos valores son datos de referencia publiqueos (tablas composicion de
 // alimentos, porcion cocida) y NO son datos inventados para rellenar la
 // pantalla. Se usan cuando el usuario escribe una comida en texto libre y no
-// hay ningun proveedor externo configurado: la app debe funcionar sin Codulia.
+// hay ningun proveedor externo configurado: la app debe funcionar sin APIs externas.
 //
 // Formato: `per100` es el aporte de 100 g del alimento tal como se consume
 // (cocido, sin aceite agregado salvo que el propio alimento lo incluya).

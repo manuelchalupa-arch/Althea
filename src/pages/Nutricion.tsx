@@ -1,5 +1,4 @@
 ﻿import { useState, useEffect, useMemo, useCallback } from 'react'
-import * as Codulia from '@/services/codulia'
 import { db } from '@/services/storage/db'
 import {
   getDiaryEntries,
@@ -70,15 +69,8 @@ export default function Nutricion() {
   /** cambia al guardar para que el compositor vuelva a su estado inicial */
   const [composerVersion, setComposerVersion] = useState(0)
 
-  // Búsqueda Codulia (opcional)
-  const [showFoodSearch, setShowFoodSearch] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Codulia.CoduliaFoodSummary[]>([])
-  const [searchLoading, setSearchLoading] = useState(false)
-  const [searchError, setSearchError] = useState<string | null>(null)
-  const [selectedFood, setSelectedFood] = useState<Codulia.CoduliaFoodDetail | null>(null)
-  const [foodDetailLoading, setFoodDetailLoading] = useState(false)
-  const [showAddPortion, setShowAddPortion] = useState(false)
+  const [composerNotice, setComposerNotice] = useState<string | null>(null)
+
 
   // El día va de 00:00:00 a 00:00:00 local. Si la app queda abierta y cambia el
   // día, los totales arrancan de cero para el día nuevo.
@@ -280,7 +272,7 @@ export default function Nutricion() {
   const startEdit = (entry: DiaryEntry) => {
     const d = dishFromEntry(entry)
     if (!d) {
-      setSearchError('Esta comida se guardó sin desglose de ingredientes. Buscala por nombre para editarla.')
+      setComposerNotice('Esta comida se guardó sin desglose de ingredientes. Buscala por nombre para editarla.')
       return
     }
     setEditing({ id: entry.id, draft: d, mealLabel: entry.mealType || 'Comida' })
@@ -304,51 +296,6 @@ export default function Nutricion() {
     setAdherenceRecord(record)
   }
 
-  // Codulia: opcional, solo para identificar productos puntuales
-  const doSearch = async () => {
-    if (!searchQuery.trim()) { return }
-    setSearchError(null); setSearchLoading(true); setSearchResults([]); setSelectedFood(null)
-    try {
-      const r = await Codulia.searchFoods(searchQuery, { limit: 20 })
-      setSearchResults(r)
-      if (r.length === 0) { setSearchError('Sin resultados para "' + searchQuery + '"') }
-    } catch (e: any) { setSearchError(e.message) }
-    finally { setSearchLoading(false) }
-  }
-
-  const openFoodDetail = async (id: string) => {
-    setSearchError(null); setFoodDetailLoading(true)
-    try {
-      const d = await Codulia.getFoodDetail(id)
-      setSelectedFood(d); setShowAddPortion(true)
-    } catch (e: any) { setSearchError(e.message) }
-    finally { setFoodDetailLoading(false) }
-  }
-
-  const addFoodToDiary = (food: Codulia.CoduliaFoodDetail, servingIdx: number, amount?: number) => {
-    const serving = food.servings[servingIdx]
-    const factor = amount ? amount / 100 : (serving?.amount || 100) / 100
-    const entry: DiaryEntry = {
-      id: `food-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      name: food.name,
-      date: activeDate,
-      mealType: 'Comida',
-      servingLabel: serving?.label || 'Porción personalizada',
-      amount: amount || serving?.amount || 100,
-      unit: food.baseUnit,
-      macros: {
-        calories: Math.round(food.macros.calories * factor),
-        proteins: Math.round(food.macros.proteins * factor * 10) / 10,
-        carbs: Math.round(food.macros.carbs * factor * 10) / 10,
-        fats: Math.round(food.macros.fats * factor * 10) / 10,
-      },
-      time: nowLocalTime(),
-      addedAt: new Date().toISOString(),
-    }
-    setDiaryEntries(prev => [...prev, entry])
-    addDiaryEntry(entry)
-    setShowAddPortion(false); setSelectedFood(null); setShowFoodSearch(false); setSearchError(null)
-  }
 
   const activeMethod = perfil?.activeNutritionMethod
     ? getNutritionMethod(perfil.activeNutritionMethod as NutritionMethodId) : null
@@ -370,7 +317,6 @@ export default function Nutricion() {
     methodName: activeMethod?.nameEs ?? null,
   })
 
-  const coduliaConfigured = Codulia.getCoduliaKey().length > 0
   const dateText = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   if (status === 'loading') {
@@ -521,10 +467,15 @@ export default function Nutricion() {
               Escribí el plato: Althea estima los ingredientes, las cantidades y los macros.
             </p>
           </div>
-          <AltheaButton variant="ghost" size="sm" icon="search" onClick={() => { setSearchError(null); setShowFoodSearch(true) }}>
-            Buscar alimento
-          </AltheaButton>
         </div>
+        {composerNotice && (
+          <p
+            role="status"
+            className="font-label-caps text-[10px] bg-secondary/10 border border-secondary/30 rounded p-2 text-sm text-on-surface"
+          >
+            {composerNotice}
+          </p>
+        )}
         <DishComposer
           key={`${editing?.id ?? 'new'}-${composerVersion}`}
           onSave={saveDish}
@@ -747,68 +698,6 @@ export default function Nutricion() {
         </AltheaSection>
       )}
 
-      {/* Buscador de alimentos (Codulia, opcional) */}
-      {showFoodSearch && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end justify-center z-50" role="dialog" aria-modal="true" aria-label="Buscar alimento"
-          onClick={() => { setShowFoodSearch(false); setSelectedFood(null); setShowAddPortion(false) }}>
-          <div onClick={e => e.stopPropagation()} className="bg-surface-container-low/95 backdrop-blur-sm border border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[85vh] overflow-auto">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="font-headline-lg text-base font-semibold text-on-surface">Buscar alimento</h3>
-              <button onClick={() => { setShowFoodSearch(false); setSelectedFood(null); setShowAddPortion(false) }} aria-label="Cerrar búsqueda"
-                className="w-12 h-12 shrink-0 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-on-surface flex items-center justify-center">
-                <X size={20} />
-              </button>
-            </div>
-
-            {!coduliaConfigured ? (
-              <ApiKeySetup
-                title="Clave de alimentos (Codulia)"
-                hint="Opcional. La estimación de platos funciona sin ella. Se guarda solo en este dispositivo."
-                onSave={(k) => { Codulia.setCoduliaKey(k); setSearchError(null) }}
-              />
-            ) : !showAddPortion ? (
-              <>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search size={16} className="absolute left-3 top-4 text-on-surface-variant" />
-                    <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { doSearch() } }}
-                      placeholder='Ej: "yerba", "yogur", "pan"'
-                      aria-label="Buscar alimento"
-                      className="w-full min-h-[48px] bg-surface-container-high border border-outline-variant rounded-lg pl-9 pr-3 font-body-md text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/50 transition-colors" />
-                  </div>
-                  <AltheaButton variant="primary" className="min-h-[48px]" onClick={doSearch} disabled={searchLoading}>
-                    {searchLoading ? 'Buscando…' : 'Buscar'}
-                  </AltheaButton>
-                </div>
-                {searchError && <div className="font-label-caps text-[10px] bg-secondary/10 border border-secondary/30 rounded p-2 text-sm text-on-surface">{searchError}</div>}
-                <div className="space-y-2">
-                  {searchResults.map(r => (
-                    <button key={r.id} onClick={() => openFoodDetail(r.id)}
-                      className="w-full min-h-[64px] rounded-lg p-3 flex gap-3 cursor-pointer bg-surface-container-low active:bg-surface-container-high hover:border-primary border border-transparent transition-colors text-left">
-                      {r.photoUrl ? (
-                        <img src={r.photoUrl} alt={r.name} className="w-12 h-12 rounded-lg object-cover border border-outline-variant bg-surface-container-high shrink-0" loading="lazy" />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center font-label-md text-xs text-on-surface-variant shrink-0">
-                          <span className="material-symbols-outlined text-primary text-[18px]">restaurant_menu</span>
-                        </div>
-                      )}
-                      <span className="flex-1 min-w-0">
-                        <span className="block font-body-md text-sm text-on-surface font-medium truncate">{r.name}</span>
-                        <span className="block font-body-md text-xs text-on-surface-variant truncate">{r.brand || r.source} · {r.baseUnit}</span>
-                        <span className="block font-body-md text-xs text-primary">{r.caloriesPer100g ?? r.calories ?? '—'} kcal/100{r.baseUnit}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : selectedFood && (
-              <FoodPortionSelector food={selectedFood} loading={foodDetailLoading} onAdd={(servingIdx, amount) => addFoodToDiary(selectedFood, servingIdx, amount)}
-                onCancel={() => { setShowAddPortion(false); setSelectedFood(null) }} />
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -821,96 +710,5 @@ function MacroStatusChip({ status }: { status: MacroStatus }) {
     <span className={`block font-label-caps text-[9px] ${tone}`} data-testid={`macro-status-${status}`}>
       {label}
     </span>
-  )
-}
-
-function ApiKeySetup({ title, hint, onSave }: { title: string; hint: string; onSave: (key: string) => void }) {
-  const [key, setKey] = useState('')
-  return (
-    <div className="rounded-lg border border-secondary/30 bg-secondary/5 p-3 space-y-2">
-      <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-[18px] text-secondary">key</span>
-        <span className="font-body-md text-sm font-semibold text-on-surface">{title}</span>
-      </div>
-      <p className="font-body-sm text-xs text-on-surface-variant">{hint}</p>
-      <div className="flex gap-2">
-        <input
-          type="password"
-          value={key}
-          onChange={e => setKey(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && key.trim()) { onSave(key.trim()); setKey('') } }}
-          placeholder="API key"
-          aria-label={title}
-          className="flex-1 min-w-0 min-h-[48px] bg-surface-container-high border border-outline-variant rounded px-3 font-mono text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-secondary"
-        />
-        <AltheaButton variant="secondary" className="min-h-[48px]" disabled={!key.trim()} onClick={() => { onSave(key.trim()); setKey('') }}>Guardar</AltheaButton>
-      </div>
-    </div>
-  )
-}
-
-function FoodPortionSelector({ food, loading, onAdd, onCancel }: {
-  food: Codulia.CoduliaFoodDetail; loading?: boolean; onAdd: (servingIdx: number, amount?: number) => void; onCancel: () => void
-}) {
-  const [selectedIdx, setSelectedIdx] = useState(0)
-  const [customGrams, setCustomGrams] = useState('')
-  const per100 = food.macros; const servings = food.servings
-  const getNutrients = (idx: number, customAmt?: number) => {
-    const amount = customAmt ?? (servings[idx]?.amount ?? 100)
-    const f = amount / 100
-    return {
-      calories: Math.round(per100.calories * f),
-      proteins: Math.round(per100.proteins * f * 10) / 10,
-      carbs: Math.round(per100.carbs * f * 10) / 10,
-      fats: Math.round(per100.fats * f * 10) / 10,
-    }
-  }
-  const customAmt = customGrams ? Number(customGrams) : undefined
-  const preview = getNutrients(selectedIdx, customAmt)
-  return (
-    <div className="space-y-3">
-      <div className="rounded-lg p-3">
-        <div className="font-body-md text-sm text-on-surface font-medium">{food.name}</div>
-        {food.brand && <div className="font-body-md text-xs text-on-surface-variant">{food.brand}</div>}
-      </div>
-      <div className="rounded-lg p-3">
-        <div className="font-label-caps text-[10px] text-on-surface-variant">Por 100{food.baseUnit}</div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1 font-body-md text-xs text-on-surface">
-          <span>{per100.calories} kcal</span><span>{per100.proteins}g P</span><span>{per100.carbs}g C</span><span>{per100.fats}g G</span>
-        </div>
-      </div>
-      {servings.length > 0 && (
-        <div className="space-y-1">
-          <div className="font-label-caps text-[10px] text-on-surface-variant">Porciones</div>
-          {servings.map((s, i) => {
-            const n = getNutrients(i)
-            return (
-              <button key={i} onClick={() => { setSelectedIdx(i); setCustomGrams('') }}
-                aria-pressed={selectedIdx === i && !customGrams}
-                className={`w-full text-left min-h-[48px] p-3 rounded border font-body-md text-sm transition-colors ${selectedIdx === i && !customGrams ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-container-high border-outline-variant text-on-surface'}`}>
-                <div className="font-medium">{s.label} · {s.amount}{s.unit}</div>
-                <div className="text-xs text-on-surface-variant">{n.calories} kcal · P{n.proteins}g C{n.carbs}g G{n.fats}g</div>
-              </button>
-            )
-          })}
-        </div>
-      )}
-      <div className="space-y-1">
-        <div className="font-label-caps text-[10px] text-on-surface-variant">Cantidad personalizada ({food.baseUnit})</div>
-        <input type="number" value={customGrams} onChange={e => setCustomGrams(e.target.value)}
-          placeholder={`Ej: 150 ${food.baseUnit}`} aria-label="Cantidad personalizada"
-          className="w-full min-h-[48px] bg-surface-container-high backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface focus:outline-none focus:border-secondary" />
-      </div>
-      <div className="rounded bg-primary/15 border border-primary/30 p-3">
-        <div className="font-label-caps text-[10px] text-primary">Vista previa</div>
-        <div className="font-headline-lg text-base font-semibold text-on-surface">{preview.calories} kcal</div>
-        <div className="font-body-md text-xs text-on-surface-variant">P{preview.proteins}g · C{preview.carbs}g · G{preview.fats}g</div>
-      </div>
-      {loading && <div className="font-body-sm text-xs text-on-surface-variant">Cargando información del alimento…</div>}
-      <div className="flex gap-2">
-        <AltheaButton variant="secondary" fullWidth className="min-h-[48px]" onClick={onCancel}>Cancelar</AltheaButton>
-        <AltheaButton variant="primary" fullWidth className="min-h-[48px]" disabled={loading} onClick={() => onAdd(selectedIdx, customAmt)}>Agregar</AltheaButton>
-      </div>
-    </div>
   )
 }

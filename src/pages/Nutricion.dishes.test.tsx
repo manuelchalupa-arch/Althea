@@ -8,6 +8,7 @@ import { addDiaryEntry } from '@/services/storage/diaryStore'
 import { todayKey, addDaysToKey } from '@/utils/dates'
 import { interpretDish } from '@/services/nutrition/recipeInterpreter'
 import Nutricion from './Nutricion'
+import fuenteNutricion from './Nutricion.tsx?raw'
 
 // Reestructuración de la pantalla de Nutrición: entrada textual, círculo central,
 // tabla objetivo/consumo, CRUD de comidas, y todo el flujo funciona sin ningún
@@ -125,16 +126,28 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
     expect(screen.queryByTestId('dish-review')).not.toBeInTheDocument()
   })
 
-  it('no necesita ninguna clave externa: el buscador solo ofrece Codulia como opcional', async () => {
+  it('funciona sin ninguna credencial externa y sin cliente de API nutricional', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByText('Todavía no registraste comidas hoy')
-    expect(localStorage.getItem('codulia_api_key')).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: /Buscar alimento/i }))
-    const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByText('Clave de alimentos (Codulia)')).toBeInTheDocument()
-    expect(within(dialog).getByText(/La estimación de platos funciona sin ella/i)).toBeInTheDocument()
+    // Ninguna credencial de proveedor externo queda en el dispositivo.
+    const externalKeys = Object.keys(localStorage).filter((k) => /ninja|calorie|codulia|nutrition_?api/i.test(k))
+    expect(externalKeys).toEqual([])
+
+    // No queda ningun cliente HTTP de nutricion en el arbol de modulos.
+    const servicios = import.meta.glob('/src/services/**/*.ts')
+    expect(Object.keys(servicios).filter((p) => /codulia|nutritionApi|ninjaService|foodProvider/i.test(p))).toEqual([])
+    expect(fuenteNutricion).not.toMatch(/nutricion-api-arg|codulia|x-api-key/i)
+
+    // Y aun asi, la composicion se resuelve localmente con datos reales.
+    const plato = interpretDish('100 g de pechuga de pollo')
+    expect(plato).not.toBeNull()
+    expect(plato!.ingredients.length).toBeGreaterThan(0)
+    expect(plato!.totals.proteins).toBeGreaterThan(0)
+    expect(plato!.totals.calories).toBeGreaterThan(0)
+    expect(plato!.totals.fats).toBeGreaterThanOrEqual(0)
+    expect(plato!.ingredients.some((i) => /pollo/i.test(i.label))).toBe(true)
   })
 
   it('editar una cantidad recalcula los macros y "Guardar cambios" actualiza la comida', async () => {

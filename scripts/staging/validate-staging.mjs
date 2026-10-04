@@ -110,7 +110,7 @@ try {
   } else {
     pass('csp', 'declarada en **')
     const connect = (csp.match(/connect-src\s+([^;]+)/) || [, ''])[1]
-    for (const host of ['wger.de', 'nutricion-api-arg.fly.dev', '*.firebaseio.com', '*.workers.dev']) {
+    for (const host of ['wger.de', '*.firebaseio.com', '*.workers.dev']) {
       connect.includes(host)
         ? pass(`csp-origin:${host}`)
         : fail(`csp-origin:${host}`, 'ausente de connect-src')

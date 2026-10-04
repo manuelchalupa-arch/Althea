@@ -140,7 +140,7 @@ if (firebase) {
     const connect = (csp.match(/connect-src\s+([^;]+)/) || [, ''])[1]
     // Orgs que la app contacta en runtime. Si alguno falta, el CSP lo
     // bloquea en silencio en el navegador.
-    for (const host of ['wger.de', 'nutricion-api-arg.fly.dev', '*.firebaseio.com', '*.workers.dev']) {
+    for (const host of ['wger.de', '*.firebaseio.com', '*.workers.dev']) {
       if (!connect.includes(host)) fail('CSP_MISSING_ORIGIN', host)
     }
     if (connect.trim() === '*') fail('CSP_WILDCARD_CONNECT_SRC')

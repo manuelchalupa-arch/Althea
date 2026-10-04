@@ -93,7 +93,7 @@ if (home.ok) {
   const csp = home.headers.get('content-security-policy')
   if (csp) {
     ok('Content-Security-Policy presente en la respuesta real')
-    for (const host of ['wger.de', 'nutricion-api-arg.fly.dev']) {
+    for (const host of ['wger.de']) {
       csp.includes(host) ? ok(`CSP connect-src incluye ${host}`) : bad(`CSP connect-src NO incluye ${host}`)
     }
     const connect = (csp.match(/connect-src\s+([^;]+)/) || [, ''])[1]

@@ -129,7 +129,7 @@ console.log('\n[3] Cabeceras de seguridad en la respuesta real')
 
   const csp = res.headers.get('Content-Security-Policy') || ''
   const connect = (csp.match(/connect-src\s+([^;]+)/) || [, ''])[1]
-  for (const host of ['wger.de', 'nutricion-api-arg.fly.dev', '*.workers.dev']) {
+  for (const host of ['wger.de', '*.workers.dev']) {
     if (connect.includes(host)) ok(`CSP connect-src incluye ${host}`)
     else bad(`CSP connect-src NO incluye ${host} — la app fallará en runtime`)
   }

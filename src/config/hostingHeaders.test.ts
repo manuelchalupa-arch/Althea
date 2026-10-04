@@ -103,7 +103,6 @@ const RUNTIME_ORIGINS: Array<{ host: string; porque: string; enCodigo: boolean }
   { host: 'althea-staging-default-rtdb.firebaseio.com', porque: 'Firestore (SDK)', enCodigo: false },
   { host: 'cdn.jsdelivr.net', porque: 'GIFs de ejercicios', enCodigo: true },
   { host: 'wger.de', porque: 'lectura pública WGER directa desde el navegador', enCodigo: true },
-  { host: 'nutricion-api-arg.fly.dev', porque: 'API de nutrición Codulia', enCodigo: true },
 ]
 
 describe('CSP de Firebase Hosting', () => {

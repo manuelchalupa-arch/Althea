@@ -104,8 +104,11 @@ describe('SYSTEM_PROMPT', () => {
     expect(SYSTEM_PROMPT).toContain('ExerciseGymGifsDB')
   })
 
-  it('contains nutrition API reference', () => {
-    expect(SYSTEM_PROMPT).toContain('Codulia')
+  it('usa conocimiento nutricional local y no una API externa', () => {
+    expect(SYSTEM_PROMPT).toContain('conocimiento nutricional local')
+    expect(SYSTEM_PROMPT).not.toContain('Codulia')
+    expect(SYSTEM_PROMPT).not.toContain('nutricion-api-arg')
+    expect(SYSTEM_PROMPT).not.toContain('x-api-key')
   })
 
   it('has JSON output format', () => {
