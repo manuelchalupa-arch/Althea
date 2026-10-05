@@ -13,60 +13,15 @@
    ========================================================================== */
 :root {
   /* ---- Tokens semánticos (rgb triplets) — usados por utilidades Tailwind ---- */
-  --c-background-rgb: 246 247 245;
-  --c-surface-rgb: 255 255 255;
-  --c-surface-dim-rgb: 238 240 236;
-  --c-surface-bright-rgb: 250 251 249;
-  --c-surface-container-lowest-rgb: 255 255 255;
-  --c-surface-container-low-rgb: 240 242 238;
-  --c-surface-container-rgb: 229 232 226;
-  --c-surface-container-high-rgb: 217 221 213;
-  --c-surface-container-highest-rgb: 201 206 197;
-  --c-surface-variant-rgb: 229 232 226;
-  --c-primary-rgb: 29 75 56;
-  --c-primary-container-rgb: 214 231 222;
-  --c-primary-fixed-rgb: 226 238 231;
-  --c-primary-fixed-dim-rgb: 186 212 200;
-  --c-on-primary-rgb: 244 250 246;
-  --c-on-primary-container-rgb: 15 48 36;
-  --c-on-primary-fixed-rgb: 12 40 30;
-  --c-on-primary-fixed-variant-rgb: 52 92 74;
-  --c-secondary-rgb: 88 106 74;
-  --c-secondary-container-rgb: 224 232 214;
   --c-secondary-fixed-rgb: 234 240 225;
   --c-secondary-fixed-dim-rgb: 197 210 178;
-  --c-on-secondary-rgb: 246 249 242;
-  --c-on-secondary-container-rgb: 42 54 34;
-  --c-on-secondary-fixed-rgb: 28 38 22;
-  --c-on-secondary-fixed-variant-rgb: 64 80 52;
-  --c-tertiary-rgb: 183 74 55;
-  --c-tertiary-container-rgb: 250 226 218;
   --c-tertiary-fixed-rgb: 253 234 228;
   --c-tertiary-fixed-dim-rgb: 235 190 176;
-  --c-on-tertiary-rgb: 255 245 242;
-  --c-on-tertiary-container-rgb: 110 36 24;
-  --c-on-tertiary-fixed-rgb: 96 31 20;
-  --c-on-tertiary-fixed-variant-rgb: 140 56 39;
-  --c-error-rgb: 183 45 36;
-  --c-error-container-rgb: 250 224 220;
-  --c-on-error-rgb: 255 246 245;
-  --c-on-error-container-rgb: 112 24 17;
-  --c-outline-rgb: 124 133 123;
-  --c-outline-variant-rgb: 211 216 207;
-  --c-on-surface-rgb: 20 24 21;
-  --c-on-surface-variant-rgb: 79 87 77;
-  --c-on-background-rgb: 20 24 21;
-  --c-inverse-surface-rgb: 28 33 29;
-  --c-inverse-primary-rgb: 126 199 168;
-  --c-inverse-on-surface-rgb: 240 243 239;
 
 /* ---- Macronutrientes: círculo central de Nutrición ----
    Verde oscuro (carbohidratos), coral (proteínas) y
    amarillo (grasas). El círculo los usa con alpha para
    el look semitransparente. */
-  --c-macro-carbs-rgb: 93 107 68;
-  --c-macro-protein-rgb: 165 83 58;
-  --c-macro-fat-rgb: 214 168 58;
 
   /* ---- Dorado: únicamente ornamental (monograma, detalles de marca) ---- */
   --c-gold-rgb: 176 141 63;
@@ -76,62 +31,10 @@
   --c-water-deep: rgb(55 138 205);
 
   /* ---- Tokens semánticos (hex) — usados por la capa de componentes ---- */
-  --c-background: #f6f7f5;
-  --c-surface: #ffffff;
-  --c-surface-dim: #eef0ec;
-  --c-surface-bright: #fafbf9;
-  --c-surface-container-lowest: #ffffff;
-  --c-surface-container-low: #f0f2ee;
-  --c-surface-container: #e5e8e2;
-  --c-surface-container-high: #d9ddd5;
-  --c-surface-container-highest: #c9cec4;
-  --c-surface-variant: #e5e8e2;
-  --c-primary: #1d4b38;
-  --c-primary-container: #d6e7de;
-  --c-primary-fixed: #e2eee7;
-  --c-primary-fixed-dim: #bad4c8;
-  --c-on-primary: #f4faf6;
-  --c-on-primary-container: #0f3024;
-  --c-secondary: #586a4a;
-  --c-secondary-container: #e0e8d6;
-  --c-on-secondary: #f6f9f2;
-  --c-on-secondary-container: #2a3622;
-  --c-tertiary: #b74a37;
-  --c-tertiary-container: #fae2da;
-  --c-on-tertiary: #fff5f2;
-  --c-on-tertiary-container: #6e2418;
-  --c-error: #b72d24;
-  --c-error-container: #fae0dc;
-  --c-on-error: #fff6f5;
-  --c-on-error-container: #701811;
-  --c-outline: #7c857b;
-  --c-outline-variant: #d3d8cf;
-  --c-on-surface: #141815;
-  --c-on-surface-variant: #4f574d;
-  --c-on-background: #141815;
-  --c-inverse-surface: #1c211d;
-  --c-inverse-on-surface: #f0f3ef;
-  --c-inverse-primary: #7ec7a8;
 
   /* ---- Legacy RGB tokens (compat con rgb(var(--token))) ---- */
-  --bg: 246 247 245;
-  --surface: 255 255 255;
-  --surface-2: 229 232 226;
-  --tint: 29 75 56;
-  --border: 211 216 207;
-  --text: 20 24 21;
-  --text-2: 79 87 77;
-  --text-3: 124 133 123;
-  --primary: 29 75 56;
-  --primary-soft: 214 231 222;
-  --info: 88 106 74;
-  --success: 42 122 90;
-  --warning: 87 177 137;
-  --danger: 183 45 36;
 
   /* ---- Tipografía ---- */
-  --font-display: 'Playfair Display', Georgia, serif;
-  --font-body: 'Inter', system-ui, sans-serif;
   --text-leading-tight: 1.15;
   --text-leading-snug: 1.35;
   --text-leading-normal: 1.55;
@@ -158,83 +61,25 @@
   --althea-shadow-lg: 0 8px 24px rgba(15, 40, 30, 0.09), 0 20px 48px rgba(15, 40, 30, 0.07);
 
   /* ---- Botón principal: verde oscuro fijo, idéntico en claro y oscuro ---- */
-  --althea-btn-primary: #1d4b38;
-  --althea-btn-primary-hover: #163c2c;
-  --althea-btn-primary-border: #0f2c21;
-  --althea-btn-primary-text: #f4faf6;
 
   /* ---- Mármol / granito: vetas muy sutiles, generadas con gradientes ---- */
-  --althea-vein: rgba(15, 40, 30, 0.032);
-  --althea-vein-strong: rgba(15, 40, 30, 0.05);
   --althea-marble-sheen: rgba(255, 255, 255, 0.72);
 
   /* ---- Línea y tarjetas ---- */
-  --althea-border: 1px solid var(--c-outline-variant);
-  --althea-border-strong: 1px solid var(--c-outline);
-  --veil-color: rgba(246, 247, 245, 0.82);
-  --card-bg: var(--c-surface);
-  --card-border: var(--c-outline-variant);
-  --card-shadow: var(--althea-shadow-sm);
 
   /* ---- Layout ---- */
   --navw: 256px;
   --navw-collapsed: 64px;
-  --container-max: 1200px;
 }
 
 .dark {
-  --c-background-rgb: 11 13 12;
-  --c-surface-rgb: 17 20 18;
-  --c-surface-dim-rgb: 14 17 15;
-  --c-surface-bright-rgb: 25 29 26;
-  --c-surface-container-lowest-rgb: 8 10 9;
-  --c-surface-container-low-rgb: 21 25 23;
-  --c-surface-container-rgb: 26 31 28;
-  --c-surface-container-high-rgb: 34 40 36;
-  --c-surface-container-highest-rgb: 43 50 45;
-  --c-surface-variant-rgb: 26 31 28;
-  --c-primary-rgb: 87 177 137;
-  --c-primary-container-rgb: 18 54 38;
-  --c-primary-fixed-rgb: 24 66 47;
-  --c-primary-fixed-dim-rgb: 87 177 137;
-  --c-on-primary-rgb: 4 18 12;
-  --c-on-primary-container-rgb: 190 226 208;
-  --c-on-primary-fixed-rgb: 208 236 222;
-  --c-on-primary-fixed-variant-rgb: 126 199 168;
-  --c-secondary-rgb: 160 190 128;
-  --c-secondary-container-rgb: 44 58 36;
   --c-secondary-fixed-rgb: 60 76 50;
   --c-secondary-fixed-dim-rgb: 160 190 128;
-  --c-on-secondary-rgb: 14 22 10;
-  --c-on-secondary-container-rgb: 205 224 182;
-  --c-on-secondary-fixed-rgb: 214 231 192;
-  --c-on-secondary-fixed-variant-rgb: 108 134 84;
-  --c-tertiary-rgb: 226 133 108;
-  --c-tertiary-container-rgb: 84 40 30;
   --c-tertiary-fixed-rgb: 108 56 43;
   --c-tertiary-fixed-dim-rgb: 226 133 108;
-  --c-on-tertiary-rgb: 40 12 5;
-  --c-on-tertiary-container-rgb: 249 205 190;
-  --c-on-tertiary-fixed-rgb: 255 219 208;
-  --c-on-tertiary-fixed-variant-rgb: 152 74 54;
-  --c-error-rgb: 255 176 164;
-  --c-error-container-rgb: 108 26 18;
-  --c-on-error-rgb: 70 12 6;
-  --c-on-error-container-rgb: 255 219 213;
-  --c-outline-rgb: 122 133 124;
-  --c-outline-variant-rgb: 47 54 48;
-  --c-on-surface-rgb: 238 241 237;
-  --c-on-surface-variant-rgb: 169 178 168;
-  --c-on-background-rgb: 238 241 237;
-  --c-inverse-surface-rgb: 232 235 231;
-  --c-inverse-primary-rgb: 29 75 56;
-  --c-inverse-on-surface-rgb: 21 25 22;
 
   /* Macronutrientes en modo oscuro: se aclaran para mantener contraste sobre
      el fondo de granito sin salir de la identidad verde de Althea. */
-  --c-macro-carbs-rgb: 110 197 160;
-  --c-macro-protein-rgb: 226 133 108;
-  --c-macro-fat-rgb: 224 189 99;
 
   /* Dorado en modo oscuro: levemente más luminoso, sigue siendo ornamental. */
   --c-gold-rgb: 200 162 78;
@@ -243,67 +88,14 @@
   --c-water: rgb(128 198 250);
   --c-water-deep: rgb(76 158 224);
 
-  --c-background: #0b0d0c;
-  --c-surface: #111412;
-  --c-surface-dim: #0e110f;
-  --c-surface-bright: #191d1a;
-  --c-surface-container-lowest: #080a09;
-  --c-surface-container-low: #151917;
-  --c-surface-container: #1a1f1c;
-  --c-surface-container-high: #222825;
-  --c-surface-container-highest: #2b322d;
-  --c-surface-variant: #1a1f1c;
-  --c-primary: #57b189;
-  --c-primary-container: #123626;
-  --c-primary-fixed: #18422f;
-  --c-primary-fixed-dim: #57b189;
-  --c-on-primary: #04120c;
-  --c-on-primary-container: #bee2d0;
-  --c-secondary: #a0be80;
-  --c-secondary-container: #2c3a24;
-  --c-on-secondary: #0e160a;
-  --c-on-secondary-container: #cde0b6;
-  --c-tertiary: #e2856c;
-  --c-tertiary-container: #54281e;
-  --c-on-tertiary: #280c05;
-  --c-on-tertiary-container: #f9cdbe;
-  --c-error: #ffb0a4;
-  --c-error-container: #6c1a12;
-  --c-on-error: #460c06;
-  --c-on-error-container: #ffdbd5;
-  --c-outline: #7a857c;
-  --c-outline-variant: #2f3630;
-  --c-on-surface: #eef1ed;
-  --c-on-surface-variant: #a9b2a8;
-  --c-on-background: #eef1ed;
-  --c-inverse-surface: #e8ebe7;
-  --c-inverse-on-surface: #151a16;
-  --c-inverse-primary: #1d4b38;
 
-  --bg: 11 13 12;
-  --surface: 17 20 18;
-  --surface-2: 26 31 28;
-  --tint: 87 177 137;
-  --border: 47 54 48;
-  --text: 238 241 237;
-  --text-2: 169 178 168;
-  --text-3: 122 133 124;
-  --primary: 87 177 137;
-  --primary-soft: 18 54 38;
-  --info: 160 190 128;
-  --success: 110 197 160;
-  --warning: 214 168 32;
-  --danger: 255 176 164;
 
   --althea-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.34), 0 3px 10px rgba(0, 0, 0, 0.38);
   --althea-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.40), 0 10px 28px rgba(0, 0, 0, 0.34);
   --althea-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.46), 0 20px 48px rgba(0, 0, 0, 0.38);
 
   /* Vetas de granito: muy discretas, apenas perceptibles sobre el negro. */
-  --althea-vein: rgba(238, 241, 237, 0.026);
-  --althea-vein-strong: rgba(238, 241, 237, 0.04);
   --althea-marble-sheen: rgba(238, 241, 237, 0.05);
-  --veil-color: rgba(11, 13, 12, 0.84);
 }
 
 /* ============================ BASE ============================ */
