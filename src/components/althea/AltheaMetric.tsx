@@ -9,6 +9,8 @@ export interface AltheaMetricProps {
   /** Para métricas donde bajar es la mejora (ej. peso, grasa corporal): invierte el color de la flecha. */
   invertDelta?: boolean;
   deltaSuffix?: string;
+  /** Nombre de Material Symbol (string) o un nodo propio. Opcional. */
+  icon?: React.ReactNode;
   className?: string;
 }
 
@@ -29,6 +31,7 @@ export function AltheaMetric({
   delta,
   invertDelta = false,
   deltaSuffix = '%',
+  icon,
   className,
 }: AltheaMetricProps) {
   let deltaClass = 'althea-metric__delta--flat';
@@ -46,7 +49,10 @@ export function AltheaMetric({
         <span className="althea-metric__value">{value}</span>
         {unit && <span className="althea-metric__unit">{unit}</span>}
       </div>
-      <span className="althea-metric__label">{label}</span>
+      <span className="althea-metric__label">
+        {icon && <span className="althea-metric__icon" aria-hidden="true">{icon}</span>}
+        {label}
+      </span>
       {typeof delta === 'number' && (
         <span className={`althea-metric__delta ${deltaClass}`}>
           {arrow} {formatDelta(delta, deltaSuffix)}

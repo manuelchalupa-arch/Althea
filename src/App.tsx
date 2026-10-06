@@ -230,7 +230,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
     return <Login onDone={() => { setNeedsLogin(false); navigate('/', { replace: true }) }} />
   }
   return (
-    <>
+    <div className="shell-safe-top">
     <RequiredActionGate>
       <TempleBackdrop />
       {!hideNav && <AppHeader />}
@@ -260,10 +260,10 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
           <ChatWidget/>
         </Suspense>
       )}
-      {updateReady && <div className="fixed top-2 left-2 right-2 z-50 bg-tertiary text-on-tertiary text-sm p-3 rounded-xl text-center shadow-al-md">Nueva versión disponible — recargá la app</div>}
+      {updateReady && <div style={{ top: 'calc(var(--safe-top) + 0.5rem)' }} className="fixed left-2 right-2 z-50 bg-tertiary text-on-tertiary text-sm p-3 rounded-xl text-center shadow-al-md">Nueva versión disponible — recargá la app</div>}
       <OnlineBanner/>
       </RequiredActionGate>
-    </>
+    </div>
   )
 }
 function OnlineBanner(){
@@ -274,7 +274,7 @@ function OnlineBanner(){
     return ()=>{ window.removeEventListener('online',on); window.removeEventListener('offline',off)}
   },[])
   if(online) {return null}
-  return <div className="fixed top-0 left-0 right-0 z-40 bg-surface-container text-on-surface text-xs text-center py-1 border-b border-outline-variant">Modo offline — todo funciona localmente</div>
+  return <div style={{ top: 'var(--safe-top)' }} className="fixed left-0 right-0 z-40 bg-surface-container text-on-surface text-xs text-center py-1 border-b border-outline-variant">Modo offline — todo funciona localmente</div>
 }
 
 import { applyAppearance } from '@/utils/appearance'

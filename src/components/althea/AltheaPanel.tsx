@@ -7,6 +7,8 @@ export interface AltheaPanelProps extends React.HTMLAttributes<HTMLDivElement> {
   interactive?: boolean;
   /** Esquina dorada ornamental (detalle, nunca protagonista). */
   goldCorner?: boolean;
+  /** Nombre de Material Symbol (string) o un nodo propio, a la izquierda. */
+  icon?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -16,9 +18,10 @@ export interface AltheaPanelProps extends React.HTMLAttributes<HTMLDivElement> {
  * AltheaStatRow / AltheaMetric.
  */
 export const AltheaPanel = React.forwardRef<HTMLDivElement, AltheaPanelProps>(
-  ({ density = 'default', interactive = false, goldCorner = false, className, children, onKeyDown, ...rest }, ref) => {
+  ({ density = 'default', interactive = false, goldCorner = false, icon, className, children, onKeyDown, ...rest }, ref) => {
     const classes = [
       'althea-panel',
+      icon ? 'althea-panel--with-icon' : '',
       density === 'compact' ? 'althea-panel--compact' : density === 'flush' ? 'althea-panel--flush' : '',
       interactive ? 'althea-panel--interactive' : '',
       goldCorner ? 'althea-gold-corner' : '',

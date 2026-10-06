@@ -74,6 +74,29 @@
   gap: 2px;
 }
 
+.althea-metric__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  color: var(--althea-primary);
+  font-size: 15px;
+  line-height: 1;
+  vertical-align: -2px;
+}
+
+/* Icono del panel: 20px, alineado al titulo, nunca protagonista. */
+.althea-panel__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  color: var(--althea-primary);
+  font-size: 20px;
+  line-height: 1;
+  vertical-align: -4px;
+}
+
 .althea-metric__value {
   font-family: var(--althea-font-display);
   font-size: var(--althea-fs-display-xl);

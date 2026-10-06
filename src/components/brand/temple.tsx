@@ -71,7 +71,7 @@ export function AppHeader() {
   const loc = useLocation()
   const section = sectionForPath(loc.pathname)
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 h-16 w-full bg-surface/85 backdrop-blur-xl border-b border-outline-variant/50 supports-[backdrop-filter]:bg-surface/75 transition-colors">
+    <header className="sticky top-[var(--safe-top)] z-30 flex items-center justify-between gap-3 pl-4 pr-4 sm:pl-6 sm:pr-6 lg:pl-8 lg:pr-8 h-16 w-full bg-surface/85 backdrop-blur-xl border-b border-outline-variant/50 supports-[backdrop-filter]:bg-surface/75 transition-colors">
       {/* Izquierda: identidad + contexto */}
       <div className="flex items-center gap-3 min-w-0">
         <span className="shrink-0 w-8 h-8 rounded-full overflow-hidden ring-1 ring-primary/25 bg-surface-container-high" aria-hidden="true">
