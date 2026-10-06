@@ -472,6 +472,8 @@ export function downloadReportPdf(data: ReportData, opts: { today?: string } = {
 }
 
 /** Ruta pública del busto usado en la cabecera del informe. */
+// El busto se dibuja a 34x34 pt en la cabecera. Un asset de 1400px
+// (1.3 MB) no aporta nada a esa resolucion y solo engorda el precache.
 export const REPORT_BUST_URL = '/assets/brand/althea-header-96.png'
 
 /**

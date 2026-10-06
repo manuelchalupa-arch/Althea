@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { signIn, signUp, resetPassword, setOfflineMode } from '@/services/firebase/auth'
+import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 
 type Mode = 'in' | 'up' | 'reset'
 
@@ -41,13 +42,26 @@ export default function Login({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="min-h-screen bg-transparent p-4 max-w-lg md:max-w-3xl mx-auto flex flex-col justify-center gap-4">
-      <div className="text-center">
+      {/* Ancla de marca: el busto es lo primero que ve quien entra.
+          Tamano fluid 120px -> 200px en lg. Contexto 'hero' usa el asset de
+          1000px optimizado, asi que no cargamos un PNG enorme. */}
+      <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
+        <div className="shrink-0 flex justify-center lg:justify-start">
+          <AltheaAvatar
+            context="hero"
+            size={200}
+            alt="Busto clásico de Althea: figura de mármol con corona de laurel de bronce"
+            className="w-[120px] h-[120px] lg:w-[200px] lg:h-[200px]"
+          />
+        </div>
+        <div className="text-center lg:text-left">
         <div className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">Althea</div>
         <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">
           {mode === 'in' && 'Iniciá sesión para sincronizar tu entrenamiento'}
           {mode === 'up' && 'Creá tu cuenta con correo electrónico'}
           {mode === 'reset' && 'Recuperá tu contraseña'}
         </p>
+        </div>
       </div>
 
       <div className="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-4 space-y-3">

@@ -6,6 +6,7 @@ import * as Gym from '@/services/exerciseGym'
 import { CoachIntensity, Goal } from '@/types'
 import { todayKey } from '@/utils/dates'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
+import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 
 const OBJETIVOS = ['Perder grasa / bajar de peso','Ganar masa muscular','Aumentar fuerza','Mejorar resistencia','Mejorar condición física','Mejorar movilidad','Mantenerme','Recomposición corporal','Otro']
 const NIVELES = ['Principiante','Intermedio','Avanzado']
@@ -255,9 +256,22 @@ export default function Onboarding(){
 
   return (
     <div className="min-h-screen flex flex-col bg-transparent max-w-lg md:max-w-3xl mx-auto">
+      {/* El busto acompaña el progreso en todos los pasos: mas grande en el
+          primero (donde la marca es el mensaje) y chico despues, para no
+          competir con la pregunta. */}
       <div className="p-4">
-        <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>PASO {step+1} DE {total}</span><span>{Math.round((step+1)/total*100)}%</span></div>
-        <div className="h-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg overflow-hidden mt-1"><div className="h-full bg-primary" style={{width:`${(step+1)/total*100}%`}}/></div>
+        <div className="flex items-center gap-3">
+          <AltheaAvatar
+            context="hero"
+            size={96}
+            alt="Busto clásico de Althea: figura de mármol con corona de laurel"
+            className={`shrink-0 object-contain w-14 h-14 ${step === 0 ? 'lg:w-20 lg:h-20' : ''}`}
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>PASO {step+1} DE {total}</span><span>{Math.round((step+1)/total*100)}%</span></div>
+            <div className="h-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg overflow-hidden mt-1"><div className="h-full bg-primary" style={{width:`${(step+1)/total*100}%`}}/></div>
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 p-4 space-y-4 overflow-auto">

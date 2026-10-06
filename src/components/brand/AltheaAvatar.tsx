@@ -6,8 +6,6 @@ export type AltheaAvatarContext =
   | 'avatar'
   | 'hero'
   | 'coach'
-  | 'loading'
-  | 'pdf'
   | 'empty-state';
 
 export interface AltheaAvatarProps {
@@ -30,8 +28,6 @@ const ASSET_MAP: Record<AltheaAvatarContext, { base: string; defaultSize: number
   avatar: { base: 'althea-avatar-128', defaultSize: 64 },
   hero: { base: 'althea-hero-1000', defaultSize: 320 },
   coach: { base: 'althea-coach-480', defaultSize: 160 },
-  loading: { base: 'althea-loading-600', defaultSize: 180 },
-  pdf: { base: 'althea-pdf-1400', defaultSize: 240 },
   'empty-state': { base: 'althea-empty-state-700', defaultSize: 200 },
 };
 
