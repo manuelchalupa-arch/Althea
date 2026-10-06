@@ -1,4 +1,16 @@
-﻿@tailwind base;
+/* ============================================================================
+   index.css - capa de aplicacion (Material/Tailwind) y estilos base.
+   PROPIEDAD DE TOKENS:
+     --althea-*  -> FUENTE UNICA en styles/althea-tokens.css (light + dark).
+                    Aqui solo viven los que no existen alla y los consume
+                    tailwind.config.js (--althea-shadow-*) y el layout
+                    (--navw, --althea-space-*). Ver el bloque de ownership mas
+                    abajo: no duplicar nada.
+     --c-*       -> capa semantica que Tailwind come (rgb(var(--c-*-rgb))).
+                    Derivada de los tokens de marca. No editar a mano.
+   ============================================================================ */
+
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -40,11 +52,7 @@
   --text-leading-normal: 1.55;
 
   /* ---- Radios ---- */
-  --althea-radius-sm: 8px;
-  --althea-radius-md: 12px;
-  --althea-radius-lg: 18px;
   --althea-radius-xl: 24px;
-  --althea-radius-pill: 9999px;
 
   /* ---- Espaciado — escala 4px respirable ---- */
   --althea-space-xs: 4px;
@@ -157,6 +165,50 @@ html[data-textscale="l"] { font-size: 112.5%; }
 .shell-safe-top { padding-top: var(--safe-top); }
 
 .pb-safe { padding-bottom: var(--safe-bottom); }
+
+/* ---------------------------------------------------------------------------
+   Offset del area de contenido respecto a la navegacion lateral.
+   Antes la clase "md:ml-16 lg:ml-[var(--navw)]" estaba escrita a mano en DOS
+   elementos de App.tsx (el contenedor y el MeanderFrieze). Si una cambiaba y
+   la otra no, el encabezado y el contenido se desalineaban. Ahora hay un solo
+   lugar. El rail de tablet mide 64px (--navw-collapsed); el sidebar, --navw.
+   --------------------------------------------------------------------------- */
+.shell-content,
+.shell-content-nudge {
+  margin-left: 0;
+}
+
+@media (min-width: 768px) {
+  .shell-content,
+  .shell-content-nudge {
+    margin-left: 64px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .shell-content,
+  .shell-content-nudge {
+    margin-left: var(--navw);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   OWNERSHIP de tokens (una sola definicion por nombre)
+   ---------------------------------------------------------------------------
+   styles/althea-tokens.css  --althea-color*, --althea-font*, --althea-fs-*,
+                              --althea-lh-*, --althea-radius-*, --althea-gold*,
+                              --althea-carb/-protein/-fat/-hydration,
+                              --althea-muscle-*, --althea-shadow-panel,
+                              --althea-space-1..10, --althea-container-max,
+                              --althea-grid-*, --althea-ease-*, --althea-duration-*
+   styles/althea-tokens.css  .dark  sobreescribe los mismos nombres (tema oscuro)
+   index.css                 --althea-shadow-sm/md/lg   (los usa tailwind boxShadow)
+                              --althea-space-xs..3xl     (escala larga)
+                              --althea-marble-sheen
+                              --navw, --navw-collapsed   (AppNav los reescribe en runtime)
+                              --c-* y --c-*-rgb          (capa Tailwind)
+   Si un token existe en los dos archivos, gana althea-tokens.css porque se
+   importa despues en src/main.tsx. No volver a declarar un nombre aqui. */
 .px-safe { padding-left: var(--safe-left); padding-right: var(--safe-right); }
 
 /* ============================ BOTONES ============================ */
@@ -519,27 +571,12 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --c-macro-carbs: #C98A3E;
   --c-macro-protein: #8E3B3B;
   --c-macro-fat: #C9A63E;
-  --bg: 251 250 247;
-  --surface: 251 250 247;
-  --surface-2: 244 242 236;
-  --tint: 27 67 50;
-  --border: 222 218 207;
-  --text: 26 27 23;
-  --text-2: 99 100 92;
-  --text-3: 99 100 92;
-  --primary: 27 67 50;
-  --primary-soft: 231 239 233;
-  --info: 27 67 50;
-  --success: 27 67 50;
-  --warning: 184 134 59;
-  --danger: 161 63 63;
   --althea-btn-primary: #1B4332;
   --althea-btn-primary-hover: #143526;
   --althea-btn-primary-border: #1B4332;
   --althea-btn-primary-text: #F7F5F0;
   --althea-vein: rgba(120, 116, 100, 0.10);
   --althea-vein-strong: rgba(120, 116, 100, 0.18);
-  --althea-marble: #FBFAF7;
   --althea-border: 1px solid #DEDACF;
   --althea-border-strong: 1px solid #DEDACF;
   --veil-color: rgba(251, 250, 247, 0.82);
@@ -548,7 +585,6 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --card-shadow: 0 1px 3px rgba(18, 26, 20, 0.05), 0 1px 1px rgba(18, 26, 20, 0.04);
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'Inter', system-ui, sans-serif;
-  --container-max: 1280px;
 }
 
 .dark {
@@ -642,27 +678,12 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --c-macro-carbs: #D9A05C;
   --c-macro-protein: #B25D5D;
   --c-macro-fat: #D6C066;
-  --bg: 16 18 17;
-  --surface: 16 18 17;
-  --surface-2: 23 26 24;
-  --tint: 47 122 84;
-  --border: 42 45 39;
-  --text: 241 240 234;
-  --text-2: 156 156 144;
-  --text-3: 156 156 144;
-  --primary: 47 122 84;
-  --primary-soft: 47 122 84;
-  --info: 47 122 84;
-  --success: 47 122 84;
-  --warning: 214 168 92;
-  --danger: 194 91 91;
   --althea-btn-primary: #2F7A54;
   --althea-btn-primary-hover: #3C9367;
   --althea-btn-primary-border: #2F7A54;
   --althea-btn-primary-text: #F7F5F0;
   --althea-vein: rgba(226, 224, 214, 0.05);
   --althea-vein-strong: rgba(226, 224, 214, 0.09);
-  --althea-marble: #101211;
   --althea-border: 1px solid #2A2D27;
   --althea-border-strong: 1px solid #2A2D27;
   --veil-color: rgba(16, 18, 17, 0.84);
@@ -671,5 +692,4 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.24);
   --font-display: 'Playfair Display', Georgia, serif;
   --font-body: 'Inter', system-ui, sans-serif;
-  --container-max: 1280px;
 }

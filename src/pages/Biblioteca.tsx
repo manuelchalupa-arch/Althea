@@ -183,17 +183,18 @@ export default function Biblioteca(){
         value={tab}
         onChange={(v) => { setTab(v as Tab); load(v as Tab, '__all__') }}
         options={[
-          { value: 'muscle', label: 'Músculo' },
-          { value: 'equipment', label: 'Equipo' },
-          { value: 'bodypart', label: 'Parte' },
-          { value: 'category', label: 'Categoría' },
+          { value: 'muscle', label: 'Músculo', icon: <Dumbbell size={14} aria-hidden="true" /> },
+          { value: 'equipment', label: 'Equipo', icon: <Layers size={14} aria-hidden="true" /> },
+          { value: 'bodypart', label: 'Parte', icon: <Box size={14} aria-hidden="true" /> },
+          { value: 'category', label: 'Categoría', icon: <Heart size={14} aria-hidden="true" /> },
         ]}
         aria-label="Tipo de filtro"
       />
 
       {/* Listado índices */}
       <AltheaCard className="p-3">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-2">
+        <div className="flex items-center gap-1.5 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-2">
+          <Search size={13} aria-hidden="true" className="shrink-0" />
           {tab==='muscle' && '19 músculos · ej: pectorals 158, biceps 151, abs 169'}
           {tab==='equipment' && '11 equipamientos · bodyweight 458, dumbbell 287 · /api/es/equipment/<equipment>.json'}
           {tab==='bodypart' && '7 partes · arms/legs/chest/back/core/shoulders/cardio'}

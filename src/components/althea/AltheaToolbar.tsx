@@ -4,6 +4,8 @@ export interface AltheaToolbarOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Icono decorativo a la izquierda de la etiqueta. aria-hidden (el texto ya nombra la opcion). */
+  icon?: React.ReactNode;
 }
 
 export interface AltheaToolbarProps {
@@ -37,7 +39,7 @@ export function AltheaToolbar({ options, value, onChange, className, ...rest }: 
           disabled={opt.disabled}
           onClick={() => onChange(opt.value)}
         >
-          {opt.label}
+          {opt.icon && <span className="althea-toolbar__icon" aria-hidden="true">{opt.icon}</span>}{opt.label}
         </button>
       ))}
     </div>
