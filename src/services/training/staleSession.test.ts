@@ -4,6 +4,7 @@ import {
   createSession, getActiveSession, transitionSession,
   closeStaleSessions, STALE_SESSION_REASON, isActiveSessionStatus,
 } from './sessionStore'
+import { isCompletedSession } from './sessionMetrics'
 import { todayKey } from '@/utils/dates'
 import { addDaysToKey } from '@/utils/dates'
 
@@ -31,7 +32,7 @@ describe('Auto-cierre de sesiones vencidas (cambio de día)', () => {
     expect(after?.endedAt).toBeTruthy()
   })
 
-  it('cierra como ABANDONED una sesión IN_PROGRESS que cruzó la medianoche', async () => {
+  it('cierra como PARTIAL una sesión IN_PROGRESS que cruzó la medianoche', async () => {
     const s = await createSession({
       routineId: 'r1', calendarDate: ayer(), plannedDay: 1, actualDay: 1, plannedExercises: planned,
     })
@@ -39,9 +40,13 @@ describe('Auto-cierre de sesiones vencidas (cambio de día)', () => {
     const cerradas = await closeStaleSessions()
     expect(cerradas).toContain(s.sessionId)
     const after = await db.trainingSessions.get(s.sessionId)
-    expect(after?.sessionStatus).toBe('ABANDONED')
-    expect(after?.abandonReason).toBe(STALE_SESSION_REASON)
+    expect(after?.sessionStatus).toBe('PARTIAL')
     expect(after?.endedAt).toBeTruthy()
+    expect(after?.completedAt).toBeTruthy()
+    // El motivo queda en el evento de cierre, no en abandonReason (ABANDONED ya no aplica).
+    const eventos = await db.sessionEvents.where('sessionId').equals(s.sessionId).toArray()
+    const cierre = eventos.find((e) => e.type === 'SESSION_PARTIAL')
+    expect(cierre?.metadata?.reason).toBe(STALE_SESSION_REASON)
   })
 
   it('NO borra nada: las series confirmadas se conservan', async () => {
@@ -62,7 +67,7 @@ describe('Auto-cierre de sesiones vencidas (cambio de día)', () => {
     expect(['PARTIAL', 'PENDING']).toContain(exDespues?.status)
     // Y queda registrado el evento de cierre.
     const eventos = await db.sessionEvents.where('sessionId').equals(s.sessionId).toArray()
-    expect(eventos.some((e) => e.type === 'SESSION_ABANDONED')).toBe(true)
+    expect(eventos.some((e) => e.type === 'SESSION_PARTIAL')).toBe(true)
   })
 
   it('una sesión de HOY no se cierra, aunque sea de madrugada', async () => {
@@ -93,6 +98,26 @@ describe('Auto-cierre de sesiones vencidas (cambio de día)', () => {
     try { localStorage.removeItem('althea:session:activeId') } catch { /* noop */ }
     const rescatada = await getActiveSession()
     expect(rescatada).toBeNull()
-    expect((await db.trainingSessions.get(s.sessionId))?.sessionStatus).toBe('ABANDONED')
+    expect((await db.trainingSessions.get(s.sessionId))?.sessionStatus).toBe('PARTIAL')
+  })
+  it('cuenta como día de entrenamiento según sessionMetrics', async () => {
+    const s = await createSession({
+      routineId: 'r1', calendarDate: ayer(), plannedDay: 1, actualDay: 1, plannedExercises: planned,
+    })
+    await transitionSession(s.sessionId, 'IN_PROGRESS')
+    await closeStaleSessions()
+
+    const after = await db.trainingSessions.get(s.sessionId)
+    // sessionMetrics cuenta COMPLETED y PARTIAL como día entrenado.
+    expect(isCompletedSession(after!)).toBe(true)
+  })
+
+  it('una sesión READY que nunca se empezó no cuenta como día (se cancela)', async () => {
+    const s = await createSession({
+      routineId: 'r1', calendarDate: ayer(), plannedDay: 1, actualDay: 1, plannedExercises: planned,
+    })
+    await closeStaleSessions()
+    const after = await db.trainingSessions.get(s.sessionId)
+    expect(isCompletedSession(after!)).toBe(false)
   })
 })

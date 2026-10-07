@@ -81,10 +81,10 @@ export const STALE_SESSION_REASON =
  * así que lo registrado se conserva como historial real.
  *
  * El destino lo decide la matriz de transiciones vigente, que no se modifica:
- *   READY       -> CANCELLED  (nunca se empezó)
- *   IN_PROGRESS -> ABANDONED  (se empezó y se cortó)
- *   PAUSED      -> ABANDONED
- *   COMPLETING  -> PARTIAL     (la matriz solo admite COMPLETED|PARTIAL)
+ *   IN_PROGRESS -> PARTIAL     (día parcial: contó como entrenado)
+ *   PAUSED      -> PARTIAL
+ *   COMPLETING  -> PARTIAL
+ *   READY       -> CANCELLED  (nunca se empezó: no cuenta como día)
  *
  * @returns los sessionId cerrados.
  */
@@ -98,10 +98,11 @@ export async function closeStaleSessions(today: string = todayKey()): Promise<st
       // hoy: una sesión de hoy sigue siendo válida aunque sea de madrugada.
       if (!s.calendarDate || s.calendarDate >= today) { continue; }
 
-      const destino: SessionStatus =
-        s.sessionStatus === 'READY' ? 'CANCELLED'
-          : s.sessionStatus === 'COMPLETING' ? 'PARTIAL'
-            : 'ABANDONED';
+      // Todo lo que se empezó se cierra como día PARCIAL: así cuenta en las
+      // métricas (sessionMetrics cuenta COMPLETED y PARTIAL) y la app sigue
+      // teniendo registro. READY nunca se empezó, así que CANCELLED: contarlo
+      // como día sería inflar las estadísticas.
+      const destino: SessionStatus = s.sessionStatus === 'READY' ? 'CANCELLED' : 'PARTIAL';
 
       // Los ejercicios a medias quedan PARTIAL: lo que el usuario registró se
       // conserva como historial. Los PENDING intactos no se tocan.
@@ -309,6 +310,13 @@ async function transitionInner(
   if (target === 'COMPLETING' && s.sessionStatus === 'READY') {
     const started = await applyTransition(s, 'IN_PROGRESS');
     return applyTransition(started, 'COMPLETING', opts);
+  }
+  // Cierre parcial desde IN_PROGRESS/PAUSED: la matriz exige pasar por
+  // COMPLETING (COMPLETING es el único que admite PARTIAL). Se encadena el
+  // salto válido en vez de alterar la matriz de estados.
+  if (target === 'PARTIAL' && (s.sessionStatus === 'IN_PROGRESS' || s.sessionStatus === 'PAUSED')) {
+    const completing = await applyTransition(s, 'COMPLETING', opts);
+    return applyTransition(completing, 'PARTIAL', opts);
   }
   assertTransitionSession(s.sessionStatus, target);
   return applyTransition(s, target, opts);
