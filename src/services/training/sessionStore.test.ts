@@ -6,8 +6,12 @@ import {
   replaceSessionExercise, saveExerciseObservation,
 } from './sessionStore'
 import { recordVariantDecision } from '@/services/ai/variantService'
+import { todayKey } from '@/utils/dates'
 import type { UserProfile } from '@/types'
 
+// calendarDate usa el día local real (todayKey). Una fecha fija en el pasado
+// dispara el auto-cierre de medianoche y la sesión se cierra al instante, así
+// que estos tests dejarían de probar lo que dicen probar.
 const planned = [
   { exId: 'press', name: 'Press', sets: 2, reps: 10, weight: 50 },
   { exId: 'remo', name: 'Remo', sets: 1, reps: 8, weight: 40 },
@@ -23,7 +27,7 @@ beforeEach(async () => {
 async function startSession() {
   const s = await createSession({
     routineId: 'r1', routineName: 'R', plannedDay: 1, actualDay: 1,
-    calendarDate: '2026-09-10', plannedExercises: planned,
+    calendarDate: todayKey(), plannedExercises: planned,
   })
   return transitionSession(s.sessionId, 'IN_PROGRESS')
 }
@@ -32,7 +36,7 @@ describe('store central (§4, §10, §17, §18)', () => {
   it('crea READY con snapshot + setRecords PENDING y una sola activa', async () => {
     const s = await createSession({
       routineId: 'r1', plannedDay: 1, actualDay: 1,
-      calendarDate: '2026-09-10', plannedExercises: planned,
+      calendarDate: todayKey(), plannedExercises: planned,
     })
     expect(s.sessionStatus).toBe('READY')
     expect(s.sessionId).toBeTruthy()
@@ -45,7 +49,7 @@ describe('store central (§4, §10, §17, §18)', () => {
     // segunda creación recupera la activa, no duplica
     const again = await createSession({
       routineId: 'r2', plannedDay: 2, actualDay: 2,
-      calendarDate: '2026-09-10', plannedExercises: planned,
+      calendarDate: todayKey(), plannedExercises: planned,
     })
     expect(again.sessionId).toBe(s.sessionId)
     const active = await getActiveSession()
@@ -55,7 +59,7 @@ describe('store central (§4, §10, §17, §18)', () => {
   it('readopta sesión huérfana si se pierde el id activo (no duplica)', async () => {
     const s = await createSession({
       routineId: 'r1', plannedDay: 1, actualDay: 1,
-      calendarDate: '2026-09-10', plannedExercises: planned,
+      calendarDate: todayKey(), plannedExercises: planned,
     })
     // Pérdida parcial de storage: Dexie conserva la sesión activa.
     localStorage.removeItem('althea:session:activeId')
@@ -64,7 +68,7 @@ describe('store central (§4, §10, §17, §18)', () => {
     // Continuar entrenando no crea una segunda sesión.
     const again = await createSession({
       routineId: 'r1', plannedDay: 1, actualDay: 1,
-      calendarDate: '2026-09-10', plannedExercises: planned,
+      calendarDate: todayKey(), plannedExercises: planned,
     })
     expect(again.sessionId).toBe(s.sessionId)
   })
@@ -72,7 +76,7 @@ describe('store central (§4, §10, §17, §18)', () => {
   it('rechaza READY -> COMPLETED y exige pasar por COMPLETING', async () => {
     const s = await createSession({
       routineId: 'r1', plannedDay: 1, actualDay: 1,
-      calendarDate: '2026-09-10', plannedExercises: planned,
+      calendarDate: todayKey(), plannedExercises: planned,
     })
     await expect(transitionSession(s.sessionId, 'COMPLETED')).rejects.toThrow()
     const started = await transitionSession(s.sessionId, 'IN_PROGRESS')
@@ -131,7 +135,7 @@ describe('store central (§4, §10, §17, §18)', () => {
   it('READY -> COMPLETING se encadena automáticamente (nunca falla)', async () => {
     const s = await createSession({
       routineId: 'r1', plannedDay: 1, actualDay: 1,
-      calendarDate: '2026-09-10', plannedExercises: planned,
+      calendarDate: todayKey(), plannedExercises: planned,
     })
     const nx = await transitionSession(s.sessionId, 'COMPLETING')
     expect(nx.sessionStatus).toBe('COMPLETING')
@@ -149,7 +153,7 @@ describe('store central (§4, §10, §17, §18)', () => {
   it('transiciones concurrentes se serializan sin corromper (doble COMENZAR)', async () => {
     const s = await createSession({
       routineId: 'r1', plannedDay: 1, actualDay: 1,
-      calendarDate: '2026-09-10', plannedExercises: planned,
+      calendarDate: todayKey(), plannedExercises: planned,
     })
     const [a, b] = await Promise.allSettled([
       transitionSession(s.sessionId, 'IN_PROGRESS'),
@@ -165,7 +169,7 @@ describe('store central (§4, §10, §17, §18)', () => {
   it('cancelar exige pasar por estados válidos y guarda justificación', async () => {
     const s = await createSession({
       routineId: 'r1', plannedDay: 1, actualDay: 1,
-      calendarDate: '2026-09-10', plannedExercises: planned,
+      calendarDate: todayKey(), plannedExercises: planned,
     })
     const c = await transitionSession(s.sessionId, 'CANCELLED', { reason: 'Falta de tiempo' })
     expect(c.cancelReason).toBe('Falta de tiempo')

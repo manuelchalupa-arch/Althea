@@ -8,6 +8,7 @@ import {
 } from './sessionStore'
 import { savePlanning } from '@/services/planning/cycleVersions'
 import type { CycleConfig } from '@/utils/cycle'
+import { todayKey } from '@/utils/dates'
 
 const CYCLE: CycleConfig = {
   startDate: '2026-09-01',
@@ -21,7 +22,9 @@ const EXERCISES = [
   { exId: 'sentadilla', name: 'Sentadilla', sets: 2, reps: 10, weight: 100, muscle: 'Piernas' },
 ]
 
-function baseInput(date = '2026-09-10', extra: Record<string, unknown> = {}) {
+// El día local real por defecto: una fecha fija en el pasado dispara el
+// auto-cierre de medianoche y estos tests dejarían de probar el flujo.
+function baseInput(date = todayKey(), extra: Record<string, unknown> = {}) {
   return {
     calendarDate: date, routineId: 'r1', routineName: 'R',
     plannedDay: 1, plannedDayName: 'Pecho', actualDay: 1, actualDayName: 'Pecho',
@@ -47,7 +50,7 @@ describe('ET11 — Flujo de entrenamiento completo', () => {
     expect(await getActiveSession()).not.toBeNull()
     // Segundo comienzo recupera la activa (no duplica)
     const s2 = await createSession({
-      routineId: 'r1', plannedDay: 1, actualDay: 1, calendarDate: '2026-09-10',
+      routineId: 'r1', plannedDay: 1, actualDay: 1, calendarDate: todayKey(),
       plannedExercises: EXERCISES,
     })
     expect(s2.sessionId).toBe(s.sessionId)
@@ -136,7 +139,7 @@ describe('ET11 — Flujo de entrenamiento completo', () => {
     // FINALIZE vía COMPLETING→COMPLETED con encuesta
     await transitionSession(s.sessionId, 'COMPLETING')
     const survey = await saveSurvey({
-      sessionId: s.sessionId, userId: 'me', calendarDate: '2026-09-10',
+      sessionId: s.sessionId, userId: 'me', calendarDate: todayKey(),
       sessionRating: 4, pain: 1, painZone: 'hombro', painDetail: 'leve al press',
       comment: 'buena sesión',
     })

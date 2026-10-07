@@ -11,6 +11,7 @@ import {
   type SessionEvent, type SessionEventType, type PostWorkoutSurvey,
 } from './domain';
 import { resolveSetType } from './setPlanner';
+import { todayKey } from '@/utils/dates';
 
 const ACTIVE_ID_KEY = 'althea:session:activeId';
 const USER_ID = 'me';
@@ -54,19 +55,119 @@ export async function getActiveSession(): Promise<TrainingSession | null> {
   const s = await getSession(id);
   if (!s) { setActiveSessionId(null); return await findOrphanActiveSession(); }
   if (FINAL_STATES.includes(s.sessionStatus)) { setActiveSessionId(null); return null; }
+  // Barrido perezoso: si la sesión activa quedó de ayer, se cierra acá. Blinda
+  // la pestaña Entrenar aunque la app haya quedado abierta toda la noche.
+  if (s.calendarDate && s.calendarDate < todayKey()) {
+    await closeStaleSessions();
+    setActiveSessionId(null);
+    return null;
+  }
   return s;
+}
+
+/** Razón registrada cuando el auto-cierre por medianoche actúa. */
+export const STALE_SESSION_REASON =
+  'Cierre automático: el entrenamiento siguió abierto al cambiar el día';
+
+/**
+ * Cierra como "no realizada" toda sesión activa que cruzó la medianoche.
+ *
+ * Sin esto, una sesión abandoned ayer queda en READY/IN_PROGRESS para siempre:
+ * findOrphanActiveSession la readopta en cada arranque y la pestaña Entrenar
+ * nunca se oculta.
+ *
+ * NO se borra nada. Solo cambia sessionStatus y se agregan marcas de tiempo.
+ * Los SetRecord ya confirmados quedan intactos y el ejercicio queda PARTIAL,
+ * así que lo registrado se conserva como historial real.
+ *
+ * El destino lo decide la matriz de transiciones vigente, que no se modifica:
+ *   READY       -> CANCELLED  (nunca se empezó)
+ *   IN_PROGRESS -> ABANDONED  (se empezó y se cortó)
+ *   PAUSED      -> ABANDONED
+ *   COMPLETING  -> PARTIAL     (la matriz solo admite COMPLETED|PARTIAL)
+ *
+ * @returns los sessionId cerrados.
+ */
+export async function closeStaleSessions(today: string = todayKey()): Promise<string[]> {
+  const cerradas: string[] = [];
+  try {
+    const all = (await db.trainingSessions.toArray().catch(() => [])) as TrainingSession[];
+    for (const s of all) {
+      if (!isActiveSessionStatus(s.sessionStatus)) { continue; }
+      // calendarDate es un día local (YYYY-MM-DD). Solo caduca si es ANTERIOR a
+      // hoy: una sesión de hoy sigue siendo válida aunque sea de madrugada.
+      if (!s.calendarDate || s.calendarDate >= today) { continue; }
+
+      const destino: SessionStatus =
+        s.sessionStatus === 'READY' ? 'CANCELLED'
+          : s.sessionStatus === 'COMPLETING' ? 'PARTIAL'
+            : 'ABANDONED';
+
+      // Los ejercicios a medias quedan PARTIAL: lo que el usuario registró se
+      // conserva como historial. Los PENDING intactos no se tocan.
+      const exercises = await getSessionExercises(s.sessionId);
+      for (const se of exercises) {
+        if (se.status === 'IN_PROGRESS' || (se.status === 'PENDING' && se.actualSetCount > 0)) {
+          await db.sessionExercises
+            .put({ ...se, status: 'PARTIAL', updatedAt: new Date().toISOString() })
+            .catch(() => {});
+        }
+      }
+
+      try {
+        await transitionSession(s.sessionId, destino, {
+          reason: STALE_SESSION_REASON,
+          comment: `Cerrada automáticamente el ${today}; la sesión era del ${s.calendarDate}.`,
+        });
+        cerradas.push(s.sessionId);
+      } catch {
+        // Red de seguridad: si la matriz no admitiera el destino, se escribe
+        // igual para no dejar la sesión colgada ni la pestaña visible.
+        await db.trainingSessions
+          .put({
+            ...s,
+            sessionStatus: destino,
+            endedAt: new Date().toISOString(),
+            abandonReason: STALE_SESSION_REASON,
+            updatedAt: new Date().toISOString(),
+          } as TrainingSession)
+          .catch(() => {});
+        setActiveSessionId(null);
+        cerradas.push(s.sessionId);
+      }
+    }
+  } catch { /* noop */ }
+  if (cerradas.length > 0) { notifySessionChanged(); }
+  return cerradas;
 }
 
 /**
  * Rescate de sesión huérfana: si no hay id activo en storage pero Dexie
  * conserva una sesión en estado activo (p. ej. storage parcial), se readopta
- * la más reciente en vez de crear una duplicada al continuar entrenando.
+ * la más reciente DEL DÍA ACTUAL. Una sesión de un día anterior está vencida
+ * y la cierra closeStaleSessions, no se readopta.
  */
 async function findOrphanActiveSession(): Promise<TrainingSession | null> {
   try {
     const all = await db.trainingSessions.toArray().catch(() => []);
+    const hoy = todayKey();
+    // Sesiones vencidas que siguen marcadas como activas: hay que cerrarlas,
+    // no solo ignorarlas. Si se dejan asi, quedan filas IN_PROGRESS de ayer
+    // para siempre y un barrido futuro las volveria a encontrar.
+    if ((all as TrainingSession[]).some((s) => isActiveSessionStatus(s.sessionStatus) && s.calendarDate && s.calendarDate < hoy)) {
+      await closeStaleSessions(hoy);
+      const restantes = (await db.trainingSessions.toArray().catch(() => [])) as TrainingSession[];
+      const candidato = restantes
+        .filter((s) => isActiveSessionStatus(s.sessionStatus))
+        .filter((s) => !s.calendarDate || s.calendarDate >= hoy)
+        .sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))[0] ?? null;
+      if (!candidato) { return null; }
+      setActiveSessionId(candidato.sessionId);
+      return candidato;
+    }
     const orphan = (all as TrainingSession[])
       .filter((s) => isActiveSessionStatus(s.sessionStatus))
+      .filter((s) => !s.calendarDate || s.calendarDate >= hoy)
       .sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))[0] ?? null;
     if (!orphan) { return null; }
     setActiveSessionId(orphan.sessionId);

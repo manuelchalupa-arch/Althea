@@ -283,7 +283,13 @@ export default function App(){
   const [ready,setReady]=useState(false)
   useEffect(()=>{
     applyAppearance()
-    db.open().then(()=>setReady(true))
+    // Sesiones que cruzaron la medianoche: se cierran como "no realizadas"
+    // ANTES del primer render, para que la pestaña Entrenar no aparezca
+    // nunca con una sesión vencida.
+    db.open()
+      .then(()=>import('@/services/training/sessionStore').then(m=>m.closeStaleSessions()))
+      .catch(()=>{})
+      .finally(()=>setReady(true))
   },[])
   if(!ready) {return <div className="p-8 text-center">Cargando…</div>}
   // Boundary global: evita pantalla blanca/negra ante un error de render en
