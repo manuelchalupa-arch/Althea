@@ -167,6 +167,63 @@ html[data-textscale="l"] { font-size: 112.5%; }
 .pb-safe { padding-bottom: var(--safe-bottom); }
 
 /* ---------------------------------------------------------------------------
+   ICONOGRAFIA RESILIENTE (fix C1)
+   Material Symbols es una fuente de ligaduras servida por el CDN de Google
+   Fonts. Sin la fuente, "favorite" deja de ser un glifo y se pinta la palabra
+   inglesa. Eso se observo en produccion: la UI es una PWA offline-first y la
+   fuente puede no cargar por red lenta, ad-blocker o primer vuelo sin conexion.
+
+   Politica fail-safe: el atributo data-ms-icons solo vale 'ready' cuando
+   document.fonts confirma la fuente. El selector usa :not([data-ms-icons='ready'])
+   para que el ESTADO INICIAL sea "oculto", nunca "visible".
+   --------------------------------------------------------------------------- */
+html:not([data-ms-icons='ready']) .material-symbols-outlined {
+  /* font-size 0 colapsa el literal: la palabra no ocupa ni se ve. */
+  font-size: 0 !important;
+  line-height: 0 !important;
+  /* Preserva el tamano de la caja para no romper la maqueta. */
+  min-width: 1em;
+  min-height: 1em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Sin fuente: marcador de bloque en el color del contexto, nunca texto. */
+html:not([data-ms-icons='ready']) .material-symbols-outlined::after {
+  content: '';
+  display: block;
+  width: 0.72em;
+  height: 0.72em;
+  min-width: 0.72em;
+  min-height: 0.72em;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.32;
+}
+
+/* Con la fuente confirmada, se restablece el comportamiento normal. */
+html[data-ms-icons='ready'] .material-symbols-outlined {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------------------
    Offset del area de contenido respecto a la navegacion lateral.
    Antes la clase "md:ml-16 lg:ml-[var(--navw)]" estaba escrita a mano en DOS
    elementos de App.tsx (el contenedor y el MeanderFrieze). Si una cambiaba y

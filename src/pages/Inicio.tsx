@@ -482,7 +482,7 @@ export default function Inicio(){
       </section>
 
       {/* 3. BENTO CORE: WORKOUT (LEFT 8) + WIDGETS (RIGHT 4) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-12 lg:items-start gap-3">
         {/* LEFT 8: WORKOUT CARD — ¿Qué tengo que hacer hoy? */}
         <div className="lg:col-span-8  border border-outline-variant/40 rounded-lg p-4 space-y-3">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Qué tengo que hacer hoy?</div>

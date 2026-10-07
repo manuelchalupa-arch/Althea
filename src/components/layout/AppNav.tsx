@@ -50,10 +50,13 @@ export default function AppNav() {
     return ['home', 'nutrition', 'progress'].includes(i.icon as string)
   })
   const moreItem = NAV_ITEMS.find(i => i.icon === 'more')!
+  // Deduplicar por ICONO, no por ruta: '/progreso' y '/progresos' son dos
+  // strings que renderizan la misma pagina (Progreso.tsx). Comparar por icono
+  // cubre ese caso y cualquier alias futuro.
   const modules = MAS_GROUPS
     .flatMap(g => g.items)
     .filter(item => item.to !== '/entrenar')
-    .filter(item => !primaryItems.some(n => n.to === item.to))
+    .filter(item => !primaryItems.some(n => n.icon === item.icon))
 
   const primaryEntries = primaryItems.map(toAltheaEntry)
   const moduleEntries = modules.map(toAltheaEntry)
