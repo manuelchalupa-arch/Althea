@@ -1,3 +1,4 @@
+import { normFold } from '@/utils/format'
 import type { Exercise } from '@/services/exerciseGym'
 
 // Grupo muscular leg family y otros grupos amplios
@@ -11,7 +12,7 @@ export const GROUP_MUSCLES: Record<string, string[]> = {
 }
 
 export function musclesForGroup(group: string): string[] {
-  const key = group.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+  const key = normFold(group).trim()
   if (GROUP_MUSCLES[key]) {return GROUP_MUSCLES[key]}
   // singular/plural fallback via GROUP_MAP
   return [key]
@@ -28,14 +29,14 @@ export interface ExerciseFilters {
 
 export function matchesGroup(ex: Exercise, group?: string): boolean {
   if (!group) {return true}
-  const want = group.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const want = normFold(group)
   // piernas family
   const family = GROUP_MUSCLES[want]
   if (family) {
     return family.includes(ex.muscle) || (ex.secondaryMuscles || []).some(m => family.includes(m)) || ex.bodyPart === 'legs'
   }
   // genérico: compara músculo principal, secundarios, bodyPart, categoría
-  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const norm = (s: string) => normFold(s)
   return norm(ex.muscle) === want || (ex.secondaryMuscles || []).some(m => norm(m) === want) || norm(ex.bodyPart) === want || norm(ex.category) === want
 }
 

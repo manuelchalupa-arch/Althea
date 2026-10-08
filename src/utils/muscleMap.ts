@@ -1,3 +1,4 @@
+import { normFold, stripAccents } from '@/utils/format'
 // Normalización grupos musculares → API ExerciseGymGifsDB
 // UI (es) → muscle API (en)
 // Grupo Piernas = familia completa (quads, hamstrings, glutes, calves, abductors, adductors) — no solo quads
@@ -48,12 +49,12 @@ export const GROUP_MAP: Record<string,string> = {
 export const PIERNA_FAMILY = ['quads','hamstrings','glutes','calves','abductors','adductors']
 
 export function normalizeToken(tok:string): string | null {
-  const key = tok.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  const key = normFold(tok.trim())
   // quita acentos para lookup
   const plain = key.replace(/[^a-z]/g,'')
   // busca directo
   for(const [k,v] of Object.entries(GROUP_MAP)){
-    const nk = k.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'')
+    const nk = stripAccents(k).replace(/[^a-z]/g,'')
     if(nk===plain) {return v}
   }
   // alias sin acento
@@ -74,9 +75,9 @@ export function parseDayMuscles(text:string): string[] {
       }
     })
   })
-  const lowerNoAccent = lower.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  const lowerNoAccent = stripAccents(lower)
   for(const [k,v] of Object.entries(GROUP_MAP)){
-    const nk = k.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    const nk = stripAccents(k)
     if(lowerNoAccent.includes(nk)){
       if(v==='__piernas__'){ PIERNA_FAMILY.forEach(m=>found.add(m)) }
       else if(!found.has(v)) {found.add(v)}

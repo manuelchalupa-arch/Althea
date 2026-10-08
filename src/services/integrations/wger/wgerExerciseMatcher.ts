@@ -1,3 +1,4 @@
+import { normFold } from '@/utils/format'
 import type { Exercise } from '@/services/exerciseGym'
 import type { WgerExerciseInfo, WgerTranslation } from './wgerTypes'
 import type { WgerProvenance } from './wgerMapper'
@@ -18,10 +19,7 @@ export interface ExerciseIndex {
 }
 
 function normalizeName(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+  return normFold(name)
     .replace(/[^a-z0-9]/g, '')
     .trim()
 }

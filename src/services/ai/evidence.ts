@@ -9,6 +9,7 @@
 //  - La respuesta final registra sourcesUsed[] = estas fuentes citadas, nunca
 //    el listado completo de "todas las fuentes".
 
+import { normFold } from '@/utils/format'
 import { SCIENTIFIC_SOURCES } from './metExpenditure'
 import { NUTRITION_METHODS } from './nutritionMethodsDB'
 import knowledgeIndex from '@/data/knowledge/index'
@@ -143,7 +144,7 @@ const INTENT_TOPICS: Record<AiIntent, string[]> = {
 
 /** Comparación sin acentos ni mayúsculas: "Proteína" matchea "proteina". */
 function norm(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return normFold(s)
 }
 
 function scoreSource(source: EvidenceSource, tokens: string[], intentTopics: string[]): { score: number; matchedClaims: string[] } {

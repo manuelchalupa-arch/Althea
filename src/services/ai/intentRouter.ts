@@ -1,3 +1,4 @@
+import { stripAccents } from '@/utils/format'
 // ROUTER DE INTENCIONES — primer eslabón del pipeline del Coach.
 //
 // Determinista (sin red, sin LLM): clasifica la consulta en una de las
@@ -136,10 +137,7 @@ const STOPWORDS = new Set([
 const GENERIC: AiIntent[] = ['TRAINING', 'NUTRITION', 'GENERAL']
 
 function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+  return stripAccents(text.toLowerCase())
     .replace(/[^\wñ\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()

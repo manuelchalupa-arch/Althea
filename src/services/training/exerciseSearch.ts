@@ -1,3 +1,4 @@
+import { normFold } from '@/utils/format'
 // Búsqueda tolerante para Biblioteca — FASE 5.
 // Sin filtros obligatorios. Tolera: mayúsculas, acentos, singular/plural,
 // español/inglés, nombres alternativos y sinónimos razonables.
@@ -6,10 +7,7 @@
  * Normaliza un string: minúsculas + sin acentos/diacríticos.
  */
 export function normalize(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+  return normFold(s)
     .trim()
 }
 

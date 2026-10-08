@@ -1,3 +1,4 @@
+import { normFold } from '@/utils/format'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Navigate } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
@@ -550,11 +551,11 @@ const exercises: SessionEx[] = seList.map((se) => {
         if(ex?.gifUrl){ setViewer(ex); return }
       }
       const res = await Gym.fetchByMuscle(m)
-      const target = cur.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      const target = normFold(cur.name)
       const targetWords = target.split(/\s+/)
       let best:any=null, bestScore=-1
       for(const ex of res.exercises){
-        const name = ex.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        const name = normFold(ex.name)
         let score=0
         for(const w of targetWords){ if(name.includes(w)) {score+=2;} if(ex.slug.includes(w)) {score+=1} }
         if(target.includes('inclinado') && name.includes('inclinado')) {score+=5}

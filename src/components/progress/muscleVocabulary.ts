@@ -11,15 +11,12 @@
  * Regla: el atlas dibuja músculos; `cardio` y `cuerpo completo` no son un
  * músculo y resuelven a [] a propósito (no se inventa una región).
  */
+import { stripAccents } from '@/utils/format'
 import { MUSCLE_REGIONS, ALL_REGION_IDS } from './muscleGeometry';
 
 /** Normaliza: minúsculas, sin tildes, separadores a guion. */
 export function normalizeMuscleName(raw: string): string {
-  return raw
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
+  return stripAccents(raw).toLowerCase().trim()
     .replace(/[\s_/]+/g, '-');
 }
 

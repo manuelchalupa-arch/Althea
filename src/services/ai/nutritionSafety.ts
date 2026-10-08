@@ -1,4 +1,5 @@
 // NUTRITION SAFETY — Detección de condiciones que requieren supervisión profesional
+import { normFold } from '@/utils/format'
 import type { NutritionMethodId, NutritionUserProfile } from './nutritionMethods'
 import { getNutritionMethod } from './nutritionMethodsDB'
 
@@ -160,8 +161,7 @@ export function checkTCA(profile: NutritionUserProfile, qaHistory?: Array<{ key:
         'ayuno forzado', 'obsesionado con la comida', 'culpa al comer',
         'miedo a engordar', 'imagen corporal distorsionada', 'peso ideal obsesivo',
       ]
-      const normalizeForMatch = (s: string) =>
-        s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      const normalizeForMatch = (s: string) => normFold(s)
 
       for (const qa of qaHistory) {
         const answer = normalizeForMatch(qa.answer || '')

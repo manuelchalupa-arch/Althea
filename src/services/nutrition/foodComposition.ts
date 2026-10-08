@@ -1,3 +1,4 @@
+import { stripAccents } from '@/utils/format'
 // Composición de alimentos — tabla local de referencia, valores por 100 g.
 //
 // Estos valores son datos de referencia publiqueos (tablas composicion de
@@ -284,10 +285,7 @@ export function getFood(id: string): FoodBase | undefined {
 
 /** Normaliza texto de entrada: minusculas, sin acentos, solo alfanumerico. */
 export function normalizeDishText(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+  return stripAccents(text.toLowerCase())
     // separa digitos de letras para que "200g" quede como dos tokens
     .replace(/(\d)([a-z])/g, '$1 $2')
     .replace(/([a-z])(\d)/g, '$1 $2')

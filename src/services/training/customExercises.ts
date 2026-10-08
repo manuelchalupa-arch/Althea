@@ -2,6 +2,7 @@
 // Tabla propia (customExercises) porque db.exercises conserva el seed español legacy;
 // el shape es Gym-compatible para integrarse sin ramas especiales en Biblioteca,
 // Rutinas, Entrenamiento, Historial, Progreso y Similitud (todo clave por exerciseId).
+import { normFold } from '@/utils/format'
 import { db } from '@/services/storage/db'
 import type { Exercise, MuscleShare } from '@/services/exerciseGym'
 
@@ -89,7 +90,7 @@ export async function createCustomExercise(input: CustomInput): Promise<CustomEx
   const errs = validateCustomInput(input)
   if (errs.length > 0) {throw new Error(errs.join(' · '))}
   const now = new Date().toISOString()
-  const slug = input.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'ejercicio'
+  const slug = normFold(input.name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'ejercicio'
   const rec: CustomExercise = {
     id: newCustomId(),
     slug,
