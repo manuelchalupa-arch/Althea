@@ -93,7 +93,7 @@ export interface AltheaNutritionPlanRef {
 
 export function mapWgerNutritionPlanToAlthea(plan: WgerNutritionPlan): AltheaNutritionPlanRef {
   return {
-    id: `wger-nutrition-plan-${plan.id}`,
+    id: `wger-nutritionplan-${plan.id}`,
     source: 'wger',
     sourceId: plan.id,
     name: plan.name,
@@ -126,7 +126,7 @@ export function mapWgerMealToAlthea(meal: WgerMeal): AltheaMealRef {
     id: `wger-meal-${meal.id}`,
     source: 'wger',
     sourceId: meal.id,
-    nutritionPlanId: `wger-nutrition-plan-${meal.nutrition_plan}`,
+    nutritionPlanId: `wger-nutritionplan-${meal.nutrition_plan}`,
     order: meal.order,
     time: meal.time,
     name: meal.name,
