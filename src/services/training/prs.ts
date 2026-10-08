@@ -1,8 +1,8 @@
-﻿// PR / 1RM calculations — recalculables desde setRecords/setLogs (fuente canónica).
+// PR / 1RM calculations — recalculables desde setRecords/setLogs (fuente canónica).
 // NO persistir PRs como hechos si derivan del historial.
 
 import type { SetRecord } from './domain'
-import { monthStartKey, toDateKey, toLocalDateKey, weekStartKey } from '@/utils/dates'
+import { monthStartKey, toDateKey, weekStartKey } from '@/utils/dates'
 
 export type OneRMFormula = 'epley' | 'brzycki' | 'lander' | 'lombardi' | 'mayhew' | 'oConner' | 'wathan'
 

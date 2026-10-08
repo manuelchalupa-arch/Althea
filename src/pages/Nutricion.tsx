@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { db } from '@/services/storage/db'
 import {
   getDiaryEntries,
@@ -22,7 +22,7 @@ import type { UserProfile, BodyMeasurement } from '@/types'
 import { checkNutritionSafety, type NutritionSafetyAlert } from '@/services/ai/nutritionSafety'
 import { buildNutritionSuggestions } from '@/services/ai/nutritionEngine'
 import { recordAdherence, getAdherenceTrend, type AdherenceRecord } from '@/services/ai/adherenceTracker'
-import { Search, X, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
+import { AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { AltheaCard, AltheaBadge, AltheaProgress, AltheaButton, AltheaSection, AltheaEmpty, AltheaLoading } from '@/components/althea'
   import { HydrationBottle, HydrationQuickAdd } from '@/components/nutrition/HydrationBottle'
 import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'

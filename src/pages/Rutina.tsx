@@ -1,12 +1,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import { db, ensureSeeded } from '@/services/storage/db'
-import type { Exercise, UserProfile } from '@/types'
+import type { Exercise } from '@/types'
 import { DEFAULT_CYCLE, type CycleConfig, type LoadState, LOAD_STATE_LABEL, LOAD_STATE_COLOR, getWeekLoads } from '@/utils/cycle'
 import { v4 as uuid } from 'uuid'
 import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye, Sparkles, X, Check, RefreshCw } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { IconDumbbell, IconFire, IconLightning, IconBody, IconTarget } from '@/components/brand/FitnessIcons'
-import { AltheaCard, AltheaBadge, AltheaButton, AltheaEmpty, AltheaLoading, StatusTag, AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
+import { AltheaCard, AltheaBadge, AltheaButton, AltheaEmpty, AltheaLoading, StatusTag, AltheaPanel, AltheaStatRow } from '@/components/althea'
 import { generateRoutineWithAI, isRoutineAIAvailable, type GeneratedRoutine, type UserWants } from '@/services/ai/routineBuilderIA'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
@@ -91,7 +91,7 @@ export default function RutinaPage(){
   const [exercises,setExercises]=useState<Exercise[]>([])
   const [routines,setRoutines]=useState<RutinaData[]>([])
   const [activeId,setActiveId]=useState<string | null>(null)
-  const [routinesLoaded, setRoutinesLoaded] = useState(false)
+  const [, setRoutinesLoaded] = useState(false)
   const active = routines.find(r=>r.id===activeId) || routines[0]
   const [pickerFor,setPickerFor]=useState<number|null>(null)
   const [showNew,setShowNew]=useState(false)

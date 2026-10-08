@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { db } from '@/services/storage/db'
 import { 
-  Calendar, Plus, Minus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, 
-  AlertTriangle, AlertCircle, CheckCircle, Clock, Calendar as CalendarIcon,
-  HelpCircle, XCircle, Lightbulb, Brain, Zap, Target, TrendingUp, TrendingDown
+  Calendar, X, AlertCircle, CheckCircle, Brain, Zap, TrendingUp
 } from 'lucide-react'
-import { AltheaButton, AltheaCard, AltheaInput, AltheaSelect } from '@/components/althea'
+import { AltheaButton, AltheaCard, AltheaInput } from '@/components/althea'
 import {
   getCycleFromProfile,
   getTrainingDayForDate,
@@ -34,10 +32,10 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
   const [cycle, setCycle] = useState<CycleConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'weeks' | 'methods'>('overview')
-  const [editingWeek, setEditingWeek] = useState<number | null>(null)
-  const [weekDraft, setWeekDraft] = useState<{ days: number[]; startDate: string }>({ days: [], startDate: '' })
-  const [showMethodSelector, setShowMethodSelector] = useState(false)
-  const [selectedMethod, setSelectedMethod] = useState<TrainingMethodId | null>(null)
+  const [] = useState<number | null>(null)
+  const [, setWeekDraft] = useState<{ days: number[]; startDate: string }>({ days: [], startDate: '' })
+  const [, setShowMethodSelector] = useState(false)
+  const [, setSelectedMethod] = useState<TrainingMethodId | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeVersion, setActiveVersion] = useState<CycleVersion | null>(null)
   const [versionNotice, setVersionNotice] = useState<string | null>(null)

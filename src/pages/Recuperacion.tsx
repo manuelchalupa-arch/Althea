@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { db } from '@/services/storage/db'
-import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaLoading, AltheaEmpty, AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
+import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaLoading, AltheaEmpty, AltheaMetric, AltheaStatRow } from '@/components/althea'
 import { WaterBottle } from '@/components/recovery/WaterBottle'
 import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
 import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'

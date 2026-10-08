@@ -3,7 +3,7 @@ import { db } from '@/services/storage/db'
 import {
   createSession, getActiveSession, getSession, transitionSession,
   confirmSetRecord, getSetRecords, skipSessionExercise, getSessionExercises,
-  replaceSessionExercise, saveExerciseObservation,
+  replaceSessionExercise,
 } from './sessionStore'
 import { recordVariantDecision } from '@/services/ai/variantService'
 import { todayKey } from '@/utils/dates'

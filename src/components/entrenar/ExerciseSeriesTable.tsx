@@ -15,7 +15,7 @@ const kgOrNull = (v:number|null|undefined):number|null=>{
   return Math.round(n*10)/10
 }
 
-export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeight, plannedSets, planMeta, onComplete, onSkipSet, onAddSet, logs, initialCompleted, initialSkipped }:{ exerciseId:string; today:string; sets:number; plannedReps:number; plannedWeight:number|null; plannedSets?: Array<{ order: number; reps: number; weight: number|null; setType?: string }>; planMeta?: { restSec?: number; tempo?: string; rir?: number; rpe?: number; notes?: string }; onComplete:(idx:number,w:number|null,r:number,neg?:any,obs?:string,loadText?:string)=>void; onSkipSet?:(idx:number)=>void; onAddSet?:()=>void; logs:any[]; initialCompleted?:Record<number,{weight:number|null;reps:number}>; initialSkipped?:number[] }){
+export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeight, plannedSets, planMeta, onComplete, onAddSet, logs, initialCompleted, initialSkipped }:{ exerciseId:string; today:string; sets:number; plannedReps:number; plannedWeight:number|null; plannedSets?: Array<{ order: number; reps: number; weight: number|null; setType?: string }>; planMeta?: { restSec?: number; tempo?: string; rir?: number; rpe?: number; notes?: string }; onComplete:(idx:number,w:number|null,r:number,neg?:any,obs?:string,loadText?:string)=>void; onSkipSet?:(idx:number)=>void; onAddSet?:()=>void; logs:any[]; initialCompleted?:Record<number,{weight:number|null;reps:number}>; initialSkipped?:number[] }){
   const [refs,setRefs]=useState<Record<number,any>>({})
   const [weights,setWeights]=useState<Record<number,number|null>>({})
   const [reps,setReps]=useState<Record<number,number|null>>({})

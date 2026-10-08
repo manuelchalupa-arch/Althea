@@ -7,8 +7,6 @@ import { todayKey } from '@/utils/dates'
 
 export type PushType = 'seguimiento' | 'pre-entreno' | 'agua' | 'cuestionario' | 'recuperacion' | 'comoEstas' | 'proteina' | 'entrenamiento' | 'coach'
 
-function todayStr() { return todayKey() }
-
 function platformAvailable(): boolean {
   try { return typeof Notification !== 'undefined' && 'Notification' in window } catch { return false }
 }

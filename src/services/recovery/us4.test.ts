@@ -3,7 +3,7 @@ import { todayKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
 import { saveRecoveryCheck, getTodayRecovery } from './recoveryService'
 import { logDecision, getRecentDecisions } from '@/services/ai/decisionLogger'
-import { getCycleFromProfile, buildCycleFromProfile } from '@/utils/cycle'
+import { buildCycleFromProfile } from '@/utils/cycle'
 
 describe('US4 — Recuperación + Recomendaciones + Periodización', () => {
   beforeEach(async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { db } from '@/services/storage/db'
-import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
+import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaPanel, AltheaStatRow } from '@/components/althea'
 import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'
 import { getOverrideDay, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import type { CycleConfig, LoadState } from '@/utils/cycle'
@@ -43,7 +43,7 @@ export default function Calendario(){
   const [monthOverrides,setMonthOverrides]=useState<Record<string,boolean>>({})
   const [showCheckin,setShowCheckin]=useState(false)
   const [todayScore,setTodayScore]=useState<number|null>(null)
-  const [todaySleep,setTodaySleep]=useState<number|null>(null)
+  const [,setTodaySleep]=useState<number|null>(null)
   const [todayHydration,setTodayHydration]=useState(0)
 
   const todayStr = selectedDate ?? todayKey()

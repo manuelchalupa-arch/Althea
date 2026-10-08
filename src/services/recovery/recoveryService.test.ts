@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { todayKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
 import { getTodayHydration, addHydration, getHydrationGoal, setHydrationGoal } from './recoveryService'
-import { getTodayRecovery, saveRecoveryCheck, getRecoveryHistory } from './recoveryService'
+import { getTodayRecovery, saveRecoveryCheck } from './recoveryService'
 
 describe('US3 — Hidratación y Sueño', () => {
   beforeEach(async () => {

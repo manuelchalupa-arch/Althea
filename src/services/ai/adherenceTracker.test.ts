@@ -17,7 +17,6 @@ const TEST_METHOD_A: NutritionMethodId = 'mediterranean'
 const TEST_METHOD_B: NutritionMethodId = 'whole30'
 const TEST_METHOD_C: NutritionMethodId = 'dash'
 const TEST_METHOD_D: NutritionMethodId = 'high_protein'
-const TEST_METHOD_E: NutritionMethodId = 'flexitarian'
 
 describe('adherenceTracker', () => {
   beforeEach(async () => {

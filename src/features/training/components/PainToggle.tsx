@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { AlertTriangle, X, ChevronDown } from 'lucide-react'
+import { AlertTriangle, ChevronDown } from 'lucide-react'
 import { AltheaButton } from '@/components/althea'
 import { db } from '@/services/storage/db'
 import type { PainLog } from '@/types'
@@ -32,7 +32,7 @@ interface PainToggleProps {
   onOpenVariants?: () => void
 }
 
-export function PainToggle({ sessionId, exerciseId, exerciseName, initialLevel = 'none', onPainChange, onOpenVariants }: PainToggleProps) {
+export function PainToggle({ exerciseId, exerciseName, initialLevel = 'none', onPainChange, onOpenVariants }: PainToggleProps) {
   const [level, setLevel] = useState<PainLevel>(initialLevel)
   const [showDetails, setShowDetails] = useState(false)
   const [zone, setZone] = useState('')

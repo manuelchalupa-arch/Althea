@@ -440,7 +440,7 @@ export async function buildInsights(): Promise<CoachInsight[]> {
     } catch { /* noop */ }
     // ─── Coach IA v2: progress analyzer insights ───
     try {
-      const { analyzeGlobal, analyzeExercise } = await import('./progressAnalyzer')
+      const { analyzeGlobal } = await import('./progressAnalyzer')
       const global = await analyzeGlobal()
       if (global.trend === 'plateau' && global.plateauWeeks >= 3 && global.sufficientData) {
         out.push({

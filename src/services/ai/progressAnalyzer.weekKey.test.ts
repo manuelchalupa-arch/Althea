@@ -1,6 +1,6 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/services/storage/db'
-import { dayKeyOffset, todayKey, weekStartKey, weekdayOfKey, toDateKey } from '@/utils/dates'
+import { todayKey, weekStartKey, weekdayOfKey, toDateKey } from '@/utils/dates'
 import { analyzeExercise } from './progressAnalyzer'
 
 // FASE 2 - S7: getWeekKey (progressAnalyzer) resolvia el lunes con el patron

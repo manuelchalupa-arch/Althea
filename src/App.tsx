@@ -11,33 +11,6 @@ import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersio
 import { weekdayOfKey } from '@/utils/dates'
 import { ErrorBoundary, EntrenarErrorBoundary, NutricionErrorBoundary, CoachErrorBoundary, ProgresoErrorBoundary } from '@/components/ErrorBoundary'
 
-// Custom hook to safely get offline mode - extracted to avoid calling hook in callback
-function useFirebaseOfflineMode() {
-  const [isOfflineMode, setIsOfflineMode] = useState(false)
-  const [isFirebaseConfigured, setIsFirebaseConfigured] = useState(false)
-
-  // Initialize Firebase config at top level
-  useEffect(() => {
-    let alive = true
-    import('@/services/firebase/config').then(m => {
-      if (alive) { setIsFirebaseConfigured(m.isFirebaseConfigured()) }
-    }).catch(() => {})
-    return () => { alive = false }
-  }, [])
-
-  // Initialize offline mode at top level (only after Firebase is configured)
-  useEffect(() => {
-    if (!isFirebaseConfigured) { return }
-    let alive = true
-import('@/services/firebase/auth').then(({ getOfflineMode }) => {
-      if (alive) {setIsOfflineMode(getOfflineMode())}
-    }).catch(() => {})
-    return () => { alive = false }
-  }, [isFirebaseConfigured])
-
-  return isOfflineMode
-}
-
 // Lazy load all pages to reduce initial bundle size
 const Inicio = lazy(() => import('@/pages/Inicio'))
 const Entrenar = lazy(() => import('@/pages/Entrenar'))

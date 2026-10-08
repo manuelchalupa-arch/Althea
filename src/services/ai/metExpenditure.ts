@@ -58,7 +58,7 @@ export function calculateCalorieExpenditure(opts: {
   weightKg: number
   durationMinutes: number
 }): { grossKcal: number; netKcal: number; formula: string; met: number } {
-  const { activity, met, weightKg, durationMinutes } = opts
+  const { met, weightKg, durationMinutes } = opts
   // kcal/min = MET × 3.5 × peso(kg) / 200
   const kcalsPerMin = met * 3.5 * weightKg / 200
   const grossKcal = kcalsPerMin * durationMinutes

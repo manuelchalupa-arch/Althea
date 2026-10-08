@@ -27,16 +27,6 @@ function mapWeightUnitToLoadType(unitName: string): Load['unit'] {
   return 'KG'  // default
 }
 
-// ─── Mapeo de unidad de reps WGER ───
-function mapRepetitionUnit(unitName: string): string {
-  const u = unitName.toLowerCase()
-  if (u.includes('rep')) {return 'reps'}
-  if (u.includes('second')) {return 'seconds'}
-  if (u.includes('minute')) {return 'minutes'}
-  if (u.includes('hour')) {return 'hours'}
-  return 'reps'
-}
-
 // ─── Crear Load desde WGER ───
 function createLoad(weight: number | null, unitName: string): Load | null {
   if (weight === null) {return null}
@@ -208,7 +198,7 @@ export function wgerSessionWithExercisesToAlthea(
 
   const exercises: SessionExercise[] = []
   let order = 1
-  for (const [exerciseId, exerciseLogs] of grouped) {
+  for (const [, exerciseLogs] of grouped) {
     const sessionExercise = createSessionExerciseFromLogs(
       exerciseLogs,
       altheaSession.sessionId,

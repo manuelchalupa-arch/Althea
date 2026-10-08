@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { db } from '@/services/storage/db'
 import { getLastExecutionByExercise } from '@/services/history'
 import type { SessionExercise, SetRecord, SetType } from '@/services/training/domain'
@@ -63,7 +63,6 @@ interface UseExerciseStateReturn {
 }
 
 export function useExerciseState({
-  sessionId,
   sessionExercises,
   currentIndex
 }: UseExerciseStateOptions): UseExerciseStateReturn {

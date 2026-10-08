@@ -8,7 +8,7 @@ import { METHOD_COACHING_STYLES, resolveCoachTone, type CoachTone } from '@/serv
 import { setCoachMethodView } from '@/services/ai/coachPreferences'
 import { TRAINING_METHODS, getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
-import type { UserProfile, UserProfile as ProfileT } from '@/types'
+import type { UserProfile } from '@/types'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
 import {
   prepareUnifiedContext,

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   getHealthInfo,
-  getSyncStatus,
   formatLastSyncTime,
   resetHealthStatus,
   type WgerHealthInfo,
@@ -18,7 +17,7 @@ interface WgerSyncPanelProps {
 
 export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
   const [health, setHealth] = useState<WgerHealthInfo | null>(null)
-  const [queueStats, setQueueStats] = useState<QueueStats | null>(null)
+  const [, setQueueStats] = useState<QueueStats | null>(null)
   const [conflicts, setConflicts] = useState<SyncConflict[]>([])
   const [failedOps, setFailedOps] = useState<number>(0)
   const [syncing, setSyncing] = useState(false)

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { todayKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
-import { loadUnifiedConfigs, saveUnifiedConfig, updateUnifiedConfig, NOTIF_TYPE_LABEL } from './unifiedNotifications'
+import { loadUnifiedConfigs, saveUnifiedConfig, NOTIF_TYPE_LABEL } from './unifiedNotifications'
 import { ensurePendingForDue, getPendingActions, isBlocked, completeAction, completeRecoveryCheck, hasPendingOnReopen } from './requiredActionService'
 import { updateRecoveryCheck } from '@/services/recovery/recoveryService'
 

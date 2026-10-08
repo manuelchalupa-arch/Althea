@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react';
+import  { useId, useState } from 'react';
 import {
   ATLAS_VIEWBOX,
   BODY_DETAIL,

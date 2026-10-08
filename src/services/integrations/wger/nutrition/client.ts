@@ -11,11 +11,8 @@ import type {
   WgerNutritionPlanListResponse,
   WgerNutritionPlan,
   WgerMealListResponse,
-  WgerMeal,
   WgerMealItemListResponse,
-  WgerMealItem,
   WgerNutritionDiaryListResponse,
-  WgerNutritionDiary,
 } from './types'
 
 const BASE = 'https://wger.de/api/v2'

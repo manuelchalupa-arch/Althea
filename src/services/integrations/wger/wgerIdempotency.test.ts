@@ -6,11 +6,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { db } from '@/services/storage/db'
 import {
   syncWgerToAlthea,
-  syncAltheaToWger,
   syncEntity,
-  type SyncResult,
 } from './wgerSyncEngine'
-import { enqueueOperation, getPendingOperations, markOperationCompleted } from './wgerSyncQueue'
+import { enqueueOperation, markOperationCompleted } from './wgerSyncQueue'
 import { resetHealthStatus } from './wgerHealth'
 import { resetWgerAuth } from './wgerAuth'
 

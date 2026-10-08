@@ -19,22 +19,6 @@ import type { ExpenditureResult } from '@/services/training/exerciseEnergy'
 
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X']
 
-function SessionStatusIcon({ status }: { status: string | null }) {
-  if (!status) {return <span className="material-symbols-outlined text-outline" style={{ fontSize: 15 }}>schedule</span>}
-  const map: Record<string, { icon: string; color: string }> = {
-    COMPLETED: { icon: 'check_circle', color: 'text-primary' },
-    PARTIAL: { icon: 'do_not_disturb_on', color: 'text-secondary' },
-    CANCELLED: { icon: 'cancel', color: 'text-error' },
-    ABANDONED: { icon: 'radio_button_unchecked', color: 'text-outline' },
-    IN_PROGRESS: { icon: 'play_circle', color: 'text-secondary' },
-    PAUSED: { icon: 'pause_circle', color: 'text-secondary' },
-    COMPLETING: { icon: 'hourglass_top', color: 'text-primary' },
-    READY: { icon: 'schedule', color: 'text-primary' },
-  }
-  const s = map[status] || { icon: 'schedule', color: 'text-outline' }
-  return <span className={`material-symbols-outlined ${s.color} animate-pulse`} style={{ fontSize: 15 }}>{s.icon}</span>
-}
-
 /** Fila del gasto calórico: valor real o estado honesto, nunca números inventados. */
 function GastoRow({ label, res, testId }: { label: string; res: ExpenditureResult; testId: string }) {
   const sinDatos = res.totalKcal === null && res.motivo !== 'SIN_SESIONES'
@@ -84,12 +68,12 @@ export default function Inicio(){
   // Gasto calórico del ejercicio: mismo motor que historial e informes (PDF).
   const [gasto, setGasto] = useState<{ hoy: ExpenditureResult; semana: ExpenditureResult } | null>(null)
   const todayCompleted = dayStatus[todayStr]?.sessionStatus === 'COMPLETED'
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr)
-  const [previewList, setPreviewList] = useState<{id:string;name:string;sets:number;reps:number;weight:number|null;restSec?:number;seriesType?:string;muscle?:string}[]>([])
-  const [previewName, setPreviewName] = useState('')
+  const [selectedDate] = useState<string>(todayStr)
+  const [, setPreviewList] = useState<{id:string;name:string;sets:number;reps:number;weight:number|null;restSec?:number;seriesType?:string;muscle?:string}[]>([])
+  const [, setPreviewName] = useState('')
   const [editingIdx, setEditingIdx] = useState<number|null>(null)
   const [editDraft, setEditDraft] = useState<{reps:number; weight:number|null; restSec:number}>({reps:0, weight:0, restSec:90})
-  const [savedIdx, setSavedIdx] = useState<number|null>(null)
+  const [, setSavedIdx] = useState<number|null>(null)
   const [showCalendarPopover, setShowCalendarPopover] = useState(false)
 
   const loadDay = async (cycleToUse:any, dayN:number | null)=>{

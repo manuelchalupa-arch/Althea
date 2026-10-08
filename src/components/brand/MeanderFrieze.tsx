@@ -1,4 +1,4 @@
-import React, { useId } from 'react'
+import  { useId } from 'react'
 
 export interface MeanderFriezeProps {
   /** Alto de la franja en px (3–4 px según identidad). */

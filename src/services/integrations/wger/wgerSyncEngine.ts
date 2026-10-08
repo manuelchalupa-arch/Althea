@@ -16,10 +16,10 @@
 // - NO depender únicamente de timestamps: usar hashes para detectar cambios reales.
 
 import { db } from '@/services/storage/db'
-import { fetchRoutine, fetchRoutines, fetchDays, fetchSlots, fetchSlotEntries, fetchWeightConfig, fetchRepetitionsConfig, fetchSetsConfig, fetchRirConfig, fetchRestConfig, createRoutine, updateRoutine, deleteRoutine, createWorkout, updateWorkout, deleteWorkout, createNutritionPlan, updateNutritionPlan, deleteNutritionPlan, createMeasurement, updateMeasurement, deleteMeasurement, fetchExerciseList, fetchExerciseInfo, fetchIngredients, fetchNutritionPlans, fetchWorkoutSessions, fetchMeasurements, fetchAllPagesCursor } from './wgerClient'
-import { mapWgerRoutineToAlthea, mapAltheaRoutineToWger, type WgerRoutineWithDetails } from './wgerRoutineMapper'
+import { fetchRoutine, fetchRoutines, fetchSlots, fetchSlotEntries, fetchWeightConfig, fetchRepetitionsConfig, fetchSetsConfig, fetchRirConfig, fetchRestConfig, createRoutine, updateRoutine, deleteRoutine, createWorkout, updateWorkout, deleteWorkout, createNutritionPlan, updateNutritionPlan, deleteNutritionPlan, createMeasurement, updateMeasurement, deleteMeasurement, fetchExerciseList, fetchExerciseInfo, fetchIngredients, fetchNutritionPlans, fetchWorkoutSessions, fetchMeasurements } from './wgerClient'
+import { mapWgerRoutineToAlthea, type WgerRoutineWithDetails } from './wgerRoutineMapper'
 import { enqueueOperation, getPendingOperations, markOperationCompleted, markOperationFailed } from './wgerSyncQueue'
-import { detectConflict, resolveConflict, type SyncConflict } from './wgerConflictResolver'
+import { detectConflict, resolveConflict } from './wgerConflictResolver'
 import { getSyncStatus, updateSyncStatus, type WgerSyncStatus } from './wgerHealth'
 import { getWgerAuthState } from './wgerAuth'
 import type { SyncResourceState } from './wgerTypes'
@@ -456,7 +456,6 @@ async function syncNutritionPlansIncrementalFromWger(result: SyncResult, options
 
 async function syncMeasurementsIncrementalFromWger(result: SyncResult, options: SyncOptions): Promise<void> {
   const state = await getOrCreateResourceState('measurement')
-  const lastUpdateGte = state.lastSuccessfulSyncAt || undefined
 
   const limit = 50
   let offset = 0

@@ -25,20 +25,6 @@ function official(o: Partial<UnifiedSet> & { order: number }): UnifiedSet {
   }
 }
 
-function legacy(o: Partial<UnifiedSet> & { order: number }): UnifiedSet {
-  return {
-    setRecordId: 'legacy-1',
-    sessionId: 'sess-A',
-    exerciseId: EX,
-    weight: 80,
-    reps: 8,
-    date: '2026-09-10',
-    timestamp: '2026-09-10T10:00:00Z',
-    source: 'legacy',
-    ...o,
-  }
-}
-
 async function seedOfficial(sessionId = 'sess-A', date = '2026-09-10', weight = 80, reps = 8, order = 1, time = '10:00:00Z') {
   await db.setRecords.put({
     setRecordId: `${sessionId}:set:${order}`, sessionId, sessionExerciseId: 'se1',

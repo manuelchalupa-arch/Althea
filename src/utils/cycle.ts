@@ -102,7 +102,6 @@ function getDefaultDays(count: number): number[] {
 
 function generateDayNames(splitType: string, methodId: TrainingMethodId, daysCount: number): string[] {
   const method = getMethod(methodId)
-  const patterns = method?.structure.primaryMovementPatterns || []
 
   switch (splitType) {
     case 'full_body':

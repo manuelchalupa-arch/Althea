@@ -1,6 +1,6 @@
 import { db } from '@/services/storage/db'
 import { isDateInPeriod, type AnalysisPeriod } from '@/services/training/metrics'
-import { distinctTrainingDays, isCompletedSession } from '@/services/training/sessionMetrics'
+import { isCompletedSession } from '@/services/training/sessionMetrics'
 import { getDiaryEntries } from '@/services/storage/diaryStore'
 import { buildMuscleResolver } from '@/services/training/muscleAttribution'
 import { todayKey, dayKeyOffset, toDateKey, daysBetween, weekdayOfKey } from '@/utils/dates'

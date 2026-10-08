@@ -47,9 +47,6 @@ export const GROUP_MAP: Record<string,string> = {
 }
 export const PIERNA_FAMILY = ['quads','hamstrings','glutes','calves','abductors','adductors']
 
-// Sinónimos extra para búsqueda libre
-const SEPARATORS = /[\s,+\/]+|y|con|e|&/i
-
 export function normalizeToken(tok:string): string | null {
   const key = tok.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
   // quita acentos para lookup

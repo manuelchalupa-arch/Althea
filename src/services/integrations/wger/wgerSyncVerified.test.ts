@@ -10,7 +10,6 @@ import {
   syncIncremental,
   retryWithReconnection,
   retryFailedSync,
-  type SyncResult,
 } from './wgerSyncEngine'
 import {
   enqueueOperation,

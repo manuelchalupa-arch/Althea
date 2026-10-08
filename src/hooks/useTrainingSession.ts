@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { db } from '@/services/storage/db'
-import { loadActiveSession, saveActiveSession, clearActiveSession, getActiveSession, transitionSession, type ActiveSession } from '@/services/training/sessionStore'
+import { loadActiveSession, saveActiveSession, transitionSession } from '@/services/training/sessionStore'
 import type { SessionStatus, TrainingSession } from '@/services/training/domain'
 import { getOverrideDay, getChangedData } from '@/services/storage/sessionOverrideStore'
 import { getCycleFromProfile, type CycleConfig } from '@/utils/cycle'

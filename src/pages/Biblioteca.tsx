@@ -7,7 +7,7 @@ import { listWgerExercises, importWgerSample, toExercise as wgerToExercise } fro
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Dumbbell, Layers, Box, Heart, Globe, WifiOff } from 'lucide-react'
-import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading, AltheaPanel, AltheaToolbar } from '@/components/althea'
+import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading, AltheaToolbar } from '@/components/althea'
 
 type Tab = 'muscle'|'equipment'|'bodypart'|'category'
 

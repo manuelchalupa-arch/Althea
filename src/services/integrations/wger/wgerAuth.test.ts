@@ -1,7 +1,7 @@
 // Tests de autenticación WGER (contractuales).
 // Verifica: login real/contract, expiración, refresh, logout, no exposición de credenciales.
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { db } from '@/services/storage/db'
 import {
   getWgerAuthState,

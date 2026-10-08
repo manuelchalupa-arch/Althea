@@ -4,26 +4,26 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { db } from '@/services/storage/db'
-import { importWgerSample, listWgerExercises, toExercise } from './wgerAdapter'
+import { importWgerSample, listWgerExercises } from './wgerAdapter'
 import { wgerToAltheaExercise, buildProvenance } from './wgerMapper'
 import { mapWgerRoutineToAlthea, mapAltheaRoutineToWger } from './wgerRoutineMapper'
-import { wgerSessionToAlthea, wgerLogToAltheaSetRecord, groupLogsByExercise, createSessionExerciseFromLogs, wgerSessionWithExercisesToAlthea } from './training/mapper'
+import { wgerSessionToAlthea, wgerLogToAltheaSetRecord, groupLogsByExercise, createSessionExerciseFromLogs } from './training/mapper'
 import { mapWgerIngredientToAlthea, mapWgerNutritionDiaryToAlthea } from './nutrition/mapper'
-import { mapWgerMeasurementToAlthea, detectConflicts } from './measurements/mapper'
+import { mapWgerMeasurementToAlthea } from './measurements/mapper'
 import { detectConflict, resolveConflict } from './wgerConflictResolver'
 import { enqueueOperation, getPendingOperations, markOperationCompleted, markOperationFailed, getQueueStats } from './wgerSyncQueue'
-import { syncWgerToAlthea, syncAltheaToWger, retryFailedSync } from './wgerSyncEngine'
+import { syncWgerToAlthea, retryFailedSync } from './wgerSyncEngine'
 import { getSyncStatus, updateSyncStatus, resetHealthStatus } from './wgerHealth'
 import { buildExerciseIndex, findMatch } from './wgerExerciseMatcher'
 import { getWgerAuthState, resetWgerAuth, checkWgerLinkStatus } from './wgerAuth'
 import { getHealthInfo, formatLastSyncTime } from './wgerHealth'
 import { getFailedOperations } from './wgerSyncQueue'
-import type { WgerExerciseInfo, WgerTranslation, WgerRoutineDetail, WgerDay, WgerSlot, WgerSlotEntry, WgerWeightConfig, WgerRepetitionsConfig, WgerSetsConfig, WgerRirConfig, WgerRestConfig } from './wgerTypes'
+import type { WgerExerciseInfo, WgerTranslation, WgerRoutineDetail, WgerWeightConfig, WgerRepetitionsConfig, WgerSetsConfig, WgerRirConfig, WgerRestConfig } from './wgerTypes'
 import type { WgerIngredientInfo, WgerNutritionDiary } from './nutrition/types'
 import type { WgerMeasurement } from './measurements/types'
 import type { WgerWorkoutSession, WgerWorkoutLog } from './training/types'
 import type { Exercise } from '@/services/exerciseGym'
-import type { RoutineData, RoutineDayExercise } from '@/services/storage/routineStore'
+import type { RoutineData } from '@/services/storage/routineStore'
 import type { BodyMeasurement } from '@/types'
 
 // ─── Mocks ───
@@ -560,19 +560,6 @@ describe('WGER Integration — 32 Mandatory Tests', () => {
   // ─── 16. Receta ───
   describe('Test 16: Receta', () => {
     it('convierte meal items a referencias de Althea', () => {
-      const mealItem = {
-        id: 1,
-        meal: 1,
-        ingredient: 100,
-        weight_unit: null,
-        amount: 200,
-        order: 1,
-        ingredient_name: 'Chicken Breast',
-        ingredient_energy: 165,
-        ingredient_protein: '31',
-        ingredient_carbohydrates: '0',
-        ingredient_fat: '3.6',
-      }
       const result = mapWgerIngredientToAlthea(mockIngredient)
       expect(result.id).toBe('wger-ingredient-100')
       expect(result.per100.calories).toBe(165)

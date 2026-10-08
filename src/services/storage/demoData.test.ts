@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { db } from './db'
 import { loadDemoData, deleteDemoData, getDemoStatus, isDemoEntity } from './demoData'
-import { exportJSON, exportCSV, importJSON, generateImportPreview, type ImportOptions } from './exportImport'
+import { exportJSON, exportCSV, importJSON, generateImportPreview } from './exportImport'
 import { seedCoherentHistory } from './seeder'
 import { wipeDatabase } from './seeder'
 import type { CycleConfig } from '@/utils/cycle'
@@ -81,12 +81,6 @@ describe('T028 — Demo Data + Export/Import', () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
-
-      const defaultCycle: CycleConfig = {
-        startDate: '2026-09-15',
-        trainingDays: [{ n: 1, name: 'Lunes' }, { n: 3, name: 'Miércoles' }, { n: 5, name: 'Viernes' }],
-        weekMap: [1, null, 2, null, 3, null, null],
-      }
       await db.trainingSessions.put({
         id: uuid(),
         sessionId: 'real-session-1',
@@ -123,11 +117,6 @@ describe('T028 — Demo Data + Export/Import', () => {
         coachIntensity: 'profesional', onboardingDone: true, hydrationGoalMl: 2500,
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       })
-      const defaultCycle: CycleConfig = {
-        startDate: '2026-09-15',
-        trainingDays: [{ n: 1, name: 'Lunes' }, { n: 3, name: 'Miércoles' }, { n: 5, name: 'Viernes' }],
-        weekMap: [1, null, 2, null, 3, null, null],
-      }
       await db.trainingSessions.put({
         id: uuid(), sessionId: 'real-session-1', userId: 'me', routineId: 'demo-routine-1',
         calendarDate: '2026-09-15', routineName: 'Real Session', sessionStatus: 'COMPLETED',

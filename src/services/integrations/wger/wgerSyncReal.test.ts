@@ -1,17 +1,10 @@
-﻿// Tests de sync real WGER â†” Althea.
+// Tests de sync real WGER â†” Althea.
 // Verifica: pull, push, conflicto, resoluciÃ³n, offline/reconnect.
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { db } from '@/services/storage/db'
 import {
-  syncWgerToAlthea,
-  syncAltheaToWger,
   pullChanges,
-  pushChanges,
-  retryFailedSync,
-  retryWithReconnection,
-  resolveConflictById,
-  type SyncResult,
 } from './wgerSyncEngine'
 import {
   enqueueOperation,
@@ -21,8 +14,8 @@ import {
   getFailedOperations,
 } from './wgerSyncQueue'
 import { detectConflict, resolveConflict, getPendingConflicts } from './wgerConflictResolver'
-import { getSyncStatus, updateSyncStatus, resetHealthStatus } from './wgerHealth'
-import { getWgerAuthState, resetWgerAuth } from './wgerAuth'
+import { resetHealthStatus } from './wgerHealth'
+import { resetWgerAuth } from './wgerAuth'
 
 vi.mock('./wgerClient', () => ({
   fetchRoutines: vi.fn(),
@@ -66,9 +59,6 @@ import {
   fetchSetsConfig,
   fetchRirConfig,
   fetchRestConfig,
-  createRoutine,
-  updateRoutine,
-  deleteRoutine,
 } from './wgerClient'
 
 vi.mock('./wgerAuth', () => ({

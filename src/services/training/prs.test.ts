@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   epley1RM, brzycki1RM, lander1RM, lombardi1RM, mayhew1RM, oConner1RM, wathan1RM,
   calculate1RM, calculateAll1RM, consensus1RM,
-  calculateExercisePRs, toUnifiedSets,
+  calculateExercisePRs,
   aggregateVolumeLandmarks, buildExerciseHistory,
 } from './prs'
 

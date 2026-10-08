@@ -1,4 +1,4 @@
-﻿// Tests de sincronizaciÃ³n incremental WGER.
+// Tests de sincronizaciÃ³n incremental WGER.
 // Verifica: primera sync, segunda sync sin cambios, solo cambios posteriores,
 // mÃºltiples pÃ¡ginas, cursor, interrupciÃ³n, reanudaciÃ³n.
 
@@ -6,10 +6,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { db } from '@/services/storage/db'
 import {
   syncWgerToAlthea,
-  syncAltheaToWger,
   syncIncremental,
   fetchAllWgerPages,
-  type SyncResult,
 } from './wgerSyncEngine'
 import { enqueueOperation, getPendingOperations, markOperationCompleted } from './wgerSyncQueue'
 import { getSyncStatus, updateSyncStatus, resetHealthStatus } from './wgerHealth'

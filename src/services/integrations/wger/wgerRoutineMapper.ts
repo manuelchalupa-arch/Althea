@@ -38,7 +38,7 @@ export function mapWgerRoutineToAlthea(
   data: WgerRoutineWithDetails,
   exerciseResolver: (wgerExerciseId: number) => Exercise | null,
 ): { routine: RoutineData; provenance: WgerRoutineProvenance } {
-  const { routine, days, slots, slotEntries, weightConfigs, repetitionsConfigs, setsConfigs, rirConfigs, restConfigs } = data
+  const { routine, days, slots, slotEntries, rirConfigs } = data
 
   const dayExercises: Record<number, RoutineDayExercise[]> = {}
 

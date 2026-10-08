@@ -5,7 +5,7 @@ import { useRestTimer } from '@/hooks/useRestTimer'
 import { useExerciseState } from '@/hooks/useExerciseState'
 import { useTrainingSession } from '@/hooks/useTrainingSession'
 import { usePainAlert } from '@/hooks/usePainAlert'
-import { getCycleFromProfile, type CycleConfig } from '@/utils/cycle'
+import { type CycleConfig } from '@/utils/cycle'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 
 import { Check, AlertTriangle, RotateCcw } from 'lucide-react'
@@ -15,7 +15,7 @@ import { ExerciseHeader, ExerciseHeaderInline } from '@/components/entrenar/Exer
 import ExerciseSeriesTable from '@/components/entrenar/ExerciseSeriesTable'
 import { ModifyModal, ViewerModal, SwapModal, SkipReasonModal, CancelModal, AbandonModal, AddExtraModal, FinishModal } from '@/components/entrenar/SessionModals'
 import { MOBILE_NAV_OFFSET } from '@/components/layout/AppNav'
-import { AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
+import { AltheaPanel, AltheaMetric } from '@/components/althea'
 
 
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
@@ -26,8 +26,8 @@ import { transitionSession, type ActiveSession } from '@/services/training/sessi
 import * as Gym from '@/services/exerciseGym'
 import { saveDecision } from '@/services/ai/coachMemory'
 import type { SubstitutionReason } from '@/services/ai/substitutionEngine'
-import type { SessionStatus, TrainingSession, SessionExercise } from '@/services/training/domain'
-import { getVariantsForPain, getVariantsForExercise, type VariantOption, type VariantContext } from '@/services/ai/variantService'
+import type { SessionStatus, SessionExercise } from '@/services/training/domain'
+import { type VariantOption, type VariantContext } from '@/services/ai/variantService'
 import PainToggle from '@/features/training/components/PainToggle'
 import { VariantPicker } from '@/features/training/components/VariantPicker'
 import { todayKey, toDateKey, daysBetween, weekdayOfKey } from '@/utils/dates'
@@ -121,8 +121,6 @@ const exercises: SessionEx[] = seList.map((se) => {
   const {
     session,
     sessionStatus,
-    isLoading,
-    isStarting,
     isSaving,
     routineName: rutinaName,
     dayName,
@@ -135,17 +133,9 @@ const exercises: SessionEx[] = seList.map((se) => {
     volumeAlerts,
     progressLines,
     loadSession,
-    startSession,
-    resumeSession,
-    abandonResume,
-    finishSession,
-    adoptResumeSession,
-    clearResumeBanner,
     setSession,
     setResumeBanner,
     setSessionStatus,
-    setIsLoading,
-    setIsStarting,
     setIsSaving,
     setVolumeAlerts,
     setProgressLines,
@@ -186,11 +176,6 @@ const exercises: SessionEx[] = seList.map((se) => {
     setShowWhy,
     setViewer,
     initializeExercises,
-    loadCoachRecommendation,
-    completeSet,
-    skipExercise,
-    swapExercise,
-    modifyExercise,
   } = useExerciseState({
     sessionId: '', // Will be updated when session loads
     sessionExercises: [],
@@ -213,9 +198,9 @@ const exercises: SessionEx[] = seList.map((se) => {
 
   const [showModify,setShowModify]=useState(false)
   const [mod,setMod]=useState<{weight:number|'';reps:number|'';sets:number;seriesType?:string}>({weight:0,reps:0,sets:0, seriesType:'Normal'})
-  const [showObservation,setShowObservation]=useState(false)
-  const [obsReasons,setObsReasons]=useState<string[]>([])
-  const [obsComment,setObsComment]=useState('')
+  const []=useState(false)
+  const []=useState<string[]>([])
+  const []=useState('')
   const [lastExec,setLastExec]=useState<{ date: string; sets: Array<{ setNumber: number; weight: number; reps: number }> } | null>(null)
   const [showSwap,setShowSwap]=useState(false)
   const [swapOptions,setSwapOptions]=useState<import('@/services/training/similarity').SimilarityResult[]>([])
@@ -241,7 +226,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   const [musclePct,setMusclePct]=useState<Array<{m:string; pct:number}>>([])
   const [finishError,setFinishError]=useState<string>('')
   const loadedRef = useRef<string>('')
-  const [sessionExercises,setSessionExercises]=useState<SessionExercise[]>([])
+  const [,setSessionExercises]=useState<SessionExercise[]>([])
   const [seIdByIndex,setSeIdByIndex]=useState<Record<number,string>>({})
   const [readyPlan,setReadyPlan]=useState<null | { sessionId: string|null; routineName: string; plannedDayN: number|null; plannedName: string; actualDayN: number|null; actualName: string; reason?: string; comment?: string; isResume: boolean; pending?: { routineId: string; exercises: Array<{exId:string;name:string;sets:number;reps:number;weight:number|null;muscle?:string;gifUrl?:string;plannedSets?:Array<{order:number;reps:number;weight:number|null}>}>; weekNumber: number } }>(null)
   // (D) /entrenar NO crea sesiones: sin sesión activa se redirige a Inicio
@@ -268,7 +253,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   const [currentPainExercise,setCurrentPainExercise]=useState<{exerciseId:string; exerciseName:string; seId:string} | null>(null)
 
   const load = async () => {
-      const { getActiveSession, getSession, getSessionExercises: getSE } = await import('@/services/training/sessionStore')
+      const { getActiveSession, getSessionExercises: getSE } = await import('@/services/training/sessionStore')
       // PRIORIDAD 1: sesion activa por activeSessionId (nunca calendario por encima).
       const active = await getActiveSession().catch(() => null)
       if (active && active.calendarDate === today && ['READY', 'IN_PROGRESS', 'PAUSED', 'COMPLETING'].includes(active.sessionStatus)) {
@@ -1247,7 +1232,6 @@ const exercises: SessionEx[] = seList.map((se) => {
                 if(!active) {return}
                 const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
                 const cycle = (pv?.cycle ?? active.cycle) as CycleConfig
-                const todayStr = today
                 const choice=prompt(`Cambiar día — elegí N°:\n${cycle.trainingDays.map((d:any)=>`${d.n} — ${d.name}`).join('\n')}\nEscribí N°:`)
                 if(choice){
                   const n=Number(choice)

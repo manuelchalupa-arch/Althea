@@ -1,7 +1,7 @@
 import React from 'react'
 import {
   Home, Dumbbell, Apple, TrendingUp, LayoutGrid, BookOpen, ClipboardList, Calendar,
-  Moon, Brain, User, Plus, Trash2, Pencil, Check, ChevronLeft, ChevronRight,
+  Moon, Brain, User, Plus, Check, ChevronLeft, ChevronRight,
   ChevronsLeft, ChevronsRight, Search, Eye, Play, Pause, Clock, RotateCcw, X, XCircle,
   Download, Info, AlertTriangle, Copy, Code2, Camera, Barcode, ExternalLink,
   Globe, WifiOff, Box, Layers, Heart, History, Cpu, HardDrive, Droplets, Zap,
@@ -10,7 +10,7 @@ import {
 import {
   IconHome, IconDumbbell, IconApple, IconTrendingUp, IconMenu, IconBrain,
   IconMoon, IconCalendar, IconBook, IconClipboard, IconUser, IconPlay,
-  IconPause, IconCheck, IconTimer, IconSearch, IconPlus, IconTrash,
+  IconPause, IconCheck, IconTimer, IconSearch, IconPlus,
   IconChevronLeft, IconChevronRight, IconX, IconAlert, IconEye,
   IconRefresh, IconSun, IconSparkles, IconUtensils, IconSleep,
   IconBody, IconSwap, IconWeight, IconReps, IconFire, IconWater,

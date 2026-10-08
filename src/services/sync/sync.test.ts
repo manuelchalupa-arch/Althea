@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { todayKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
 import {
-  enqueueOp, pendingOps, pendingCount, opIdFor, type RemoteAdapter,
+  enqueueOp, pendingOps, pendingCount, type RemoteAdapter,
 } from './opQueue'
 import { processQueue } from './engine'
 import { applyDownloadPolicy } from '@/services/firebase/sync'
