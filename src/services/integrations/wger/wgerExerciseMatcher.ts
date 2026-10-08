@@ -59,7 +59,7 @@ export function buildExerciseIndex(exercises: Exercise[], provenanceList: WgerPr
 export function findMatch(
   wgerInfo: WgerExerciseInfo,
   index: ExerciseIndex,
-  existingProvenance: WgerProvenance[],
+  _existingProvenance: WgerProvenance[],
 ): MatchResult {
   const bySourceId = index.bySourceId.get(wgerInfo.id)
   if (bySourceId) {

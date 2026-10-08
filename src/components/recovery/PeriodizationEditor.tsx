@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { db } from '@/services/storage/db'
-import { 
-  Calendar, X, AlertCircle, CheckCircle, Brain, Zap, TrendingUp
-} from 'lucide-react'
+import { Calendar, X, AlertCircle, CheckCircle, Brain, Zap } from 'lucide-react'
 import { AltheaButton, AltheaCard, AltheaInput } from '@/components/althea'
 import {
   getCycleFromProfile,
@@ -11,7 +9,6 @@ import {
   type CycleConfig
 } from '@/utils/cycle'
 import { savePlanning, getActiveVersion, PROFILE_SCOPE, type CycleVersion } from '@/services/planning/cycleVersions'
-import type { WeeklySequence } from '@/types'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import { todayKey, addDaysToKey, parseLocalDateKey } from '@/utils/dates'
 
@@ -283,7 +280,6 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
               {WEEKDAYS.map((day, i) => {
                 const dayInfo = cycle?.trainingDays?.find(d => d.n === i + 1)
                 const isTraining = cycle?.weekMap?.[i] !== null && cycle?.weekMap?.[i] !== undefined
-                const dayTraining = cycle?.trainingDays?.find(d => d.n === cycle?.weekMap?.[i])
                 return (
                   <div key={i} className={`p-3 rounded-lg text-center transition-all ${isTraining ? 'bg-primary/10 border border-primary/30' : 'bg-surface-container-highest/50'}`}>
                     <span className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{day}</span>

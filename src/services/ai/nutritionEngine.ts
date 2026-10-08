@@ -201,7 +201,7 @@ function buildTrainingNutritionAdvice(
   goalCals: number | null,
   proteinG: number,
   weightKg: number,
-  recentVolume?: number,
+  _recentVolume?: number,
 ): TrainingNutritionAdvice {
   const caloricState: TrainingNutritionAdvice['caloricState'] =
     goalCals && tdee ? goalCals > tdee * 1.05 ? 'surplus' : goalCals < tdee * 0.95 ? 'deficit' : 'maintenance' : 'maintenance'

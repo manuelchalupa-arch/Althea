@@ -1,5 +1,4 @@
 import type { SetLog } from '@/types'
-import { recoveryScore } from '@/utils/calc'
 
 export type Recommendation = {
   id:string; type:'load'|'volume'|'deload'; text:string; reason:string; factors:string[]; decision:'pending'|'accepted'|'rejected'|'modified'

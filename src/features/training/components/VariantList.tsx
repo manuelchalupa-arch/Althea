@@ -9,7 +9,7 @@ interface VariantListProps {
 export function VariantList({ variants, onSelectVariant }: VariantListProps) {
   return (
     <div className="space-y-2 max-h-[60vh] overflow-auto">
-      {variants.map((variant, i) => (
+      {variants.map((variant) => (
         <VariantItem
           key={variant.exerciseId}
           variant={variant}

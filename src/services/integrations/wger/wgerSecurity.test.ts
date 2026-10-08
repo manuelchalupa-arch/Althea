@@ -5,7 +5,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { db } from '@/services/storage/db'
-import { resetWgerAuth } from './wgerAuth'
 import {
   sanitizeString,
   sanitizeUrl,
@@ -343,5 +342,3 @@ describe('WGER Seguridad â€” Manejo de errores', () => {
     expect(error.code).toBe('TIMEOUT')
   })
 })
-
-

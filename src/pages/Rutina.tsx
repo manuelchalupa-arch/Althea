@@ -1058,7 +1058,6 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
           <div className="grid grid-cols-7 gap-1">
             {WEEK.map((w,i)=>{
               const dayN = routine.cycle.weekMap[i]
-              const day = routine.cycle.trainingDays.find(d=>d.n===dayN)
               return (
                 <div key={i} className={`rounded-lg p-2 text-center text-xs ${dayN !== null ? 'bg-primary/20 border border-primary/40 text-primary' : 'bg-surface border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant'}`}>
                   <div className="font-medium">{w}</div>

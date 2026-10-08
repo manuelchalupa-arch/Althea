@@ -56,6 +56,15 @@ export class WgerClient {
     accessToken?: string,
   ): Promise<T> {
     const controller = new AbortController()
+    const externalSignal = options.signal
+    const onExternalAbort = () => controller.abort()
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort()
+      } else {
+        externalSignal.addEventListener('abort', onExternalAbort, { once: true })
+      }
+    }
     const timeout = setTimeout(() => controller.abort(), 15_000)
 
     try {
@@ -91,6 +100,9 @@ export class WgerClient {
       return response.json() as Promise<T>
     } finally {
       clearTimeout(timeout)
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort)
+      }
     }
   }
 }
@@ -402,6 +414,7 @@ export function createRoutine(
   return defaultClient.request<WgerRoutineDetail>('/routine/', {
     method: 'POST',
     body: JSON.stringify(data),
+    signal,
   }, accessToken)
 }
 
@@ -414,6 +427,7 @@ export function updateRoutine(
   return defaultClient.request<WgerRoutineDetail>(`/routine/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(data),
+    signal,
   }, accessToken)
 }
 
@@ -424,6 +438,7 @@ export function deleteRoutine(
 ): Promise<void> {
   return defaultClient.request<void>(`/routine/${id}/`, {
     method: 'DELETE',
+    signal,
   }, accessToken)
 }
 
@@ -435,6 +450,7 @@ export function createWorkout(
   return defaultClient.request<unknown>('/workout/', {
     method: 'POST',
     body: JSON.stringify(data),
+    signal,
   }, accessToken)
 }
 
@@ -447,6 +463,7 @@ export function updateWorkout(
   return defaultClient.request<unknown>(`/workout/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(data),
+    signal,
   }, accessToken)
 }
 
@@ -457,6 +474,7 @@ export function deleteWorkout(
 ): Promise<void> {
   return defaultClient.request<void>(`/workout/${id}/`, {
     method: 'DELETE',
+    signal,
   }, accessToken)
 }
 
@@ -468,6 +486,7 @@ export function createNutritionPlan(
   return defaultClient.request<unknown>('/nutritionplan/', {
     method: 'POST',
     body: JSON.stringify(data),
+    signal,
   }, accessToken)
 }
 
@@ -480,6 +499,7 @@ export function updateNutritionPlan(
   return defaultClient.request<unknown>(`/nutritionplan/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(data),
+    signal,
   }, accessToken)
 }
 
@@ -490,6 +510,7 @@ export function deleteNutritionPlan(
 ): Promise<void> {
   return defaultClient.request<void>(`/nutritionplan/${id}/`, {
     method: 'DELETE',
+    signal,
   }, accessToken)
 }
 
@@ -501,6 +522,7 @@ export function createMeasurement(
   return defaultClient.request<unknown>('/measurement/', {
     method: 'POST',
     body: JSON.stringify(data),
+    signal,
   }, accessToken)
 }
 
@@ -513,6 +535,7 @@ export function updateMeasurement(
   return defaultClient.request<unknown>(`/measurement/${id}/`, {
     method: 'PUT',
     body: JSON.stringify(data),
+    signal,
   }, accessToken)
 }
 
@@ -523,6 +546,7 @@ export function deleteMeasurement(
 ): Promise<void> {
   return defaultClient.request<void>(`/measurement/${id}/`, {
     method: 'DELETE',
+    signal,
   }, accessToken)
 }
 

@@ -100,9 +100,7 @@ function getDefaultDays(count: number): number[] {
   return [...new Set(days)].sort((a, b) => a - b)
 }
 
-function generateDayNames(splitType: string, methodId: TrainingMethodId, daysCount: number): string[] {
-  const method = getMethod(methodId)
-
+function generateDayNames(splitType: string, _methodId: TrainingMethodId, daysCount: number): string[] {
   switch (splitType) {
     case 'full_body':
       return Array.from({ length: daysCount }, (_, i) => `Cuerpo completo ${i + 1}`)

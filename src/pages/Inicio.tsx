@@ -4,7 +4,6 @@ import { db, ensureSeeded } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate, formatAgendaDate } from '@/utils/cycle'
 import { getCanonicalCycle } from '@/services/planning/cycleVersions'
 
-import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import type { CycleConfig } from '@/utils/cycle'
@@ -688,7 +687,6 @@ export default function Inicio(){
             </button>
           </div>
 
-
           {/* WIDGET 3: ORÁCULO VIRTUOSO */}
            <div className="border border-secondary/30 rounded-lg p-3.5 sm:p-4 space-y-2.5 relative overflow-hidden bg-gradient-to-b from-surface-container-low to-surface-container">
             <div className="flex items-center gap-2.5">
@@ -870,5 +868,3 @@ export default function Inicio(){
     </div>
   )
 }
-
-

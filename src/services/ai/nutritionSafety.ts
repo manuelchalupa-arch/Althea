@@ -303,7 +303,7 @@ export function checkAgeRisks(profile: NutritionUserProfile, selectedMethod: Nut
 // ─── Verificar combinaciones peligrosas entre métodos ───
 export function checkDangerousCombinations(
   methods: NutritionMethodId[],
-  profile: NutritionUserProfile,
+  _profile: NutritionUserProfile,
 ): NutritionSafetyAlert[] {
   const alerts: NutritionSafetyAlert[] = []
 

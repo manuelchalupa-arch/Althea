@@ -30,9 +30,7 @@ import type { TrainingGoal, ExperienceLevel } from '@/types'
 import { logDecision } from './decisionLogger'
 import { db } from '@/services/storage/db'
 import { unifiedCompletedSets, unifiedAllCompletedSets } from '@/services/history'
-import { getDiaryEntries } from '@/services/storage/diaryStore'
 import { getBottleDailySummary, getCalculatedHydrationGoal } from '@/services/recovery/hydrationBottles'
-import { todayKey, addDaysToKey } from '@/utils/dates'
 import type { AIContext, AIRecommendation } from './aiProvider'
 
 export interface UnifiedContext {
@@ -181,7 +179,7 @@ export function validateUnifiedAnswer(rawText: string, hits: EvidenceHit[]): { t
   const used: EvidenceSource[] = []
   const index = new Map<string, number>()
 
-  let text = rawText.replace(MARKER_RE, (full, id: string) => {
+  let text = rawText.replace(MARKER_RE, (_full, id: string) => {
     const source = allowed.get(id.toLowerCase())
     if (!source) { return '' }
     if (!index.has(source.id)) {
@@ -201,7 +199,7 @@ export function validateUnifiedAnswer(rawText: string, hits: EvidenceHit[]): { t
  * inventar una.
  */
 export async function composeUnifiedLocalReply(
-  text: string,
+  _text: string,
   ctx: UnifiedContext
 ): Promise<UnifiedResponse> {
   const lines: string[] = []
@@ -250,7 +248,7 @@ export async function composeUnifiedLocalReply(
   // Evidencia de la biblioteca
   if (ctx.evidence.length > 0) {
     lines.push('', 'Evidencia de la biblioteca de Althea:')
-    ctx.evidence.forEach((h, i) => {
+    ctx.evidence.forEach((h) => {
       const claim = h.matchedClaims[0]
       if (claim) { lines.push(`- ${claim} [${h.source.id}]`) }
       else { lines.push(`- ${h.source.title} (${h.source.evidence}) [${h.source.id}]`) }

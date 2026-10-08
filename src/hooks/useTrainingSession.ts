@@ -1,12 +1,11 @@
 import { useState, useCallback, useRef } from 'react'
 import { db } from '@/services/storage/db'
-import { loadActiveSession, saveActiveSession, transitionSession } from '@/services/training/sessionStore'
+import { loadActiveSession, saveActiveSession } from '@/services/training/sessionStore'
 import type { SessionStatus, TrainingSession } from '@/services/training/domain'
 import { getOverrideDay, getChangedData } from '@/services/storage/sessionOverrideStore'
 import { getCycleFromProfile, type CycleConfig } from '@/utils/cycle'
 import { getActiveVersion, getVersionForSession, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { daysBetween, weekdayOfKey } from '@/utils/dates'
-import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 
 interface ResumeBannerData {
@@ -45,7 +44,6 @@ interface UseTrainingSessionReturn {
   startSession: () => Promise<void>
   resumeSession: (sessionId: string, andFinish: boolean) => Promise<void>
   abandonResume: () => Promise<void>
-  finishSession: (status: SessionStatus, survey: Record<string, any>) => Promise<void>
   adoptResumeSession: (sess: { sessionId: string }, andFinish: boolean) => Promise<void>
   clearResumeBanner: () => void
   setSession: (session: TrainingSession | null) => void
@@ -105,8 +103,6 @@ export function useTrainingSession({
       const n = override !== null && override !== undefined ? override : (cycle.weekMap[dow] ?? null)
       const schedN = cycle.weekMap[dow] ?? null
       const schedName = schedN ? cycle.trainingDays.find(d => d.n === schedN)?.name || `Día N°${schedN}` : null
-      const dname = n ? cycle.trainingDays.find(d => d.n === n)?.name ?? `Día N°${n}` : 'Descanso'
-      const changed = await getChangedData(today) as { changeReason?: string; changeComment?: string } | null
 
       const { getDayExercises } = await import('@/utils/routine')
       await getDayExercises(n, cycle)
@@ -213,18 +209,6 @@ export function useTrainingSession({
     } catch { /* noop */ }
   }, [])
 
-  const finishSession = useCallback(async (status: SessionStatus, survey: Record<string, any>) => {
-    setIsSaving(true)
-    try {
-      await transitionSession(session!.sessionId, status)
-      setSessionStatus(status)
-      setIsSaving(false)
-    } catch (e) {
-      onError?.(e instanceof Error ? e.message : 'Error al guardar.')
-      setIsSaving(false)
-    }
-  }, [session, onError])
-
   const adoptResumeSession = useCallback(async (sess: { sessionId: string }, andFinish: boolean) => {
     try {
       const { getSession } = await import('@/services/training/sessionStore')
@@ -274,7 +258,6 @@ export function useTrainingSession({
     startSession,
     resumeSession,
     abandonResume,
-    finishSession,
     adoptResumeSession,
     clearResumeBanner,
     setSession,

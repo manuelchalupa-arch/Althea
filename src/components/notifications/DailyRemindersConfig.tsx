@@ -26,7 +26,6 @@ export function DailyRemindersConfig() {
   }
 
   const handleDelete = async (id: string) => {
-    const next = configs.filter(c => c.id !== id)
     // mantener al menos uno por tipo? permitir eliminar, luego recrea si vacío
     await saveUnifiedConfigs([...(await loadUnifiedConfigs()).filter(x => !(TYPES as readonly string[]).includes(x.type) || x.id !== id), ...[]])
     // si usamos saveUnifiedConfigs directo, borrar

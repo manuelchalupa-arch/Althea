@@ -709,7 +709,7 @@ async function executeDelete(op: { entityType: string; remoteEntityId?: string }
 
 export async function syncEntity(
   entityType: SyncEntityType,
-  localEntityId: string,
+  _localEntityId: string,
   direction: SyncDirection = 'bidirectional',
 ): Promise<SyncResult> {
   const result: SyncResult = { success: true, synced: 0, failed: 0, conflicts: 0, errors: [] }
@@ -1308,7 +1308,7 @@ async function syncNutritionPlansIncremental(
  */
 async function syncMeasurementsIncremental(
   state: SyncResourceState,
-  lastUpdateGte: string | undefined,
+  _lastUpdateGte: string | undefined,
   result: SyncResult,
   options: SyncOptions,
 ): Promise<void> {

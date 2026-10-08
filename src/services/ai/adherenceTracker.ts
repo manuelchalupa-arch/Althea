@@ -294,7 +294,7 @@ function suggestAlternative(
 }
 
 // ─── Generar ajustes para tendencia descendente ───
-function generateAdjustments(methodId: NutritionMethodId, trend: AdherenceTrend): string[] {
+function generateAdjustments(methodId: NutritionMethodId, _trend: AdherenceTrend): string[] {
   const adjustments: string[] = []
   const method = getNutritionMethod(methodId)
 
@@ -314,7 +314,7 @@ function generateAdjustments(methodId: NutritionMethodId, trend: AdherenceTrend)
 
 // ─── Generar ajustes para problemas macro ───
 function generateMacroAdjustments(
-  methodId: NutritionMethodId,
+  _methodId: NutritionMethodId,
   calorieAdherence: number,
   proteinAdherence: number,
 ): string[] {

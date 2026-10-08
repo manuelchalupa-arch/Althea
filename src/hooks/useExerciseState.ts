@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react'
 import { db } from '@/services/storage/db'
-import { getLastExecutionByExercise } from '@/services/history'
 import type { SessionExercise, SetRecord, SetType } from '@/services/training/domain'
 
 interface SessionEx {
@@ -56,10 +55,6 @@ interface UseExerciseStateReturn {
   setViewer: React.Dispatch<React.SetStateAction<any>>
   initializeExercises: (exercises: SessionEx[], liveSessionExercises?: SessionExercise[]) => Promise<void>
   loadCoachRecommendation: (exerciseId: string, exerciseName: string) => Promise<void>
-  completeSet: (setRecord: SetRecord) => Promise<void>
-  skipExercise: (index: number, reason: string, comment?: string) => Promise<void>
-  swapExercise: (index: number, newEx: SessionEx, reason: string, comment?: string) => Promise<void>
-  modifyExercise: (index: number, mod: { weight: number; reps: number; sets: number }) => Promise<void>
 }
 
 export function useExerciseState({
@@ -122,22 +117,6 @@ export function useExerciseState({
     }
   }, [sessionExercises, currentIndex, loadCoachRecommendation])
 
-  const completeSet = useCallback(async (setRecord: SetRecord) => {
-    // implementation would go here
-  }, [])
-
-  const skipExercise = useCallback(async (index: number, reason: string, comment?: string) => {
-    // implementation would go here
-  }, [])
-
-  const swapExercise = useCallback(async (index: number, newEx: SessionEx, reason: string, comment?: string) => {
-    // implementation would go here
-  }, [])
-
-  const modifyExercise = useCallback(async (index: number, mod: { weight: number; reps: number; sets: number }) => {
-    // implementation would go here
-  }, [])
-
   return {
     exs,
     current,
@@ -161,9 +140,5 @@ export function useExerciseState({
     setViewer,
     initializeExercises,
     loadCoachRecommendation,
-    completeSet,
-    skipExercise,
-    swapExercise,
-    modifyExercise
   }
 }

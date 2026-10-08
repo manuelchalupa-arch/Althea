@@ -33,7 +33,7 @@ export function seriesPlanOf(it: { sets: number; reps: number; weight: number | 
   return Array.from({ length: Math.max(0, it.sets || 0) }, () => ({ reps: it.reps, weight: it.weight ?? null }))
 }
 
-export async function getDayExercises(dayN:number | null, cycle: CycleConfig): Promise<DayEx[]> {
+export async function getDayExercises(dayN:number | null, _cycle: CycleConfig): Promise<DayEx[]> {
   if(!dayN) {return []}
   // intenta desde routineStore (Dexie)
   try{

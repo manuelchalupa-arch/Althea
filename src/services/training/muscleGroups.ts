@@ -107,7 +107,6 @@ export function weeklyGroupComparison(
   today: string = todayKey(),
 ): { weeks: GroupWeekStat[]; current: { byGroup: Record<string, number>; total: number; week: number } | null } {
   const complete = completedCycleWeeks(cycle, today)
-  const weekByIndex = new Map(complete.map(w => [w.index, w]))
   const itemsOf = (start: string, end: string) => itemsByDate.filter(i => i.date >= start && i.date <= end)
 
   const weeks: GroupWeekStat[] = []

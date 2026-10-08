@@ -127,7 +127,6 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
   })
 
   it('funciona sin ninguna credencial externa y sin cliente de API nutricional', async () => {
-    const user = userEvent.setup()
     renderPage()
     await screen.findByText('Todavía no registraste comidas hoy')
 

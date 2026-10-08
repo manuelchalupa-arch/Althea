@@ -14,8 +14,6 @@ import { analyzeNutrition } from './nutritionEngine'
 import type { UserProfile, RecoveryCheck } from '@/types'
 import type { ActivityLevel } from '@/utils/nutrition'
 import type { TrainingMethodId } from './trainingMethods'
-import type { CoachMemoryEntry } from '@/services/storage/db'
-import type { CoachDecision } from '@/services/ai/coachMemory'
 import { todayKey, dayKeyOffset, toDateKey } from '@/utils/dates'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
 

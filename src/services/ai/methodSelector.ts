@@ -3,7 +3,6 @@
 import type { TrainingMethodId, UserProfile, MethodRecommendation } from './trainingMethods'
 import type { TrainingGoal, ExperienceLevel } from '@/types'
 import { TRAINING_METHODS, getMethod } from './trainingMethodsDB'
-import { checkCompatibility } from './compatibilityEngine'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
 
 /** Analizar al usuario y recomendar métodos */

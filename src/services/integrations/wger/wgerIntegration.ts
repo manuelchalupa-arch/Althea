@@ -13,7 +13,6 @@ import type { ExternalAccountLink, ExternalEntityLink } from './wgerTypes'
 import type { WgerExerciseInfo, WgerExerciseListItem, WgerListResponse } from './wgerTypes'
 import type { WgerExerciseRecord } from './wgerAdapter'
 import type { SyncResult } from './wgerSyncEngine'
-import type { WgerHealthInfo } from './wgerHealth'
 
 // ─── Tipos de la interfaz estable ───
 

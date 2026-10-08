@@ -3,7 +3,6 @@ import { db } from './db'
 import { loadDemoData, deleteDemoData, getDemoStatus, isDemoEntity } from './demoData'
 import { exportJSON, exportCSV, importJSON, generateImportPreview } from './exportImport'
 import { seedCoherentHistory } from './seeder'
-import { wipeDatabase } from './seeder'
 import type { CycleConfig } from '@/utils/cycle'
 import type { RoutineData } from './routineStore'
 import type { TrainingSession } from '@/services/training/domain'
@@ -153,7 +152,7 @@ describe('T028 — Demo Data + Export/Import', () => {
       }
       await loadDemoData()
 
-      const realRoutine = await db.routineStore.put({
+      await db.routineStore.put({
         id: 'real-routine-1',
         name: 'Real Routine',
         createdAt: new Date().toISOString(),

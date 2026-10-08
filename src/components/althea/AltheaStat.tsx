@@ -1,4 +1,3 @@
-import React from 'react';
 import { AltheaIcon, AltheaIconName } from '../brand/AltheaIconRegistry';
 
 export interface AltheaStatProps {

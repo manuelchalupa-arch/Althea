@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { todayKey } from '@/utils/dates'
 import { db } from '@/services/storage/db'
-import { calcIMC, calcTMB, calcTDEE, calorieGoal } from '@/utils/nutrition'
+import { calcIMC, calcTMB, calcTDEE } from '@/utils/nutrition'
 import { analyzeNutrition, buildNutritionSuggestions } from './ai/nutritionEngine'
 import { addDiaryEntry, getDiaryEntries, removeDiaryEntry } from './storage/diaryStore'
 import { getTodayHydration, addHydration } from './recovery/recoveryService'

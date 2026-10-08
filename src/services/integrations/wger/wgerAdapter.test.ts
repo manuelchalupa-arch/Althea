@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { importWgerSample, listWgerExercises, toExercise } from './wgerAdapter'
-import type { WgerExerciseRecord } from './wgerAdapter'
 
 // Mock de wgerClient
 vi.mock('./wgerClient', () => ({

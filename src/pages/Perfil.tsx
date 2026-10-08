@@ -337,11 +337,6 @@ export default function Perfil() {
     persistNotifs(nx)
   }
 
-  const addTime = (id: string, time: string) => {
-    const nx = notifCfgs.map(c => c.id === id && !c.times.includes(time) ? { ...c, times: [...c.times, time].sort() } : c)
-    persistNotifs(nx)
-  }
-
   const removeTime = (id: string, time: string) => {
     const nx = notifCfgs.map(c => c.id === id ? { ...c, times: c.times.filter(t => t !== time) } : c)
     persistNotifs(nx)

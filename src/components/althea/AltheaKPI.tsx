@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react';
-
 interface AltheaKPICardProps {
   icon: string;
   label: string;

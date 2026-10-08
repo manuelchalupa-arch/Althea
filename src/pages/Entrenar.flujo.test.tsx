@@ -33,7 +33,6 @@ async function startSession() {
 }
 
 const nextExercise = () => fireEvent.click(screen.getByLabelText('Ejercicio siguiente'))
-const finishRest = () => fireEvent.click(screen.getByText('-15s'))
 
 describe('Entrenar — OK, descanso y finalizado sin bloqueos', () => {
   beforeEach(async () => {

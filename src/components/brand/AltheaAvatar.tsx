@@ -1,4 +1,3 @@
-import React from 'react';
 import { AltheaMonogram } from './AltheaMonogram';
 
 export type AltheaAvatarContext =

@@ -59,7 +59,6 @@ async function generateRoutineFallback(wants: UserWants): Promise<GeneratedRouti
   const cycle = buildCycleFromMethod(methodId, undefined, todayKey())
   // Ajusta cantidad de días según lo seleccionado
   const desiredDays = Math.max(2, Math.min(6, wants.daysPerWeek))
-  const { GROUP_MAP, PIERNA_FAMILY } = await import('@/utils/muscleMap')
   // Mapea focus a split
   const focusMap: Record<string, string[]> = {
     general: cycle.trainingDays.map(d => d.name),
@@ -131,7 +130,7 @@ function markRequested() {
 
 type CompactEx = { id: string; name: string; eq: string }
 
-async function collectContext(wants: UserWants): Promise<{
+async function collectContext(_wants: UserWants): Promise<{
   profile: any; history: string; style: any; methodName: string; exercises: Record<string, CompactEx[]>
 }> {
   const profile = await db.userProfile.get('me').catch(() => null) as any || {}

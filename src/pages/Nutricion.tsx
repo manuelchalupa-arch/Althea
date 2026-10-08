@@ -42,7 +42,7 @@ const FALLBACK_GOALS: MacroGoals = { calories: 2200, protein: 150, carbs: 250, f
 export default function Nutricion() {
   const [activeDate, setActiveDate] = useState(todayKey())
   const [perfil, setPerfil] = useState<UserProfile | null>(null)
-  const [pesoEvo, setPesoEvo] = useState<BodyMeasurement[]>([])
+  const [, setPesoEvo] = useState<BodyMeasurement[]>([])
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
   const [frequentFoods, setFrequentFoods] = useState<FrequentFood[]>([])
   const [safetyAlerts, setSafetyAlerts] = useState<NutritionSafetyAlert[]>([])
@@ -84,8 +84,6 @@ export default function Nutricion() {
   const loadDay = useCallback(async (date: string) => {
     const entries = await getDiaryEntries(date)
     setDiaryEntries(entries)
-    const week = await db.nutritionDiary
-      .where('date').between(dayKeyOffset(date, -6), date).toArray().catch(() => [] as DiaryEntry[])
     const recent = await db.nutritionDiary
       .where('date').between(dayKeyOffset(date, -30), date).toArray().catch(() => [] as DiaryEntry[])
     const byName = new Map<string, FrequentFood>()
@@ -299,7 +297,6 @@ export default function Nutricion() {
 
   const activeMethod = perfil?.activeNutritionMethod
     ? getNutritionMethod(perfil.activeNutritionMethod as NutritionMethodId) : null
-  const weightData = pesoEvo.map(m => ({ date: m.localDate.slice(5), weight: m.weightKg })).filter(d => d.weight)
   const imcResult = perfil?.weightKg && perfil?.heightCm ? calcIMC(perfil.weightKg, perfil.heightCm) : null
   const tmbVal = perfil?.weightKg && perfil?.heightCm ? calcTMB(perfil.weightKg, perfil.heightCm, perfil.age, perfil.sex) : null
   const tdeeVal = tmbVal ? calcTDEE(tmbVal, perfil?.activityLevel || 'moderado', perfil?.schedule?.availableDays?.length || 3) : null

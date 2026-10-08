@@ -1,5 +1,4 @@
 import { db } from './db'
-import { v4 as uuid } from 'uuid'
 import type { TrainingSession, SessionExercise, SetRecord, SessionEvent, PostWorkoutSurvey, NegativeSet, ExerciseObservation } from '@/services/training/domain'
 import type { RoutineData } from './routineStore'
 import type { DiaryEntry, AdherenceRecord } from './diaryStore'
@@ -7,7 +6,6 @@ import type { SessionOverrideData } from './sessionOverrideStore'
 import type { RecoveryCheck, HydrationLog, BodyMeasurement, UserProfile, PainLog, RoutineDay, RoutineExercise } from '@/types'
 import type { CustomExercise } from '@/services/training/customExercises'
 import type { ChatMessage, ChatConversation } from '@/services/ai/chatHistory'
-import type { CoachDecision, CoachQA } from '@/services/ai/coachMemory'
 import type { DecisionRecord } from '@/services/ai/decisionLogger'
 import type { KnowledgeDocument } from '@/services/ai/knowledgeBase'
 import type { ExerciseKnowledgeEntry } from '@/services/ai/exerciseKnowledge'
@@ -264,18 +262,15 @@ export async function exportJSON(): Promise<Blob> {
 
 export async function exportCSV(): Promise<Blob> {
   const setRecords = await db.setRecords.toArray()
-  const sessionExercises = await db.sessionExercises.toArray()
   const trainingSessions = await db.trainingSessions.toArray()
   const exercises = await db.exercises.toArray()
 
   const exerciseMap = new Map(exercises.map(e => [e.id, e.name]))
 
-  const seMap = new Map(sessionExercises.map(se => [se.sessionExerciseId, se]))
   const sessionMap = new Map(trainingSessions.map(s => [s.sessionId, s]))
 
   const header = 'setRecordId,sessionId,calendarDate,sessionExerciseId,exerciseId,exerciseName,order,setType,plannedReps,plannedWeight,actualReps,actualWeight,status,completedAt,createdAt\n'
   const rows = setRecords.map(sr => {
-    const se = seMap.get(sr.sessionExerciseId)
     const session = sessionMap.get(sr.sessionId)
     const exName = exerciseMap.get(sr.exerciseId) || sr.exerciseId
     return [
@@ -519,7 +514,7 @@ async function applyImport(
   return result
 }
 
-async function verifyImport(importedData: ExportData): Promise<VerificationResult> {
+async function verifyImport(_importedData: ExportData): Promise<VerificationResult> {
   const checks = {
     recordCounts: true,
     referentialIntegrity: true,

@@ -148,7 +148,7 @@ export function createSessionExerciseFromLogs(
 ): SessionExercise {
   const firstLog = logs[0]
   const exerciseId = `wger-exercise-${firstLog.exercise}`
-  const setRecords = logs.map((log, idx) =>
+  const setRecords = logs.map((log) =>
     wgerLogToAltheaSetRecord(log, `${sessionId}:exercise:${exerciseId}`, sessionId, exerciseId)
   )
 

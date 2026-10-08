@@ -3,7 +3,6 @@
 // NUNCA pide permiso aquí (solo la UI de Perfil lo pide ante acción explícita).
 // Sin topes legacy ni fuentes paralelas: el scheduler deduplica por horario.
 import { db } from '@/services/storage/db'
-import { todayKey } from '@/utils/dates'
 
 export type PushType = 'seguimiento' | 'pre-entreno' | 'agua' | 'cuestionario' | 'recuperacion' | 'comoEstas' | 'proteina' | 'entrenamiento' | 'coach'
 
@@ -15,7 +14,7 @@ function permissionGranted(): boolean {
   try { return platformAvailable() && Notification.permission === 'granted' } catch { return false }
 }
 
-export async function sendNotification(type: PushType, title: string, body: string, onClick?: () => void): Promise<boolean> {
+export async function sendNotification(_type: PushType, title: string, body: string, onClick?: () => void): Promise<boolean> {
   if (!platformAvailable()) { return false }
   if (!permissionGranted()) { return false }
   try {

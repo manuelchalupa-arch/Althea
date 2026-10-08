@@ -2,7 +2,6 @@ import { db } from '@/services/storage/db'
 import { isDateInPeriod, type AnalysisPeriod } from '@/services/training/metrics'
 import { isCompletedSession } from '@/services/training/sessionMetrics'
 import { getDiaryEntries } from '@/services/storage/diaryStore'
-import { buildMuscleResolver } from '@/services/training/muscleAttribution'
 import { todayKey, dayKeyOffset, toDateKey, daysBetween, weekdayOfKey } from '@/utils/dates'
 import { computeExpenditure, sessionDurationMinutes, loadWeightRows, type ExpenditureResult } from '@/services/training/exerciseEnergy'
 import { toUnifiedSets, calculateExercisePRs } from '@/services/training/prs'
@@ -151,7 +150,6 @@ function epley1RM(weight: number, reps: number): number {
 export async function generateReport(sel: ReportSelection): Promise<ReportData> {
   if (!sel.categories.length) {throw new Error('Seleccioná al menos una categoría')}
   const range = periodRange(sel.period, sel)
-  const today = sel.today ?? todayKey()
   const data: ReportData = {
     period: sel.period,
     periodLabel: sel.period === 'custom' ? `${sel.customStart ?? ''} → ${sel.customEnd ?? ''}` : PERIOD_LABEL[sel.period],

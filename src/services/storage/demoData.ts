@@ -2,10 +2,7 @@ import { db } from './db'
 import { v4 as uuid } from 'uuid'
 import type { TrainingSession, SessionExercise, SetRecord, SessionEvent, NegativeSet, ExerciseObservation } from '@/services/training/domain'
 import type { RoutineData } from './routineStore'
-import type { DiaryEntry, AdherenceRecord } from './diaryStore'
-import type { SessionOverrideData } from './sessionOverrideStore'
-import type { RecoveryCheck, HydrationLog, BodyMeasurement, UserProfile } from '@/types'
-import type { CustomExercise } from '@/services/training/customExercises'
+import type { RecoveryCheck, HydrationLog, BodyMeasurement } from '@/types'
 import type { CycleConfig } from '@/utils/cycle'
 
 const DEMO_ROUTINE_ID = 'demo-routine-1'
@@ -27,7 +24,6 @@ export async function loadDemoData(): Promise<{ routineId: string; sessionsCreat
   }
 
   const exercises = await db.exercises.toArray()
-  const exerciseIds = exercises.map(e => e.id)
   
   const getExId = (name: string) => {
     const match = exercises.find(e => 
@@ -246,7 +242,6 @@ export async function deleteDemoData(): Promise<{ deleted: number }> {
 
   const allSessions = await db.trainingSessions.toArray()
   const demoSessions = allSessions.filter((s): s is TrainingSession => s.isDemo === true)
-  const demoSessionIds = new Set(demoSessions.map(s => s.sessionId))
 
   for (const s of demoSessions) {
     await db.trainingSessions.delete(s.id)

@@ -164,7 +164,6 @@ describe('BLOQUE 2 — Botellas de Agua', () => {
     await completeBottle('bottle-1')
     await completeBottle('bottle-2')
 
-    const beforeCfgs = await getBottleConfigs()
     const beforeSum = await getBottleDailySummary()
     expect(beforeSum.totalMl).toBe(1500)
 

@@ -3,7 +3,6 @@
 // NUNCA modificar automáticamente la rutina del usuario.
 
 import type { WgerProgressionConfig, WgerExerciseConfig, WgerSetConfig } from './types'
-import type { Load } from '@/services/training/loadModel'
 
 // ─── Tipos de progresión Althea ───
 export type AltheaProgressionType = 'weight' | 'reps' | 'sets' | 'rir' | 'rest' | 'max' | 'min'
@@ -98,7 +97,7 @@ export function mapWgerExerciseConfigToAlthea(config: WgerExerciseConfig): Althe
 }
 
 // ─── Mapear WgerSetConfig → regla Althea ───
-export function mapWgerSetConfigToAlthea(config: WgerSetConfig): AltheaProgressionRule | null {
+export function mapWgerSetConfigToAlthea(_config: WgerSetConfig): AltheaProgressionRule | null {
   // Si no hay progresión explícita, no crear regla
   return null
 }

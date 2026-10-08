@@ -1,5 +1,3 @@
-import React from 'react';
-
 /** Misma forma que MacroTotals / MacroGoals de services/nutrition/macroService.ts (gramos y kcal). */
 export interface MacroAmounts {
   protein: number;

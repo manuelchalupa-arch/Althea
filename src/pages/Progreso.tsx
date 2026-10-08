@@ -5,7 +5,7 @@ import { isDateInPeriod, loadFatigueBalance } from '@/services/training/metrics'
 import { countTrainingDays, countTrainingDaysInPeriod } from '@/services/training/sessionMetrics'
 import { unifiedAllCompletedSets } from '@/services/history'
 import { buildMuscleResolver, type MuscleResolver } from '@/services/training/muscleAttribution'
-import { groupLoadOf, weeklyGroupComparison } from '@/services/training/muscleGroups'
+import { weeklyGroupComparison } from '@/services/training/muscleGroups'
 import { getCanonicalCycle } from '@/services/planning/cycleVersions'
 import { todayKey, dayKeyOffset, toDateKey, daysBetween } from '@/utils/dates'
 import { MuscleAtlas, type MuscleDataPoint } from '@/components/progress/MuscleAtlas'
@@ -267,7 +267,6 @@ export default function Progresos() {
     return { prevVolume, prevFrom, prevTo, pct }
   }, [allLogs, period, periodDays, periodVolume])
 
-
   const weightStats = useMemo(() => {
     const ws = periodBodies.map((b) => Number(b.weightKg)).filter((n) => !isNaN(n))
     if (ws.length === 0) { return null }
@@ -312,7 +311,6 @@ export default function Progresos() {
     })
   }, [buckets, periodDays, periodSessionDays, totalSessionDays, period, weightStats, recLatest, week7])
 
-
   // ─── Mapa muscular: comparación por semana de ciclo ───
   // Usa TODO el historial (no el filtro de período): la comparación es entre
   // semanas del ciclo, por lo que recortarla por "últimos 30 días" la rompería.
@@ -325,14 +323,6 @@ export default function Progresos() {
     () => weeklyGroupComparison(muscleItemsByDate, resolver?.muscleOf ?? (() => null), cycle ?? { startDate: todayKey(), trainingDays: [], weekMap: [null, null, null, null, null, null, null] }, todayKey()),
     [muscleItemsByDate, resolver, cycle],
   )
-  const unmappedMuscleSets = useMemo(() => {
-    if (!allLogs.length) { return 0 }
-    const { unmappedSets } = groupLoadOf(
-      allLogs.map((l) => ({ exerciseId: l.exerciseId, volume: Number(l.weight) * Number(l.reps) })),
-      resolver?.muscleOf ?? (() => null),
-    )
-    return unmappedSets
-  }, [allLogs, resolver])
 
   const hasAnyData = allLogs.length > 0 || bodies.length > 0 || recovery.length > 0 || totalSessionDays > 0
   const hasPeriodData = periodLogs.length > 0 || periodBodies.length > 0 || periodRec.length > 0
@@ -397,7 +387,6 @@ export default function Progresos() {
       </div>
     </AltheaCard>
   )
-
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 max-w-[1440px] w-full mx-auto space-y-5">
