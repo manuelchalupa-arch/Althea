@@ -1,0 +1,172 @@
+/* ============================================================
+   ALTHEA — Obsidian Kinetic (Stitch mobile layer)
+   Mobile-only visual layer (max-width: 767px).
+   Desktop (>=768px) keeps its current identity untouched.
+
+   Loaded after index.css and althea-tokens.css (see main.tsx),
+   so the mobile :root overrides win for equal specificity.
+   ============================================================ */
+
+/* Desktop defaults for the typography tokens used by Tailwind.
+   The mobile media query below overrides them with Stitch fonts. */
+:root {
+  --althea-font-display: 'Playfair Display', Georgia, serif;
+  --althea-font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --althea-font-metric: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --althea-font-classic: 'Playfair Display', Georgia, serif;
+}
+
+@media (max-width: 767px) {
+  :root {
+    /* ---------- STITCH TYPOGRAPHY ---------- */
+    --althea-font-display: 'Barlow Condensed', system-ui, -apple-system, sans-serif;
+    --althea-font-ui: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+    --althea-font-metric: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --althea-font-classic: 'Playfair Display', Georgia, serif;
+
+    /* ---------- STITCH DENSITY ---------- */
+    --althea-mobile-gutter: 14px;
+    --althea-mobile-gap: 8px;
+    --althea-mobile-card-pad: 10px;
+    --althea-mobile-header-height: 56px;
+    --althea-mobile-nav-height: 64px;
+
+    /* ---------- OBSIDIAN SURFACES (rgb triplets for Tailwind) ---------- */
+    --c-background-rgb: 18 19 26;
+    --c-surface-rgb: 26 27 34;
+    --c-surface-dim-rgb: 18 19 26;
+    --c-surface-bright-rgb: 56 57 65;
+    --c-surface-container-lowest-rgb: 13 14 21;
+    --c-surface-container-low-rgb: 26 27 34;
+    --c-surface-container-rgb: 30 31 38;
+    --c-surface-container-high-rgb: 41 41 49;
+    --c-surface-container-highest-rgb: 51 52 60;
+    --c-surface-variant-rgb: 51 52 60;
+
+    /* ---------- TEXT ---------- */
+    --c-on-surface-rgb: 227 225 236;
+    --c-on-surface-variant-rgb: 216 195 173;
+    --c-on-background-rgb: 227 225 236;
+    --c-inverse-surface-rgb: 227 225 236;
+    --c-inverse-on-surface-rgb: 18 19 26;
+
+    /* ---------- AMBER (primary accent / telemetry) ---------- */
+    --c-primary-rgb: 255 193 116;
+    --c-primary-container-rgb: 245 158 11;
+    --c-primary-fixed-rgb: 255 193 116;
+    --c-primary-fixed-dim-rgb: 245 158 11;
+    --c-on-primary-rgb: 71 42 0;
+    --c-on-primary-container-rgb: 97 59 0;
+    --c-on-primary-fixed-rgb: 71 42 0;
+    --c-on-primary-fixed-variant-rgb: 97 59 0;
+    --c-inverse-primary-rgb: 255 193 116;
+
+    /* ---------- EMERALD (recovery / completed) ---------- */
+    --c-secondary-rgb: 78 222 163;
+    --c-secondary-container-rgb: 0 165 114;
+    --c-secondary-fixed-rgb: 78 222 163;
+    --c-secondary-fixed-dim-rgb: 0 165 114;
+    --c-on-secondary-rgb: 0 56 36;
+    --c-on-secondary-container-rgb: 0 56 36;
+    --c-on-secondary-fixed-rgb: 0 56 36;
+    --c-on-secondary-fixed-variant-rgb: 0 56 36;
+
+    /* ---------- CYAN (hydration) ---------- */
+    --c-tertiary-rgb: 84 221 252;
+    --c-tertiary-container-rgb: 41 193 223;
+    --c-tertiary-fixed-rgb: 84 221 252;
+    --c-tertiary-fixed-dim-rgb: 41 193 223;
+    --c-on-tertiary-rgb: 0 54 64;
+    --c-on-tertiary-container-rgb: 0 54 64;
+    --c-on-tertiary-fixed-rgb: 0 54 64;
+    --c-on-tertiary-fixed-variant-rgb: 0 54 64;
+
+    /* ---------- OUTLINES ---------- */
+    --c-outline-rgb: 160 142 122;
+    --c-outline-variant-rgb: 83 68 52;
+
+    /* ---------- HEX MIRROR (for var(--c-*) direct usages) ---------- */
+    --c-background: #12131a;
+    --c-surface: #1a1b22;
+    --c-surface-dim: #12131a;
+    --c-surface-bright: #383941;
+    --c-surface-container-lowest: #0d0e15;
+    --c-surface-container-low: #1a1b22;
+    --c-surface-container: #1e1f26;
+    --c-surface-container-high: #292931;
+    --c-surface-container-highest: #33343c;
+    --c-surface-variant: #33343c;
+    --c-on-surface: #e3e1ec;
+    --c-on-surface-variant: #d8c3ad;
+    --c-on-background: #e3e1ec;
+    --c-primary: #ffc174;
+    --c-primary-container: #f59e0b;
+    --c-on-primary: #472a00;
+    --c-on-primary-container: #613b00;
+    --c-secondary: #4edea3;
+    --c-secondary-container: #00a572;
+    --c-on-secondary: #003824;
+    --c-tertiary: #54ddfc;
+    --c-tertiary-container: #29c1df;
+    --c-on-tertiary: #003640;
+    --c-outline: #a08e7a;
+    --c-outline-variant: #534434;
+
+    /* ---------- CTA stays green in mobile ---------- */
+    --althea-btn-primary: #15803d;
+    --althea-btn-primary-hover: #166534;
+    --althea-btn-primary-border: #15803d;
+    --althea-btn-primary-text: #ffffff;
+
+    /* ---------- LEGACY ALIASES ---------- */
+    --card-bg: #1a1b22;
+    --card-border: #534434;
+    --veil-color: rgba(18, 19, 26, 0.86);
+    --althea-border: 1px solid #534434;
+    --althea-border-strong: 1px solid #534434;
+  }
+
+  html,
+  body {
+    background: #12131a;
+    color: #e3e1ec;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--althea-font-ui);
+  }
+
+  .shell-content {
+    width: 100%;
+    max-width: 448px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--althea-mobile-gutter);
+    padding-right: var(--althea-mobile-gutter);
+    padding-top: 8px;
+    padding-bottom: calc(var(--althea-mobile-nav-height) + 12px);
+  }
+
+  .althea-panel,
+  .althea-level-2,
+  .althea-level-3,
+  .althea-level-4 {
+    border-radius: 8px;
+  }
+
+  .althea-section {
+    gap: 8px;
+  }
+
+  .althea-panel,
+  .althea-panel--compact {
+    padding: var(--althea-mobile-card-pad);
+  }
+
+  .font-metric-mobile {
+    font-family: var(--althea-font-metric);
+    letter-spacing: -0.01em;
+  }
+}

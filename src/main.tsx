@@ -5,6 +5,7 @@ import './index.css'
 import './styles/althea-tokens.css'
 import './styles/althea-brand.css'
 import './styles/althea-components.css'
+import './styles/althea-mobile-stitch.css'
 // Material Symbols llega por CDN. Si no carga, sus ligaduras muestran la
 // palabra inglesa. ensureIconFont() marca el estado en <html> para que el CSS
 // la oculte; se llama antes del render para que nunca haya un frame visible
