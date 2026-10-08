@@ -347,7 +347,7 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
           <input value={finishSurvey.comment || ''} onChange={(e)=> setSurvey('comment', e.target.value)} placeholder="Observación (opcional)" maxLength={200} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
         </div>
 
-        {finishError && <p className="text-sm text-red-400">{finishError}</p>}
+        {finishError && <p className="text-sm text-error">{finishError}</p>}
 
         <button onClick={onConfirm} disabled={isSaving} className="w-full py-3 px-5 rounded bg-primary hover:bg-primary-fixed text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm disabled:opacity-50">
           {isSaving ? 'Guardando…' : ((s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'Confirmar — COMPLETED' : `Confirmar — PARTIAL (${s.exPct}%)`)}

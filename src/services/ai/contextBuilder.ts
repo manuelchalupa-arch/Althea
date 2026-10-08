@@ -53,7 +53,8 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   // hidratación hoy (real; sin registros → 0, no se inventa)
   const hydLogs0 = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(()=>[])
   const hyd = hydLogs0.reduce((a,b)=>a+Number(b.amountMl||0),0)
-  const hidratacion = hydLogs0.length ? `Hoy ${hyd} ml / 2500 ml` : 'Sin datos'
+  const hydGoal = profile?.hydrationGoalMl || 2500
+  const hidratacion = hydLogs0.length ? `Hoy ${hyd} ml / ${hydGoal} ml` : 'Sin datos'
 
   // dolor real: surveys post-entreno (zona/detalle) + QA de dolor, no keys legacy
   let pain = 'sin dolor'

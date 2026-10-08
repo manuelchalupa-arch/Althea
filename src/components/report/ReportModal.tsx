@@ -209,12 +209,12 @@ className="w-full mt-1 bg-surface-container border border-outline-variant rounde
                       <div className="grid grid-cols-2 gap-2 font-body-sm text-xs text-on-surface">
                         <span>días entrenados: <strong>{report.entrenamiento.diasEntrenados}</strong></span>
                         <span>sesiones: <strong>{report.entrenamiento.sesiones}</strong></span>
-                        <span>volumen: <strong>{report.entrenamiento.volumen.toLocaleString()} kg</strong></span>
+                        <span>volumen: <strong>{report.entrenamiento.volumen.toLocaleString('es-ES')} kg</strong></span>
                         <span>series: <strong>{report.entrenamiento.series}</strong></span>
                         <span>repeticiones: <strong>{report.entrenamiento.repeticiones}</strong></span>
                         <span>frecuencia: <strong>{report.entrenamiento.frecuencia}</strong></span>
                         <span>adherencia: <strong>{report.entrenamiento.adherencia ?? '—'}%</strong></span>
-                        <span>rendimiento: <strong>{report.entrenamiento.rendimiento?.volumenPorSesion.toLocaleString()} kg/sesión</strong></span>
+                        <span>rendimiento: <strong>{report.entrenamiento.rendimiento?.volumenPorSesion.toLocaleString('es-ES')} kg/sesión</strong></span>
                         <span data-testid="report-completas">completas / incompletas: <strong>{report.entrenamiento.completadas} / {report.entrenamiento.incompletas}</strong></span>
                         <span>duración: <strong>{report.entrenamiento.duracionMin ? `${report.entrenamiento.duracionMin} min` : 'Sin datos'}</strong></span>
                         <span data-testid="report-gasto">
@@ -254,7 +254,7 @@ className="w-full mt-1 bg-surface-container border border-outline-variant rounde
                       <div className="font-label-caps text-[10px] uppercase text-outline">Fuerza</div>
                       <div className="font-body-sm text-xs text-on-surface space-y-1">
                         <div>
-                          peso máx: <strong>{report.fuerza.pesoMax} kg</strong> · reps: <strong>{report.fuerza.repeticiones}</strong> · volumen: <strong>{report.fuerza.volumen.toLocaleString()} kg</strong> · 1RM est.: <strong>{report.fuerza.rmEstimado} kg</strong>
+                          peso máx: <strong>{report.fuerza.pesoMax} kg</strong> · reps: <strong>{report.fuerza.repeticiones}</strong> · volumen: <strong>{report.fuerza.volumen.toLocaleString('es-ES')} kg</strong> · 1RM est.: <strong>{report.fuerza.rmEstimado} kg</strong>
                         </div>
                         {report.fuerza.progresoPorEjercicio.slice(0, 5).map(p => (
                           <div key={p.exerciseId} className="text-on-surface-variant">

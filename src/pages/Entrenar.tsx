@@ -1339,9 +1339,9 @@ const exercises: SessionEx[] = seList.map((se) => {
                 {/* Safety Alert */}
                 {safetyAlert && (
                   <div className={`mx-6 mt-4 rounded border p-3 flex items-start gap-2 ${
-                    safetyAlert.severity==='critical' ? 'bg-red-900/30 border-red-700' : 'bg-secondary-container/20 border-secondary/30'
+                    safetyAlert.severity==='critical' ? 'bg-error/10 border-error' : 'bg-secondary-container/20 border-secondary/30'
                   }`}>
-                    <AlertTriangle size={14} className={`mt-0.5 ${safetyAlert.severity==='critical'?'text-red-400':'text-secondary'}`}/>
+                    <AlertTriangle size={14} className={`mt-0.5 ${safetyAlert.severity==='critical'?'text-error':'text-secondary'}`}/>
                     <div className="font-body-md text-[15px] text-on-surface">
                       <span className="font-medium">{safetyAlert.message}</span>
                       {safetyAlert.referral && <span className="font-label-caps text-[10px] uppercase text-on-surface-variant"> Consultá con {safetyAlert.referral}.</span>}

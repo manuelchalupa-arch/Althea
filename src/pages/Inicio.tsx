@@ -406,7 +406,7 @@ export default function Inicio(){
             <span className="font-label-caps text-[11px] uppercase text-secondary font-semibold shrink-0">Microciclo</span>
             <span className="text-body-sm text-on-surface-variant truncate">· {completedCount}/{totalCount} sesiones</span>
           </div>
-          <span className="font-label-caps text-[11px] text-primary uppercase font-medium shrink-0">Volumen: {weekVolume > 0 ? `${weekVolume.toLocaleString()} kg` : '—'}</span>
+          <span className="font-label-caps text-[11px] text-primary uppercase font-medium shrink-0">Volumen: {weekVolume > 0 ? `${weekVolume.toLocaleString('es-ES')} kg` : '—'}</span>
         </div>
         <div className="grid grid-cols-7 gap-1.5">
           {weekKeys.map((iso)=>{
@@ -444,7 +444,7 @@ export default function Inicio(){
                     {st?.dayName || (isRestDay ? 'Descanso' : '—')}
                   </p>
                   {st?.volume ? (
-                    <p className={`text-[10px] truncate ${isToday ? 'text-primary' : 'text-on-surface-variant'}`}>{st.volume.toLocaleString()} kg{st.rating ? ` · ★ ${st.rating}/5` : ''}</p>
+                    <p className={`text-[10px] truncate ${isToday ? 'text-primary' : 'text-on-surface-variant'}`}>{st.volume.toLocaleString('es-ES')} kg{st.rating ? ` · ★ ${st.rating}/5` : ''}</p>
                   ) : isRestDay ? (
                     <p className="text-[10px] text-secondary truncate">Ayuno &amp; Reflexión</p>
                   ) : (
@@ -589,7 +589,7 @@ export default function Inicio(){
               {/* KPI Summary */}
               {exNames.length > 0 && (
                 <AltheaStatRow className="pt-3 border-t border-surface-bright" items={[
-                  { icon: 'entrenar', value: `${Math.round(exNames.reduce((a,e)=>a+e.sets*(e.reps||8)*(e.weight||0),0)).toLocaleString()} kg`, label: 'Volumen proyectado' },
+                  { icon: 'entrenar', value: `${Math.round(exNames.reduce((a,e)=>a+e.sets*(e.reps||8)*(e.weight||0),0)).toLocaleString('es-ES')} kg`, label: 'Volumen proyectado' },
                   { icon: 'progreso', value: todayRPE !== null && todayRPE !== undefined && todayRPE > 0 ? `${todayRPE.toFixed(1)}/10` : '—', label: 'Intensidad media (plan)' },
                   { icon: 'nutricion', value: `${Math.max(20, Math.round(exNames.reduce((a,e)=>a+e.sets*(e.restSec||90),0)/60 + exNames.length*3))} min`, label: 'Duración est.' },
                 ]} />

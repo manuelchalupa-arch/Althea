@@ -185,7 +185,7 @@ export default function Mas(){
               <AltheaCard level={2} padding="sm">
                 <div className="text-aux mb-1.5">Nutrición estimada</div>
                 <p className="font-headline-md text-lg text-on-surface font-semibold truncate">
-                  {stats.tdee !== undefined ? `${stats.tdee.toLocaleString()} kcal` : 'Sin datos'}
+                  {stats.tdee !== undefined ? `${stats.tdee.toLocaleString('es-ES')} kcal` : 'Sin datos'}
                 </p>
                 <p className="font-body-md text-xs text-on-surface-variant mt-0.5">
                   {stats.protein !== undefined ? `Proteína ${stats.protein}g · Carbos ${stats.carbs ?? '—'}g · Lípidos ${stats.fat ?? '—'}g` : 'Calculá tu perfil para estimar macros'}
@@ -222,7 +222,7 @@ export default function Mas(){
                 { to: '/rutina', icon: 'fitness_center', name: 'Rutinas', desc: `${routineCount} rutinas registradas` },
                 { to: '/calendario', icon: 'calendar_month', name: 'Calendario', desc: `${stats.sessions90d} sesiones en 90 días` },
                 { to: '/biblioteca', icon: 'menu_book', name: 'Biblioteca', desc: `${stats.exerciseCount} ejercicios disponibles` },
-                { to: '/nutricion', icon: 'restaurant', name: 'Nutrición', desc: stats.tdee !== undefined ? `Meta ~${stats.tdee.toLocaleString()} kcal` : 'Metas y macros' },
+                { to: '/nutricion', icon: 'restaurant', name: 'Nutrición', desc: stats.tdee !== undefined ? `Meta ~${stats.tdee.toLocaleString('es-ES')} kcal` : 'Metas y macros' },
                 { to: '/recuperacion', icon: 'bedtime', name: 'Recuperación', desc: 'Sueño, energía y fatiga' },
                 { to: '/progreso', icon: 'monitoring', name: 'Progreso', desc: stats.top.length > 0 ? `${stats.top[0].name}: ${stats.top[0].orm} kg 1RM` : 'Récords y tendencias' },
                 { to: '/coach', icon: 'forum', name: 'Coach', desc: stats.chatCount > 0 ? `${stats.chatCount} consultas realizadas` : 'Asistente de entrenamiento' },

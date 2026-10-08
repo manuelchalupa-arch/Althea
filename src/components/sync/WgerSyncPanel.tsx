@@ -263,7 +263,7 @@ export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
 
         <button
           onClick={() => setShowDisconnect(true)}
-          className="w-full py-2.5 min-h-[48px] rounded-lg bg-red-950/30 border border-red-900/40 font-label-caps text-[10px] uppercase text-red-400 hover:bg-red-950/50 transition-colors"
+          className="w-full py-2.5 min-h-[48px] rounded-lg bg-error/10 border border-error/30 font-label-caps text-[10px] uppercase text-error hover:bg-error/10 transition-colors"
         >
           Desconectar WGER
         </button>
@@ -275,12 +275,12 @@ export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
 
       {showDisconnect && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowDisconnect(false)}>
-          <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-red-900/50 rounded-2xl w-full max-w-xs p-5 space-y-4">
-            <h3 className="font-headline-lg text-base font-semibold text-red-400 text-center">¿Desconectar WGER?</h3>
+          <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-error/40 rounded-2xl w-full max-w-xs p-5 space-y-4">
+            <h3 className="font-headline-lg text-base font-semibold text-error text-center">¿Desconectar WGER?</h3>
             <p className="text-sm text-on-surface-variant text-center">Se revocará la conexión con WGER. Tus datos locales se conservan.</p>
             <div className="flex gap-2">
               <button onClick={() => setShowDisconnect(false)} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
-              <button onClick={handleDisconnect} className="flex-1 py-2.5 rounded-lg bg-red-600 text-white font-label-caps text-[10px] uppercase font-bold">Desconectar</button>
+              <button onClick={handleDisconnect} className="flex-1 py-2.5 rounded-lg bg-error text-on-error font-label-caps text-[10px] uppercase font-bold">Desconectar</button>
             </div>
           </div>
         </div>

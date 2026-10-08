@@ -6,6 +6,7 @@ import * as Gym from '@/services/exerciseGym'
 import { CoachIntensity, Goal } from '@/types'
 import { todayKey } from '@/utils/dates'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
+import { calcTDEE } from '@/utils/nutrition'
 import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 
 const OBJETIVOS = ['Perder grasa / bajar de peso','Ganar masa muscular','Aumentar fuerza','Mejorar resistencia','Mejorar condición física','Mejorar movilidad','Mantenerme','Recomposición corporal','Otro']
@@ -185,7 +186,7 @@ export default function Onboarding(){
 
     if (weightNum && heightNum) {
       const bmr = isMale ? (10 * weightNum + 6.25 * heightNum - 5 * (edad || 25) + 5) : (10 * weightNum + 6.25 * heightNum - 5 * (edad || 25) - 161)
-      const tdee = Math.round(bmr * 1.375)
+      const tdee = calcTDEE(bmr, 'poco_activo', diasDisponibles.length) ?? Math.round(bmr * 1.375)
       caloriesTarget = objPrincipal.includes('grasa') ? tdee - 400 : objPrincipal.includes('masa') ? tdee + 300 : tdee
       proteinTarget = Math.round(weightNum * (objPrincipal.includes('masa') || objPrincipal.includes('grasa') ? 2.0 : 1.6))
       fatTarget = Math.round((caloriesTarget * 0.25) / 9)
@@ -482,7 +483,7 @@ export default function Onboarding(){
       </div>
 
       <div className="p-4 space-y-2">
-        {err && <div className="rounded-lg bg-red-900/30 border border-red-800 p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-red-300">{err}</div>}
+        {err && <div className="rounded-lg bg-error/10 border border-error/30 p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-error">{err}</div>}
         <div className="flex gap-2">
           {step>0 && <button onClick={back} className="flex-1 py-4 rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Atrás</button>}
           <button onClick={next} className="flex-1 py-4 rounded-lg bg-primary text-on-surface font-semibold">{step===6 ? 'COMENZAR →' : 'Siguiente →'}</button>
