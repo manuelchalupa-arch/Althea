@@ -28,8 +28,8 @@ interface PainToggleProps {
   exerciseId: string
   exerciseName: string
   initialLevel?: PainLevel
-  onPainChange: (level: PainLevel, zone?: string, notes?: string) => void
-  onOpenVariants?: () => void
+  onPainChange?: (level: PainLevel, zone?: string, notes?: string) => void
+  onOpenVariants?: (level: PainLevel, zone: string) => void
 }
 
 export function PainToggle({ exerciseId, exerciseName, initialLevel = 'none', onPainChange, onOpenVariants }: PainToggleProps) {
@@ -56,7 +56,7 @@ export function PainToggle({ exerciseId, exerciseName, initialLevel = 'none', on
 
   const savePainLog = useCallback(async () => {
     if (level === 'none') {
-      onPainChange('none')
+      onPainChange?.('none')
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
       return
@@ -68,7 +68,7 @@ export function PainToggle({ exerciseId, exerciseName, initialLevel = 'none', on
       .where({ exerciseId, localDate: today, level })
       .first()
     if (existing) {
-      onPainChange(level, zone || 'no especificada', notes)
+      onPainChange?.(level, zone || 'no especificada', notes)
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
       return
@@ -88,7 +88,7 @@ export function PainToggle({ exerciseId, exerciseName, initialLevel = 'none', on
 
     try {
       await db.painLogs.put(painLog)
-      onPainChange(level, zone || 'no especificada', notes)
+      onPainChange?.(level, zone || 'no especificada', notes)
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
     } catch (e) {
@@ -204,7 +204,7 @@ export function PainToggle({ exerciseId, exerciseName, initialLevel = 'none', on
               {saved ? 'Guardado ✓' : 'Guardar y continuar'}
             </AltheaButton>
             {level === 'moderate' || level === 'severe' ? (
-              <AltheaButton variant="secondary" size="sm" onClick={onOpenVariants}>
+              <AltheaButton variant="secondary" size="sm" onClick={() => onOpenVariants?.(level, zone)}>
                 Ver variantes
               </AltheaButton>
             ) : null}

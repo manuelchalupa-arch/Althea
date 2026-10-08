@@ -32,10 +32,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
   const [cycle, setCycle] = useState<CycleConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'weeks' | 'methods'>('overview')
-  const [] = useState<number | null>(null)
   const [, setWeekDraft] = useState<{ days: number[]; startDate: string }>({ days: [], startDate: '' })
-  const [, setShowMethodSelector] = useState(false)
-  const [, setSelectedMethod] = useState<TrainingMethodId | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeVersion, setActiveVersion] = useState<CycleVersion | null>(null)
   const [versionNotice, setVersionNotice] = useState<string | null>(null)
@@ -150,7 +147,6 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
     )
     
     await saveCycle({ ...cycle!, ...newCycle, methodId })
-    setShowMethodSelector(false)
   }, [saveCycle, cycle])
 
   if (loading) {
@@ -183,7 +179,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
         <p className="font-body-md text-on-surface-variant mb-4">
           No hay periodización configurada. Completa el onboarding o selecciona un método.
         </p>
-        <AltheaButton onClick={() => setShowMethodSelector(true)} className="mt-2">
+        <AltheaButton onClick={() => handleMethodSelect(Object.keys(METHOD_NAMES)[0] as TrainingMethodId)} className="mt-2">
           Seleccionar método
         </AltheaButton>
       </AltheaCard>
@@ -312,7 +308,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
               {Object.entries(METHOD_NAMES).map(([id, name]) => (
                 <button
                   key={id}
-                  onClick={() => setSelectedMethod(id as TrainingMethodId)}
+                  onClick={() => handleMethodSelect(id as TrainingMethodId)}
                   className={`p-3 rounded-lg text-center transition-all ${cycle?.methodId === id 
                     ? 'bg-primary/10 border border-primary text-primary' 
                     : 'bg-surface-container-highest/50 border border-outline-variant/60 hover:border-primary/30'}`}
@@ -322,7 +318,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
               ))}
             </div>
             <div className="mt-3 flex justify-end">
-              <AltheaButton variant="secondary" size="sm" onClick={() => setShowMethodSelector(true)}>
+              <AltheaButton variant="secondary" size="sm" onClick={() => setActiveTab('methods')}>
                 Cambiar método
               </AltheaButton>
             </div>
@@ -413,6 +409,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
             {Object.entries(METHOD_NAMES).map(([id, name]) => (
               <button
                 key={id}
+                onClick={() => handleMethodSelect(id as TrainingMethodId)}
                 className={`p-4 rounded-xl text-center transition-all border-2 ${cycle?.methodId === id 
                   ? 'bg-primary/10 border-primary' 
                   : 'bg-surface-container-highest/50 border-outline-variant/60 hover:border-primary/30'}`}

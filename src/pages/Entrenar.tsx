@@ -11,7 +11,6 @@ import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersio
 import { Check, AlertTriangle, RotateCcw } from 'lucide-react'
 
 import ResultPanel from '@/components/entrenar/ResultPanel'
-import { ExerciseHeader, ExerciseHeaderInline } from '@/components/entrenar/ExerciseHeader'
 import ExerciseSeriesTable from '@/components/entrenar/ExerciseSeriesTable'
 import { ModifyModal, ViewerModal, SwapModal, SkipReasonModal, CancelModal, AbandonModal, AddExtraModal, FinishModal } from '@/components/entrenar/SessionModals'
 import { MOBILE_NAV_OFFSET } from '@/components/layout/AppNav'
@@ -250,7 +249,6 @@ const exercises: SessionEx[] = seList.map((se) => {
   const [variantContext,setVariantContext]=useState<VariantContext | null>(null)
   
   // Pain toggle state
-  const [currentPainExercise,setCurrentPainExercise]=useState<{exerciseId:string; exerciseName:string; seId:string} | null>(null)
 
   const load = async () => {
       const { getActiveSession, getSessionExercises: getSE } = await import('@/services/training/sessionStore')
@@ -643,32 +641,8 @@ const exercises: SessionEx[] = seList.map((se) => {
     setCoach(rec)
   }
 
-  // Pain Toggle Handlers
-  const handleOpenPainToggle = useCallback((exerciseId: string, exerciseName: string, seId: string) => {
-    setCurrentPainExercise({ exerciseId, exerciseName, seId })
-  }, [])
-
-  const handlePainChange = useCallback(async () => {
-    if (!currentPainExercise) {return}
-    // The PainToggle component handles saving to PainLog internally
-    // We just need to update local state if needed
-  }, [currentPainExercise])
-
-  const handlePainVariantRequest = useCallback(() => {
-    if (!currentPainExercise) {return}
-    const context: VariantContext = {
-      originalExerciseId: currentPainExercise.exerciseId,
-      reason: 'pain',
-      painZone: currentPainExercise.exerciseName, // will be overridden by pain zone
-      painLevel: 'moderate', // default, will be updated by pain toggle
-    }
-    setVariantContext(context)
-    setShowVariantPicker(true)
-    setCurrentPainExercise(null)
-  }, [currentPainExercise])
-
   // Variant Picker Handlers
-  const handleVariantSelect = useCallback(async (variant: VariantOption, decision: 'accepted' | 'modified') => {
+  const handleVariantSelect = useCallback(async (variant: VariantOption) => {
     if (!cur || !session) {return}
     const seId = seIdByIndex[current]
     if (!seId) {return}
@@ -710,11 +684,6 @@ const exercises: SessionEx[] = seList.map((se) => {
     const rec = await aiService.generateRecommendation(ctx).catch(() => ({ reason: `Vamos con ${cur.weight ?? 0}kg x ${cur.reps}.`, suggested_weight: cur.weight ?? undefined }))
     setCoach(rec)
   }, [cur, session, current, today, variantContext, exs, seIdByIndex, setCoach, setDone, setExs, setLogs])
-
-  const handleOpenVariantPicker = useCallback((context: VariantContext) => {
-    setVariantContext(context)
-    setShowVariantPicker(true)
-  }, [])
 
   const handleSkipWithReason = ()=>{
     setShowSkipReason(true)
@@ -1387,14 +1356,13 @@ const exercises: SessionEx[] = seList.map((se) => {
                     exerciseId={cur.exId}
                     exerciseName={cur.name}
                     initialLevel="none"
-                    onPainChange={() => {}}
-                    onOpenVariants={() => {
+                    onOpenVariants={(level, zone) => {
                       if (!cur) {return}
                       const context: VariantContext = {
                         originalExerciseId: cur.exId,
                         reason: 'pain',
-                        painZone: '', // will be filled by PainToggle
-                        painLevel: 'moderate',
+                        painZone: zone || cur.name,
+                        painLevel: level === 'none' ? undefined : level,
                       }
                       setVariantContext(context)
                       setShowVariantPicker(true)
@@ -1427,6 +1395,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                   <div className="px-6 pb-4 flex gap-2">
                     <button onClick={()=>{ setMod({weight:cur.weight ?? 0,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
                     <button onClick={handleSkipWithReason} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
+                    <button onClick={openAddExtra} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Extra</button>
                   </div>
                 )}
 
@@ -1671,4 +1640,3 @@ const exercises: SessionEx[] = seList.map((se) => {
     </div>
   )
 }
-
