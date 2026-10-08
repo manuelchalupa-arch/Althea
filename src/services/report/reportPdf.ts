@@ -2,6 +2,7 @@
  * Informe PDF de Althea: arma el documento a partir de ReportData (datos reales)
  * usando el escritor vectorial propio. Sin dependencias, sin red y sin imprimir.
  */
+import { prettyExId } from '@/utils/format'
 import {
   BRAND, PdfDocument, decodePng, downloadBlob, formatDecimal, formatNumber, rgb,
   type BarDatum, type DecodedPng, type PdfPage,
@@ -44,11 +45,6 @@ function footer(page: PdfPage, index: number, total: number, generated: string):
   page.text('Althea - datos registrados en tu cuaderno, sin estimaciones externas', MARGIN, MARGIN + 10, { size: 7, color: BRAND.inkSoft })
   page.text(generated, page.right - 60, MARGIN + 10, { size: 7, color: BRAND.inkSoft, align: 'right' })
   page.text(`Página ${index}/${total}`, page.right, MARGIN + 10, { size: 7, bold: true, color: BRAND.primary, align: 'right' })
-}
-
-/** Nombre legible de un ejercicio a partir de su id. */
-function shortName(exerciseId: string): string {
-  return exerciseId.split('/').pop()?.replace(/-/g, ' ') ?? exerciseId
 }
 
 function sectionTitle(page: PdfPage, y: number, title: string, hint?: string): number {
@@ -233,7 +229,7 @@ export function buildReportPdf(data: ReportData, opts: { today?: string; bust?: 
       act?.mayor ? `Mayor actividad: ${act.mayor.fecha} (${formatNumber(act.mayor.volumen)} kg)` : '',
       act?.menor && act.mayor && act.menor.fecha !== act.mayor.fecha ? `Menor actividad: ${act.menor.fecha} (${formatNumber(act.menor.volumen)} kg)` : '',
       data.entrenamiento.destacados.length
-        ? `Mayor volumen por ejercicio: ${data.entrenamiento.destacados.map(d => `${shortName(d.exerciseId)} (${formatNumber(d.volumen)} kg)`).join(', ')}`
+        ? `Mayor volumen por ejercicio: ${data.entrenamiento.destacados.map(d => `${prettyExId(d.exerciseId)} (${formatNumber(d.volumen)} kg)`).join(', ')}`
         : '',
     ].filter(Boolean)
     for (const nota of notasDia) {
@@ -307,7 +303,7 @@ export function buildReportPdf(data: ReportData, opts: { today?: string; bust?: 
     y = pager.ensure(140, y)
     y = sectionTitle(pager.current, y, 'Fuerza', '1RM estimado (Epley)')
     const rows = data.fuerza.progresoPorEjercicio.slice(0, 12).map(p => [
-      shortName(p.exerciseId),
+      prettyExId(p.exerciseId),
       formatDecimal(p.pesoMax),
       formatNumber(p.reps),
       formatDecimal(p.rm),
@@ -321,7 +317,7 @@ export function buildReportPdf(data: ReportData, opts: { today?: string; bust?: 
     y = pager.ensure(140, y)
     y = sectionTitle(pager.current, y, 'Records y mejores marcas', 'Mejor serie histórica por ejercicio')
     const rows = data.fuerza.prs.slice(0, 10).map(p => [
-      shortName(p.exerciseId),
+      prettyExId(p.exerciseId),
       formatDecimal(p.peso),
       formatNumber(p.reps),
       formatDecimal(p.rm),

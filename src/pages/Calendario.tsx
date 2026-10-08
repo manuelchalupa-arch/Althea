@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { prettyExId } from '@/utils/format'
 import { db } from '@/services/storage/db'
 import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaPanel, AltheaStatRow } from '@/components/althea'
 import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'
@@ -145,7 +146,6 @@ export default function Calendario(){
     // Gasto calórico del ejercicio del día: mismo motor que Inicio y los informes PDF.
     const weightRows: WeightRow[] = await loadWeightRows()
     // Detalle por sesión: ejercicios, series, volumen y cumplimiento (solo lectura).
-    const prettyId = (id: string) => String(id).split('/').pop()?.replace(/-/g, ' ') || String(id)
     const detailed = await Promise.all(sessions.map(async (s) => {
       const [ses, recs, logs] = await Promise.all([
         db.sessionExercises.where('sessionId').equals(s.id).toArray().catch(() => []),
@@ -156,8 +156,8 @@ export default function Calendario(){
       const vol = done.reduce((a, r) => a + Number((r as { actualWeight?: number }).actualWeight || 0) * Number((r as { actualReps?: number }).actualReps || 0), 0)
         + logs.filter(l => (l as { completed?: boolean }).completed).reduce((a, l) => a + Number((l as { weight?: number }).weight || 0) * Number((l as { reps?: number }).reps || 0), 0)
       const exNames = ses.length > 0
-        ? ses.map(e => prettyId(String((e as { exerciseId?: string }).exerciseId || '')))
-        : [...new Set(logs.map(l => prettyId(String((l as { exerciseId?: string }).exerciseId || ''))))]
+        ? ses.map(e => prettyExId(String((e as { exerciseId?: string }).exerciseId || '')))
+        : [...new Set(logs.map(l => prettyExId(String((l as { exerciseId?: string }).exerciseId || ''))))]
       const planned = ses.reduce((a, e) => a + Number((e as { plannedSetCount?: number }).plannedSetCount || 0), 0)
       const doneCount = done.length + logs.filter(l => (l as { completed?: boolean }).completed).length
       // Gasto calórico de ESTA sesión con el motor central (nunca inventado).

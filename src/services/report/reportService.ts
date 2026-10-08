@@ -2,6 +2,7 @@ import { db } from '@/services/storage/db'
 import { isDateInPeriod, type AnalysisPeriod } from '@/services/training/metrics'
 import { isCompletedSession } from '@/services/training/sessionMetrics'
 import { getDiaryEntries } from '@/services/storage/diaryStore'
+import { prettyExId } from '@/utils/format'
 import { todayKey, dayKeyOffset, toDateKey, daysBetween, weekdayOfKey } from '@/utils/dates'
 import { computeExpenditure, sessionDurationMinutes, loadWeightRows, type ExpenditureResult } from '@/services/training/exerciseEnergy'
 import { toUnifiedSets, calculateExercisePRs } from '@/services/training/prs'
@@ -431,11 +432,6 @@ function periodoAdherencia(diasEntrenados: number, periodoDias: number): number 
   return Math.round((diasEntrenados / periodoDias) * 100)
 }
 
-/** Nombre legible de un ejercicio a partir de su id (mismo criterio que el PDF). */
-function shortExerciseName(exerciseId: string): string {
-  return exerciseId.split('/').pop()?.replace(/-/g, ' ') ?? exerciseId
-}
-
 /**
  * Mejores marcas históricas por ejercicio usando el motor propio de PRs/1RM
  * (prs.ts). `enPeriodo` indica si la marca se logró dentro del rango del
@@ -492,12 +488,12 @@ function buildConclusiones(data: ReportData): string[] {
         ? `Gasto calórico del ejercicio: ${Math.round(e.gastoCalorico.totalKcal)} kcal (estimación MET sobre sesiones con duración y peso registrados).`
         : 'Gasto calórico del ejercicio: sin datos suficientes para estimar.')
     }
-    if (e.destacados.length) { out.push(`Mayor volumen por ejercicio: ${e.destacados.map(d => `${shortExerciseName(d.exerciseId)} (${d.volumen} kg)`).join(', ')}.`) }
+    if (e.destacados.length) { out.push(`Mayor volumen por ejercicio: ${e.destacados.map(d => `${prettyExId(d.exerciseId)} (${d.volumen} kg)`).join(', ')}.`) }
     if (e.observaciones.length) { out.push(`Observaciones registradas: ${e.observaciones.join(' · ')}`) }
   }
   const pr = data.fuerza?.prs.find(p => p.enPeriodo) ?? data.fuerza?.prs[0]
   if (pr) {
-    out.push(`Mejor marca de fuerza: ${shortExerciseName(pr.exerciseId)} ${pr.peso} kg × ${pr.reps} (1RM ${pr.rm} kg, ${pr.fecha}).`)
+    out.push(`Mejor marca de fuerza: ${prettyExId(pr.exerciseId)} ${pr.peso} kg × ${pr.reps} (1RM ${pr.rm} kg, ${pr.fecha}).`)
   }
   if (data.musculos?.gruposMas.length) { out.push(`Grupos musculares más trabajados: ${data.musculos.gruposMas.join(', ')}.`) }
   if (data.recuperacion?.avgScore !== undefined) { out.push(`Recuperación media del período: ${data.recuperacion.avgScore}/100.`) }

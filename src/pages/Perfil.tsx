@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { db } from '@/services/storage/db'
 import { v4 as uuid } from 'uuid'
+import { prettyExId } from '@/utils/format'
 import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearance } from '@/utils/appearance'
 import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type NotifConfig, type NotifKind } from '@/services/notifications/scheduler'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
@@ -35,10 +36,6 @@ const NOTIF_TYPES: { kind: NotifKind | 'custom'; label: string; icon: React.Reac
 
 function getInitials(name: string) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
-}
-
-function prettyExId(id: string): string {
-  return id.split('/').pop()?.replace(/-/g, ' ') || id
 }
 
 const COACH_TONES: { id: string; label: string; desc: string }[] = [

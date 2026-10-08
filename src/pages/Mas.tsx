@@ -5,6 +5,7 @@ import { db } from '@/services/storage/db'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { unifiedAllCompletedSets } from '@/services/history'
 import { calculateExercisePRs } from '@/services/training/prs'
+import { prettyExId } from '@/utils/format'
 import { calcTMB, calcTDEE, calorieGoal, proteinRange, calcIMC } from '@/utils/nutrition'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
 import { AltheaCard, AltheaCardHeader, AltheaKPICard, AltheaBadge, AltheaLoading } from '@/components/althea'
@@ -29,10 +30,6 @@ interface MasStats {
   weightDiff?: number
   weekNumber?: number
   exerciseCount: number
-}
-
-function prettyExId(id: string): string {
-  return id.split('/').pop()?.replace(/-/g, ' ') || id
 }
 
 export default function Mas(){
