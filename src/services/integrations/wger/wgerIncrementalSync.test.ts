@@ -1,6 +1,6 @@
-// Tests de sincronizaciÃ³n incremental WGER.
+// Tests de sincronización incremental WGER.
 // Verifica: primera sync, segunda sync sin cambios, solo cambios posteriores,
-// mÃºltiples pÃ¡ginas, cursor, interrupciÃ³n, reanudaciÃ³n.
+// múltiples páginas, cursor, interrupción, reanudación.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { db } from '@/services/storage/db'
@@ -176,7 +176,7 @@ function setupRoutineMocks(routines: ReturnType<typeof mockRoutine>[]) {
   }
 }
 
-describe('WGER Sync â€” Primera sync', () => {
+describe('WGER Sync — Primera sync', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()
@@ -215,7 +215,7 @@ describe('WGER Sync â€” Primera sync', () => {
   })
 })
 
-describe('WGER Sync â€” Segunda sync sin cambios', () => {
+describe('WGER Sync — Segunda sync sin cambios', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()
@@ -250,7 +250,7 @@ describe('WGER Sync â€” Segunda sync sin cambios', () => {
   })
 })
 
-describe('WGER Sync â€” Solo cambios posteriores', () => {
+describe('WGER Sync — Solo cambios posteriores', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()
@@ -300,7 +300,7 @@ describe('WGER Sync â€” Solo cambios posteriores', () => {
   })
 })
 
-describe('WGER Sync â€” MÃºltiples pÃ¡ginas', () => {
+describe('WGER Sync — Múltiples páginas', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()
@@ -308,7 +308,7 @@ describe('WGER Sync â€” MÃºltiples pÃ¡ginas', () => {
     resetHealthStatus()
   })
 
-  it('fetchAllWgerPages obtiene todas las pÃ¡ginas', async () => {
+  it('fetchAllWgerPages obtiene todas las páginas', async () => {
     const page1 = {
       count: 4,
       next: 'https://wger.de/api/v2/routine/?limit=2&offset=2',
@@ -350,7 +350,7 @@ describe('WGER Sync â€” MÃºltiples pÃ¡ginas', () => {
       { limit: 2, maxPages: 3 }
     )
 
-    expect(all).toHaveLength(6) // 3 pÃ¡ginas Ã— 2 resultados
+    expect(all).toHaveLength(6) // 3 páginas × 2 resultados
   })
 
   it('fetchAllWgerPages se detiene con AbortSignal', async () => {
@@ -375,7 +375,7 @@ describe('WGER Sync â€” MÃºltiples pÃ¡ginas', () => {
   })
 })
 
-describe('WGER Sync â€” Cursor', () => {
+describe('WGER Sync — Cursor', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()
@@ -383,7 +383,7 @@ describe('WGER Sync â€” Cursor', () => {
     resetHealthStatus()
   })
 
-  it('syncIncremental usa cursor basado en Ãºltima sync', async () => {
+  it('syncIncremental usa cursor basado en última sync', async () => {
     setupRoutineMocks([mockRoutine(1, 'Routine A')])
 
     // Primera sync
@@ -406,7 +406,7 @@ describe('WGER Sync â€” Cursor', () => {
   })
 })
 
-describe('WGER Sync â€” InterrupciÃ³n y reanudaciÃ³n', () => {
+describe('WGER Sync — Interrupción y reanudación', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()
@@ -432,12 +432,12 @@ describe('WGER Sync â€” InterrupciÃ³n y reanudaciÃ³n', () => {
       signal: controller.signal,
     })
 
-    // Debe manejar la interrupciÃ³n gracefully
+    // Debe manejar la interrupción gracefully
     expect(result).toBeDefined()
   })
 
   it('operaciones pendientes se pueden reanudar', async () => {
-    // Crear operaciÃ³n pendiente manualmente
+    // Crear operación pendiente manualmente
     const opId = await enqueueOperation({
       operation: 'create',
       entityType: 'routine',

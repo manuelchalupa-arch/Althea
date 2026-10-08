@@ -37,8 +37,8 @@ type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:nu
 export default function Entrenar(){
   const today = todayKey()
 
-  // Guarda anti reinicializaciÃƒÂ³n: la carga solo inicializa ante sesiÃƒÂ³n
-  // distinta o ejercicios vacÃƒÂ­os. Navegar/editar NO resetea current.
+  // Guarda anti reinicialización: la carga solo inicializa ante sesión
+  // distinta o ejercicios vacíos. Navegar/editar NO resetea current.
   // Refs (no estado) para que los callbacks sean estables entre renders.
   const initSessionRef = useRef<string | null>(null)
   const exsRef = useRef<SessionEx[]>([])
@@ -54,7 +54,7 @@ export default function Entrenar(){
     if (seList.length === 0) { return }
     setSessionExercises(seList)
     // Se registra ANTES de inicializar ejercicios: la tabla no puede quedar
-    // interactiva sin sessionExerciseId (OK se perderÃƒÂ­a en silencio).
+    // interactiva sin sessionExerciseId (OK se perdería en silencio).
     setSeIdByIndex(Object.fromEntries(seList.map((se, i) => [i, se.sessionExerciseId])) as Record<number, string>)
     const { db } = await import('@/services/storage/db')
     let meta: Record<string, { name: string; muscle?: string; gifUrl?: string; imageDataUrl?: string }> = {}
@@ -108,7 +108,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       })
     await init(exercises, seList)
     initSessionRef.current = storeS.sessionId
-    // Recupera el ÃƒÂºltimo ÃƒÂ­ndice persistido (reload/offline) en vez de volver a 0.
+    // Recupera el último índice persistido (reload/offline) en vez de volver a 0.
     if (typeof storeS.currentExerciseIndex === 'number' && setCurrentRef.current) {
       setCurrentRef.current(storeS.currentExerciseIndex)
     }
@@ -211,7 +211,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   
   const [painAns,setPainAns]=useState('')
   const [safetyAlert,setSafetyAlert]=useState<{severity:'info'|'warning'|'critical'; message:string; referral?:string}|null>(null)
-  // Estados para FINALIZAR ENTRENAMIENTO + mÃƒÂ¡quina de estados
+  // Estados para FINALIZAR ENTRENAMIENTO + máquina de estados
   const [showFinishModal,setShowFinishModal]=useState(false)
   
   const finishingAt=useRef(0)
@@ -229,8 +229,8 @@ const exercises: SessionEx[] = seList.map((se) => {
   const [,setSessionExercises]=useState<SessionExercise[]>([])
   const [seIdByIndex,setSeIdByIndex]=useState<Record<number,string>>({})
   const [readyPlan,setReadyPlan]=useState<null | { sessionId: string|null; routineName: string; plannedDayN: number|null; plannedName: string; actualDayN: number|null; actualName: string; reason?: string; comment?: string; isResume: boolean; pending?: { routineId: string; exercises: Array<{exId:string;name:string;sets:number;reps:number;weight:number|null;muscle?:string;gifUrl?:string;plannedSets?:Array<{order:number;reps:number;weight:number|null}>}>; weekNumber: number } }>(null)
-  // (D) /entrenar NO crea sesiones: sin sesiÃƒÂ³n activa se redirige a Inicio
-  // (ÃƒÂºnico punto de creaciÃƒÂ³n, Ã‚Â§fuente de verdad TrainingSession).
+  // (D) /entrenar NO crea sesiones: sin sesión activa se redirige a Inicio
+  // (único punto de creación, §fuente de verdad TrainingSession).
   const [redirectHome, setRedirectHome] = useState(false)
   const [showCancel,setShowCancel]=useState(false)
   const [cancelReason,setCancelReason]=useState('')
@@ -281,7 +281,7 @@ const exercises: SessionEx[] = seList.map((se) => {
  setSessionStatus(active.sessionStatus)
  setRutinaName(active.routineName || 'Rutina')
  setRoutineId(active.routineId)
- setDayName(active.actualDayName || (active.actualDay !== null && active.actualDay !== undefined ? `DÃƒÂ­a NÃ‚Â°${active.actualDay}` : 'Descanso'))
+ setDayName(active.actualDayName || (active.actualDay !== null && active.actualDay !== undefined ? `Día N°${active.actualDay}` : 'Descanso'))
  setPlannedDayN(active.plannedDay)
  setActualDayN(active.actualDay)
  setPlannedName(active.plannedDayName || '')
@@ -293,7 +293,7 @@ const exercises: SessionEx[] = seList.map((se) => {
             return
           }
         } else {
-          // Sesion sin ejercicios en DB Ã¢â€ â€™ limpiar y caer al plan de rutina.
+          // Sesion sin ejercicios en DB → limpiar y caer al plan de rutina.
           const { clearActiveSession } = await import('@/services/training/sessionStore')
           clearActiveSession()
         }
@@ -306,18 +306,18 @@ const exercises: SessionEx[] = seList.map((se) => {
         const seList = await getSessionExercises(active.sessionId).catch(() => [])
         setResumeBanner({ sessionId: active.sessionId, calendarDate: active.calendarDate, routineName: active.routineName || 'Rutina', dayName: active.actualDayName || '', status: active.sessionStatus, exerciseCount: seList.length } as never)
       }
-      // (D) Sin sesiÃƒÂ³n activa /entrenar NO crea nada: se limpia el espejo legacy
-      // (hoy solo vivo en localStorage) y se vuelve a Inicio, ÃƒÂºnico punto de
-      // creaciÃƒÂ³n de sesiones. Si hay sesiÃƒÂ³n activa de otra fecha ya se seteÃƒÂ³ el
-      // banner de reanudaciÃƒÂ³n arriba.
+      // (D) Sin sesión activa /entrenar NO crea nada: se limpia el espejo legacy
+      // (hoy solo vivo en localStorage) y se vuelve a Inicio, único punto de
+      // creación de sesiones. Si hay sesión activa de otra fecha ya se seteó el
+      // banner de reanudación arriba.
       try { localStorage.removeItem(`session:active:${today}`) } catch { /* noop */ }
       if (hasCrossDateSession) { setExs([]); return }
       setRedirectHome(true)
   }
 
-  // carga inicial + escucha cambios de dÃƒÂ­a desde Inicio
+  // carga inicial + escucha cambios de día desde Inicio
   // `load` se recrea en cada render: el efecto (y sus listeners) llaman siempre
-  // a la versiÃƒÂ³n mÃƒÂ¡s reciente vÃƒÂ­a ref, sin re-ejecutar el efecto por eso.
+  // a la versión más reciente vía ref, sin re-ejecutar el efecto por eso.
   const loadRef = useRef(load)
   loadRef.current = load
   useEffect(()=>{
@@ -339,7 +339,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   const cur = exs[current]
   const curExId = cur?.exId
 
-  // ÃƒÅ¡ltima ejecuciÃƒÂ³n real del ejercicio actual (solo lectura del historial; sin duplicar estado).
+  // Última ejecución real del ejercicio actual (solo lectura del historial; sin duplicar estado).
   useEffect(()=>{
     let alive = true
     setLastExec(null)
@@ -379,18 +379,18 @@ const exercises: SessionEx[] = seList.map((se) => {
   const completedSets = Object.keys(logs).reduce((sum, k) => sum + (logs[Number(k)] || []).filter((s: unknown) => !!s && (s as { status?: string }).status === 'COMPLETED').length, 0)
   const totalSets = exs.reduce((sum, ex) => sum + (ex.plannedSets ?? ex.sets), 0)
   const defaultRest = methodIdRef.current ? (getMethod(methodIdRef.current)?.defaults.restSeconds ?? 90) : 90
-  // Descanso REAL del ejercicio: si la rutina definiÃƒÂ³ uno, manda sobre el default del mÃƒÂ©todo.
+  // Descanso REAL del ejercicio: si la rutina definió uno, manda sobre el default del método.
   const restForExercise = (cur?.restSec && cur.restSec > 0) ? cur.restSec : defaultRest
   const doneInCur = (logs[current] || []).filter((l: unknown) => !!l && (l as { status?: string }).status === 'COMPLETED').length
 
-  // NavegaciÃƒÂ³n entre ejercicios: solo cambia el ÃƒÂ­ndice visible, persiste la
-  // posiciÃƒÂ³n en la sesiÃƒÂ³n (reload/offline la recupera) y actualiza el coach.
-  // Nunca reconstruye la sesiÃƒÂ³n ni toca series.
+  // Navegación entre ejercicios: solo cambia el índice visible, persiste la
+  // posición en la sesión (reload/offline la recupera) y actualiza el coach.
+  // Nunca reconstruye la sesión ni toca series.
   // BLOQUEO: no se puede avanzar hacia adelante si hay un descanso activo.
   const goToExercise = (nextIdx:number)=>{
     if(nextIdx<0 || nextIdx>=exs.length) {return}
     const forward = nextIdx>current
-    // Si hay descanso activo, bloquear navegaciÃƒÂ³n hacia adelante
+    // Si hay descanso activo, bloquear navegación hacia adelante
     if(forward && restSec > 0) {return}
     setCurrent(nextIdx)
     nextCoach(nextIdx)
@@ -408,14 +408,14 @@ const exercises: SessionEx[] = seList.map((se) => {
     const { unifiedCompletedSets } = await import('@/services/history')
     const hist = (await unifiedCompletedSets(nxt.exId)).slice(-3)
     if(hist.length===0){
-      setCoach({ reason:`Primera vez con ${nxt.name}. Empezamos conservador con ${nxt.weight ?? 0}kg y vemos cÃƒÂ³mo respondÃƒÂ©s.`, suggested_weight: nxt.weight ?? undefined, isQuestion:false })
+      setCoach({ reason:`Primera vez con ${nxt.name}. Empezamos conservador con ${nxt.weight ?? 0}kg y vemos cómo respondés.`, suggested_weight: nxt.weight ?? undefined, isQuestion:false })
     } else {
       const ctx:any = await buildTrainingContext(nxt.exId, nxt.name)
       // fatiga acumulada
       const totalDone = Object.keys(done).length
       ctx.fatiga = totalDone>=2 ? 'moderada' : ctx.fatiga
       const { aiService } = await import('@/services/ai/aiService')
-      const rec = await aiService.generateRecommendation(ctx).catch(()=> ({reason:`Vamos con ${nxt.weight ?? 0}kg Ãƒâ€” ${nxt.reps}.`, suggested_weight: nxt.weight ?? undefined}))
+      const rec = await aiService.generateRecommendation(ctx).catch(()=> ({reason:`Vamos con ${nxt.weight ?? 0}kg × ${nxt.reps}.`, suggested_weight: nxt.weight ?? undefined}))
       setCoach(rec)
     }
   }
@@ -423,10 +423,10 @@ const exercises: SessionEx[] = seList.map((se) => {
   const handleSetDone = async (setIdx:number, w:number|null, r:number, neg?:{reps:number; weight:number}, obs?:string, loadText?:string)=>{
     if(!cur || !session) {return}
     const seId = seIdByIndex[current] || cur.seId
-    if(!seId) { setFinishError('Sin SessionExercise para este ejercicio: recargÃƒÂ¡ la pestaÃƒÂ±a.'); return }
+    if(!seId) { setFinishError('Sin SessionExercise para este ejercicio: recargá la pestaña.'); return }
     const { confirmSetRecord, saveNegatives, saveExerciseObservation, updateSession, getSetRecords } = await import('@/services/training/sessionStore')
     const { resolveSetType } = await import('@/services/training/setPlanner')
-    // Primera confirmaciÃƒÂ³n de la sesiÃƒÂ³n: READY Ã¢â€ â€™ IN_PROGRESS (la mÃƒÂ¡quina de
+    // Primera confirmación de la sesión: READY → IN_PROGRESS (la máquina de
     // estados exige pasar por IN_PROGRESS antes de cualquier avance).
     if(sessionStatusRef.current === 'READY'){
       try{
@@ -436,19 +436,19 @@ const exercises: SessionEx[] = seList.map((se) => {
     }
     // Tipo de serie de ESTA serie: el plan por serie es la fuente de verdad;
     // si no lo define, se usa el tipo planificado del ejercicio en la rutina.
-    // Nunca se sobrescribe a NORMAL un plan de pirÃƒÂ¡mide/descenso.
+    // Nunca se sobrescribe a NORMAL un plan de pirámide/descenso.
     const setType = cur.plannedSetValues?.[setIdx]?.setType ?? resolveSetType(cur.seriesType)
-    // Peso vacÃƒÂ­o Ã¢â€ â€™ null real. Nunca ""Ã¢â€ â€™0 ni Number("")Ã¢â€ â€™0.
+    // Peso vacío → null real. Nunca ""→0 ni Number("")→0.
     const weightOrNull = w === undefined ? null : w
-    // upsert idempotente por setRecordId: recargar nunca duplica (Ã‚Â§18)
+    // upsert idempotente por setRecordId: recargar nunca duplica (§18)
     await confirmSetRecord({
       sessionId: session.sessionId, sessionExerciseId: seId, exerciseId: cur.exId,
       order: setIdx + 1, actualReps: r, actualWeight: weightOrNull, setType, observation: obs || undefined,
       // Valor + unidad originales tipeados (ej: "45 lb"): loadModel hace la
-      // conversiÃƒÂ³n y aquÃƒÂ­ se conserva la entrada tal cual.
+      // conversión y aquí se conserva la entrada tal cual.
       actualLoadText: loadText,
     })
-    // negativas: solo existen si el usuario las registra; una por ejercicio (Ã‚Â§27)
+    // negativas: solo existen si el usuario las registra; una por ejercicio (§27)
     if(neg && (Number(neg.reps) > 0 || Number(neg.weight) > 0)){
       const existing = await db.negativeSets.where('sessionExerciseId').equals(seId).toArray().catch(()=>[])
       if(existing.length===0){
@@ -488,7 +488,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       setDone({...done, [current]: true})
       saveDecision({ date: today, type:'accept', exercise: cur.name, reason: coach?.reason, contextSnapshot:{weight:weightOrNull,reps:r}})
       try{ if(navigator.vibrate) {navigator.vibrate(12)} }catch{ /* noop */ }
-      // Iniciar descanso obligatorio al completar la serie (si no es el ÃƒÂºltimo ejercicio)
+      // Iniciar descanso obligatorio al completar la serie (si no es el último ejercicio)
       if(current < exs.length - 1) {
         startRest(restForExercise)
       }
@@ -607,7 +607,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           const mapped = subResult.alternatives.map(a => ({
             exercise: { ...a.exercise, gifUrl: a.exercise.gifUrl || '' } as Gym.Exercise,
             score: a.score,
-            factors: [{ key:'reason', label:'RazÃƒÂ³n', detail:a.reason, state:'match' as const }],
+            factors: [{ key:'reason', label:'Razón', detail:a.reason, state:'match' as const }],
             sharedMuscles: 1,
             sameEquipment: true,
             historyCount: 0,
@@ -624,9 +624,9 @@ const exercises: SessionEx[] = seList.map((se) => {
     if(!cur || !session) {return}
     const seId = seIdByIndex[current]
     if(!seId) {return}
-    const reason = swapReason || 'Cambio durante la sesiÃƒÂ³n'
+    const reason = swapReason || 'Cambio durante la sesión'
     const { replaceSessionExercise } = await import('@/services/training/sessionStore')
-    // historial separado: el original conserva el suyo; el nuevo muestra el propio (Ã‚Â§23)
+    // historial separado: el original conserva el suyo; el nuevo muestra el propio (§23)
     await replaceSessionExercise(seId, newEx.id, reason, swapComment || undefined, newEx.name)
     saveDecision({ date: today, type:'swap', exercise: cur.name, reason:`Cambiado a ${newEx.name}: ${reason}`, contextSnapshot:{ from:cur.exId, to:newEx.id }})
     setExs(prev=> prev.map((ex,i)=> i===current ? { ...ex, exId: newEx.id, name: newEx.name, muscle: newEx.muscle, gifUrl: newEx.gifUrl, swappedFrom: cur.exId, replaced: true, plannedSets: ex.plannedSets ?? ex.sets, seId } : ex ))
@@ -648,7 +648,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     const seId = seIdByIndex[current]
     if (!seId) {return}
 
-    const reason = variantContext?.reason === 'pain' ? 'Molestia / dolor' : 'Cambio durante la sesiÃƒÂ³n'
+    const reason = variantContext?.reason === 'pain' ? 'Molestia / dolor' : 'Cambio durante la sesión'
     const { replaceSessionExercise } = await import('@/services/training/sessionStore')
     await replaceSessionExercise(seIdByIndex[current], variant.exerciseId, reason, `Variante seleccionada: ${variant.name} (${variant.reason})`, variant.name)
 
@@ -693,7 +693,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   const confirmSkip = async ()=>{
     if(!cur || !session) {return}
     const seId = seIdByIndex[current]
-    const reason = skipReason.trim() || 'DecidÃƒÂ­ no realizarlo'
+    const reason = skipReason.trim() || 'Decidí no realizarlo'
     if(seId){
       const { skipSessionExercise } = await import('@/services/training/sessionStore')
       await skipSessionExercise(seId, reason, undefined).catch(()=>null)
@@ -791,10 +791,10 @@ const exercises: SessionEx[] = seList.map((se) => {
         if(days.length>=2){
           const avg = days.reduce((a,d)=>a+byDay[d],0)/days.length
           const todaySets = exs.reduce((a,ex,i)=> a + (((ex.muscle||'general').toLowerCase()===m) ? (logs[i]||[]).filter((s) => !!s && (s as { status?: string }).status === 'COMPLETED').length : 0), 0)
-          if(todaySets > avg*1.5) {alerts.push(`Volumen elevado en ${m}: ${todaySets} series hoy vs prom. ${avg.toFixed(1)} por sesiÃƒÂ³n.`)}
+          if(todaySets > avg*1.5) {alerts.push(`Volumen elevado en ${m}: ${todaySets} series hoy vs prom. ${avg.toFixed(1)} por sesión.`)}
           const lastDay = days[days.length-1]
           const gapDays = daysBetween(lastDay, today)
-          if(gapDays<=1) {alerts.push(`Frecuencia alta en ${m}: ÃƒÂºltima sesiÃƒÂ³n ${lastDay} (hace ${gapDays} dÃƒÂ­a(s)).`)}
+          if(gapDays<=1) {alerts.push(`Frecuencia alta en ${m}: última sesión ${lastDay} (hace ${gapDays} día(s)).`)}
         }
       }
       // progreso por ejercicio vs ultima ejecucion real (excluye hoy)
@@ -809,8 +809,8 @@ const exercises: SessionEx[] = seList.map((se) => {
               const lw = Number(last.sets[0]?.weight||0), lr = Number(last.sets[0]?.reps||0)
               const cw = Number(arr[0]?.weight ?? arr[0]?.actualWeight ?? 0), cr = Number(arr[0]?.reps ?? arr[0]?.actualReps ?? 0)
               const dw = Math.round((cw-lw)*10)/10, dr = cr-lr
-              prog[ex.exId] = `ÃƒÅ¡ltima vez ${last.date}: ${lr}x${lw}kg Ã¢â€ â€™ hoy ${cr}x${cw}kg (${dr>=0?'+':''}${dr} reps, ${dw>=0?'+':''}${dw} kg)`
-            } else {prog[ex.exId] = `ÃƒÅ¡ltima vez ${last.date}: ${last.sets[0]?.reps}x${last.sets[0]?.weight}kg`}
+              prog[ex.exId] = `Última vez ${last.date}: ${lr}x${lw}kg → hoy ${cr}x${cw}kg (${dr>=0?'+':''}${dr} reps, ${dw>=0?'+':''}${dw} kg)`
+            } else {prog[ex.exId] = `Última vez ${last.date}: ${last.sets[0]?.reps}x${last.sets[0]?.weight}kg`}
           } else if(!last) {prog[ex.exId] = 'Sin registros anteriores.'}
         }catch{}
       }
@@ -833,7 +833,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   }
 
   // Cierre atomico COMPLETING -> COMPLETED/PARTIAL. Si falla el guardado NO finaliza.
-  // Cierre atomico COMPLETING -> COMPLETED/PARTIAL (Ã‚Â§17: si falla, queda COMPLETING y reintentable).
+  // Cierre atomico COMPLETING -> COMPLETED/PARTIAL (§17: si falla, queda COMPLETING y reintentable).
   const confirmFinish = async () => {
     if(isSaving) {return}
     setIsSaving(true)
@@ -849,7 +849,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       }
       if(!sess){
         // Recuperacion: crea la sesion desde lo visible para no perder el trabajo
-        if(!routineId || exs.length===0) {throw new Error('Sin sesiÃƒÂ³n activa: recargÃƒÂ¡ la pestaÃƒÂ±a Entrenamiento antes de finalizar.')}
+        if(!routineId || exs.length===0) {throw new Error('Sin sesión activa: recargá la pestaña Entrenamiento antes de finalizar.')}
         const created = await store.createSession({ routineId, routineName: rutinaName||'Rutina', plannedDay: plannedDayN, plannedDayName: plannedName||null, actualDay: actualDayN, actualDayName: dayName||null, calendarDate: today, weekNumber, plannedExercises: exs.map(x=>({exId:x.exId,name:x.name,sets:x.plannedSets??x.sets,reps:x.reps,weight:x.weight,muscle:x.muscle,gifUrl:x.gifUrl, plannedSets: x.plannedSetValues?.map((p,k)=>({ order: p.order ?? (k+1), reps: p.reps, weight: p.weight ?? null }))})) })
         sess = await store.transitionSession(created.sessionId,'IN_PROGRESS')
         setSession(sess); setSessionId(sess.sessionId)
@@ -859,7 +859,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       if(fresh0 && (fresh0.sessionStatus==='IN_PROGRESS'||fresh0.sessionStatus==='PAUSED'||fresh0.sessionStatus==='READY')){
         sess = await store.transitionSession(sess.sessionId,'COMPLETING'); setSession(sess); setSessionStatus('COMPLETING')
       } else if(fresh0 && fresh0.sessionStatus!=='COMPLETING'){
-        throw new Error(`La sesiÃƒÂ³n estÃƒÂ¡ en estado ${fresh0.sessionStatus}: no se puede finalizar desde ahÃƒÂ­.`)
+        throw new Error(`La sesión está en estado ${fresh0.sessionStatus}: no se puede finalizar desde ahí.`)
       }
       const seList = await store.getSessionExercises(sess.sessionId)
       const allSets: import('@/services/training/domain').SetRecord[] = []
@@ -869,7 +869,7 @@ const exercises: SessionEx[] = seList.map((se) => {
         const pr = pendingReasons[i]
         if(!pr || !pr.reason){ setFinishError(`Falta motivo para "${exs[i]?.name || 'ejercicio'}".`); setIsSaving(false); return }
       }
-      // pendientes declarados -> SKIPPED con motivo (conserva series hechas, Ã‚Â§6)
+      // pendientes declarados -> SKIPPED con motivo (conserva series hechas, §6)
       for(const i of s.pendingIdx){
         const seId = seIdByIndex[i]
         const pr = pendingReasons[i]
@@ -888,7 +888,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       const surveyErrs = validateSurvey(surveyInput)
       if(surveyErrs.length>0){ setFinishError('Encuesta incompleta: ' + surveyErrs.join(', ')); setIsSaving(false); return }
       const status = (s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'COMPLETED' : 'PARTIAL'
-      // 1) encuesta primero (fuente ÃƒÂºnica PostWorkoutSurvey)
+      // 1) encuesta primero (fuente única PostWorkoutSurvey)
       const survey = await store.saveSurvey(surveyInput)
       // 2) contadores recalculados desde registros (no de la vista)
       const { completionOf, volumeOf } = await import('@/services/training/metrics')
@@ -911,10 +911,10 @@ const exercises: SessionEx[] = seList.map((se) => {
         surveyId: survey.surveyId,
         dayChange: (changed?.changeReason || sess.dayChange?.reason) ? { reason: changed?.changeReason || sess.dayChange?.reason || '', comment: changed?.changeComment ?? sess.dayChange?.comment, at: new Date().toISOString() } : sess.dayChange,
       })
-      // 3) Tanner: regla Ã‚Â§12 antes de transicionar
+      // 3) Tanner: regla §12 antes de transicionar
       const { validateBeforeFinish } = await import('@/services/training/domain')
       const cur = await store.getSession(sess.sessionId)
-      if(!cur) {throw new Error('La sesiÃƒÂ³n desapareciÃƒÂ³ del almacÃƒÂ©n.')}
+      if(!cur) {throw new Error('La sesión desapareció del almacén.')}
       if(!cur.startedAt){
         cur.startedAt = sess.startedAt || cur.createdAt || new Date().toISOString()
         await db.trainingSessions.update(cur.sessionId, { startedAt: cur.startedAt }).catch(()=>{})
@@ -937,7 +937,7 @@ const exercises: SessionEx[] = seList.map((se) => {
         cur.startedAt = new Date().toISOString()
         await db.trainingSessions.update(cur.sessionId, { startedAt: cur.startedAt }).catch(()=>{})
       }
-      // 4) transicion final + semana + memoria (si algo falla acÃƒÂ¡, el catch mantiene COMPLETING)
+      // 4) transicion final + semana + memoria (si algo falla acá, el catch mantiene COMPLETING)
       await store.transitionSession(sess.sessionId, finalStatus)
       try{
         const seqId = `seq-${routineId}-w${weekNumber}`
@@ -948,7 +948,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       }catch{ /* noop */ }
       try{ await db.coachMemory.put({ id: `obs-${today}`, type: 'observation', date: today, sessionId: sess.sessionId, sessionStatus: status, routineName: rutinaName }) }catch{ /* noop */ }
       for(const ex of exs){ try{ localStorage.removeItem(`exstate:${today}:${ex.exId}`) }catch{ /* noop */ } }
-      // Sin espejo althea:result Ã¢â‚¬â€ ResultPanel deriva todo desde Dexie.
+      // Sin espejo althea:result — ResultPanel deriva todo desde Dexie.
       try{ if(navigator.vibrate) {navigator.vibrate([20,40,20])} }catch{ /* noop */ }
       localStorage.removeItem(`session:active:${today}`)
       try{
@@ -958,16 +958,16 @@ const exercises: SessionEx[] = seList.map((se) => {
       setSessionStatus(status)
       setShowFinishModal(false)
       setIsSaving(false)
-      saveDecision({ date: today, type: status==='COMPLETED'?'accept':'skip', exercise: `SesiÃƒÂ³n ${rutinaName}`, reason: `Finalizada ${status} Ã¢â‚¬â€ Ej ${s.completedEx}/${s.plannedEx} (${s.exPct}%), Series ${s.completedSets}/${s.plannedSets} (${s.setPct}%)`, contextSnapshot:{} })
-    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'Error al guardar. ReintentÃƒÂ¡ sin perder datos.'); setIsSaving(false) }
+      saveDecision({ date: today, type: status==='COMPLETED'?'accept':'skip', exercise: `Sesión ${rutinaName}`, reason: `Finalizada ${status} — Ej ${s.completedEx}/${s.plannedEx} (${s.exPct}%), Series ${s.completedSets}/${s.plannedSets} (${s.setPct}%)`, contextSnapshot:{} })
+    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'Error al guardar. Reintentá sin perder datos.'); setIsSaving(false) }
   }
 
   const localAdoptResumeSession = async (sess: { sessionId: string }, andFinish: boolean) => {
-    // ReanudaciÃƒÂ³n EXCLUSIVA por sessionId (Ã‚Â§11). Misma sesiÃƒÂ³n, sin duplicar.
+    // Reanudación EXCLUSIVA por sessionId (§11). Misma sesión, sin duplicar.
     try{
       const store = await import('@/services/training/sessionStore')
       const full = await store.getSession(sess.sessionId)
-      if(!full){ setFinishError('La sesiÃƒÂ³n a retomar ya no existe.'); return }
+      if(!full){ setFinishError('La sesión a retomar ya no existe.'); return }
       if(full.sessionStatus==='PAUSED') {await store.transitionSession(full.sessionId, 'IN_PROGRESS')}
       setResumeBanner(null)
       const fresh = await store.getSession(sess.sessionId)
@@ -976,7 +976,7 @@ const exercises: SessionEx[] = seList.map((se) => {
         setSessionStatus(fresh.sessionStatus)
         setRutinaName(fresh.routineName || 'Rutina')
         setRoutineId(fresh.routineId)
-        setDayName(fresh.actualDayName || (fresh.actualDay !== null && fresh.actualDay !== undefined ? `DÃƒÂ­a NÃ‚Â°${fresh.actualDay}` : 'Descanso'))
+        setDayName(fresh.actualDayName || (fresh.actualDay !== null && fresh.actualDay !== undefined ? `Día N°${fresh.actualDay}` : 'Descanso'))
         setPlannedDayN(fresh.plannedDay)
         setActualDayN(fresh.actualDay)
         setPlannedName(fresh.plannedDayName || '')
@@ -984,8 +984,8 @@ const exercises: SessionEx[] = seList.map((se) => {
         setSessionStartTime(fresh.startedAt || fresh.createdAt)
         setSessionId(fresh.sessionId)
         setSessionStatus(fresh.sessionStatus)
-        // Reanudar DEBE hidratar ejercicios/series/OK: sin esto exs queda vacÃƒÂ­a
-        // y la pantalla adoptada no serÃƒÂ­a operativa (seIdByIndex vacÃƒÂ­o = OK perdido).
+        // Reanudar DEBE hidratar ejercicios/series/OK: sin esto exs queda vacía
+        // y la pantalla adoptada no sería operativa (seIdByIndex vacío = OK perdido).
         await handleSessionLoaded(fresh as { sessionId: string; currentExerciseIndex?: number | null })
       }
       try{
@@ -994,7 +994,7 @@ const exercises: SessionEx[] = seList.map((se) => {
         if(cur) {await saveActiveSession({ sessionId: cur.sessionId, calendarDate: cur.calendarDate, routineId: cur.routineId, routineName: cur.routineName || '', plannedDay: cur.plannedDay, plannedDayName: cur.plannedDayName, actualDay: cur.actualDay, actualDayName: cur.actualDayName, plannedMuscleGroups: [], actualMuscleGroups: [], exercises: [], sessionStatus: cur.sessionStatus, statusHistory: [], createdAt: cur.createdAt, updatedAt: cur.updatedAt } as ActiveSession)}
       }catch{ /* noop */ }
       if(andFinish) {setTimeout(()=> openFinishModal(), 400)}
-    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'No se pudo retomar la sesiÃƒÂ³n.') }
+    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'No se pudo retomar la sesión.') }
   }
 
   const localAbandonResume = async () => {
@@ -1002,7 +1002,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   }
 
   const confirmAbandon = async () => {
-    if(!abandonReason.trim()){ setFinishError('IndicÃƒÂ¡ el motivo del abandono.'); return }
+    if(!abandonReason.trim()){ setFinishError('Indicá el motivo del abandono.'); return }
     try{
       const store = await import('@/services/training/sessionStore')
       const targetId = resumeBanner?.sessionId || session?.sessionId
@@ -1018,13 +1018,13 @@ const exercises: SessionEx[] = seList.map((se) => {
       setSession(null); setSessionId(''); setSessionStatus('ABANDONED')
       setExs([]); setDone({}); setSkipped({}); setLogs({})
       setRedirectHome(true)
-    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'No se pudo abandonar la sesiÃƒÂ³n.') }
+    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'No se pudo abandonar la sesión.') }
   }
 
   const openCancelModal = () => { setCancelReason(''); setCancelComment(''); setShowCancel(true) }
 
   const confirmCancel = async () => {
-    if(!cancelReason.trim()){ setFinishError('IndicÃƒÂ¡ el motivo de la cancelaciÃƒÂ³n.'); return }
+    if(!cancelReason.trim()){ setFinishError('Indicá el motivo de la cancelación.'); return }
     try{
       const store = await import('@/services/training/sessionStore')
       const targetId = session?.sessionId || readyPlan?.sessionId || null
@@ -1042,7 +1042,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       setSession(null); setSessionId(''); setSessionStatus('CANCELLED'); setReadyPlan(null)
       setExs([]); setDone({}); setSkipped({}); setLogs({})
       setRedirectHome(true)
-    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'No se pudo cancelar la sesiÃƒÂ³n.') }
+    }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'No se pudo cancelar la sesión.') }
   }
 
   const togglePause = async () => {
@@ -1090,7 +1090,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     }
   }
 
-  // Agregar serie extra a la sesiÃƒÂ³n (la rutina no cambia, Ã‚Â§24).
+  // Agregar serie extra a la sesión (la rutina no cambia, §24).
   const addSetRow = async () => {
     if(!session || !cur) {return}
     const seId = seIdByIndex[current]
@@ -1101,7 +1101,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     setDone((p)=>{ const n={...p}; delete n[current]; return n })
   }
 
-  // Agregar ejercicio EXTRA (no planificado, Ã‚Â§22): picker del mismo grupo + motivo.
+  // Agregar ejercicio EXTRA (no planificado, §22): picker del mismo grupo + motivo.
   const openAddExtra = async () => {
     if(!cur) {return}
     setAddExReason(''); setAddExComment('')
@@ -1117,7 +1117,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
   const confirmAddExtra = async (opt: Gym.Exercise) => {
     if(!session) {return}
-    if(!addExReason.trim()){ setFinishError('IndicÃƒÂ¡ el motivo del ejercicio extra.'); return }
+    if(!addExReason.trim()){ setFinishError('Indicá el motivo del ejercicio extra.'); return }
     const { addExtraExercise, logEvent } = await import('@/services/training/sessionStore')
     const methodDef = methodIdRef.current ? getMethod(methodIdRef.current)?.defaults : undefined
     const exSets = methodDef?.setsPerExercise ?? 3
@@ -1131,21 +1131,21 @@ const exercises: SessionEx[] = seList.map((se) => {
     setAddExReason(''); setAddExComment('')
   }
 
-  // (D) Fuente de verdad = sesiÃƒÂ³n activa. Sin sesiÃƒÂ³n activa, /entrenar no
-  // ofrece creaciÃƒÂ³n (ÃƒÂºnico punto: Inicio) y redirige a Inicio. ExcepciÃƒÂ³n: si ya
+  // (D) Fuente de verdad = sesión activa. Sin sesión activa, /entrenar no
+  // ofrece creación (único punto: Inicio) y redirige a Inicio. Excepción: si ya
   // hay un resultado (COMPLETED/PARTIAL/CANCELLED) se conserva la pantalla.
   const showsResult = sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL'
   if(redirectHome && !showsResult){ return <Navigate to="/inicio" replace /> }
 
-  // ReanudaciÃƒÂ³n: sesiÃƒÂ³n ACTIVA de otra fecha (continuar / finalizar / abandonar).
+  // Reanudación: sesión ACTIVA de otra fecha (continuar / finalizar / abandonar).
   if(resumeBanner && !session){
     return (
       <div className="min-h-screen bg-transparent pb-24">
         <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
-          <div className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">ENTRENAR Ã‚Â· REANUDAR</div>
+          <div className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">ENTRENAR · REANUDAR</div>
           <div className="rounded-xl bg-secondary-container/20 border border-secondary/30 p-4 space-y-2">
-            <div className="font-body-md text-[15px] text-on-surface font-medium">TenÃƒÂ©s un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
-            <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} Ã¢â‚¬â€ {resumeBanner.dayName} Ã‚Â· estado {resumeBanner.status} Ã‚Â· {resumeBanner.exerciseCount} ejercicios</div>
+            <div className="font-body-md text-[15px] text-on-surface font-medium">Tenés un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
+            <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} — {resumeBanner.dayName} · estado {resumeBanner.status} · {resumeBanner.exerciseCount} ejercicios</div>
             <div className="flex gap-2">
               <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Continuar</button>
               <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[48px] py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Finalizar</button>
@@ -1157,7 +1157,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     )
   }
 
-  if(exs.length===0) {return <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto"><p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios. CambiÃƒÂ¡ el dÃƒÂ­a en Inicio.</p></div>}
+  if(exs.length===0) {return <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto"><p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios. Cambiá el día en Inicio.</p></div>}
   if(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') {return (
     <div className="min-h-screen bg-transparent pb-24">
       <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
@@ -1171,8 +1171,8 @@ const exercises: SessionEx[] = seList.map((se) => {
         {/* Resume Banner */}
         {resumeBanner && (
           <div className="rounded-xl bg-secondary-container/20 border border-secondary/30 p-4 space-y-2">
-            <div className="font-body-md text-[15px] text-on-surface font-medium">TenÃƒÂ©s un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
-            <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} Ã¢â‚¬â€ {resumeBanner.dayName} Ã‚Â· estado {resumeBanner.status} Ã‚Â· {resumeBanner.exerciseCount} ejercicios</div>
+            <div className="font-body-md text-[15px] text-on-surface font-medium">Tenés un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
+            <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} — {resumeBanner.dayName} · estado {resumeBanner.status} · {resumeBanner.exerciseCount} ejercicios</div>
             <div className="flex gap-2">
               <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Continuar</button>
               <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[48px] py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Finalizar</button>
@@ -1187,7 +1187,7 @@ const exercises: SessionEx[] = seList.map((se) => {
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <span className="px-2.5 py-0.5 rounded-lg bg-secondary-container/40 border border-secondary/40 text-secondary font-label-caps text-[10px] uppercase tracking-widest">
-                  ENTRENAR Ã‚Â· {rutinaName}
+                  ENTRENAR · {rutinaName}
                 </span>
                 <span className="font-body-sm text-[13px] text-outline">Semana {weekNumber}</span>
               </div>
@@ -1202,7 +1202,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                 if(!active) {return}
                 const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
                 const cycle = (pv?.cycle ?? active.cycle) as CycleConfig
-                const choice=prompt(`Cambiar dÃƒÂ­a Ã¢â‚¬â€ elegÃƒÂ­ NÃ‚Â°:\n${cycle.trainingDays.map((d:any)=>`${d.n} Ã¢â‚¬â€ ${d.name}`).join('\n')}\nEscribÃƒÂ­ NÃ‚Â°:`)
+                const choice=prompt(`Cambiar día — elegí N°:\n${cycle.trainingDays.map((d:any)=>`${d.n} — ${d.name}`).join('\n')}\nEscribí N°:`)
                 if(choice){
                   const n=Number(choice)
                   if(cycle.trainingDays.find((d:any)=>d.n===n)){
@@ -1211,14 +1211,14 @@ const exercises: SessionEx[] = seList.map((se) => {
                     location.reload()
                   }
                 }
-              }} className="hidden md:inline-flex items-center min-h-[48px] font-body-sm text-[13px] text-primary underline mt-1">Cambiar dÃƒÂ­a de entrenamiento</button>
+              }} className="hidden md:inline-flex items-center min-h-[48px] font-body-sm text-[13px] text-primary underline mt-1">Cambiar día de entrenamiento</button>
             </div>
             <div className="flex items-center gap-2.5">
-              <button aria-label="Cancelar sesiÃƒÂ³n" onClick={openCancelModal} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
+              <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
                 <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
-                <span className="hidden sm:inline">Cancelar sesiÃƒÂ³n</span>
+                <span className="hidden sm:inline">Cancelar sesión</span>
               </button>
-              <button aria-label="Abandonar sesiÃƒÂ³n" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
+              <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
                 <span className="material-symbols-outlined text-[18px]">reorder</span>
                 <span className="hidden sm:inline">Abandonar</span>
               </button>
@@ -1249,7 +1249,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           </div>
         </AltheaPanel>
 
-        {restFlash && restSec===0 && <button onClick={dismissFlash} className="w-full flex items-center justify-center gap-2 font-body-md text-[15px] text-on-surface st-completed border rounded p-2 fade-in"><Check size={14}/> Descanso terminado Ã¢â‚¬â€ a entrenar</button>}
+        {restFlash && restSec===0 && <button onClick={dismissFlash} className="w-full flex items-center justify-center gap-2 font-body-md text-[15px] text-on-surface st-completed border rounded p-2 fade-in"><Check size={14}/> Descanso terminado — a entrenar</button>}
 
         {/* Main Grid: 8-col exercise + 4-col sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -1263,7 +1263,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                   <div className="flex items-start gap-4 min-w-0">
                     {(cur.gifUrl || cur.imageDataUrl) && (
                       <button onClick={openViewer} aria-label="Ver detalle del ejercicio" className="hidden sm:block w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-surface-container border border-outline-variant/40 hover:border-secondary/60 transition-colors focus:outline-none cursor-zoom-in">
-                        <img src={(cur.gifUrl || cur.imageDataUrl) as string} alt={`${cur.name} Ã¢â‚¬â€ abrir detalle`} loading="lazy" className="w-full h-full object-cover" />
+                        <img src={(cur.gifUrl || cur.imageDataUrl) as string} alt={`${cur.name} — abrir detalle`} loading="lazy" className="w-full h-full object-cover" />
                       </button>
                     )}
                     <div className="min-w-0">
@@ -1271,7 +1271,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                         <span className="px-2 py-0.5 rounded bg-primary-container/20 border border-primary/40 font-label-caps text-[10px] text-primary uppercase font-semibold">
                           EJERCICIO {current+1} DE {exs.length}
                         </span>
-                        <span className="text-outline text-[13px]">Ã¢â‚¬Â¢ {cur.sets} series</span>
+                        <span className="text-outline text-[13px]">• {cur.sets} series</span>
                         {done[current] && (
                           <span className="px-2 py-0.5 rounded bg-primary/15 border border-primary/40 font-label-caps text-[10px] text-primary uppercase font-semibold">Completado</span>
                         )}
@@ -1290,11 +1290,11 @@ const exercises: SessionEx[] = seList.map((se) => {
                           <span className="px-2 py-0.5 rounded-full bg-surface-container-high/50 border border-outline-variant/40 font-label-caps text-[10px] text-on-surface-variant uppercase">{cur.muscle}</span>
                         )}
                         {(cur.weight ?? 0) > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-surface-container-high/50 border border-outline-variant/40 font-label-caps text-[10px] text-on-surface-variant uppercase">Plan {cur.weight}kg Ãƒâ€” {cur.reps}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-surface-container-high/50 border border-outline-variant/40 font-label-caps text-[10px] text-on-surface-variant uppercase">Plan {cur.weight}kg × {cur.reps}</span>
                         )}
                         <span className="px-2 py-0.5 rounded-full bg-secondary-container/20 border border-secondary/30 font-label-caps text-[10px] text-secondary uppercase">Serie {Math.min(doneInCur, cur.sets)}/{cur.sets} hechas</span>
                         {lastExec && lastExec.date && (
-                          <span className="px-2 py-0.5 rounded-full bg-surface-container-high/50 border border-outline-variant/40 font-label-caps text-[10px] text-on-surface-variant uppercase">ÃƒÅ¡ltima vez {lastExec.date}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-surface-container-high/50 border border-outline-variant/40 font-label-caps text-[10px] text-on-surface-variant uppercase">Última vez {lastExec.date}</span>
                         )}
                       </div>
                     </div>
@@ -1311,28 +1311,28 @@ const exercises: SessionEx[] = seList.map((se) => {
                   </div>
                 </div>
 
-                {/* Architectural Cue Ã¢â‚¬â€ Coach */}
+                {/* Architectural Cue — Coach */}
                 <div className="px-6 py-3 bg-surface-container/60 border-b border-outline-variant/30 flex items-center gap-3">
                   <span className="material-symbols-outlined text-secondary" style={{fontVariationSettings: "'FILL' 1"}}>lightbulb</span>
                   <p className="font-body-sm text-[13px] text-on-surface-variant">
                     <strong className="text-secondary font-medium">Clave de Virtud:</strong>{' '}
-                    {coach ? (coach.suggested_weight ? `${coach.suggested_weight}kg Ã¢â‚¬â€ ${coach.reason}` : coach.reason) : `Vamos con ${cur.weight ?? 0}kg Ãƒâ€” ${cur.reps}.`}
+                    {coach ? (coach.suggested_weight ? `${coach.suggested_weight}kg — ${coach.reason}` : coach.reason) : `Vamos con ${cur.weight ?? 0}kg × ${cur.reps}.`}
                   </p>
-                  <button onClick={()=>setShowWhy(s=>!s)} className="ml-auto inline-flex items-center justify-center min-h-[48px] min-w-[44px] px-2 font-label-caps text-[10px] text-secondary underline">Ã‚Â¿Por quÃƒÂ©?</button>
+                  <button onClick={()=>setShowWhy(s=>!s)} className="ml-auto inline-flex items-center justify-center min-h-[48px] min-w-[44px] px-2 font-label-caps text-[10px] text-secondary underline">¿Por qué?</button>
                 </div>
                 {showWhy && (
                   <div className="px-6 py-2 bg-surface-container-high/30 border-b border-outline-variant/30">
-                    <p className="font-body-sm text-[13px] text-on-surface-variant italic">{coach?.factors?.join(' Ã‚Â· ') || 'Volumen y tÃƒÂ©cnica estables.'}</p>
+                    <p className="font-body-sm text-[13px] text-on-surface-variant italic">{coach?.factors?.join(' · ') || 'Volumen y técnica estables.'}</p>
                   </div>
                 )}
 
                 {/* Pain Alert */}
                 {painAlert && (
                   <div className="mx-6 mt-4 rounded bg-secondary-container/20 border border-secondary/30 p-3 space-y-2">
-                    <div className="font-body-md text-[15px] text-on-surface font-medium">La ÃƒÂºltima vez registraste molestias en {painAlert.zone}. Ã‚Â¿CÃƒÂ³mo estÃƒÂ¡ hoy?</div>
+                    <div className="font-body-md text-[15px] text-on-surface font-medium">La última vez registraste molestias en {painAlert.zone}. ¿Cómo está hoy?</div>
                     <div className="flex gap-1">
-                      <input value={painAns} onChange={e=>setPainAns(e.target.value)} placeholder="Bien / sigue molestandoÃ¢â‚¬Â¦" maxLength={200} className="flex-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
-                      <button onClick={async()=>{ const v=painAns.trim(); if(!v) {return;} const { saveAnswer } = await import('@/services/ai/coachMemory'); await saveAnswer(`pain:${painAlert.zone.toLowerCase()}`, `Ã‚Â¿CÃƒÂ³mo estÃƒÂ¡ hoy la molestia en ${painAlert.zone}?`, v); dismissPainAlert(); setPainAns(''); runSafetyCheck() }} className="px-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Guardar</button>
+                      <input value={painAns} onChange={e=>setPainAns(e.target.value)} placeholder="Bien / sigue molestando…" maxLength={200} className="flex-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+                      <button onClick={async()=>{ const v=painAns.trim(); if(!v) {return;} const { saveAnswer } = await import('@/services/ai/coachMemory'); await saveAnswer(`pain:${painAlert.zone.toLowerCase()}`, `¿Cómo está hoy la molestia en ${painAlert.zone}?`, v); dismissPainAlert(); setPainAns(''); runSafetyCheck() }} className="px-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Guardar</button>
                     </div>
                   </div>
                 )}
@@ -1345,12 +1345,12 @@ const exercises: SessionEx[] = seList.map((se) => {
                     <AlertTriangle size={14} className={`mt-0.5 ${safetyAlert.severity==='critical'?'text-error':'text-secondary'}`}/>
                     <div className="font-body-md text-[15px] text-on-surface">
                       <span className="font-medium">{safetyAlert.message}</span>
-                      {safetyAlert.referral && <span className="font-label-caps text-[10px] uppercase text-on-surface-variant"> ConsultÃƒÂ¡ con {safetyAlert.referral}.</span>}
+                      {safetyAlert.referral && <span className="font-label-caps text-[10px] uppercase text-on-surface-variant"> Consultá con {safetyAlert.referral}.</span>}
                     </div>
                   </div>
                 )}
 
-                {/* Pain Toggle Ã¢â‚¬â€ registrar dolor/molestia para este ejercicio */}
+                {/* Pain Toggle — registrar dolor/molestia para este ejercicio */}
                 {cur && (
                   <PainToggle
                     sessionId={sessionId}
@@ -1400,16 +1400,16 @@ const exercises: SessionEx[] = seList.map((se) => {
                   </div>
                 )}
 
-                {/* NavegaciÃƒÂ³n entre ejercicios: SIEMPRE operativa. El descanso se
+                {/* Navegación entre ejercicios: SIEMPRE operativa. El descanso se
                     indica en su panel propio y nunca reemplaza SIGUIENTE/FINALIZAR. */}
                 <div className="px-6 pb-4 flex flex-col gap-2">
                   <div className="flex gap-2">
                       <button onClick={()=>{ if(current>0){ goToExercise(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 py-3 min-h-[48px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] disabled:opacity-30">
-                      <span className="flex items-center justify-center gap-2">Ã¢â‚¬Â¹ Anterior</span>
+                      <span className="flex items-center justify-center gap-2">‹ Anterior</span>
                     </button>
                     {current < exs.length-1 ? (
                       <button onClick={()=>{ goToExercise(current+1) }} aria-label="Ejercicio siguiente" className="flex-1 py-3 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
-                        <span className="flex items-center justify-center gap-2"><Check size={14}/> Siguiente Ã¢â‚¬Âº</span>
+                        <span className="flex items-center justify-center gap-2"><Check size={14}/> Siguiente ›</span>
                       </button>
                     ) : (
                       <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex-1 py-3 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
@@ -1430,7 +1430,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                 </div>
 
                 <div className="mx-6 mb-6 rounded bg-secondary-container/20 border border-secondary/30 p-2 flex gap-2 font-body-sm text-[13px] text-on-surface-variant">
-                  <AlertTriangle size={14} className="text-secondary mt-0.5 shrink-0"/> Si hay dolor importante, detenÃƒÂ© y consultÃƒÂ¡ profesional. PodÃƒÂ©s saltar el ejercicio.
+                  <AlertTriangle size={14} className="text-secondary mt-0.5 shrink-0"/> Si hay dolor importante, detené y consultá profesional. Podés saltar el ejercicio.
                 </div>
               </div>
             )}
@@ -1445,11 +1445,11 @@ const exercises: SessionEx[] = seList.map((se) => {
                     return (
                       <div key={origIdx} className="bg-surface-container-low border border-outline-variant/50 rounded-xl p-5  hover:border-secondary/40 transition-colors group cursor-pointer" onClick={()=>{ goToExercise(origIdx) }}>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="px-2 py-0.5 rounded bg-surface-container-high border border-outline-variant font-label-caps text-[10px] text-secondary uppercase">SIGUIENTE Ã‚Â· EJERCICIO {fi+2}</span>
-                          <span className="font-label-caps text-[10px] text-outline">{ex.sets} Series Ãƒâ€” {ex.reps} reps</span>
+                          <span className="px-2 py-0.5 rounded bg-surface-container-high border border-outline-variant font-label-caps text-[10px] text-secondary uppercase">SIGUIENTE · EJERCICIO {fi+2}</span>
+                          <span className="font-label-caps text-[10px] text-outline">{ex.sets} Series × {ex.reps} reps</span>
                         </div>
                         <h3 className="font-headline-sm text-[20px] text-on-surface group-hover:text-primary transition-colors">{ex.name}</h3>
-                        <p className="font-body-sm text-[13px] text-outline mt-1.5">{ex.weight ?? 0}kg Ã‚Â· {ex.muscle || ''}</p>
+                        <p className="font-body-sm text-[13px] text-outline mt-1.5">{ex.weight ?? 0}kg · {ex.muscle || ''}</p>
                         <div className="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/30">
                           <span className="font-label-caps text-[10px] text-on-surface-variant">Descanso asignado: {restForExercise}s</span>
                           <span className="material-symbols-outlined text-secondary text-[20px]">arrow_forward</span>
@@ -1470,7 +1470,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                  <div className="w-full flex items-center justify-between pb-3 border-b border-outline-variant/30 mb-5">
                    <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider flex items-center gap-1.5">
                      <span className="material-symbols-outlined text-[16px]">hourglass_top</span>
-                     RELOJ DE RECUPERACIÃƒâ€œN
+                     RELOJ DE RECUPERACIÓN
                    </span>
                  </div>
                  {/* Circular Timer SVG */}
@@ -1510,7 +1510,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                     </p>
                     <div className="mt-3 flex items-center gap-3">
                       <span className="font-body-sm text-[12px] text-outline">
-                        {coach.suggested_weight ? `Peso sugerido: ${coach.suggested_weight}kg` : 'Basado en tu tÃƒÂ©cnica actual'}
+                        {coach.suggested_weight ? `Peso sugerido: ${coach.suggested_weight}kg` : 'Basado en tu técnica actual'}
                       </span>
                     </div>
                   </div>
@@ -1544,7 +1544,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           </div>
         </div>{/* fin grid desktop */}
 
-        {/* Fixed-bottom FINALIZAR bar Ã¢â‚¬â€ mobile only, during active session */}
+        {/* Fixed-bottom FINALIZAR bar — mobile only, during active session */}
         {(sessionStatus==='READY' || sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED' || sessionStatus==='COMPLETING') && (
           <div
             style={{ bottom: MOBILE_NAV_OFFSET }}
@@ -1564,7 +1564,7 @@ const exercises: SessionEx[] = seList.map((se) => {
               <>
                 <div className="flex-1 min-w-0">
                   <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Progreso</div>
-                  <div className="font-body-md text-[15px] text-on-surface font-medium">{progress}% Ã¢â‚¬â€ {Object.keys(done).filter(k=>done[Number(k)]).length}/{exs.length} ejercicios</div>
+                  <div className="font-body-md text-[15px] text-on-surface font-medium">{progress}% — {Object.keys(done).filter(k=>done[Number(k)]).length}/{exs.length} ejercicios</div>
                 </div>
                 <button onClick={openFinishModal} className="flex items-center gap-1.5 px-5 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98] shrink-0">
                   <Check size={14}/> FINALIZAR
@@ -1611,7 +1611,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                     await prunePendingSetRecords(se.sessionExerciseId, newPlannedSets.map(ps=> ps.order))
                   }
                 }
-                saveDecision({ date: today, type:'modify', exercise: cur!.name, reason:`Modificado a ${mod.weight}kg Ãƒâ€” ${mod.reps} Ãƒâ€” ${mod.sets}`, contextSnapshot:{mod}})
+                saveDecision({ date: today, type:'modify', exercise: cur!.name, reason:`Modificado a ${mod.weight}kg × ${mod.reps} × ${mod.sets}`, contextSnapshot:{mod}})
                 setShowModify(false)
               }} />
 
@@ -1628,7 +1628,7 @@ const exercises: SessionEx[] = seList.map((se) => {
         <AddExtraModal show={showAddEx} onClose={()=>setShowAddEx(false)} options={addExOptions} reason={addExReason} setReason={setAddExReason} comment={addExComment} setComment={setAddExComment} onAdd={confirmAddExtra} />
         <FinishModal show={showFinishModal} onClose={()=>setShowFinishModal(false)} summary={computeSummary()} rutinaName={rutinaName} weekNumber={weekNumber} plannedDayN={plannedDayN} plannedName={plannedName} actualDayN={actualDayN} dayName={dayName} exs={exs} logs={logs} pendingReasons={pendingReasons} setPendingReasons={setPendingReasons} skipReasons={skipReasons} musclePct={musclePct} volumeAlerts={volumeAlerts} progressLines={progressLines} finishSurvey={finishSurvey} setFinishSurvey={setFinishSurvey} finishError={finishError} isSaving={isSaving} onConfirm={confirmFinish} session={session} sessionId={sessionId} setSession={setSession} setSessionStatus={setSessionStatus} />
 
-        {/* Variant Picker Modal: solo ante sustituciÃƒÂ³n explÃƒÂ­cita con contexto vÃƒÂ¡lido */}
+        {/* Variant Picker Modal: solo ante sustitución explícita con contexto válido */}
         {showVariantPicker && variantContext && (
           <VariantPicker
             context={variantContext}

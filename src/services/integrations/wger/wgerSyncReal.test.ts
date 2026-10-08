@@ -1,5 +1,5 @@
-// Tests de sync real WGER â†” Althea.
-// Verifica: pull, push, conflicto, resoluciÃ³n, offline/reconnect.
+// Tests de sync real WGER ↔ Althea.
+// Verifica: pull, push, conflicto, resolución, offline/reconnect.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { db } from '@/services/storage/db'
@@ -192,7 +192,7 @@ function setupRoutineMocks(routines: ReturnType<typeof mockRoutine>[]) {
   }
 }
 
-describe('WGER Sync Real â€” Pull (WGER â†’ Althea)', () => {
+describe('WGER Sync Real — Pull (WGER → Althea)', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()

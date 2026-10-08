@@ -1,6 +1,6 @@
-﻿// Tests de seguridad WGER.
+// Tests de seguridad WGER.
 // Verifica: no secretos en Git, no secretos en bundle, no credenciales en Dexie,
-// no llamadas privadas desde React, no duplicados, no pÃ©rdida de historial,
+// no llamadas privadas desde React, no duplicados, no pérdida de historial,
 // no migraciones destructivas.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -20,8 +20,8 @@ vi.mock('./wgerAuth', () => ({
   resetWgerAuth: vi.fn(),
 }))
 
-describe('WGER Seguridad â€” No secretos en Git', () => {
-  it('cÃ³digo no contiene passwords hardcodeados', () => {
+describe('WGER Seguridad — No secretos en Git', () => {
+  it('código no contiene passwords hardcodeados', () => {
     const fs = require('fs')
     const path = require('path')
 
@@ -60,7 +60,7 @@ describe('WGER Seguridad â€” No secretos en Git', () => {
   })
 })
 
-describe('WGER Seguridad â€” No secretos en bundle', () => {
+describe('WGER Seguridad — No secretos en bundle', () => {
   it('WGER_SECURITY_CONFIG no contiene secretos', () => {
     const configStr = JSON.stringify(WGER_SECURITY_CONFIG)
 
@@ -75,7 +75,7 @@ describe('WGER Seguridad â€” No secretos en bundle', () => {
   })
 })
 
-describe('WGER Seguridad â€” No credenciales en Dexie', () => {
+describe('WGER Seguridad — No credenciales en Dexie', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()
@@ -96,7 +96,7 @@ describe('WGER Seguridad â€” No credenciales en Dexie', () => {
     const table = db.externalAccountLinks
     const schema = table.schema
 
-    // Verificar Ã­ndices
+    // Verificar índices
     const indexNames = schema.indexes.map((idx) => idx.name)
     expect(indexNames).not.toContain('password')
     expect(indexNames).not.toContain('token')
@@ -122,7 +122,7 @@ describe('WGER Seguridad â€” No credenciales en Dexie', () => {
   })
 })
 
-describe('WGER Seguridad â€” No llamadas privadas desde React', () => {
+describe('WGER Seguridad — No llamadas privadas desde React', () => {
 
   it('wgerIntegration no expone credenciales', async () => {
     const wgerAuth = await import('./wgerAuth')
@@ -130,7 +130,7 @@ describe('WGER Seguridad â€” No llamadas privadas desde React', () => {
   })
 })
 
-describe('WGER Seguridad â€” No duplicados', () => {
+describe('WGER Seguridad — No duplicados', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()
@@ -176,7 +176,7 @@ describe('WGER Seguridad â€” No duplicados', () => {
   })
 })
 
-describe('WGER Seguridad â€” No pÃ©rdida de historial', () => {
+describe('WGER Seguridad — No pérdida de historial', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()
@@ -227,7 +227,7 @@ describe('WGER Seguridad â€” No pÃ©rdida de historial', () => {
   })
 })
 
-describe('WGER Seguridad â€” No migraciones destructivas', () => {
+describe('WGER Seguridad — No migraciones destructivas', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await db.delete()
@@ -253,7 +253,7 @@ describe('WGER Seguridad â€” No migraciones destructivas', () => {
     }
   })
 
-  it('migraciones no eliminan Ã­ndices', () => {
+  it('migraciones no eliminan índices', () => {
     const accountLinksTable = db.externalAccountLinks
     const indexNames = accountLinksTable.schema.indexes.map((idx) => idx.name)
 
@@ -263,7 +263,7 @@ describe('WGER Seguridad â€” No migraciones destructivas', () => {
   })
 
   it('migraciones son aditivas', () => {
-    // La versiÃ³n 21 debe tener todas las tablas de versiones anteriores
+    // La versión 21 debe tener todas las tablas de versiones anteriores
     const tableNames = db.tables.map((t) => t.name)
 
     // Tablas de versiones tempranas
@@ -277,7 +277,7 @@ describe('WGER Seguridad â€” No migraciones destructivas', () => {
   })
 })
 
-describe('WGER Seguridad â€” SanitizaciÃ³n', () => {
+describe('WGER Seguridad — Sanitización', () => {
   it('sanitizeString elimina HTML peligroso', () => {
     expect(sanitizeString('<script>alert("xss")</script>')).not.toContain('<')
     expect(sanitizeString('javascript:alert(1)')).not.toContain('javascript:')
@@ -297,32 +297,32 @@ describe('WGER Seguridad â€” SanitizaciÃ³n', () => {
   })
 })
 
-describe('WGER Seguridad â€” ValidaciÃ³n', () => {
-  it('validateId acepta IDs vÃ¡lidos', () => {
+describe('WGER Seguridad — Validación', () => {
+  it('validateId acepta IDs válidos', () => {
     const result = validateId(123)
     expect(result.success).toBe(true)
     expect(result.data).toBe(123)
   })
 
-  it('validateId rechaza IDs invÃ¡lidos', () => {
+  it('validateId rechaza IDs inválidos', () => {
     expect(validateId(-1).success).toBe(false)
     expect(validateId(0).success).toBe(false)
     expect(validateId(NaN).success).toBe(false)
   })
 
-  it('validatePagination acepta parÃ¡metros vÃ¡lidos', () => {
+  it('validatePagination acepta parámetros válidos', () => {
     const result = validatePagination({ limit: 50, offset: 0 })
     expect(result.success).toBe(true)
   })
 
-  it('validatePagination rechaza parÃ¡metros invÃ¡lidos', () => {
+  it('validatePagination rechaza parámetros inválidos', () => {
     expect(validatePagination({ limit: -1, offset: 0 }).success).toBe(false)
     expect(validatePagination({ limit: 50, offset: -1 }).success).toBe(false)
   })
 })
 
-describe('WGER Seguridad â€” Manejo de errores', () => {
-  it('WgerSecurityError tiene cÃ³digo y statusCode', () => {
+describe('WGER Seguridad — Manejo de errores', () => {
+  it('WgerSecurityError tiene código y statusCode', () => {
     const error = new WgerSecurityError('Test error', 'INVALID_INPUT', 400)
     expect(error.code).toBe('INVALID_INPUT')
     expect(error.statusCode).toBe(400)
