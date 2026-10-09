@@ -49,9 +49,15 @@ export default function Login({ onDone }: { onDone: () => void }) {
         <div className="shrink-0 flex justify-center lg:justify-start">
           <AltheaAvatar
             context="hero"
+            size={120}
+            alt="Busto clásico de Althea: figura de mármol con corona de laurel de bronce"
+            className="block lg:hidden"
+          />
+          <AltheaAvatar
+            context="hero"
             size={200}
             alt="Busto clásico de Althea: figura de mármol con corona de laurel de bronce"
-            className="w-[120px] h-[120px] lg:w-[200px] lg:h-[200px]"
+            className="hidden lg:block"
           />
         </div>
         <div className="text-center lg:text-left">

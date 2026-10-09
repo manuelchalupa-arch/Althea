@@ -262,12 +262,29 @@ export default function Onboarding(){
           competir con la pregunta. */}
       <div className="p-4">
         <div className="flex items-center gap-3">
-          <AltheaAvatar
-            context="hero"
-            size={96}
-            alt="Busto clásico de Althea: figura de mármol con corona de laurel"
-            className={`shrink-0 object-contain w-14 h-14 ${step === 0 ? 'lg:w-20 lg:h-20' : ''}`}
-          />
+          {step === 0 ? (
+            <>
+              <AltheaAvatar
+                context="hero"
+                size={56}
+                alt="Busto clásico de Althea: figura de mármol con corona de laurel"
+                className="shrink-0 object-contain lg:hidden"
+              />
+              <AltheaAvatar
+                context="hero"
+                size={80}
+                alt="Busto clásico de Althea: figura de mármol con corona de laurel"
+                className="shrink-0 object-contain hidden lg:block"
+              />
+            </>
+          ) : (
+            <AltheaAvatar
+              context="hero"
+              size={56}
+              alt="Busto clásico de Althea: figura de mármol con corona de laurel"
+              className="shrink-0 object-contain"
+            />
+          )}
           <div className="flex-1 min-w-0">
             <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>PASO {step+1} DE {total}</span><span>{Math.round((step+1)/total*100)}%</span></div>
             <div className="h-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg overflow-hidden mt-1"><div className="h-full bg-primary" style={{width:`${(step+1)/total*100}%`}}/></div>
