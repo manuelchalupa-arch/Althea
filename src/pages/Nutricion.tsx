@@ -31,6 +31,7 @@ import { getBottleDailySummary, getCalculatedHydrationGoal, getBottleConfigs, co
 import { DishComposer, type DishSavePayload } from '@/components/nutrition/DishComposer'
 import { dishFromEntry, type DishDraft } from '@/services/nutrition/recipeInterpreter'
 import { todayKey, dayKeyOffset, weekdayOfKey } from '@/utils/dates'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 type PageStatus = 'loading' | 'ready' | 'error'
 type FrequentFood = DiaryEntry & { count: number }
@@ -71,6 +72,7 @@ export default function Nutricion() {
 
   const [composerNotice, setComposerNotice] = useState<string | null>(null)
 
+  const isMobile = useIsMobile()
 
   // El día va de 00:00:00 a 00:00:00 local. Si la app queda abierta y cambia el
   // día, los totales arrancan de cero para el día nuevo.
@@ -318,7 +320,7 @@ export default function Nutricion() {
 
   if (status === 'loading') {
     return (
-      <div className="w-full max-w-[1260px] mx-auto px-8 py-6 space-y-6" aria-busy="true">
+      <div className="w-full max-w-[1260px] mx-auto px-4 md:px-8 py-4 md:py-6 space-y-6" aria-busy="true">
         <AltheaLoading lines={4} />
       </div>
     )
@@ -326,13 +328,312 @@ export default function Nutricion() {
 
   if (status === 'error') {
     return (
-      <div className="w-full max-w-[1260px] mx-auto px-8 py-6">
+      <div className="w-full max-w-[1260px] mx-auto px-4 md:px-8 py-4 md:py-6">
         <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
           <span className="material-symbols-outlined text-[40px] text-error">error_outline</span>
           <h2 className="font-headline-lg text-headline-lg text-on-surface">No se pudieron cargar tus datos</h2>
           <p className="font-body-sm text-sm text-on-surface-variant max-w-sm">{loadError}</p>
           <AltheaButton variant="secondary" size="lg" className="min-h-[48px]" icon="refresh" onClick={() => loadData(activeDate)}>Reintentar</AltheaButton>
         </div>
+      </div>
+    )
+  }
+
+  if (isMobile) {
+    return (
+      <div className="space-y-2">
+        {safetyAlerts.length > 0 && (
+          <div className="space-y-2">
+            {safetyAlerts.map(alert => (
+              <div key={alert.id} className={`rounded-lg border p-2.5 ${
+                alert.severity === 'critical' ? 'bg-error/10 border-error/40' : 'bg-secondary/10 border-secondary/40'
+              }`}>
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={16} className={alert.severity === 'critical' ? 'text-error' : 'text-secondary'} />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12px] text-on-surface font-medium">{alert.message}</div>
+                    {alert.professionalReferral && (
+                      <div className="font-label-caps text-[10px] text-on-surface-variant mt-0.5">Derivar a: {alert.professionalReferral}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Cabecera compacta */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-primary" style={{ fontSize: 20 }}>restaurant</span>
+          </div>
+          <div className="min-w-0">
+            <h1 className="font-headline-lg text-xl font-semibold text-on-surface tracking-tight">Nutrición</h1>
+            <p className="font-body-sm text-[11px] text-on-surface-variant capitalize truncate">{dateText}</p>
+          </div>
+          <div className="ml-auto flex flex-col items-end gap-1">
+            {todayTraining && <AltheaBadge variant="primary" dot>{todayTraining.name}</AltheaBadge>}
+            {perfil?.activeNutritionMethod && (
+              <AltheaBadge variant="secondary" icon="auto_awesome">{activeMethod?.nameEs || perfil.activeNutritionMethod}</AltheaBadge>
+            )}
+          </div>
+        </div>
+
+        {/* Hero calórico del día */}
+        <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2.5">
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">Consumido hoy</p>
+              <p className="font-metric-mobile text-3xl font-bold text-on-surface leading-none">
+                {Math.round(totals.calories).toLocaleString('es-AR')}
+                <span className="text-sm text-on-surface-variant font-normal"> / {goals.calories.toLocaleString('es-AR')} kcal</span>
+              </p>
+            </div>
+            <span className="text-[11px] font-mono text-on-surface-variant">{Math.round(calPct)}%</span>
+          </div>
+          <AltheaProgress value={totals.calories} max={goals.calories} size="md" color="primary" aria-label={`${Math.round(calPct)}% de la meta calórica`} />
+          <p className="text-[11px] text-on-surface-variant">
+            {remainingCalories > 0 ? `Faltan ${remainingCalories.toLocaleString('es-AR')} kcal` : 'Meta diaria alcanzada'}
+            {!goalsPersonalized && ' · metas de referencia'}
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: 'Proteínas', value: totals.protein, goal: goals.protein, status: protStatus, tone: 'text-primary' },
+              { label: 'Carbohidratos', value: totals.carbs, goal: goals.carbs, status: carbStatus, tone: 'text-tertiary' },
+              { label: 'Grasas', value: totals.fat, goal: goals.fat, status: fatStatus, tone: 'text-secondary' },
+            ].map(m => (
+              <div key={m.label} className="rounded-lg border border-outline-variant/30 bg-surface-container-low p-2 text-center">
+                <p className="font-label-caps text-[9px] uppercase tracking-widest text-on-surface-variant">{m.label}</p>
+                <p className={`font-metric-mobile text-base font-bold ${m.tone}`}>
+                  {Math.round(m.value)}<span className="text-[10px] text-on-surface-variant font-normal">/{m.goal}g</span>
+                </p>
+                <MacroStatusChip status={m.status} />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Hidratación */}
+        <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3" aria-label="Hidratación del día">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>water_drop</span>
+            <h2 className="font-label-caps text-[11px] uppercase text-on-surface font-semibold">Hidratación de hoy</h2>
+          </div>
+          <div className="flex justify-center">
+            <HydrationBottle current={hydrationTotalMl} goal={hydrationGoalMl} width={110} />
+          </div>
+          <div className="mt-3">
+            <HydrationQuickAdd
+              bottles={bottleConfigs.filter(c => c.active).map(c => ({ id: c.id, name: c.name, capacityMl: c.capacityMl }))}
+              onAddBottle={handleAddBottle}
+              onAddMl={handleAddMl}
+              disabled={hydrationBusy}
+            />
+          </div>
+          <div className="mt-3">
+            <BottleConfigEditor />
+          </div>
+        </section>
+
+        {/* Registrar comida */}
+        <AltheaCard level={2} className="space-y-3">
+          <div>
+            <h2 className="text-title-md text-on-surface font-semibold">{editing ? 'Editar comida' : 'Registrar una comida'}</h2>
+            <p className="font-body-sm text-[11px] text-on-surface-variant">Escribí el plato: Althea estima los ingredientes, las cantidades y los macros.</p>
+          </div>
+          {composerNotice && (
+            <p role="status" className="font-label-caps text-[10px] bg-secondary/10 border border-secondary/30 rounded p-2 text-on-surface">{composerNotice}</p>
+          )}
+          <DishComposer
+            key={`${editing?.id ?? 'new'}-${composerVersion}`}
+            onSave={saveDish}
+            onCancel={() => { setDraft(null); setEditing(null) }}
+            initial={draft}
+            initialMealLabel={editing?.mealLabel}
+            isEditing={!!editing}
+            saving={saving}
+          />
+        </AltheaCard>
+
+        {/* Comidas del día */}
+        <AltheaSection
+          title="Comidas del día"
+          subtitle="Tus registros reales de hoy"
+          icon="restaurant_menu"
+          action={<span className="font-mono text-[10px] text-on-surface-variant">{dayEntries.length} · {Math.round(totals.calories).toLocaleString('es-AR')} kcal</span>}
+        >
+          {dayEntries.length === 0 ? (
+            <AltheaEmpty
+              icon="lunch_dining"
+              title="Todavía no registraste comidas hoy"
+              description="Escribí arriba qué vas a comer y revisá la estimación antes de agregarla."
+            />
+          ) : (
+            <div className="space-y-2" data-testid="day-meals">
+              {dayEntries.map(e => (
+                <div key={e.id} className="rounded-lg border border-outline-variant/40 bg-surface-container p-3" data-testid="meal-row">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-on-surface font-semibold truncate">{e.name}</span>
+                        {e.mealType && (
+                          <span className="font-label-caps text-[9px] uppercase text-primary border border-primary/30 rounded px-1.5 py-0.5">{e.mealType}</span>
+                        )}
+                        <span className="font-mono text-[10px] text-on-surface-variant">{diaryEntryTime(e)}</span>
+                      </div>
+                      <div className="font-mono text-[11px] text-on-surface-variant mt-1">
+                        <span data-testid="meal-kcal">{Math.round(Number(e.macros?.calories || 0))} kcal</span>
+                        {' · '}{Math.round(Number(e.macros?.proteins || 0))}P
+                        {' · '}{Math.round(Number(e.macros?.carbs || 0))}C
+                        {' · '}{Math.round(Number(e.macros?.fats || 0))}G
+                      </div>
+                      {e.ingredients && e.ingredients.length > 0 && (
+                        <div className="text-[11px] text-on-surface-variant mt-1">{e.ingredients.map(i => `${i.label} ${i.grams}g`).join(' · ')}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => startEdit(e)}
+                        aria-label={`Editar ${e.name}`}
+                        className="w-10 h-10 rounded-lg border border-outline-variant/40 text-on-surface-variant flex items-center justify-center"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => removeEntry(e.id)}
+                        aria-label={`Eliminar ${e.name}`}
+                        className="w-10 h-10 rounded-lg border border-outline-variant/40 text-on-surface-variant flex items-center justify-center"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </AltheaSection>
+
+        {/* Plato de macros + contexto */}
+        <AltheaCard level={2} className="flex flex-col items-center py-5">
+          <MacroPlate totals={totals} goals={goals} size={230} />
+          <p className="font-body-sm text-[11px] text-on-surface-variant mt-3 text-center px-2">
+            {goalsPersonalized
+              ? 'Cada segmento muestra tu progreso sobre tu objetivo real del día.'
+              : 'Metas de referencia — completá peso y altura en Perfil para usar tus objetivos reales.'}
+          </p>
+          <div className="grid grid-cols-2 gap-2 w-full mt-3" data-testid="nutricion-context">
+            {[
+              { label: 'TDEE diario', value: tdeeVal?.toLocaleString('es-AR') || '—', sub: 'gasto estimado' },
+              { label: 'TMB basal', value: tmbVal?.toLocaleString('es-AR') || '—', sub: 'Mifflin-St Jeor' },
+              { label: 'IMC', value: imcResult?.bmi || '—', sub: imcResult?.bmiCat || 'sin datos' },
+              { label: 'Peso actual', value: perfil?.weightKg !== undefined ? `${perfil.weightKg} kg` : '—', sub: perfil?.targetWeightKg !== undefined ? `objetivo ${perfil.targetWeightKg} kg` : 'sin objetivo' },
+            ].map(k => (
+              <div key={k.label} className="rounded-lg border border-outline-variant/30 bg-surface-container-low px-3 py-2">
+                <span className="font-label-caps text-[9px] uppercase text-on-surface-variant block">{k.label}</span>
+                <span className="font-headline-sm text-on-surface font-semibold">{k.value}</span>
+                <span className="text-[10px] text-on-surface-variant block truncate">{k.sub}</span>
+              </div>
+            ))}
+          </div>
+        </AltheaCard>
+
+        <AltheaSection title="Sugerencias del día" subtitle="Basadas solo en tus datos registrados" icon="lightbulb">
+          {suggestions === null ? (
+            <AltheaEmpty icon="info" title="Sin datos suficientes" description="Completá peso, altura y objetivos en Perfil para recibir recomendaciones personalizadas." />
+          ) : suggestions.length === 0 ? (
+            <p className="font-body-sm text-sm text-on-surface-variant">Vas bien: sin brechas importantes hoy. Mantené la constancia.</p>
+          ) : (
+            <div className="space-y-2">
+              {suggestions.map((s, i) => (
+                <div key={i} className="rounded-lg border border-outline-variant/40 bg-surface-container p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-body-sm text-sm font-semibold text-on-surface">{s.title}</span>
+                    <span className="text-[9px] font-mono text-outline uppercase">{s.origin === 'dato' ? 'dato' : 'cálculo'}</span>
+                  </div>
+                  <p className="text-[12px] text-on-surface-variant mt-1">{s.detail}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </AltheaSection>
+
+        {perfil?.activeNutritionMethod && (
+          <AltheaCard level={2}>
+            <div className="flex items-center gap-2 pb-2.5 border-b border-outline-variant/30 mb-3">
+              <div className="w-8 h-8 rounded-full bg-secondary-container/50 border border-secondary/50 flex items-center justify-center text-secondary">
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>psychology_alt</span>
+              </div>
+              <div>
+                <h4 className="text-title-md text-secondary font-semibold">Adherencia nutricional</h4>
+                <span className="font-label-caps text-[10px] text-outline block">{activeMethod?.nameEs || 'Método activo'}</span>
+              </div>
+            </div>
+            <div className="text-body-sm text-on-surface-variant leading-relaxed">
+              {adherenceRecord ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-headline-sm text-sm text-on-surface font-semibold">Puntaje: {adherenceRecord.score}/10</span>
+                    <AltheaBadge variant={adherenceRecord.score >= 7 ? 'primary' : adherenceRecord.score >= 4 ? 'secondary' : 'danger'}>
+                      {adherenceRecord.score >= 7 ? 'Bien' : adherenceRecord.score >= 4 ? 'Regular' : 'Bajo'}
+                    </AltheaBadge>
+                  </div>
+                  <p className="text-[11px] text-on-surface-variant">{Math.round(adherenceRecord.calorieAdherence)}% calorías · {Math.round(adherenceRecord.proteinAdherence)}% proteína</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[12px] text-on-surface-variant">¿Cómo te fue hoy con tu estrategia nutricional?</p>
+                  <div className="flex gap-2">
+                    {[3, 5, 7, 9].map(score => (
+                      <button key={score} onClick={() => recordDailyAdherence(score)} aria-label={`Puntaje de adherencia ${score} de 10`}
+                        className={`flex-1 min-h-[44px] rounded border font-label-caps text-xs font-semibold uppercase tracking-wider ${
+                          score >= 7 ? 'bg-primary/10 border-primary/30 text-primary' :
+                          score >= 5 ? 'bg-secondary/10 border-secondary/30 text-secondary' : 'bg-error/10 border-error/30 text-error'
+                        }`}>
+                        {score}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </AltheaCard>
+        )}
+
+        {frequentFoods.length > 0 && (
+          <AltheaSection title="Alimentos frecuentes" subtitle="Los que más registraste en los últimos 30 días" icon="history">
+            <div className="space-y-2">
+              {frequentFoods.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    const entry: DiaryEntry = {
+                      ...f,
+                      id: `food-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                      date: activeDate,
+                      time: nowLocalTime(),
+                      addedAt: new Date().toISOString(),
+                    }
+                    setDiaryEntries(prev => [...prev, entry])
+                    addDiaryEntry(entry)
+                  }}
+                  className="w-full flex items-center gap-3 min-h-[52px] px-3 rounded-lg border border-outline-variant/40 bg-surface-container text-left"
+                >
+                  <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>restaurant_menu</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-body-sm text-sm text-on-surface font-medium truncate">{f.name}</span>
+                    <span className="block font-body-sm text-[10px] text-on-surface-variant">
+                      {Math.round(Number(f.macros?.calories || 0))} kcal · P{Number(f.macros?.proteins || 0)}g C{Number(f.macros?.carbs || 0)}g G{Number(f.macros?.fats || 0)}g
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-1 font-label-caps text-[10px] uppercase text-primary shrink-0">
+                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span> Agregar
+                  </span>
+                </button>
+              ))}
+            </div>
+          </AltheaSection>
+        )}
       </div>
     )
   }
