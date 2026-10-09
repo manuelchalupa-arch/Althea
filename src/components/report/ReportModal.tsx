@@ -77,7 +77,7 @@ export function ReportModal({ open, onClose }: { open: boolean; onClose: () => v
   if (!open) {return null}
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 althea-modal" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="bg-surface-container-low border border-outline-variant rounded-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
         <div className="sticky top-0 bg-surface-container-low border-b border-outline-variant/40 p-4 flex items-center justify-between">
           <div>

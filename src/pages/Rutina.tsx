@@ -278,7 +278,7 @@ export default function RutinaPage(){
           className="mt-6"
         />
         {showNew && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowNew(false)}>
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={()=>setShowNew(false)}>
             <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md p-4 space-y-3">
               <h3 className="font-headline-lg text-base font-semibold text-on-surface">Crear nueva rutina</h3>
               <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nombre: Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
@@ -642,7 +642,7 @@ export default function RutinaPage(){
       </div>
 
       {showNew && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowNew(false)}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={()=>setShowNew(false)}>
           <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md p-4 space-y-3">
             <h3 className="font-headline-lg text-base font-semibold text-on-surface">Crear nueva rutina</h3>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nombre:</p>
@@ -703,7 +703,7 @@ export default function RutinaPage(){
 
       {/* AI Generation Loading */}
       {aiLoading && !aiPreview && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal">
           <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md p-6 space-y-4 text-center">
             <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
               <Sparkles size={32} className="text-on-primary animate-pulse"/>
@@ -719,7 +719,7 @@ export default function RutinaPage(){
 
       {/* AI Generation Error */}
       {aiError && !aiLoading && !aiPreview && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setAiError(null)}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={()=>setAiError(null)}>
           <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md p-4 space-y-3">
             <h3 className="font-headline-lg text-base font-semibold text-on-surface text-error">Error al generar</h3>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{aiError}</p>
@@ -862,7 +862,7 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
 
   if(muscles.length===0){
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50 althea-modal" onClick={onClose}>
         <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3">
           <h3 className="font-body-md text-sm text-on-surface font-medium">Agregar a N°{dayN}</h3>
           <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Día: <b>{dayName || 'Sin nombre'}</b> — no detectamos grupo muscular.</p>
@@ -874,7 +874,7 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50 althea-modal" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[80vh] overflow-auto p-4 space-y-3">
         <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio</h3>
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Día: <b>{dayName}</b> → {muscles.map(m=> displayMuscle(m)).join(' + ')} <span className="text-on-surface-variant">({muscles.join(', ')})</span></div>
@@ -965,7 +965,7 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
   const [err,setErr]=useState(false)
   const [loading,setLoading]=useState(true)
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-2 md:p-6" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-2 md:p-6 althea-modal" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-auto">
         <div className="sticky top-0 bg-surface/80 backdrop-blur-md border-b border-outline-variant p-4 flex justify-between items-center">
           <div>
@@ -1014,7 +1014,7 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
   const totalSets = Object.values(routine.dayExercises).flat().reduce((a,e)=>a+(e.sets||0),0)
   const WEEK=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-end md:items-center justify-center z-50 p-0 md:p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 flex items-end md:items-center justify-center z-50 p-0 md:p-4 althea-modal" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="bg-surface/60 border-t md:border border-outline-variant rounded-t-2xl md:rounded-2xl w-full max-w-lg lg:max-w-2xl max-h-[90vh] overflow-auto">
         {/* Header */}
         <div className="sticky top-0 bg-surface/80 backdrop-blur-md border-b border-outline-variant p-4 flex items-center justify-between z-10">
@@ -1164,7 +1164,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
   const canGenerate = step === 3
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-end md:items-center justify-center z-50 p-0 md:p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 flex items-end md:items-center justify-center z-50 p-0 md:p-4 althea-modal" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="bg-surface/60 border-t md:border border-outline-variant rounded-t-2xl md:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-auto">
         {/* Header */}
         <div className="sticky top-0 bg-surface/80 backdrop-blur-md border-b border-outline-variant p-4 flex items-center justify-between z-10">

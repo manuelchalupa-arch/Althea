@@ -274,7 +274,7 @@ export function WgerSyncPanel({ onViewConflicts }: WgerSyncPanelProps) {
       )}
 
       {showDisconnect && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowDisconnect(false)}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={() => setShowDisconnect(false)}>
           <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-error/40 rounded-2xl w-full max-w-xs p-5 space-y-4">
             <h3 className="font-headline-lg text-base font-semibold text-error text-center">¿Desconectar WGER?</h3>
             <p className="text-sm text-on-surface-variant text-center">Se revocará la conexión con WGER. Tus datos locales se conservan.</p>

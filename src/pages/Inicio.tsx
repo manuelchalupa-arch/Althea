@@ -575,7 +575,7 @@ export default function Inicio(){
 
         {/* Modales → bottom sheets */}
         {showChangeDay && (
-          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setShowChangeDay(false)}>
+          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50 althea-modal" onClick={()=>setShowChangeDay(false)}>
             <div onClick={e=>e.stopPropagation()} className="bg-surface border-t border-outline-variant rounded-t-2xl w-full max-w-lg p-4 space-y-3 max-h-[85vh] overflow-auto">
               <div className="mx-auto w-10 h-1 rounded-full bg-outline-variant/60" aria-hidden="true"></div>
               <h3 className="font-headline-md text-lg font-semibold text-on-surface">Cambiar entrenamiento de hoy</h3>
@@ -617,7 +617,7 @@ export default function Inicio(){
         )}
 
         {showCalendarPopover && (
-          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setShowCalendarPopover(false)}>
+          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50 althea-modal" onClick={()=>setShowCalendarPopover(false)}>
             <div onClick={e=>e.stopPropagation()} className="bg-surface border-t border-outline-variant rounded-t-2xl w-full max-w-md p-4 space-y-3 max-h-[85vh] overflow-auto">
               <div className="mx-auto w-10 h-1 rounded-full bg-outline-variant/60" aria-hidden="true"></div>
               <h3 className="font-headline-md text-lg font-semibold text-on-surface">Vista semanal</h3>

@@ -315,7 +315,7 @@ export default function Biblioteca(){
 
       {/* Detalle solo informativo */}
       {detail && (
-        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setDetail(null)}>
+        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50 althea-modal" onClick={()=>setDetail(null)}>
           <div onClick={e=>e.stopPropagation()} className="bg-surface-container-low/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[85vh] overflow-auto">
             <div className="relative w-full bg-black/40 border-b border-outline-variant flex items-center justify-center min-h-[240px] p-2">
               <span className="absolute font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">GIF no disponible</span>

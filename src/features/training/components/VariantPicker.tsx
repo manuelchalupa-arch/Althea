@@ -68,7 +68,7 @@ export function VariantPicker({ context, userProfile, onSelectVariant, onClose }
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-end lg:items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black/60 flex items-end lg:items-center justify-center z-50 althea-modal">
         <div className="bg-surface/95 backdrop-blur-md border-t lg:border border-outline-variant rounded-t-2xl lg:rounded-2xl w-full max-w-md p-5 space-y-4">
           <div className="flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
@@ -81,7 +81,7 @@ export function VariantPicker({ context, userProfile, onSelectVariant, onClose }
 
   if (error) {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/60 flex items-end lg:items-center justify-center z-50 althea-modal" onClick={onClose}>
         <div onClick={e => e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border-t lg:border border-outline-variant rounded-t-2xl lg:rounded-2xl w-full max-w-md lg:max-w-xl max-h-[80vh] overflow-auto p-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-headline-lg text-base font-semibold text-on-surface min-w-0">{title}</h3>
@@ -104,7 +104,7 @@ export function VariantPicker({ context, userProfile, onSelectVariant, onClose }
 
   if (variants.length === 0) {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/60 flex items-end lg:items-center justify-center z-50 althea-modal" onClick={onClose}>
         <div onClick={e => e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border-t lg:border border-outline-variant rounded-t-2xl lg:rounded-2xl w-full max-w-md lg:max-w-xl max-h-[80vh] overflow-auto p-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-headline-lg text-base font-semibold text-on-surface min-w-0">Sin variantes para {reasonLabel(context.reason)}</h3>
@@ -128,7 +128,7 @@ export function VariantPicker({ context, userProfile, onSelectVariant, onClose }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-end lg:items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-end lg:items-center justify-center z-50 althea-modal" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border-t lg:border border-outline-variant rounded-t-2xl lg:rounded-2xl w-full max-w-md lg:max-w-xl max-h-[80vh] overflow-auto p-4 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-headline-lg text-base font-semibold text-on-surface min-w-0">{title}</h3>

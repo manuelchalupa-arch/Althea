@@ -205,4 +205,24 @@
     background: transparent;
     color: var(--c-primary);
   }
+
+  /* Modales -> bottom sheet (Stitch) en mobile. Desktop intacto.
+     Solo presentacion: el panel anclado abajo, full-bleed y con
+     esquinas superiores redondeadas. La logica de cada flujo no cambia. */
+  .althea-modal {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .althea-modal > * {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
 }

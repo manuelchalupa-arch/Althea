@@ -449,7 +449,7 @@ export default function Onboarding(){
                 </div>
               )}
               {showBiblio && (
-                <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setShowBiblio(false)}>
+                <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50 althea-modal" onClick={()=>setShowBiblio(false)}>
                   <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[75vh] overflow-auto p-4 space-y-2">
                     <h3 className="font-headline-lg text-base font-semibold text-on-surface">Biblioteca</h3>
                     <select value={biblioMuscle} onChange={e=>setBiblioMuscle(e.target.value)} className="w-full bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface">

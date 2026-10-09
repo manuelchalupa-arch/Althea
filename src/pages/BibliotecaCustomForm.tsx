@@ -91,7 +91,7 @@ export default function BibliotecaCustomForm({
   ]
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-2" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-2 althea-modal" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} className="bg-surface-container-low/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-lg lg:max-w-2xl max-h-[92vh] overflow-auto p-4 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-headline-lg text-base font-semibold text-on-surface">{initial ? 'Editar ejercicio' : '+ Agregar ejercicio'}</h3>

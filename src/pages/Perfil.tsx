@@ -81,7 +81,7 @@ function TimePickerModal({ value, onChange, onClose }: { value: string; onChange
   const [h, setH] = useState(() => { const [hh = '08'] = value.split(':'); return hh })
   const [m, setM] = useState(() => { const [, mm = '00'] = value.split(':'); return mm })
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-xs p-5 space-y-4">
         <h3 className="font-headline-lg text-base font-semibold text-on-surface text-center">Seleccionar hora</h3>
         <div className="flex items-center justify-center gap-2">
@@ -125,7 +125,7 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
 
   if (step === 'time') {
     return (
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
         <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-xs p-5 space-y-4">
           <h3 className="font-headline-lg text-base font-semibold text-on-surface">¿A qué hora?</h3>
           <TimePickerModal value={time} onChange={setTime} onClose={() => {}} />
@@ -139,7 +139,7 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-xs p-5 space-y-4">
         <h3 className="font-headline-lg text-base font-semibold text-on-surface">Nueva notificación</h3>
         <div className="space-y-2">
@@ -707,7 +707,7 @@ export default function Perfil() {
       {showAddNotif && <AddNotifModal onAdd={addNotif} onClose={() => setShowAddNotif(false)} />}
 
       {showBiblio && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowBiblio(false)}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={() => setShowBiblio(false)}>
           <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-lg max-h-[80vh] overflow-auto p-5 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-headline-lg text-base font-semibold text-on-surface">Ejercicios excluidos</h3>
@@ -757,7 +757,7 @@ export default function Perfil() {
       )}
 
       {showLogout && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowLogout(false)}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={() => setShowLogout(false)}>
           <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-xs p-5 space-y-4">
             <h3 className="font-headline-lg text-base font-semibold text-on-surface text-center">¿Cerrar sesión?</h3>
             <p className="text-sm text-on-surface-variant text-center">Tus datos locales se conservan.</p>
@@ -770,7 +770,7 @@ export default function Perfil() {
       )}
 
       {showDelete && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowDelete(false); setDeleteConfirm('') }}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={() => { setShowDelete(false); setDeleteConfirm('') }}>
           <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-error/40 rounded-2xl w-full max-w-xs p-5 space-y-4">
             <h3 className="font-headline-lg text-base font-semibold text-error text-center">Eliminar cuenta</h3>
             <p className="text-sm text-on-surface-variant text-center">Esta acción eliminará tu cuenta y los datos asociados. No se puede deshacer.</p>

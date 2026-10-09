@@ -39,7 +39,7 @@ export function RequiredActionGate({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="min-h-screen bg-transparent">
-      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 althea-modal">
         <AltheaCard level={2} className="w-full max-w-lg max-h-[90vh] overflow-auto space-y-4">
           <div className="flex items-start gap-3">
             <div className="shrink-0 rounded-full bg-tertiary/15 border border-tertiary/40 p-2 text-tertiary">
