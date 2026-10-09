@@ -162,7 +162,7 @@ export default function AppNav() {
 
       <nav
         aria-label="Navegación principal"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-xl border-t border-outline-variant/40 py-1.5 px-2 shadow-al-md pb-safe"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 min-h-16 bg-surface/90 backdrop-blur-xl border-t border-primary/20 py-1.5 px-2 shadow-al-md pb-safe"
       >
         <div className="max-w-[480px] mx-auto flex items-center justify-around gap-1">
           <AltheaNav

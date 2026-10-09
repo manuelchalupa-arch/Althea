@@ -57,6 +57,14 @@ export default function ChatWidget() {
     }
   }, [open])
 
+  // Puente con el header mobile: el botón "Abrir conversación del Coach"
+  // despacha este evento en vez de duplicar el FAB o navegar a /coach.
+  useEffect(() => {
+    const openChat = () => setOpen(true)
+    window.addEventListener('althea:open-chat', openChat)
+    return () => window.removeEventListener('althea:open-chat', openChat)
+  }, [])
+
   // Refresh usage every 10s while open
   useEffect(() => {
     if (!open) {return}

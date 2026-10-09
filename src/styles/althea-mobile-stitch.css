@@ -124,6 +124,28 @@
     --veil-color: rgba(18, 19, 26, 0.86);
     --althea-border: 1px solid #534434;
     --althea-border-strong: 1px solid #534434;
+
+    /* ---------- DESIGN TOKENS (althea-*) used by althea-components.css ---------- */
+    --althea-primary: #ffc174;          /* amber — activo/acento mobile */
+    --althea-primary-hover: #f59e0b;
+    --althea-primary-soft: rgba(255, 193, 116, 0.14);
+    --althea-on-primary: #472a00;
+    --althea-surface: #12131a;          /* obsidiana */
+    --althea-surface-2: #1a1b22;        /* grafito */
+    --althea-surface-3: #292931;
+    --althea-on-surface: #e3e1ec;
+    --althea-on-surface-muted: #a9a7b4;
+    --althea-outline: #534434;          /* hairline bronce */
+    --althea-gold: #ffc174;
+    --althea-gold-soft: rgba(255, 193, 116, 0.14);
+    --althea-hydration: #54ddfc;        /* cyan hidratación */
+    --althea-carb: #f59e0b;
+    --althea-warning: #f59e0b;
+    --althea-success: #15803d;
+    --althea-muscle-mid: #ffc174;
+    --althea-muscle-high: #4edea3;
+    --althea-shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.3);
+    --althea-shadow-panel-hover: 0 4px 14px rgba(0, 0, 0, 0.5);
   }
 
   html,
@@ -168,5 +190,19 @@
   .font-metric-mobile {
     font-family: var(--althea-font-metric);
     letter-spacing: -0.01em;
+  }
+
+  /* Bottom nav: 64px, icono + label, activo en amber (Stitch) */
+  .althea-nav--bar {
+    min-height: var(--althea-mobile-nav-height);
+    align-items: center;
+    background: rgba(18, 19, 26, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--althea-outline);
+  }
+  .althea-nav--bar .althea-nav-item[aria-current='page'] {
+    background: transparent;
+    color: var(--c-primary);
   }
 }
