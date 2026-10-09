@@ -1,7 +1,7 @@
 // Editor de configuración de botellas de agua. NO muestra consumo ni registra
 // agua: eso lo hace WaterBottle (una sola botella, fuente única
 // db.hydrationBottleLogs). Este componente solo define las capacidades.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Settings2 } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { getBottleConfigs, saveBottleConfigs, validateBottles, type BottleConfig } from '@/services/recovery/hydrationBottles'
@@ -13,14 +13,23 @@ export function BottleConfigEditor() {
   const [draft, setDraft] = useState<BottleConfig[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
 
   const load = useCallback(async () => {
     const cfgs = await getBottleConfigs()
+    // Evita setState tras desmontar: si la lectura async resuelve luego del
+    // teardown (cleanup de RTL), React intentaría acceder a `window` ya
+    // eliminado por jsdom → "ReferenceError: window is not defined".
+    if (!mountedRef.current) { return }
     setConfigs(cfgs)
     setDraft(cfgs)
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    mountedRef.current = true
+    void load()
+    return () => { mountedRef.current = false }
+  }, [load])
 
   const handleSave = async () => {
     setError(null)
