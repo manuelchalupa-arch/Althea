@@ -76,7 +76,12 @@ export function AppHeader() {
       {/* Izquierda: identidad + contexto (busto + ALTHEA en ambos) */}
       <div className="flex items-center gap-3 min-w-0">
         <span className="shrink-0 w-8 h-8 rounded-full overflow-hidden ring-1 ring-primary/25 bg-surface-container-high" aria-hidden="true">
-          <BrandIcon name="logo" size={32} className="w-full h-full object-cover" />
+          <span className="block md:hidden w-full h-full">
+            <AltheaAvatar context="header" size={32} alt="" className="w-full h-full object-cover" />
+          </span>
+          <span className="hidden md:block w-full h-full">
+            <BrandIcon name="logo" size={32} className="w-full h-full object-cover" />
+          </span>
         </span>
         <div className="leading-none">
           <span className="font-headline block text-[15px] font-semibold tracking-[0.22em] text-on-surface">ALTHEA</span>
