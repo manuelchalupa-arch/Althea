@@ -381,7 +381,7 @@ export default function Perfil() {
   })
 
   return (
-    <div className="min-h-screen bg-transparent pb-24 max-w-[640px] w-full mx-auto px-4 py-6 space-y-4">
+    <div className="min-h-screen bg-transparent pb-24 max-w-[640px] w-full mx-auto px-0 pt-2 md:px-4 md:py-6 space-y-4">
 
       {/* ═══ HEADER ═══ */}
       <AltheaPanel className="relative overflow-hidden">

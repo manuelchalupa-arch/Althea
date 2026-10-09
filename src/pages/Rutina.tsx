@@ -266,7 +266,7 @@ export default function RutinaPage(){
 
   if(!active){
     return (
-      <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto">
+      <div className="min-h-screen bg-transparent px-0 pt-2 pb-24 md:px-6 md:pt-6 md:pb-6 lg:px-8 lg:pt-8 lg:pb-8 max-w-[1440px] w-full mx-auto">
         <div className="flex items-center gap-2">
           <h1 className="font-headline-lg text-lg font-semibold text-on-surface flex items-center gap-2"><Dumbbell size={20} className="text-primary"/> Rutina</h1>
         </div>
@@ -302,7 +302,7 @@ export default function RutinaPage(){
   const estado = daysElapsed >= active.rotationDays ? 'Revisar' : daysElapsed >= active.rotationDays*0.8 ? 'Próximo a revisar' : 'Activa'
 
   return (
-    <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
+    <div className="min-h-screen bg-transparent px-0 pt-2 pb-24 md:px-6 md:pt-6 md:pb-6 lg:px-8 lg:pt-8 lg:pb-8 max-w-[1440px] w-full mx-auto space-y-4">
       {/* Selector superior */}
       <AltheaCard className="p-3">
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rutina:</div>
