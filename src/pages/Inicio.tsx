@@ -13,6 +13,7 @@ import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
 import { AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
 import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { todayKey, daysBetween, parseLocalDateKey, toLocalDateKey, weekdayOfKey, addDaysToKey, toDateKey, isDateKey, weekStartKey } from '@/utils/dates'
 import type { ExpenditureResult } from '@/services/training/exerciseEnergy'
 
@@ -46,6 +47,8 @@ export default function Inicio(){
   const nav = useNavigate()
   // Sesión activa canónica (no finalizada): fuente de verdad de "hay sesión".
   const { hasActiveSession } = useActiveTrainingSession()
+  // Presentación mobile (Stitch). En jsdom no hay matchMedia → false → desktop.
+  const isMobile = useIsMobile()
   const todayStr = todayKey()
   const { dayName, dayNum, month } = formatAgendaDate(todayStr)
   const [cycle, setCycle] = useState(getCycleFromProfile(null))
@@ -323,6 +326,335 @@ export default function Inicio(){
   // rutina (no existe RPE ejecutado en el registro de series).
   const plannedRpes = exNames.map(e=> e.rpe).filter((v): v is number => typeof v === 'number' && v > 0)
   const todayRPE = plannedRpes.length > 0 ? plannedRpes.reduce((a,b)=> a + b, 0) / plannedRpes.length : null
+
+  if (isMobile) {
+    const weekNumber = Math.max(1, Math.floor(daysBetween((cycle as CycleConfig).startDate || todayStr, todayStr) / 7) + 1)
+    const plannedVolume = Math.round(exNames.reduce((a,e)=>a+e.sets*(e.reps||8)*(e.weight||0),0))
+    const plannedDuration = Math.max(20, Math.round(exNames.reduce((a,e)=>a+e.sets*(e.restSec||90),0)/60 + exNames.length*3))
+    return (
+      <div className="space-y-2">
+        {routineReview && (
+          <section role="alert" data-testid="routine-review-warning" className="rounded-xl border border-error/45 bg-error/10 px-3 py-2.5 flex items-start gap-2.5">
+            <span className="material-symbols-outlined text-error" style={{ fontSize: 18 }} aria-hidden="true">warning</span>
+            <div className="min-w-0 flex-1">
+              <p className="font-label-caps text-[10px] uppercase tracking-widest text-error">Rutina a revisar</p>
+              <p className="text-[12px] text-on-surface mt-0.5">Lleva <strong>{routineReview.days} días</strong> (límite {routineReview.limit}). Requiere revisión o modificación.</p>
+            </div>
+            <Link to="/rutina" aria-label="Revisar la rutina" className="shrink-0 min-h-[44px] px-2.5 py-2 rounded-lg border border-error/45 text-error text-[10px] uppercase font-bold flex items-center">Revisar</Link>
+          </section>
+        )}
+
+        {/* 1. Sesión programada / descanso + CTA principal */}
+        <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">{dayName} {dayNum} · {month}</p>
+              <h1 className="font-headline-lg text-2xl font-semibold text-on-surface tracking-tight truncate">{userName ? `¡Hola, ${userName}!` : '¡Hola!'}</h1>
+            </div>
+            <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5 ${isRest ? 'bg-secondary/15 text-secondary border border-secondary/35' : 'bg-primary/10 text-primary border border-primary/35'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isRest ? 'bg-secondary' : 'bg-primary'}`}></span>
+              {isRest ? 'Descanso' : `Día N.º ${agenda.n}`}
+            </span>
+          </div>
+          <div className="space-y-0.5">
+            <h2 className="font-headline-md text-lg font-semibold text-on-surface">{isRest ? 'Recuperación y descanso activo' : `Sesión ${agenda.n} · ${agenda.name}`}</h2>
+            <p className="text-[12px] text-on-surface-variant">{isRest ? 'Sauna, movilidad y reflexión.' : `${exNames.length} ejercicios · ${exNames.reduce((a,e)=>a+e.sets,0)} series · ${cycle.methodId && activeMethodName ? activeMethodName : 'Hipertrofia clásica'}`}</p>
+            {isOverridden && <p className="font-label-caps text-[10px] text-secondary mt-0.5">Cambiado: original N.º {rawAgenda.n} {rawAgenda.name}</p>}
+          </div>
+          {todayCompleted ? (
+            <span data-testid="inicio-day-done" className="flex items-center justify-center gap-1.5 w-full min-h-[48px] rounded-lg bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[12px] uppercase font-bold">
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check_circle</span> Sesión completada
+            </span>
+          ) : ((!isRest || hasActiveSession) && (
+            <button onClick={()=>{ startOrContinueTraining() }} data-testid="inicio-hero-cta" aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'} className="btn-primary w-full min-h-[48px] justify-center">
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>electric_bolt</span>
+              <span className="tracking-wide uppercase font-semibold text-[13px]">{hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}</span>
+            </button>
+          ))}
+          <div className="flex gap-2">
+            <button onClick={()=>setShowCalendarPopover(true)} aria-label="Ver la semana" className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] rounded-lg bg-surface-container-high border border-outline-variant/40 text-[12px] text-on-surface">
+              <span className="material-symbols-outlined text-outline" style={{ fontSize: 16 }}>date_range</span> Semana {weekNumber}
+            </button>
+            <button onClick={()=>setShowChangeDay(true)} aria-label="Cambiar el entrenamiento de hoy" className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] rounded-lg bg-surface-container-high border border-outline-variant/40 text-[12px] text-on-surface">
+              <span className="material-symbols-outlined text-outline" style={{ fontSize: 16 }}>swap_horiz</span> Cambiar día
+            </button>
+          </div>
+        </section>
+
+        {/* 2. Biometría & balance diario */}
+        <section className="space-y-2">
+          <h3 className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant px-1">Biometría &amp; balance diario</h3>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-outline-variant/40 bg-surface-container p-2.5 space-y-1">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>favorite</span>
+              <p className="font-metric-mobile text-xl text-on-surface leading-none">{briefV2?.recovery?.lastScore ?? '—'}</p>
+              <p className="text-[9px] uppercase tracking-wider text-on-surface-variant">Recuperación</p>
+            </div>
+            <div className="rounded-xl border border-outline-variant/40 bg-surface-container p-2.5 space-y-1">
+              <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>restaurant</span>
+              <p className="font-metric-mobile text-xl text-on-surface leading-none">{briefV2?.nutrition?.tdee ? Math.round(briefV2.nutrition.tdee) : '—'}</p>
+              <p className="text-[9px] uppercase tracking-wider text-on-surface-variant">Nutrición kcal</p>
+            </div>
+            <div className="rounded-xl border border-outline-variant/40 bg-surface-container p-2.5 space-y-1">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>local_fire_department</span>
+              <p className="font-metric-mobile text-xl text-on-surface leading-none">{typeof gasto?.hoy.totalKcal === 'number' ? Math.round(gasto.hoy.totalKcal) : '—'}</p>
+              <p className="text-[9px] uppercase tracking-wider text-on-surface-variant">Gasto hoy kcal</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>water_drop</span>
+                <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Hidratación</span>
+              </div>
+              <Link to="/nutricion" className="text-[10px] text-on-surface-variant font-label-caps uppercase">Nutrición →</Link>
+            </div>
+            <WaterBottle size="md" allowQuickAdd refreshKey={waterVersion} />
+            <BottleConfigEditor />
+            <button onClick={()=> addWater(250)} disabled={addingWater} data-testid="inicio-add-water-250" className="w-full min-h-[44px] rounded-lg bg-primary-container/30 border border-primary/40 text-primary font-label-caps text-[10px] uppercase font-bold disabled:opacity-50">
+              {addingWater ? 'Guardando…' : '+ 250 ml'}
+            </button>
+          </div>
+
+          <div className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>favorite</span>
+                <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Recuperación Arete</span>
+              </div>
+              <span className="px-2 py-0.5 rounded bg-secondary-container/50 border border-secondary/40 text-secondary font-label-caps text-[9px] font-bold">
+                {briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'NIVEL ÁUREO' : briefV2.recovery.lastScore >= 40 ? 'EN PROCESO' : 'NECESITA DESCANSO') : 'SIN DATOS'}
+              </span>
+            </div>
+            <p className="text-[11px] text-on-surface-variant">Completá el check-in de recuperación para una lectura real.</p>
+            <Link to="/recuperacion" className="inline-flex items-center min-h-[44px] text-[11px] text-primary font-label-caps uppercase">Abrir check-in →</Link>
+          </div>
+        </section>
+
+        {/* 3. Estructura de carga: sesión de hoy */}
+        <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">Estructura de carga</h3>
+            {todayCompleted && <span className="text-[10px] text-primary font-label-caps uppercase font-bold">Completada</span>}
+          </div>
+          {isRest ? (
+            <p className="text-[12px] text-on-surface-variant italic">«La recuperación es donde se forja la verdadera fuerza. Descansa con propósito.»</p>
+          ) : (
+            <>
+              <ul className="divide-y divide-surface-bright">
+                {exNames.map((ex, i)=>(
+                  <li key={ex.id} className="py-2 flex items-center gap-2.5">
+                    <span className="w-5 h-5 rounded bg-surface-container-high border border-secondary/30 flex items-center justify-center font-headline-sm text-[10px] text-secondary shrink-0">{ROMAN[i] || i+1}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] text-on-surface font-medium truncate">{ex.name}</p>
+                      {ex.muscle && <p className="font-label-caps text-[9px] text-on-surface-variant">{ex.muscle}</p>}
+                    </div>
+                    <span className="font-metric-mobile text-[12px] text-on-surface-variant shrink-0">{ex.sets}×{ex.reps || '—'} · {(ex.weight ?? 0) > 0 ? `${ex.weight} kg` : 'sin peso'}</span>
+                  </li>
+                ))}
+                {exNames.length === 0 && (
+                  <li className="py-4 text-center text-on-surface-variant text-sm">Sin ejercicios programados. <Link to="/rutina" className="text-primary underline">Configurar rutina</Link></li>
+                )}
+              </ul>
+              {todayCompleted ? (
+                <span data-testid="inicio-start-done" className="flex items-center justify-center gap-1.5 w-full min-h-[44px] rounded-lg bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[11px] uppercase font-bold">
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check_circle</span> Sesión completada
+                </span>
+              ) : (exNames.length > 0 && (!isRest || hasActiveSession) && (
+                <button onClick={()=>{ startOrContinueTraining() }} data-testid="inicio-start-training" aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'} className="flex items-center justify-center gap-1.5 w-full min-h-[48px] rounded-lg bg-primary-container hover:bg-tertiary-container text-on-primary-container border border-outline-variant/50 font-label-caps text-[12px] uppercase font-bold">
+                  <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>play_arrow</span>
+                  {hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
+                </button>
+              ))}
+              {exNames.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-surface-bright text-center">
+                  <div>
+                    <p className="font-metric-mobile text-sm text-on-surface">{plannedVolume.toLocaleString('es-ES')} kg</p>
+                    <p className="text-[9px] uppercase tracking-wider text-on-surface-variant">Vol. proy.</p>
+                  </div>
+                  <div>
+                    <p className="font-metric-mobile text-sm text-on-surface">{todayRPE !== null && todayRPE > 0 ? `${todayRPE.toFixed(1)}/10` : '—'}</p>
+                    <p className="text-[9px] uppercase tracking-wider text-on-surface-variant">Intensidad</p>
+                  </div>
+                  <div>
+                    <p className="font-metric-mobile text-sm text-on-surface">{plannedDuration} min</p>
+                    <p className="text-[9px] uppercase tracking-wider text-on-surface-variant">Duración est.</p>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        {/* 4. Microciclo semanal */}
+        <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-label-caps text-[11px] uppercase text-secondary font-semibold">Microciclo · {completedCount}/{totalCount}</span>
+            <span className="font-label-caps text-[11px] text-primary uppercase font-medium">Vol: {weekVolume > 0 ? `${weekVolume.toLocaleString('es-ES')} kg` : '—'}</span>
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {weekKeys.map((iso)=>{
+              const st = dayStatus[iso]
+              const isToday = iso === todayStr
+              const dow = parseLocalDateKey(iso)
+              const dayLabel = dow.toLocaleDateString('es',{weekday:'narrow'}).toUpperCase()
+              const dayNumCell = dow.getDate()
+              const isCompleted = st?.sessionStatus === 'COMPLETED'
+              const isRestDay = !st?.planned
+              return (
+                <div key={iso} className={`rounded p-1 flex flex-col items-center gap-1 min-w-0 ${isToday ? 'bg-surface-container-high border border-secondary/70' : 'bg-surface-container-high/40 border border-outline-variant/20'}`}>
+                  <span className={`font-label-caps text-[9px] font-semibold ${isToday ? 'text-secondary' : 'text-on-surface-variant'}`}>{dayLabel}{dayNumCell}</span>
+                  {isCompleted ? (
+                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 14 }}>check_circle</span>
+                  ) : isRestDay ? (
+                    <span className="material-symbols-outlined text-secondary" style={{ fontSize: 14 }}>spa</span>
+                  ) : (
+                    <span className="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex items-center justify-center gap-3">
+            <button onClick={()=>setWeekOffset(o=>o-1)} aria-label="Semana anterior" className="min-h-[44px] min-w-[44px] rounded bg-surface-container-high border border-outline-variant/40 text-on-surface-variant">‹</button>
+            <span className="font-label-caps text-[10px] text-on-surface-variant">{weekOffset===0 ? 'Esta semana' : weekOffset>0 ? `+${weekOffset} sem` : `${-weekOffset} sem atrás`}</span>
+            <button onClick={()=>setWeekOffset(o=>o+1)} aria-label="Semana siguiente" className="min-h-[44px] min-w-[44px] rounded bg-surface-container-high border border-outline-variant/40 text-on-surface-variant">›</button>
+          </div>
+        </section>
+
+        {/* 5. Resumen: gasto calórico real */}
+        <section data-testid="inicio-gasto-calorico" className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>local_fire_department</span>
+              <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Gasto calórico</span>
+            </div>
+            <Link to="/calendario" className="text-[10px] text-on-surface-variant font-label-caps uppercase">Historial →</Link>
+          </div>
+          {gasto === null ? (
+            <p className="text-[12px] text-on-surface-variant">Cargando…</p>
+          ) : (
+            <div className="space-y-2">
+              <GastoRow label="Hoy" res={gasto.hoy} testId="inicio-gasto-hoy" />
+              <GastoRow label="Semana (lun → hoy)" res={gasto.semana} testId="inicio-gasto-semana" />
+            </div>
+          )}
+        </section>
+
+        {/* 6. Registros de virtud */}
+        <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-3">
+          <div className="flex items-center justify-between border-b border-outline-variant/30 pb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>insights</span>
+              <h3 className="font-headline-md text-base font-semibold text-on-surface">Registros de virtud</h3>
+            </div>
+            <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">Ciclo olímpico</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <AltheaMetric value={briefV2?.progress?.rate !== undefined ? `${briefV2.progress.rate >= 0 ? '+' : ''}${briefV2.progress.rate.toFixed(1)}%` : 'Sin datos'} label="Sobrecarga progresiva" delta={briefV2?.progress?.rate} deltaSuffix="%" />
+            <AltheaMetric value={completedCount > 0 ? completedCount : '—'} unit="días" label="Días completados" />
+            <AltheaMetric value={`${totalCount > 0 ? Math.round(completedCount/totalCount*100) : 0}%`} label="Adherencia al plan" />
+            <AltheaMetric value={briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Áurea A+' : briefV2.recovery.lastScore >= 40 ? 'B+ Estable' : 'C Debe Descansar') : 'Sin datos'} label="Calidad de recuperación" />
+          </div>
+        </section>
+
+        {/* 7. Coach */}
+        {briefScore !== null && (
+          <Link to="/coach" className="block rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>chat</span>
+                <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Coach IA · Estado {briefScore}/100</span>
+              </div>
+              <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 16 }}>chevron_right</span>
+            </div>
+            {briefWarn ? <p className="text-[11px] text-on-surface">{briefWarn}</p> : <p className="text-[11px] text-on-surface-variant">Todo estable por acá.</p>}
+          </Link>
+        )}
+
+        {/* Modales → bottom sheets */}
+        {showChangeDay && (
+          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setShowChangeDay(false)}>
+            <div onClick={e=>e.stopPropagation()} className="bg-surface border-t border-outline-variant rounded-t-2xl w-full max-w-lg p-4 space-y-3 max-h-[85vh] overflow-auto">
+              <div className="mx-auto w-10 h-1 rounded-full bg-outline-variant/60" aria-hidden="true"></div>
+              <h3 className="font-headline-md text-lg font-semibold text-on-surface">Cambiar entrenamiento de hoy</h3>
+              <div className="rounded bg-secondary/10 border border-secondary/30 p-3">
+                <div className="font-label-caps text-[10px] text-secondary flex items-center gap-1"><BrandIcon name="alert" size={14}/> {rawAgenda.isRest ? 'Este día estaba configurado como descanso.' : `Hoy estaba programado ${rawAgenda.name}.`}</div>
+                <p className="text-[11px] text-on-surface-variant mt-1">{rawAgenda.isRest ? 'Estás intentando entrenar en un día no planificado. Esto puede reducir recuperación.' : 'Este cambio altera la distribución semanal prevista.'}</p>
+              </div>
+              <p className="text-[11px] text-on-surface-variant">Seleccioná qué día querés realizar:</p>
+              {cycle.trainingDays.map(d=>(
+                <button key={d.n} onClick={async()=>{
+                  const obs={ date: todayStr, plannedDay: rawAgenda.n, plannedName: rawAgenda.name, actualDay: d.n, actualName: d.name, changeReason, changeComment, changedByUser:true, at: new Date().toISOString()}
+                  await setOverride(todayStr, d.n, obs, obs)
+                  setOverrideDay(d.n)
+                  loadDay(cycle, d.n)
+                  window.dispatchEvent(new Event('routineChange'))
+                  setShowChangeDay(false)
+                }} className={`w-full p-3 rounded border text-left flex items-center justify-between min-h-[44px] ${effectiveN===d.n?'bg-primary text-on-surface border-primary':'bg-surface-container border-outline-variant text-on-surface'}`}>
+                  <span className="text-sm">DÍA N.º {d.n} — {d.name}</span>
+                  {effectiveN===d.n && <span className="text-[10px] font-label-caps">actual</span>}
+                </button>
+              ))}
+              <div className="p-3 bg-surface-container border border-outline-variant rounded space-y-2">
+                <div className="text-[11px] text-on-surface-variant">¿Por qué cambias?</div>
+                <select value={changeReason} onChange={e=>setChangeReason(e.target.value)} className="w-full bg-surface-container-low border border-outline-variant rounded p-2 text-sm text-on-surface">
+                  <option>Cambio de horarios</option><option>No pude entrenar el día original</option><option>Me siento recuperado</option><option>Necesidad personal</option><option>Disponibilidad de gimnasio</option><option>Reprogramación</option><option>Otro</option>
+                </select>
+                <textarea value={changeComment} onChange={e=>setChangeComment(e.target.value)} placeholder="Observación / explicación" rows={2} className="w-full bg-surface-container-low border border-outline-variant rounded p-2 text-sm text-on-surface"/>
+              </div>
+              <button onClick={async()=>{
+                await removeOverride(todayStr)
+                setOverrideDay(null)
+                loadDay(cycle, rawAgenda.n)
+                window.dispatchEvent(new Event('routineChange'))
+                setShowChangeDay(false)
+              }} className="w-full min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant text-[11px] font-label-caps uppercase">Volver al programado ({rawAgenda.n? `N.º ${rawAgenda.n} ${rawAgenda.name}` : 'Descanso'})</button>
+              <button onClick={()=>setShowChangeDay(false)} className="w-full min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant text-[11px] font-label-caps uppercase">Cancelar</button>
+            </div>
+          </div>
+        )}
+
+        {showCalendarPopover && (
+          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setShowCalendarPopover(false)}>
+            <div onClick={e=>e.stopPropagation()} className="bg-surface border-t border-outline-variant rounded-t-2xl w-full max-w-md p-4 space-y-3 max-h-[85vh] overflow-auto">
+              <div className="mx-auto w-10 h-1 rounded-full bg-outline-variant/60" aria-hidden="true"></div>
+              <h3 className="font-headline-md text-lg font-semibold text-on-surface">Vista semanal</h3>
+              <div className="space-y-1.5">
+                {cycle.trainingDays.map((d:any)=>{
+                  const dayDate = new Date((cycle as any).startDate || todayStr)
+                  dayDate.setDate(dayDate.getDate() + (d.n - 1) + (weekOffset * 7))
+                  const dateStr = toLocalDateKey(dayDate)
+                  const isToday = dateStr === todayStr
+                  const isPast = new Date(dateStr) < new Date(todayStr)
+                  return (
+                    <div key={d.n} className={`flex items-center justify-between p-2.5 rounded border text-sm ${isToday ? 'bg-primary/20 border-primary/40' : isPast ? 'bg-surface-container border-outline-variant/20 opacity-60' : 'bg-surface-container border-outline-variant/40'}`}>
+                      <div>
+                        <div className="font-medium text-on-surface">Día {d.n} — {d.name}</div>
+                        <div className="text-[11px] text-on-surface-variant">{dateStr}</div>
+                      </div>
+                      {isToday && <span className="text-[10px] font-label-caps text-primary">HOY</span>}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={()=>setWeekOffset(w=>w-1)} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant text-sm">‹ Anterior</button>
+                <button onClick={()=>setWeekOffset(0)} className="flex-1 min-h-[44px] rounded bg-primary text-on-primary text-sm font-medium">Esta semana</button>
+                <button onClick={()=>setWeekOffset(w=>w+1)} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant text-sm">Siguiente ›</button>
+              </div>
+              <button onClick={()=>setShowCalendarPopover(false)} className="w-full min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant text-[11px] font-label-caps uppercase">Cerrar</button>
+            </div>
+          </div>
+        )}
+
+        <footer className="pt-2 pb-2 text-center">
+          <p className="font-label-caps text-[10px] tracking-widest text-on-surface-variant uppercase">ALTHEA PLATFORM · PALAESTRA DE ARETE</p>
+        </footer>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-transparent space-y-3">
