@@ -9,6 +9,7 @@ import { getLoadForDate, LOAD_STATE_LABEL, LOAD_STATE_COLOR } from '@/utils/cycl
 import { todayKey, weekdayOfKey } from '@/utils/dates'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { sessionEnergy, loadWeightRows, weightForDate, energyInsufficientReason, type EnergySession, type WeightRow } from '@/services/training/exerciseEnergy'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 type DaySession = EnergySession & {
   id: string
@@ -46,6 +47,8 @@ export default function Calendario(){
   const [todayScore,setTodayScore]=useState<number|null>(null)
   const [,setTodaySleep]=useState<number|null>(null)
   const [todayHydration,setTodayHydration]=useState(0)
+
+  const isMobile = useIsMobile()
 
   const todayStr = selectedDate ?? todayKey()
 
@@ -204,32 +207,31 @@ export default function Calendario(){
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
   const monthHeader = cap(new Date(y, m, 1).toLocaleDateString('es', { month: 'long', year: 'numeric' }))
 
-  return (
-    <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
-      <AltheaCard padding="md" className="space-y-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="material-symbols-outlined text-primary text-[22px] shrink-0">favorite</span>
-            <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario y recuperación</h1>
-          </div>
-          {todayScore !== null ? (
-            <AltheaBadge variant="primary" icon="monitor_heart" size="sm">Score: {todayScore}/100</AltheaBadge>
-          ) : (
-            <AltheaBadge variant="outline" icon="timelapse" size="sm">Sin check-in</AltheaBadge>
-          )}
+  const headerCard = (
+    <AltheaCard padding="md" className="space-y-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="material-symbols-outlined text-primary text-[22px] shrink-0">favorite</span>
+          <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario y recuperación</h1>
         </div>
-        <div className="font-body-sm text-[13px] text-on-surface-variant flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[16px]">water_drop</span>
-          {todayHydration > 0 ? `Agua: ${(todayHydration / 1000).toFixed(1)} L` : 'Agua: Sin datos'}
-        </div>
-        <AltheaButton icon="favorite" fullWidth onClick={()=>setShowCheckin(true)} className="sm:w-auto sm:min-w-[280px] min-h-[52px]">
-          Recuperación
-        </AltheaButton>
-      </AltheaCard>
+        {todayScore !== null ? (
+          <AltheaBadge variant="primary" icon="monitor_heart" size="sm">Score: {todayScore}/100</AltheaBadge>
+        ) : (
+          <AltheaBadge variant="outline" icon="timelapse" size="sm">Sin check-in</AltheaBadge>
+        )}
+      </div>
+      <div className="font-body-sm text-[13px] text-on-surface-variant flex items-center gap-1.5">
+        <span className="material-symbols-outlined text-[16px]">water_drop</span>
+        {todayHydration > 0 ? `Agua: ${(todayHydration / 1000).toFixed(1)} L` : 'Agua: Sin datos'}
+      </div>
+      <AltheaButton icon="favorite" fullWidth onClick={()=>setShowCheckin(true)} className="sm:w-auto sm:min-w-[280px] min-h-[52px]">
+        Recuperación
+      </AltheaButton>
+    </AltheaCard>
+  )
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div className="lg:col-span-8 space-y-3">
-      <AltheaCard className="space-y-3">
+  const monthCard = (
+    <AltheaCard className="space-y-3">
         <AltheaCardHeader
           icon="calendar_month"
           title={monthHeader}
@@ -267,10 +269,11 @@ export default function Calendario(){
         {monthSessions === 0 && (
           <p className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant text-center py-2">Sin sesiones registradas este mes</p>
         )}
-      </AltheaCard>
+    </AltheaCard>
+  )
 
-      </div>
-      <div className="lg:col-span-4 space-y-3">
+  const sideCards = (
+    <>
         <AltheaPanel>
           <AltheaCardHeader icon="summarize" title="Resumen del mes" />
           <AltheaStatRow items={[
@@ -301,11 +304,10 @@ export default function Calendario(){
             <li>Usá el override para sesiones movidas</li>
           </ul>
         </AltheaCard>
-      </div>
+    </>
+  )
 
-      </div>
-
-      {detail && (
+  const detailSheet = detail && (
         <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50" onClick={()=>setDetail(null)}>
           <div onClick={e=>e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[75vh] overflow-auto p-4 space-y-3 pb-safe">
             <h3 className="font-headline-lg text-base font-semibold text-on-surface">{detail.date} — {detail.actual}</h3>
@@ -361,9 +363,9 @@ export default function Calendario(){
             <AltheaButton fullWidth size="lg" onClick={()=>setDetail(null)} className="min-h-[48px]">Cerrar</AltheaButton>
           </div>
         </div>
-      )}
+  )
 
-      {showCheckin && (
+  const checkinSheet = showCheckin && (
         <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-0 sm:p-6" onClick={()=>setShowCheckin(false)}>
           <div onClick={e=>e.stopPropagation()} className="bg-surface border border-outline-variant rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-3 pb-safe">
             <div className="flex items-center justify-between gap-2">
@@ -379,7 +381,29 @@ export default function Calendario(){
             <RecoveryCheckForm onSaved={()=>setShowCheckin(false)} />
           </div>
         </div>
-      )}
+  )
+
+  if (isMobile) {
+    return (
+      <div className="space-y-2">
+        {headerCard}
+        {monthCard}
+        {sideCards}
+        {detailSheet}
+        {checkinSheet}
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
+      {headerCard}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8 space-y-3">{monthCard}</div>
+        <div className="lg:col-span-4 space-y-3">{sideCards}</div>
+      </div>
+      {detailSheet}
+      {checkinSheet}
     </div>
   )
 }

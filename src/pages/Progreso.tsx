@@ -12,6 +12,7 @@ import { MuscleAtlas, type MuscleDataPoint } from '@/components/progress/MuscleA
 import { resolveMuscleIds } from '@/components/progress/muscleVocabulary'
 import { MUSCLE_CATALOG } from '@/services/training/muscleCatalog'
 import { AltheaCard, AltheaCardHeader, AltheaButton, AltheaKPICard, AltheaEmpty, AltheaLoading } from '@/components/althea'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { RecoveryCheck, UserProfile } from '@/types'
 
 type Period = '7' | '30' | '90' | '365' | 'all' | 'custom'
@@ -191,6 +192,8 @@ export default function Progresos() {
   const [reloadKey, setReloadKey] = useState(0)
     const [reportOpen, setReportOpen] = useState(false)
     const [cycle, setCycle] = useState<Awaited<ReturnType<typeof getCanonicalCycle>> | null>(null)
+
+  const isMobile = useIsMobile()
   useEffect(() => {
     let alive = true
     setLoading(true)
@@ -387,6 +390,111 @@ export default function Progresos() {
       </div>
     </AltheaCard>
   )
+
+  if (isMobile) {
+    return (
+      <div className="space-y-2">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="h-2 w-2 rounded-full bg-secondary" />
+            <span className="font-label-caps text-[10px] text-secondary uppercase tracking-widest">Evolución de entrenamiento</span>
+          </div>
+          <h1 className="font-headline-lg text-2xl font-semibold text-on-surface tracking-tight">
+            {loading ? 'Cargando…' : 'Progreso'}
+          </h1>
+          <p className="font-body-sm text-[12px] text-on-surface-variant mt-0.5">
+            Fuerza, volumen, peso y recuperación a partir de tus registros reales.
+          </p>
+        </div>
+
+        <div className="flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Período del informe">
+          {PERIOD_OPTIONS.map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setPeriod(v)}
+              aria-pressed={period === v}
+              data-testid={`period-${v}`}
+              className={`shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${period === v ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {period === 'custom' && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Desde
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
+            </label>
+            <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Hasta
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
+            </label>
+          </div>
+        )}
+
+        {loading ? (
+          <AltheaLoading lines={4} />
+        ) : error ? (
+          <AltheaCard className="p-4">
+            <AltheaCardHeader title="No se pudieron cargar los datos" icon="error" />
+            <p className="font-body-md text-sm text-on-surface-variant mb-4">{error}</p>
+            <AltheaButton variant="secondary" size="lg" className="min-h-[48px]" icon="refresh" onClick={() => setReloadKey((k) => k + 1)}>Reintentar</AltheaButton>
+          </AltheaCard>
+        ) : !hasAnyData ? (
+          <AltheaEmpty
+            icon="fitness_center"
+            title="Todavía sin datos de entrenamiento"
+            description="Registrá tu primera sesión en la pestaña Entrenar y volvé: tu evolución se construye con tus registros reales."
+          />
+        ) : !hasPeriodData ? (
+          <AltheaCard className="p-4">
+            <AltheaEmpty
+              icon="calendar_month"
+              title="Sin registros en este período"
+              description={`No hay sesiones, mediciones ni check-ins entre ${customStart ? `el ${customStart}` : ''} y el ${customEnd || 'día de hoy'}. Probá otro período o ampliá el rango.`}
+              action={<AltheaButton size="lg" className="min-h-[48px]" onClick={() => setPeriod('all')}>Ver todo el historial</AltheaButton>}
+            />
+          </AltheaCard>
+        ) : (
+          <>
+            <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3" data-testid="muscle-atlas">
+              <h2 className="font-headline-lg text-lg font-semibold text-on-surface tracking-tight">Mapa muscular</h2>
+              <p className="font-body-sm text-[11px] text-on-surface-variant mb-3">Trabajo por grupo · ciclo iniciado el {cycle?.startDate ?? todayKey()}</p>
+              <MuscleAtlas view={vista} onViewChange={setVista} data={muscleData} width={260} detail="below" />
+            </section>
+
+            <div className="grid grid-cols-1 gap-2">
+              <AltheaKPICard
+                icon="exercise"
+                label="Días entrenados"
+                value={period === 'all' ? totalSessionDays : periodSessionDays}
+                subtitle={period === 'all' ? 'todo el historial' : periodDays > 0 ? `de ${periodDays} días del período` : 'período'}
+              />
+              <AltheaKPICard
+                icon="monitor_weight"
+                label="Peso actual"
+                value={weightStats ? `${weightStats.actual} kg` : '—'}
+                subtitle={weightStats ? `${weightStats.dif > 0 ? '+' : ''}${weightStats.dif} kg en el período` : 'sin mediciones'}
+                color={weightStats ? (weightStats.dif <= 0 ? 'success' : 'warning') : 'primary'}
+              />
+              <AltheaKPICard
+                icon="fitness_center"
+                label="Volumen comparable"
+                value={fmtKg(periodVolume)}
+                subtitle={volumeComparison
+                  ? `${volumeComparison.pct >= 0 ? '+' : ''}${volumeComparison.pct}% vs ${volumeComparison.prevFrom.slice(5)}–${volumeComparison.prevTo.slice(5)}`
+                  : 'kg×reps · sin período previo comparable'}
+                color={volumeComparison ? (volumeComparison.pct >= 0 ? 'success' : 'warning') : 'primary'}
+              />
+            </div>
+
+            {reportBlock()}
+            {reportOpen && <ReportModalLazy open={reportOpen} onClose={() => setReportOpen(false)} />}
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 max-w-[1440px] w-full mx-auto space-y-5">
