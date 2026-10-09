@@ -409,15 +409,15 @@ html[data-ms-icons='ready'] .material-symbols-outlined {
   -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
   animation: veil-fade 0.18s ease-out;
 }
+/* .althea-modal = OVERLAY (wrapper fullscreen) cuyo hijo directo es el panel.
+   NO es la caja: el wrapper ya usa `fixed inset-0` + flex y el panel trae su
+   propio estilo (bg/border/rounded/shadow). Definir aquí left/top/transform/
+   width/background rompía el overlay (sin dim y sin cierre al tocar fuera).
+   El comportamiento bottom-sheet en mobile vive en althea-mobile-stitch.css. */
 .althea-modal {
-  position: fixed; z-index: 70; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: min(92vw, 520px); max-height: 88vh; overflow: auto;
-  background: var(--c-surface); color: var(--c-on-surface);
-  border: 1px solid var(--c-outline-variant); border-radius: var(--althea-radius-xl);
-  box-shadow: var(--althea-shadow-lg);
-  animation: surface-rise 0.22s ease-out;
+  position: fixed; inset: 0;
+  animation: fade-in 0.18s ease-out;
 }
-.althea-modal--lg { width: min(92vw, 760px); }
 .althea-drawer {
   position: fixed; z-index: 70; top: 0; right: 0; height: 100dvh; width: min(92vw, 420px);
   background: var(--c-surface); color: var(--c-on-surface);
