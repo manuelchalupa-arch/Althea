@@ -6,6 +6,7 @@ import {
   savePlanning,
   getActiveVersion,
   getCanonicalCycle,
+  getCanonicalMethodId,
   listVersions,
   getVersionForSession,
   isPlanningUsed,
@@ -238,5 +239,47 @@ describe('FASE 2 S3 — contrato de lectura canónica y fallback legacy', () => 
     expect(all).toHaveLength(1)
     expect(all.filter(v => v.status === 'active')).toHaveLength(1)
     expect(all.filter(v => v.status === 'historic')).toHaveLength(0)
+  })
+})
+
+// Lector canónico del MÉTODO del ciclo (Perfil, Coach, Rutina).
+describe('FASE 1M-B — getCanonicalMethodId (canónico-primero)', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    await db.delete()
+    await db.open()
+  })
+
+  it('prioriza el método de la versión activa sobre el snapshot legacy', async () => {
+    await db.userProfile.put({
+      id: 'me',
+      cycle: { ...CYCLE_V1, methodId: 'full_body' },
+      updatedAt: '2026-09-01T00:00:00Z',
+    } as never)
+    await savePlanning({ cycle: CYCLE_V2 })
+
+    const methodId = await getCanonicalMethodId((await db.userProfile.get('me')) as never)
+
+    expect(methodId).toBe('upper_lower')
+    expect(methodId).not.toBe('full_body')
+  })
+
+  it('sin versión activa cae al snapshot legacy (fallback intencional)', async () => {
+    await db.userProfile.put({
+      id: 'me',
+      cycle: { ...CYCLE_V1, methodId: 'full_body' },
+      updatedAt: '2026-09-01T00:00:00Z',
+    } as never)
+
+    await expect(getCanonicalMethodId((await db.userProfile.get('me')) as never))
+      .resolves.toBe('full_body')
+  })
+
+  it('ni versión ni snapshot → undefined (no inventa un método)', async () => {
+    await expect(getCanonicalMethodId(null)).resolves.toBeUndefined()
+
+    await db.userProfile.put({ id: 'me', updatedAt: '2026-09-01T00:00:00Z' } as never)
+    await expect(getCanonicalMethodId((await db.userProfile.get('me')) as never))
+      .resolves.toBeUndefined()
   })
 })

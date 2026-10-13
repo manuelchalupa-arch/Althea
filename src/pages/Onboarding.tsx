@@ -7,6 +7,7 @@ import { CoachIntensity, Goal } from '@/types'
 import { todayKey } from '@/utils/dates'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
 import { calcTDEE } from '@/utils/nutrition'
+import { normalizeSex, SEX_LABEL, type SexCode } from '@/utils/sex'
 import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 
 const OBJETIVOS = ['Perder grasa / bajar de peso','Ganar masa muscular','Aumentar fuerza','Mejorar resistencia','Mejorar condición física','Mejorar movilidad','Mantenerme','Recomposición corporal','Otro']
@@ -51,7 +52,10 @@ export default function Onboarding(){
   // Paso 6: Notificaciones + Dolencias + Restricciones + Excluidos + Datos cuantitativos
   const [nombre,setNombre]=useState('')
   const [email,setEmail]=useState('')
-  const [sexo,setSexo]=useState<'masculino'|'femenino'|'otro'>('masculino')
+  // Sexo: vocabulario CANÓNICO ('M' | 'F' | 'X'), el mismo de UserProfile.sex.
+  // Antes se guardaba 'masculino' | 'femenino' | 'otro' con un cast, con lo que
+  // convivían dos vocabularios en la misma columna.
+  const [sexo,setSexo]=useState<SexCode>('M')
   const [fechaNacimiento,setFechaNacimiento]=useState('')
   const [altura,setAltura]=useState('')
   const [peso,setPeso]=useState('')
@@ -93,6 +97,8 @@ export default function Onboarding(){
         if (d.coachIntensity) { setCoachIntensity(d.coachIntensity) }
         if (d.nombre) { setNombre(d.nombre) }
         if (d.email) { setEmail(d.email) }
+        if (d.sexo) { setSexo(normalizeSex(d.sexo)) }
+        if (d.fechaNacimiento) { setFechaNacimiento(d.fechaNacimiento) }
         if (d.altura) { setAltura(d.altura) }
         if (d.peso) { setPeso(d.peso) }
         if (d.pesoObjetivo) { setPesoObjetivo(d.pesoObjetivo) }
@@ -115,7 +121,7 @@ export default function Onboarding(){
       nivel, diasDisponibles, equipamiento,
       horarioEntreno, duracionSesion,
       coachIntensity,
-      nombre, email, altura, peso, pesoObjetivo,
+      nombre, email, sexo, fechaNacimiento, altura, peso, pesoObjetivo,
       needs, hasPain, painAreas, limDesc, restrictions, restDesc, excluded
     }
     saveOnboardingDraft(step, data)
@@ -178,7 +184,9 @@ export default function Onboarding(){
     const chosenTargetWeight = pesoObjetivo ? Number(pesoObjetivo) : (weightNum ? (objPrincipal.includes('grasa') ? weightLowerVariant : objPrincipal.includes('masa') ? weightUpperVariant : weightNum) : undefined)
 
     // D11: Calorías y macronutrientes recomendados
-    const isMale = sexo === 'masculino'
+    // Sólo cambia la comparación: la fórmula (Mifflin-St Jeor) es la misma.
+    // `sexo` es ahora canónico, por eso se compara contra 'M'.
+    const isMale = sexo === 'M'
     let caloriesTarget: number | undefined = undefined
     let proteinTarget: number | undefined = undefined
     let fatTarget: number | undefined = undefined
@@ -399,8 +407,8 @@ export default function Onboarding(){
               <div>
                 <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sexo</label>
                 <div className="flex gap-1 mt-1">
-                  {(['masculino', 'femenino', 'otro'] as const).map(s => (
-                    <button key={s} type="button" onClick={() => setSexo(s)} className={`flex-1 py-2.5 rounded-lg border font-body-sm text-xs capitalize ${sexo === s ? 'bg-primary border-primary text-on-primary font-bold' : 'bg-surface-container-low/90 border-outline-variant text-on-surface'}`}>{s}</button>
+                  {(['M', 'F', 'X'] as const).map(s => (
+                    <button key={s} type="button" onClick={() => setSexo(s)} className={`flex-1 py-2.5 rounded-lg border font-body-sm text-xs capitalize ${sexo === s ? 'bg-primary border-primary text-on-primary font-bold' : 'bg-surface-container-low/90 border-outline-variant text-on-surface'}`}>{SEX_LABEL[s]}</button>
                   ))}
                 </div>
               </div>

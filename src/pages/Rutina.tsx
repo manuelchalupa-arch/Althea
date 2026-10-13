@@ -9,7 +9,7 @@ import { IconDumbbell, IconFire, IconLightning, IconBody, IconTarget } from '@/c
 import { AltheaCard, AltheaBadge, AltheaButton, AltheaEmpty, AltheaLoading, StatusTag, AltheaPanel, AltheaStatRow } from '@/components/althea'
 import { generateRoutineWithAI, isRoutineAIAvailable, type GeneratedRoutine, type UserWants } from '@/services/ai/routineBuilderIA'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
-import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
+import { getActiveVersion, getCanonicalMethodId, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import * as Gym from '@/services/exerciseGym'
@@ -790,15 +790,14 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
     if(muscles.length===0) {return}
     let cancelled=false
     // Load method hint for exercise prioritization
-    db.userProfile.get('me').then(p=>{
+    // Canónico-primero (FASE 1M-B): manda la versión activa; profile.cycle sólo
+    // rellena cuando no existe versión (usuarios pre-versionado).
+    db.userProfile.get('me').then(async p=>{
       if(cancelled) {return}
-      const cycle = p?.cycle
-      if(cycle?.methodId){
-        import('@/services/ai/trainingMethodsDB').then(({ getMethod })=>{
-          if(cancelled) {return}
-          const m = getMethod(cycle.methodId as TrainingMethodId)
-          if(m) {setMethodHint({ types: m.exerciseSelection.primaryTypes, avoid: m.exerciseSelection.avoidExercises || [] })}
-        })
+      const methodId = await getCanonicalMethodId(p ?? null).catch(()=>undefined)
+      if(methodId){
+        const m = getMethod(methodId)
+        if(m) {setMethodHint({ types: m.exerciseSelection.primaryTypes, avoid: m.exerciseSelection.avoidExercises || [] })}
       }
     }).catch(()=>{})
     const load = async ()=>{

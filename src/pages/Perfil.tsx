@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
+import SemanticIcon from '../components/ui/SemanticIcon';
 import { db } from '@/services/storage/db'
 import { v4 as uuid } from 'uuid'
 import { prettyExId } from '@/utils/format'
+import { normalizeSex } from '@/utils/sex'
 import { applyAppearance, getTheme, getTextScale, setAppearance as saveAppearance } from '@/utils/appearance'
 import { loadConfigs, saveConfigs, requestPermission, permissionStatus, type NotifConfig, type NotifKind } from '@/services/notifications/scheduler'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
+import { getCanonicalMethodId } from '@/services/planning/cycleVersions'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { SyncStatusCard } from '@/components/sync/SyncStatusCard'
 import { WgerSyncPanel } from '@/components/sync/WgerSyncPanel'
@@ -164,6 +167,9 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
 /* ─── Main Perfil ─── */
 export default function Perfil() {
   const [profile, setProfile] = useState<any>(null)
+  // Fuente canónica del método del ciclo (FASE 1M-B): versión activa de
+  // db.cycleVersions. profile.cycle queda SÓLO como fallback legacy.
+  const [canonicalMethodId, setCanonicalMethodId] = useState<TrainingMethodId | undefined>(undefined)
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ name: '', age: '', sex: '', heightCm: '', weightKg: '', targetWeightKg: '', bodyFatPct: '', muscleMassKg: '', activityLevel: 'moderado', restrictions: '', allergies: '', dislikedFoods: '' })
   const [notifCfgs, setNotifCfgs] = useState<NotifConfig[]>([])
@@ -190,13 +196,18 @@ export default function Perfil() {
     db.userProfile.get('me').then(p => {
       if (p) {
         setProfile(p)
+        // Fuente canónica del método del ciclo (FASE 1M-B). Si no hay versión
+        // activa devuelve el snapshot legacy profile.cycle.methodId.
+        getCanonicalMethodId(p).then(setCanonicalMethodId).catch(() => { /* fallback legacy */ })
         setCoachTone(p.coachTone || '')
         setCoachLevel(p.coachLevel || 3)
         setExcluded(p.excludedExercises || [])
         setForm({
           name: p.displayName || '',
           age: String(p.age || ''),
-          sex: p.sex || '',
+          // Vacío sigue significando "sin definir". Un valor legacy del
+          // onboarding ('masculino'…) se normaliza al código canónico.
+          sex: p.sex ? normalizeSex(p.sex) : '',
           heightCm: String(p.heightCm || ''),
           weightKg: String(p.weightKg || ''),
           targetWeightKg: String(p.targetWeightKg || ''),
@@ -373,11 +384,14 @@ export default function Perfil() {
 
   const imc = imcCalc(Number(form.weightKg), Number(form.heightCm))
   const goal = profile?.trainingGoal ? GOAL_MAP[profile.trainingGoal] : undefined
-  const cycleMethod = profile?.cycle?.methodId ? getMethod(profile.cycle.methodId as TrainingMethodId) : null
+  // Canónico-primero (FASE 1M-B): la versión activa de db.cycleVersions manda;
+  // el snapshot legacy profile.cycle sólo rellena cuando no hay versión.
+  const cycleMethodId = canonicalMethodId ?? (profile?.cycle?.methodId as TrainingMethodId | undefined)
+  const cycleMethod = cycleMethodId ? getMethod(cycleMethodId) : null
   const derivedTone = resolveCoachTone({
     coachTone,
     coachIntensity: profile?.coachIntensity,
-    methodId: profile?.cycle?.methodId as TrainingMethodId | undefined,
+    methodId: cycleMethodId,
   })
 
   return (
@@ -504,7 +518,7 @@ export default function Perfil() {
           {cycleMethod && (
             <div className="mt-3 p-3 rounded-xl bg-primary-container/10 border border-primary/20">
               <div className="font-label-caps text-[9px] uppercase text-primary tracking-wider">Método activo</div>
-              <div className="font-body-md text-[15px] text-on-surface font-medium mt-0.5">{cycleMethod.nameEs || profile?.cycle?.methodId}</div>
+              <div className="font-body-md text-[15px] text-on-surface font-medium mt-0.5">{cycleMethod.nameEs || cycleMethodId}</div>
             </div>
           )}
         </div>
@@ -545,10 +559,10 @@ export default function Perfil() {
             </div>
             {cycleMethod && (
               <div className="mt-3 flex items-center gap-2 p-3 rounded-xl bg-primary-container/10 border border-primary/20">
-                <span className="material-symbols-outlined text-[18px] text-primary shrink-0">fitness_center</span>
+                <SemanticIcon name="fitness_center" size={18} className="text-[18px] text-primary shrink-0" />
                 <div className="min-w-0">
                   <div className="font-label-caps text-[9px] uppercase text-primary tracking-wider">Método activo</div>
-                  <div className="font-body-md text-sm text-on-surface font-medium truncate">{cycleMethod.nameEs || profile?.cycle?.methodId}</div>
+                  <div className="font-body-md text-sm text-on-surface font-medium truncate">{cycleMethod.nameEs || cycleMethodId}</div>
                 </div>
               </div>
             )}
@@ -568,7 +582,7 @@ export default function Perfil() {
                 <button key={id} onClick={() => toggleExcluded(id)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[32px] rounded-full bg-surface-container-high border border-outline-variant font-body-md text-xs text-on-surface-variant hover:border-error/50 hover:text-error transition-colors">
                   <span className="capitalize">{prettyExId(id)}</span>
-                  <span className="material-symbols-outlined text-[14px]">close</span>
+                  <SemanticIcon name="close" size={14} className="text-[14px]" />
                 </button>
               ))}
             </div>
@@ -712,7 +726,7 @@ export default function Perfil() {
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-headline-lg text-base font-semibold text-on-surface">Ejercicios excluidos</h3>
               <button onClick={() => setShowBiblio(false)} className="w-11 h-11 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Cerrar">
-                <span className="material-symbols-outlined">close</span>
+                <SemanticIcon name="close" />
               </button>
             </div>
             <AltheaSelect label="Grupo muscular" value={biblioMuscle} options={BIBLIO_MUSCLES} onChange={e => setBiblioMuscle(e.target.value)} />

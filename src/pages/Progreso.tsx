@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import SemanticIcon from '../components/ui/SemanticIcon';
 import { db } from '@/services/storage/db'
 import { fetchPartMap } from '@/services/exerciseGym'
 import { isDateInPeriod, loadFatigueBalance } from '@/services/training/metrics'
 import { countTrainingDays, countTrainingDaysInPeriod } from '@/services/training/sessionMetrics'
 import { unifiedAllCompletedSets } from '@/services/history'
 import { buildMuscleResolver, type MuscleResolver } from '@/services/training/muscleAttribution'
-import { weeklyGroupComparison } from '@/services/training/muscleGroups'
+import { weeklyGroupComparison, resolveTrend } from '@/services/training/muscleGroups'
 import { getCanonicalCycle } from '@/services/planning/cycleVersions'
 import { todayKey, dayKeyOffset, toDateKey, daysBetween } from '@/utils/dates'
 import { MuscleAtlas, type MuscleDataPoint } from '@/components/progress/MuscleAtlas'
 import { resolveMuscleIds } from '@/components/progress/muscleVocabulary'
+import { buildRegionContributions, relativeActivation } from '@/components/progress/muscleContributions'
+import { normalizeSex, type SexCode } from '@/utils/sex'
 import { MUSCLE_CATALOG } from '@/services/training/muscleCatalog'
 import { AltheaCard, AltheaCardHeader, AltheaButton, AltheaKPICard, AltheaEmpty, AltheaLoading } from '@/components/althea'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -171,7 +174,7 @@ function buildInsights(cfg: {
 function InlineEmpty({ icon, text, sub }: { icon: string; text: string; sub?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-      <span className="material-symbols-outlined text-[28px] text-outline mb-2">{icon}</span>
+      <SemanticIcon name={icon} size={28} className="text-[28px] text-outline mb-2" />
       <p className="font-body-md text-sm text-on-surface-variant">{text}</p>
       {sub && <p className="font-body-md text-xs text-outline mt-1">{sub}</p>}
     </div>
@@ -187,6 +190,9 @@ export default function Progresos() {
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [resolver, setResolver] = useState<MuscleResolver | null>(null)
+  // Sexo del perfil, normalizado a canónico ('M' | 'F' | 'X'). Sólo define
+  // qué figura dibuja el atlas; no interviene en ningún cálculo.
+  const [atlasSex, setAtlasSex] = useState<SexCode>('X')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -211,6 +217,7 @@ export default function Progresos() {
         const partMap = await overlayCustomParts({ ...(baseMap as Record<string, string>) })
         const res = await buildMuscleResolver(partMap as Record<string, string>).catch(() => null)
         const cycleCfg = await getCanonicalCycle((profileRows[0] as UserProfile | undefined) ?? null).catch(() => null)
+        const profile = (profileRows[0] as UserProfile | undefined) ?? null
         const allOfficial = officialSessions as unknown as Array<{ calendarDate: string; sessionStatus: import('@/services/training/domain').SessionStatus; isDemo?: boolean }>
         if (!alive) { return }
         setAllLogs(unifiedLogs as unknown as UnifiedLog[])
@@ -219,6 +226,7 @@ export default function Progresos() {
         setTrainingSessions(allOfficial)
         setBodies(bodyRows.slice().sort((a, b) => String(a.localDate || '').localeCompare(String(b.localDate || ''))))
         setRecovery(recRows.slice().sort((a, b) => String(a.localDate || '').localeCompare(String(b.localDate || ''))))
+        setAtlasSex(normalizeSex(profile?.sex))
       })
       .catch((e: unknown) => {
         if (alive) { setError(e instanceof Error ? e.message : String(e)) }
@@ -332,6 +340,21 @@ export default function Progresos() {
 
   const [vista, setVista] = useState<'front' | 'back'>('front')
 
+  // Contribuciones por región de la MISMA ventana que `current`, para que el
+  // detalle del atlas ("ejercicios que lo activaron") corresponda al trabajo
+  // que muestra. Incluye los músculos secundarios con su ponderación.
+  const contributions = useMemo(() => {
+    const window = muscleComparison.current
+    const items = window
+      ? muscleItemsByDate.filter(i => i.date >= window.start && i.date <= window.end)
+      : []
+    return buildRegionContributions(
+      items,
+      resolver?.muscleOf ?? (() => null),
+      resolver?.nameOf ?? (() => null),
+    )
+  }, [muscleComparison, muscleItemsByDate, resolver])
+
   const muscleData = useMemo((): Record<string, MuscleDataPoint> => {
     if (!hasAnyData) {return {}}
     const currentVol = muscleComparison.current?.byGroup ?? {}
@@ -342,14 +365,27 @@ export default function Progresos() {
       if (regionIds.length === 0) {continue}
       const current = currentVol[m.group] ?? 0
       const previous = lastWeek?.byGroup[m.group] ?? 0
-      const trend = current > 0 && previous > 0
-        ? current > previous ? 'aumento' : current < previous ? 'descenso' : 'estable'
-        : 'sin-base'
-      const point: MuscleDataPoint = { muscleId: m.id, current, previous, trend, unit: 'kg' }
-      for (const rid of regionIds) {out[rid] = point}
+      // Fuente ÚNICA de tendencia: mismo umbral ±5% que la tabla de semanas.
+      // Antes el atlas comparaba en estricto y podía decir "Descenso" donde
+      // la comparación semanal decía "Estable".
+      const { trend } = resolveTrend(current, previous)
+      for (const rid of regionIds) {
+        const contribution = contributions.byRegion[rid]
+        out[rid] = {
+          muscleId: m.id,
+          current,
+          previous,
+          trend,
+          unit: 'kg',
+          exercises: contribution?.exercises.slice(0, 4),
+          activation: contribution
+            ? relativeActivation(contribution.volume, contributions.maxVolume)
+            : undefined,
+        }
+      }
     }
     return out
-  }, [hasAnyData, muscleComparison])
+  }, [hasAnyData, muscleComparison, contributions])
 
   // ─── BLOQUE 7: informe periódico (conclusiones + descarga) ───
   const reportBlock = () => (
@@ -366,7 +402,7 @@ export default function Progresos() {
           <ul className="space-y-2">
             {insights.slice(0, 4).map((ins, i) => (
               <li key={i} className="flex items-start gap-2">
-                <span className={`material-symbols-outlined text-[15px] mt-0.5 shrink-0 ${ins.tone === 'ok' ? 'text-secondary' : ins.tone === 'attention' ? 'text-tertiary' : 'text-on-surface-variant'}`}>{ins.icon}</span>
+                <SemanticIcon name={ins.icon} size={15} className={`text-[15px] mt-0.5 shrink-0 ${ins.tone === 'ok' ? 'text-secondary' : ins.tone === 'attention' ? 'text-tertiary' : 'text-on-surface-variant'}`} />
                 <p className="font-body-sm text-[12px] text-on-surface">{ins.text}</p>
               </li>
             ))}
@@ -460,7 +496,7 @@ export default function Progresos() {
             <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3" data-testid="muscle-atlas">
               <h2 className="font-headline-lg text-lg font-semibold text-on-surface tracking-tight">Mapa muscular</h2>
               <p className="font-body-sm text-[11px] text-on-surface-variant mb-3">Trabajo por grupo · ciclo iniciado el {cycle?.startDate ?? todayKey()}</p>
-              <MuscleAtlas view={vista} onViewChange={setVista} data={muscleData} width={260} detail="below" />
+              <MuscleAtlas view={vista} onViewChange={setVista} data={muscleData} width={260} detail="below" sex={atlasSex} />
             </section>
 
             <div className="grid grid-cols-1 gap-2">
@@ -589,6 +625,7 @@ export default function Progresos() {
               data={muscleData}
               width={280}
               detail="below"
+              sex={atlasSex}
             />
           </section>
 

@@ -6,9 +6,20 @@ contra entornos reales.
 
 ```
 CODE-COMPLETE      = TRUE
-STAGING-VALIDATED   = FALSE   (falta proyecto Firebase + credenciales del owner)
+WORKER-STAGING     = DEPLOYED   (althea-proxy-staging · re-verificado en vivo 2026-10-10)
+STAGING-VALIDATED   = FALSE   (falta proyecto Firebase + secret GROQ + Hosting)
 PRODUCTION-READY   = FALSE   (falta staging + revocación de claves históricas)
+RELEASE-PROD       = BLOCKED   (Prompt 5, 2026-10-10 · ver docs/RELEASE_REPORT.md)
 ```
+
+> **Prompt 4 (2026-10-10):** no se desplegó nada nuevo. Se re-validó lo que ya
+> existía y se cerraron los defectos locales del preflight. El estado de
+> staging sigue sin ser `VALIDADO`: ver §8 para lo que falta.
+>
+> **Prompt 5 (2026-10-10):** el release de producción **no comenzó**. Cinco
+> condiciones previas del §1 están en FAIL (CI sin commitear, staging sin
+> validar, secret Groq ausente, claves históricas sin revocar, KV de producción
+> con placeholder). Detalle y desbloqueo en `docs/RELEASE_REPORT.md`.
 
 ---
 
@@ -44,6 +55,11 @@ privada del proyecto (`GROQ_API_KEY`) existe sólo como secret del Worker.
 El Worker de staging se desplegó y se verificó **contra el servicio real**
 (28 comprobaciones, ver §10). Lo único que no se ha podido exercised es el
 tramo final hacia Groq, que necesita el secret.
+
+**Re-verificación (Prompt 4, 2026-10-10):** se volvió a ejecutar
+`npm run staging:worker:live-check -- https://althea-proxy-staging.manuelchalupa.workers.dev https://althea-staging.web.app`
+contra el mismo Version ID `f38181b8…`. Resultado idéntico: **28 PASS / 0 FAIL /
+4 NOT VALIDATED**. No se desplegó nada en esta etapa.
 
 ---
 
@@ -333,20 +349,23 @@ inexistente.
 
 ## 8. Lo que falta para STAGING-READY
 
-Todo lo siguiente requiere credenciales/proyectos del owner (§30):
+Todo lo siguiente requiere credenciales/proyectos del owner (§30). Estado real
+al cierre del Prompt 4 (2026-10-10):
 
-1. `firebase login`
-2. Crear o seleccionar **dos** proyectos Firebase (staging y production) y
-   copiar `.firebaserc.example` → `.firebaserc` con los ids reales.
-3. `npm run worker:kv:staging` → pegar el id en `wrangler.staging.toml`
-4. `npm run worker:secret:staging` → `GROQ_API_KEY` de staging
-5. Poner el origin real de staging en `CORS_ORIGIN` de `wrangler.staging.toml`
-6. `npm run worker:deploy:staging`
-7. `FIREBASE_PROJECT_ID=<STAGING> npm run deploy:hosting:staging`
-8. Crear USER A y USER B en el proyecto de staging
-9. Ejecutar los smoke tests y las pruebas reales de Auth/Firestore/CORS/Groq
+| # | Paso | Estado |
+|---|---|---|
+| 1 | `firebase login` | **PENDIENTE** (la sesión de Cloudflare sí está activa) |
+| 2 | Dos proyectos Firebase + `.firebaserc` | **PENDIENTE** — no existe `.firebaserc`; `npm run setup:environments` lo genera |
+| 3 | KV de staging | **HECHO** — `0f643e89b72743f197bd851c4dd9146e`, verificado en vivo |
+| 4 | `GROQ_API_KEY` en el Worker de staging | **PENDIENTE** — sin él el Worker responde 503 fail-closed |
+| 5 | `CORS_ORIGIN` real en `wrangler.staging.toml` | **PENDIENTE** — sigue con el default `https://althea-staging.web.app`; debe coincidir con el project id real de staging |
+| 6 | Deploy del Worker de staging | **HECHO** — Version ID `f38181b8-0a9e-4f2a-9231-0dbd853d8ed6`; re-verificado 28/0/4 el 2026-10-10 |
+| 7 | Deploy de Hosting + `firestore.rules` | **PENDIENTE** — `verify:env:staging` falla cerrado sin `.env.staging` |
+| 8 | USER A y USER B en staging | **PENDIENTE** |
+| 9 | Smoke tests + Auth/Firestore/CORS/Groq reales | **PENDIENTE** (los 4 primeros ya PASS contra el Worker) |
 
-Sin estos pasos, `STAGING-READY = FALSE` aunque el código esté completo.
+Sin los pasos pendientes, `STAGING-VALIDATED = FALSE` aunque el código esté
+completo y el Worker de staging responda correctamente.
 
 ### Guard de CSP en CI
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import SemanticIcon from '../ui/SemanticIcon';
 import { toDateKey } from '@/utils/dates'
 import { parseLoad, toKg, fromKg, formatLoad, roundLoad } from '@/services/training/loadModel'
 
@@ -350,7 +351,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                   <td className="py-2.5 px-1 text-center">
                     {isDone && !isSkipped ? (
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-primary-container text-on-primary-container border border-primary">
-                        <span className="material-symbols-outlined text-[14px]">done</span>
+                        <SemanticIcon name="done" size={14} className="text-[14px]" />
                       </span>
                     ) : isSkipped ? (
                       <span className="text-[9px] text-outline">omitida</span>

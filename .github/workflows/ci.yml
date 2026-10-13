@@ -18,6 +18,8 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
-      - run: npx vitest run
+      # El build va ANTES de los tests: bundleBudget.test.ts mide dist/ y en CI
+      # es obligatorio (falla si falta dist), no un skip silencioso.
       - run: npm run build
+      - run: npx vitest run
       - run: npm run check:release

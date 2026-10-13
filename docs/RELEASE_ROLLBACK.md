@@ -6,6 +6,13 @@ Procedimiento para desplegar Althea y volver atrás si algo falla.
 Firebase ni de Cloudflare, ni contraseñas. Los secretos se inyectan por
 `wrangler secret put` y por variables de entorno; nunca se registran aquí.
 
+> **Estado (2026-10-10, Prompt 5):** no hay release de producción que revertir.
+> El único artefacto desplegado en toda la infraestructura es el Worker de
+> **staging**: `althea-proxy-staging`, versión `f38181b8-0a9e-4f2a-9231-0dbd853d8ed6`
+> (KV `0f643e89b72743f197bd851c4dd9146e`). No existe Hosting desplegado en
+> ningún proyecto, ni `firestore.rules` aplicadas a un proyecto real, ni Worker
+> de producción. Ver `docs/RELEASE_REPORT.md`.
+
 ---
 
 ## 1. Artefactos que identifican una release

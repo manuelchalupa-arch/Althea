@@ -134,6 +134,15 @@ export async function getCanonicalCycle(p: UserProfile | null): Promise<CycleCon
   return getCycleFromProfile(p)
 }
 
+// Lector canónico del MÉTODO del ciclo.
+// Prioridad: método de la versión activa → cycle.methodId de la versión activa
+// → snapshot legacy profile.cycle.methodId (usuarios pre-versionado).
+export async function getCanonicalMethodId(p: UserProfile | null): Promise<TrainingMethodId | undefined> {
+  const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+  const id = pv?.methodId ?? pv?.cycle?.methodId ?? p?.cycle?.methodId
+  return (id as TrainingMethodId | undefined) ?? undefined
+}
+
 // Agrupa sesiones por versión de planificación vigente al ejecutarlas.
 // Las sesiones sin versión (pre-versionado) van al grupo 'legacy'.
 // Nunca modifica ni recalcula las sesiones: solo las clasifica.

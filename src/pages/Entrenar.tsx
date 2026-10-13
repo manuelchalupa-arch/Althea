@@ -1,4 +1,4 @@
-import { normFold } from '@/utils/format'
+import SemanticIcon from '../components/ui/SemanticIcon';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Navigate } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
@@ -69,6 +69,20 @@ export default function Entrenar(){
           db.customExercises.where('id').anyOf(exIds).toArray().catch(() => []),
         ])
         for (const e of [...seedExs, ...customExs] as Array<{id:string; name:string; muscle?:string; muscleGroup?:string; gifUrl?:string; imageDataUrl?:string}>) {meta[e.id] = { name: e.name, muscle: e.muscle || e.muscleGroup, gifUrl: e.gifUrl, imageDataUrl: e.imageDataUrl }}
+      }
+    } catch { /* noop */ }
+    // Sesiones antiguas: si el id no está en el catálogo, se intenta resolver
+    // por el nombre GUARDADO, con match exacto normalizado y candidato único.
+    // Se indexa SIEMPRE por el id original de la sesión: el registro no cambia.
+    try {
+      const { resolveExerciseIdentity } = await import('@/services/training/exerciseIdentity')
+      for (const se of seList) {
+        const rawId = (se as { exId?: string; exerciseId?: string }).exId || se.exerciseId
+        if (!rawId || meta[rawId]) { continue }
+        const identity = await resolveExerciseIdentity(rawId, { legacyName: se.exerciseName })
+        if (identity.resolved) {
+          meta[rawId] = { name: identity.name, muscle: identity.muscle, gifUrl: identity.gifUrl, imageDataUrl: identity.imageDataUrl }
+        }
       }
     } catch { /* noop */ }
 const exercises: SessionEx[] = seList.map((se) => {
@@ -526,17 +540,6 @@ const exercises: SessionEx[] = seList.map((se) => {
         if(c){ setViewer({ ...c, gifUrl: c.gifUrl || c.imageDataUrl || '' } as unknown as Gym.Exercise); return }
       }catch{ /* noop */ }
     }
-    const seedMap:any = {
-      'ex-001':'pectorals/barbell-bench-press',
-      'ex-002':'pectorals/dumbbell-bench-press',
-      'ex-003':'pectorals/cable-bench-press',
-      'ex-004':'lats/pull-up',
-      'ex-005':'lats/cable-pulldown',
-      'ex-006':'quads/barbell-squat',
-      'ex-007':'quads/leg-press',
-      'ex-008':'hamstrings/barbell-deadlift',
-      'ex-010':'delts/barbell-military-press'
-    }
     if(cur.exId.includes('/')){
       try{
         const [mm,slug]=cur.exId.split('/')
@@ -544,30 +547,30 @@ const exercises: SessionEx[] = seList.map((se) => {
         if(direct?.gifUrl){ setViewer(direct); return }
       }catch{}
     }
-    const muscleMap: Record<string,string> = { pecho:"pectorals", pectorales:"pectorals", pectoral:"pectorals", espalda:"lats", dorsales:"lats", dorsal:"lats", biceps:"biceps", triceps:"triceps", hombros:"delts", hombro:"delts", deltoides:"delts", piernas:"quads", pierna:"quads", cuadriceps:"quads", quads:"quads", isquiotibiales:"hamstrings", isquios:"hamstrings", femorales:"hamstrings", hamstrings:"hamstrings", gluteos:"glutes", gluteo:"glutes", glutes:"glutes", pantorrillas:"calves", gemelos:"calves", calves:"calves", abdominales:"abs", abdomen:"abs", abdominals:"abs", abs:"abs", core:"abs", antebrazos:"forearms", forearms:"forearms", trapecios:"traps", traps:"traps" }
-    const m = muscleMap[(cur.muscle||'').toLowerCase()] || 'pectorals'
+    // Identidad por ID estable (§2). El nombre sólo sirve como fallback
+    // EXACTO y controlado, y siempre queda etiquetado con su fuente.
+    // Ver src/services/training/exerciseIdentity.ts
+    const { resolveExerciseIdentity, apiMuscleFor, LEGACY_ID_ALIASES, scoreNameMatch } =
+      await import('@/services/training/exerciseIdentity')
+    const identity = await resolveExerciseIdentity(cur.exId, { legacyName: cur.name })
+    const m = apiMuscleFor(identity.muscle || cur.muscle)
     try{
-      const directId = seedMap[cur.exId]
-      if(directId){
-        const [mm,slug]=directId.split('/')
+      const aliasId = LEGACY_ID_ALIASES[cur.exId] || LEGACY_ID_ALIASES[identity.exerciseId]
+      if(aliasId){
+        const [mm,slug]=aliasId.split('/')
         const ex = await Gym.fetchOne(mm,slug).catch(()=>null)
         if(ex?.gifUrl){ setViewer(ex); return }
       }
       const res = await Gym.fetchByMuscle(m)
-      const target = normFold(cur.name)
-      const targetWords = target.split(/\s+/)
-      let best:any=null, bestScore=-1
+      // Pista SÓLO de visualización: elige qué GIF mostrar. Nunca cambia
+      // cur.exId ni ningún registro de sesión.
+      let best:Gym.Exercise|null=null, bestScore=-1
       for(const ex of res.exercises){
-        const name = normFold(ex.name)
-        let score=0
-        for(const w of targetWords){ if(name.includes(w)) {score+=2;} if(ex.slug.includes(w)) {score+=1} }
-        if(target.includes('inclinado') && name.includes('inclinado')) {score+=5}
-        if(target.includes('banca') && name.includes('banca')) {score+=3}
-        if(target.includes('mancuerna') && name.includes('mancuerna')) {score+=3}
+        const score = scoreNameMatch(cur.name, ex)
         if(score>bestScore){ bestScore=score; best=ex }
       }
-      if(best && bestScore>1) {setViewer(best)}
-      else {setViewer({ id: cur.exId, slug: cur.exId, name: cur.name, muscle:m, bodyPart:'chest', equipment:'barbell', category:'strength', secondaryMuscles:[], instructions:[], file:'', gifUrl: cur.gifUrl||'' } as Gym.Exercise)}
+      if(best && bestScore>0) {setViewer(best)}
+      else {setViewer({ id: cur.exId, slug: cur.exId, name: identity.name || cur.name, muscle:m, bodyPart:'chest', equipment:'barbell', category:'strength', secondaryMuscles:[], instructions:[], file:'', gifUrl: cur.gifUrl||'' } as Gym.Exercise)}
     }catch{
       setViewer({ id: cur.exId, slug: cur.exId, name: cur.name, muscle:m, bodyPart:'chest', equipment:'barbell', category:'strength', secondaryMuscles:[], instructions:[], file:'', gifUrl:''} as Gym.Exercise)
     }
@@ -577,17 +580,20 @@ const exercises: SessionEx[] = seList.map((se) => {
     if(!cur) {return}
     setSwapLoading(true); setSwapExplain(null)
     try{
-    const muscleMap: Record<string,string> = { pecho:"pectorals", pectorales:"pectorals", pectoral:"pectorals", espalda:"lats", dorsales:"lats", dorsal:"lats", biceps:"biceps", triceps:"triceps", hombros:"delts", hombro:"delts", deltoides:"delts", piernas:"quads", pierna:"quads", cuadriceps:"quads", quads:"quads", isquiotibiales:"hamstrings", isquios:"hamstrings", femorales:"hamstrings", hamstrings:"hamstrings", gluteos:"glutes", gluteo:"glutes", glutes:"glutes", pantorrillas:"calves", gemelos:"calves", calves:"calves", abdominales:"abs", abdomen:"abs", abdominals:"abs", abs:"abs", core:"abs", antebrazos:"forearms", forearms:"forearms", trapecios:"traps", traps:"traps" }
-      const m = muscleMap[(cur.muscle||'').toLowerCase()] || 'pectorals'
+    // Mapa ES→API consolidado (§2): antes estaba duplicado inline acá y en openViewer.
+    const { apiMuscleFor, resolveExerciseIdentity } = await import('@/services/training/exerciseIdentity')
+      const m = apiMuscleFor(cur.muscle)
       const res = await Gym.fetchByMuscle(m)
+      // Identidad por ID estable: el nombre sólo como fallback exacto controlado.
+      const identity = await resolveExerciseIdentity(cur.exId, { legacyName: cur.name })
       let original: Gym.Exercise | null = null
       if(cur.exId.startsWith('custom/')){
         try{ const { getCustomExercise } = await import('@/services/training/customExercises'); original = await getCustomExercise(cur.exId) as unknown as Gym.Exercise }catch{ /* noop */ }
       }
-      else if(cur.exId.includes('/')){
-        try{ const [mm,slug]=cur.exId.split('/'); original = await Gym.fetchOne(mm,slug).catch(()=>null) as unknown as Gym.Exercise }catch{ /* noop */ }
+      else if(identity.exerciseId.includes('/')){
+        try{ const [mm,slug]=identity.exerciseId.split('/'); original = await Gym.fetchOne(mm,slug).catch(()=>null) as unknown as Gym.Exercise }catch{ /* noop */ }
       }
-      const orig: Gym.Exercise = original || { id: cur.exId, slug: cur.exId, name: cur.name, muscle: cur.muscle || m, bodyPart: '', equipment: '', category: '', secondaryMuscles: [], instructions: [], file: '', gifUrl: cur.gifUrl || '' }
+      const orig: Gym.Exercise = original || { id: cur.exId, slug: cur.exId, name: identity.name || cur.name, muscle: identity.muscle || cur.muscle || m, bodyPart: '', equipment: '', category: '', secondaryMuscles: [], instructions: [], file: '', gifUrl: cur.gifUrl || '' }
       const ids = res.exercises.map(e=>e.id)
       const [recs, logs] = await Promise.all([
         db.setRecords.where('exerciseId').anyOf(ids).toArray().catch(()=>[]),
@@ -1288,13 +1294,13 @@ const exercises: SessionEx[] = seList.map((se) => {
                 {lastExec && lastExec.date && <span className="px-2 py-0.5 rounded-full bg-surface-container-high/50 border border-outline-variant/40 font-label-caps text-[10px] text-on-surface-variant uppercase">Última {lastExec.date}</span>}
               </div>
               <div className="flex gap-2 pt-1">
-                <button onClick={openViewer} className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded bg-surface-container border border-outline-variant text-secondary font-label-md text-[13px]"><span className="material-symbols-outlined text-[18px]">visibility</span>Ver</button>
-                <button onClick={loadSwapOptions} className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded bg-surface-container border border-outline-variant text-secondary font-label-md text-[13px]"><span className="material-symbols-outlined text-[18px]">swap_horiz</span>Cambiar</button>
+                <button onClick={openViewer} className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded bg-surface-container border border-outline-variant text-secondary font-label-md text-[13px]"><SemanticIcon name="visibility" size={18} className="text-[18px]" />Ver</button>
+                <button onClick={loadSwapOptions} className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded bg-surface-container border border-outline-variant text-secondary font-label-md text-[13px]"><SemanticIcon name="swap_horiz" size={18} className="text-[18px]" />Cambiar</button>
               </div>
             </div>
 
             <div className="px-3 py-2.5 bg-surface-container/60 border-b border-outline-variant/30 flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-secondary shrink-0" style={{fontVariationSettings: "'FILL' 1"}}>lightbulb</span>
+              <SemanticIcon name="lightbulb" className="text-secondary shrink-0" />
               <p className="text-[12px] text-on-surface-variant min-w-0">
                 <strong className="text-secondary font-medium">Clave:</strong>{' '}
                 {coach ? (coach.suggested_weight ? `${coach.suggested_weight}kg — ${coach.reason}` : coach.reason) : `Vamos con ${cur.weight ?? 0}kg × ${cur.reps}.`}
@@ -1423,7 +1429,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                     <span className="block text-[13px] text-on-surface truncate">SIGUIENTE · EJERCICIO {fi+2} · {ex.name}</span>
                     <span className="block font-label-caps text-[9px] text-outline">{ex.sets}×{ex.reps} · {ex.weight ?? 0}kg</span>
                   </span>
-                  <span className="material-symbols-outlined text-secondary text-[18px] shrink-0">arrow_forward</span>
+                  <SemanticIcon name="arrow_forward" size={18} className="text-secondary text-[18px] shrink-0" />
                 </button>
               )
             })}
@@ -1432,7 +1438,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
         <div className="rounded-xl border border-primary/30 bg-surface-container p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="font-label-caps text-[10px] uppercase text-primary tracking-wider font-semibold flex items-center gap-1.5"><span className="material-symbols-outlined text-[16px]">workspace_premium</span> Resumen de virtud</span>
+            <span className="font-label-caps text-[10px] uppercase text-primary tracking-wider font-semibold flex items-center gap-1.5"><SemanticIcon name="workspace_premium" size={16} className="text-[16px]" /> Resumen de virtud</span>
             <span className="px-2 py-0.5 rounded bg-primary-container/30 text-primary font-label-caps text-[10px]">HOY</span>
           </div>
           <div className="flex justify-between text-[13px] text-on-surface-variant">
@@ -1531,11 +1537,11 @@ const exercises: SessionEx[] = seList.map((se) => {
             </div>
             <div className="flex items-center gap-2.5">
               <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
-                <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
+                <SemanticIcon name="swap_horiz" size={18} className="text-[18px]" />
                 <span className="hidden sm:inline">Cancelar sesión</span>
               </button>
               <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
-                <span className="material-symbols-outlined text-[18px]">reorder</span>
+                <SemanticIcon name="reorder" size={18} className="text-[18px]" />
                 <span className="hidden sm:inline">Abandonar</span>
               </button>
               <button onClick={openFinishModal} className="flex items-center gap-1.5 min-h-[48px] px-4 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98]">
@@ -1617,11 +1623,11 @@ const exercises: SessionEx[] = seList.map((se) => {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button onClick={openViewer} className="inline-flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary/60 text-secondary font-label-md text-[14px] transition-colors whitespace-nowrap">
-                      <span className="material-symbols-outlined text-[18px]">visibility</span>
+                      <SemanticIcon name="visibility" size={18} className="text-[18px]" />
                       <span>Ver</span>
                     </button>
                     <button onClick={loadSwapOptions} className="inline-flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary/60 text-secondary font-label-md text-[14px] transition-colors whitespace-nowrap">
-                      <span className="material-symbols-outlined text-[18px]">swap_horiz</span>
+                      <SemanticIcon name="swap_horiz" size={18} className="text-[18px]" />
                       <span>Cambiar</span>
                     </button>
                   </div>
@@ -1629,7 +1635,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
                 {/* Architectural Cue — Coach */}
                 <div className="px-6 py-3 bg-surface-container/60 border-b border-outline-variant/30 flex items-center gap-3">
-                  <span className="material-symbols-outlined text-secondary" style={{fontVariationSettings: "'FILL' 1"}}>lightbulb</span>
+                  <SemanticIcon name="lightbulb" className="text-secondary" />
                   <p className="font-body-sm text-[13px] text-on-surface-variant">
                     <strong className="text-secondary font-medium">Clave de Virtud:</strong>{' '}
                     {coach ? (coach.suggested_weight ? `${coach.suggested_weight}kg — ${coach.reason}` : coach.reason) : `Vamos con ${cur.weight ?? 0}kg × ${cur.reps}.`}
@@ -1768,7 +1774,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                         <p className="font-body-sm text-[13px] text-outline mt-1.5">{ex.weight ?? 0}kg · {ex.muscle || ''}</p>
                         <div className="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/30">
                           <span className="font-label-caps text-[10px] text-on-surface-variant">Descanso asignado: {restForExercise}s</span>
-                          <span className="material-symbols-outlined text-secondary text-[20px]">arrow_forward</span>
+                          <SemanticIcon name="arrow_forward" size={20} className="text-secondary text-[20px]" />
                         </div>
                       </div>
                     )
@@ -1785,7 +1791,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                 <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-6  flex flex-col items-center text-center relative overflow-hidden">
                  <div className="w-full flex items-center justify-between pb-3 border-b border-outline-variant/30 mb-5">
                    <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider flex items-center gap-1.5">
-                     <span className="material-symbols-outlined text-[16px]">hourglass_top</span>
+                     <SemanticIcon name="hourglass_top" size={16} className="text-[16px]" />
                      RELOJ DE RECUPERACIÓN
                    </span>
                  </div>
@@ -1815,7 +1821,7 @@ const exercises: SessionEx[] = seList.map((se) => {
               <div className="bg-surface-container-high/40 border border-secondary/30 rounded-xl p-5 relative overflow-hidden">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-secondary-container/60 border border-secondary/40 flex items-center justify-center text-secondary shrink-0 mt-0.5">
-                    <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                    <SemanticIcon name="auto_awesome" size={18} className="text-[18px]" />
                   </div>
                   <div>
                     <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider block">
@@ -1838,7 +1844,7 @@ const exercises: SessionEx[] = seList.map((se) => {
             <div className="bg-surface-container-low border border-primary/30 rounded-xl p-5  mt-auto">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-label-caps text-[10px] uppercase text-primary tracking-wider font-semibold flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px]" style={{fontVariationSettings: "'FILL' 1"}}>workspace_premium</span>
+                  <SemanticIcon name="workspace_premium" size={16} className="text-[16px]" />
                   RESUMEN DE VIRTUD
                 </span>
                 <span className="px-2 py-0.5 rounded bg-primary-container/30 text-primary font-label-caps text-[10px]">HOY</span>

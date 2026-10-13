@@ -4,45 +4,94 @@
  *
  * Motivo: §12 del prompt de cierre — nunca depender de un proyecto
  * seleccionado accidentalmente por la CLI de Firebase. Este script exige
- * ambiente + PROJECT_ID explícitos y muestra ENVIRONMENT / PROJECT_ID /
- * SITE_ID antes de deployar.
+ * ambiente + PROJECT_ID y muestra ENVIRONMENT / PROJECT_ID / SITE_ID antes de
+ * deployar.
+ *
+ * El PROJECT_ID se puede aportar de dos maneras equivalentes:
+ *   1. variable de entorno `FIREBASE_PROJECT_ID` (o específica del modo), o
+ *   2. el archivo `.env.<modo>` (FIREBASE_<MODO>_PROJECT_ID o
+ *      VITE_FIREBASE_PROJECT_ID), generado por `npm run setup`.
+ * En ningún caso se usa el proyecto "default" de la CLI de Firebase.
  *
  * Uso:
- *   FIREBASE_PROJECT_ID=mi-staging npm run deploy:hosting:staging
- *   FIREBASE_PROJECT_ID=mi-prod ALTHEA_ALLOW_PRODUCTION_DEPLOY=1 \
- *     npm run deploy:hosting:production
+ *   npm run deploy:hosting:staging
+ *   ALTHEA_ALLOW_PRODUCTION_DEPLOY=1 npm run deploy:hosting:production
  *
  * Falla (exit 1) si falta PROJECT_ID, si el id es una plantilla sin
- * reemplazar, o si es production sin autorización explícita.
+ * reemplazar, si staging/production no coinciden con el proyecto declarado,
+ * o si es production sin autorización explícita.
  */
 
 import { spawnSync } from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import { envFileForMode, isMode, projectVarForMode, siteVarForMode, parseEnvFile } from './lib/env-config.mjs'
 
 const env = process.argv[2]
 
-if (env !== 'staging' && env !== 'production') {
+if (!isMode(env)) {
   console.error('[deploy-hosting] ERROR: ambiente debe ser "staging" o "production".')
   process.exit(1)
 }
 
-const projectId = process.env.FIREBASE_PROJECT_ID
+const ROOT = process.cwd()
+
+/** Lee una clave de `.env.<modo>`. Devuelve '' si no existe. */
+function fileValue(mode, key) {
+  const full = path.join(process.cwd(), envFileForMode(mode))
+  if (!fs.existsSync(full)) return ''
+  try {
+    return (parseEnvFile(fs.readFileSync(full, 'utf8'))[key] || '').trim()
+  } catch {
+    return ''
+  }
+}
+
+/** Resuelve el project id: entorno primero, luego `.env.<modo>`. */
+function resolveProjectId(mode) {
+  return (
+    process.env.FIREBASE_PROJECT_ID ||
+    process.env[projectVarForMode(mode)] ||
+    fileValue(mode, projectVarForMode(mode)) ||
+    fileValue(mode, 'VITE_FIREBASE_PROJECT_ID') ||
+    ''
+  )
+}
+
+/** Proyecto declarado como "el de este modo" (env o archivo). */
+function declaredProject(mode) {
+  return process.env[projectVarForMode(mode)] || fileValue(mode, projectVarForMode(mode)) || ''
+}
+
+/** Site id opcional (multi-site). */
+function resolveSiteId(mode) {
+  return process.env[siteVarForMode(mode)] || fileValue(mode, siteVarForMode(mode)) || ''
+}
+
+const projectId = resolveProjectId(env)
 
 if (!projectId) {
   console.error(
-    '[deploy-hosting] FAIL-CLOSED: falta FIREBASE_PROJECT_ID.\n' +
+    '[deploy-hosting] FAIL-CLOSED: falta el PROJECT_ID.\n' +
       '  No se permite un deploy sin proyecto explícito.\n' +
-      `  staging:    set FIREBASE_PROJECT_ID=<STAGING_PROJECT_ID>\n` +
-      `  production: set FIREBASE_PROJECT_ID=<PRODUCTION_PROJECT_ID>`,
+      '  Opciones:\n' +
+      '    - generá la configuración con `npm run setup`, o\n' +
+      `    - exportá FIREBASE_PROJECT_ID=<id real de ${env}>.`,
   )
   process.exit(1)
 }
 
-if (projectId.includes('REEMPLAZAR') || projectId.startsWith('STAGING_PROJECT_ID')) {
+if (projectId.includes('REEMPLAZAR') || isPlaceholderId(projectId)) {
   console.error(
     `[deploy-hosting] FAIL-CLOSED: "${projectId}" es un placeholder sin reemplazar.\n` +
-      '  Configurá el project id real en .firebaserc (ver .firebaserc.example).',
+      '  Configurá el project id real (npm run setup, o ver .firebaserc.example).',
   )
   process.exit(1)
+}
+
+function isPlaceholderId(id) {
+  return /REEMPLAZAR|STAGING_PROJECT_ID|PRODUCTION_PROJECT_ID|tu-proyecto/i.test(id)
 }
 
 /**
@@ -51,23 +100,22 @@ if (projectId.includes('REEMPLAZAR') || projectId.startsWith('STAGING_PROJECT_ID
  * `FIREBASE_PROJECT_ID` alcanza por sí solo: si alguien exporta el id de
  * producción y llama al script de staging por error, el deploy iría a
  * producción sin que nada lo detenga. Se exige además que el proyecto
- * coincida con el declarado como staging.
+ * coincida con el declarado para este modo.
  */
-function assertStagingProject(id) {
-  const expected = process.env.FIREBASE_STAGING_PROJECT_ID
+function assertModeProject(mode, id) {
+  const expected = declaredProject(mode)
   if (!expected || !expected.trim()) {
     console.error(
-      '[deploy-hosting] FAIL-CLOSED: falta FIREBASE_STAGING_PROJECT_ID.\n' +
-        '  Un deploy de staging debe declarar explícitamente cuál es el proyecto de staging.\n' +
-        '  Sin esta comprobación, un FIREBASE_PROJECT_ID equivocado podría\n' +
-        '  desplegar staging sobre producción.',
+      `[deploy-hosting] FAIL-CLOSED: falta ${projectVarForMode(mode)}.\n` +
+        `  Un deploy de ${mode} debe declarar explícitamente cuál es su proyecto.\n` +
+        '  Definilo en .env.' + mode + ' con `npm run setup` o exportá la variable.',
     )
     process.exit(1)
   }
   if (id !== expected.trim()) {
     console.error(
-      `[deploy-hosting] FAIL-CLOSED: se pidió staging pero el proyecto es "${id}"\n` +
-        `  y el declarado como staging es "${expected.trim()}".\n` +
+      `[deploy-hosting] FAIL-CLOSED: se pidió ${mode} pero el proyecto es "${id}"\n` +
+        `  y el declarado para ${mode} es "${expected.trim()}".\n` +
         '  Se aborta para no mezclar ambientes.',
     )
     process.exit(1)
@@ -88,23 +136,12 @@ function assertProductionAuthorization() {
   }
 }
 
-if (env === 'staging') {
-  assertStagingProject(projectId)
-} else {
+assertModeProject(env, projectId)
+if (env === 'production') {
   assertProductionAuthorization()
-  const expectedProd = process.env.FIREBASE_PRODUCTION_PROJECT_ID
-  if (expectedProd && expectedProd.trim() && projectId !== expectedProd.trim()) {
-    console.error(
-      `[deploy-hosting] FAIL-CLOSED: se pidió producción con "${projectId}"\n` +
-        `  pero FIREBASE_PRODUCTION_PROJECT_ID es "${expectedProd.trim()}".`,
-    )
-    process.exit(1)
-  }
 }
 
-// SITE_ID explícito cuando el owner define multi-site; si no, se usa el default
-// del proyecto. Imprimir siempre ambos para que quede en el log del deploy.
-const siteId = env === 'staging' ? process.env.FIREBASE_STAGING_SITE_ID : process.env.FIREBASE_PRODUCTION_SITE_ID
+const siteId = resolveSiteId(env)
 
 console.log('─'.repeat(60))
 console.log('  ALTHEA — DEPLOY GUARD (fail-closed)')

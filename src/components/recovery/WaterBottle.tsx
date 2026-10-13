@@ -4,6 +4,7 @@
 // SVG puro (sin imágenes, sin dependencias) para que escale nítido y respete
 // el color del tema. Datos: hydrationBottles.ts (db.hydrationBottleLogs).
 import { useCallback, useEffect, useState } from 'react'
+import SemanticIcon from '../ui/SemanticIcon';
 import {
   getBottleConfigs, getBottleDailySummary, getCalculatedHydrationGoal, completeBottle,
   addHydrationMl,
@@ -210,7 +211,7 @@ export function WaterBottle({ date, allowQuickAdd = true, compact = false, size,
                   aria-label={`Registrar ${b.name || b.id} (${b.capacityMl} ml)`}
                   className="min-h-[44px] px-2.5 flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/35 text-primary font-label-caps text-[10px] font-bold uppercase tracking-wider disabled:opacity-40"
                 >
-                  <span className="material-symbols-outlined text-[14px]">water_drop</span>
+                  <SemanticIcon name="water_drop" size={14} className="text-[14px]" />
                   +{b.capacityMl >= 1000 ? `${(b.capacityMl / 1000).toFixed(b.capacityMl % 1000 ? 1 : 0)}L` : `${b.capacityMl}ml`}
                   {counts[b.id] ? <span className="text-on-surface-variant">({counts[b.id]})</span> : null}
                 </button>

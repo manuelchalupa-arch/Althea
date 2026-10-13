@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import SemanticIcon from '../components/ui/SemanticIcon';
 import { Link, useNavigate } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
 import { getCycleFromProfile, getTrainingDayForDate, formatAgendaDate } from '@/utils/cycle'
@@ -20,23 +21,27 @@ import type { ExpenditureResult } from '@/services/training/exerciseEnergy'
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X']
 
 /** Fila del gasto calórico: valor real o estado honesto, nunca números inventados. */
-function GastoRow({ label, res, testId }: { label: string; res: ExpenditureResult; testId: string }) {
+function sinSesiones(r: ExpenditureResult | null | undefined): boolean {
+  return !!r && r.totalKcal === null && r.motivo === 'SIN_SESIONES'
+}
+
+function GastoRow({ label, res, testId, hideEmptyNote = false }: { label: string; res: ExpenditureResult; testId: string; hideEmptyNote?: boolean }) {
   const sinDatos = res.totalKcal === null && res.motivo !== 'SIN_SESIONES'
   if (sinDatos) {
     return (
-      <div data-testid={testId} className="flex items-center justify-between gap-3 rounded bg-surface-container border border-outline-variant/20 px-2.5 py-2">
+      <div data-testid={testId} className="flex items-center justify-between gap-3 rounded bg-surface-container px-2.5 py-2">
         <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">{label}</span>
         <span data-testid={`${testId}-sin-datos`} className="text-[11px] text-on-surface-variant italic text-right">Sin datos suficientes para estimar</span>
       </div>
     )
   }
   return (
-    <div data-testid={testId} className="flex items-center justify-between gap-3 rounded bg-surface-container border border-outline-variant/20 px-2.5 py-2">
+    <div data-testid={testId} className="flex items-center justify-between gap-3 rounded bg-surface-container px-2.5 py-2">
       <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">{label}</span>
       <span className="text-right">
         <span data-testid={`${testId}-kcal`} className="font-headline-sm text-on-surface font-semibold">{Math.round(res.totalKcal ?? 0)} <span className="text-[11px] text-primary font-normal">kcal</span></span>
         <span data-testid={`${testId}-min`} className="block text-[10px] text-on-surface-variant">
-          {res.totalMinutes !== null ? `${Math.round(res.totalMinutes)} min de sesión` : 'Sin sesiones registradas'}
+          {res.totalMinutes !== null ? `${Math.round(res.totalMinutes)} min de sesión` : hideEmptyNote ? '' : 'Sin sesiones registradas'}
         </span>
       </span>
     </div>
@@ -335,7 +340,7 @@ export default function Inicio(){
       <div className="space-y-2">
         {routineReview && (
           <section role="alert" data-testid="routine-review-warning" className="rounded-xl border border-error/45 bg-error/10 px-3 py-2.5 flex items-start gap-2.5">
-            <span className="material-symbols-outlined text-error" style={{ fontSize: 18 }} aria-hidden="true">warning</span>
+            <SemanticIcon name="warning" size={18} className="text-error" ariaHidden />
             <div className="min-w-0 flex-1">
               <p className="font-label-caps text-[10px] uppercase tracking-widest text-error">Rutina a revisar</p>
               <p className="text-[12px] text-on-surface mt-0.5">Lleva <strong>{routineReview.days} días</strong> (límite {routineReview.limit}). Requiere revisión o modificación.</p>
@@ -363,20 +368,20 @@ export default function Inicio(){
           </div>
           {todayCompleted ? (
             <span data-testid="inicio-day-done" className="flex items-center justify-center gap-1.5 w-full min-h-[48px] rounded-lg bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[12px] uppercase font-bold">
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check_circle</span> Sesión completada
+              <SemanticIcon name="check_circle" size={18} /> Sesión completada
             </span>
           ) : ((!isRest || hasActiveSession) && (
             <button onClick={()=>{ startOrContinueTraining() }} data-testid="inicio-hero-cta" aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'} className="btn-primary w-full min-h-[48px] justify-center">
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>electric_bolt</span>
+              <SemanticIcon name="electric_bolt" size={18} />
               <span className="tracking-wide uppercase font-semibold text-[13px]">{hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}</span>
             </button>
           ))}
           <div className="flex gap-2">
             <button onClick={()=>setShowCalendarPopover(true)} aria-label="Ver la semana" className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] rounded-lg bg-surface-container-high border border-outline-variant/40 text-[12px] text-on-surface">
-              <span className="material-symbols-outlined text-outline" style={{ fontSize: 16 }}>date_range</span> Semana {weekNumber}
+              <SemanticIcon name="date_range" size={16} className="text-outline" /> Semana {weekNumber}
             </button>
             <button onClick={()=>setShowChangeDay(true)} aria-label="Cambiar el entrenamiento de hoy" className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] rounded-lg bg-surface-container-high border border-outline-variant/40 text-[12px] text-on-surface">
-              <span className="material-symbols-outlined text-outline" style={{ fontSize: 16 }}>swap_horiz</span> Cambiar día
+              <SemanticIcon name="swap_horiz" size={16} className="text-outline" /> Cambiar día
             </button>
           </div>
         </section>
@@ -386,17 +391,17 @@ export default function Inicio(){
           <h3 className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant px-1">Biometría &amp; balance diario</h3>
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl border border-outline-variant/40 bg-surface-container p-2.5 space-y-1">
-              <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>favorite</span>
+              <SemanticIcon name="favorite" size={16} className="text-primary" />
               <p className="font-metric-mobile text-xl text-on-surface leading-none">{briefV2?.recovery?.lastScore ?? '—'}</p>
               <p className="text-[9px] uppercase tracking-wider text-on-surface-variant">Recuperación</p>
             </div>
             <div className="rounded-xl border border-outline-variant/40 bg-surface-container p-2.5 space-y-1">
-              <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>restaurant</span>
+              <SemanticIcon name="restaurant" size={16} className="text-secondary" />
               <p className="font-metric-mobile text-xl text-on-surface leading-none">{briefV2?.nutrition?.tdee ? Math.round(briefV2.nutrition.tdee) : '—'}</p>
               <p className="text-[9px] uppercase tracking-wider text-on-surface-variant">Nutrición kcal</p>
             </div>
             <div className="rounded-xl border border-outline-variant/40 bg-surface-container p-2.5 space-y-1">
-              <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>local_fire_department</span>
+              <SemanticIcon name="local_fire_department" size={16} className="text-primary" />
               <p className="font-metric-mobile text-xl text-on-surface leading-none">{typeof gasto?.hoy.totalKcal === 'number' ? Math.round(gasto.hoy.totalKcal) : '—'}</p>
               <p className="text-[9px] uppercase tracking-wider text-on-surface-variant">Gasto hoy kcal</p>
             </div>
@@ -405,7 +410,7 @@ export default function Inicio(){
           <div className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>water_drop</span>
+                <SemanticIcon name="water_drop" size={16} className="text-secondary" />
                 <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Hidratación</span>
               </div>
               <Link to="/nutricion" className="text-[10px] text-on-surface-variant font-label-caps uppercase">Nutrición →</Link>
@@ -420,11 +425,11 @@ export default function Inicio(){
           <div className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>favorite</span>
+                <SemanticIcon name="favorite" size={16} className="text-primary" />
                 <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Recuperación Arete</span>
               </div>
               <span className="px-2 py-0.5 rounded bg-secondary-container/50 border border-secondary/40 text-secondary font-label-caps text-[9px] font-bold">
-                {briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'NIVEL ÁUREO' : briefV2.recovery.lastScore >= 40 ? 'EN PROCESO' : 'NECESITA DESCANSO') : 'SIN DATOS'}
+                {briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Nivel áureo' : briefV2.recovery.lastScore >= 40 ? 'En proceso' : 'Necesita descanso') : 'Sin datos'}
               </span>
             </div>
             <p className="text-[11px] text-on-surface-variant">Completá el check-in de recuperación para una lectura real.</p>
@@ -459,11 +464,11 @@ export default function Inicio(){
               </ul>
               {todayCompleted ? (
                 <span data-testid="inicio-start-done" className="flex items-center justify-center gap-1.5 w-full min-h-[44px] rounded-lg bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[11px] uppercase font-bold">
-                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check_circle</span> Sesión completada
+                  <SemanticIcon name="check_circle" size={16} /> Sesión completada
                 </span>
               ) : (exNames.length > 0 && (!isRest || hasActiveSession) && (
                 <button onClick={()=>{ startOrContinueTraining() }} data-testid="inicio-start-training" aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'} className="flex items-center justify-center gap-1.5 w-full min-h-[48px] rounded-lg bg-primary-container hover:bg-tertiary-container text-on-primary-container border border-outline-variant/50 font-label-caps text-[12px] uppercase font-bold">
-                  <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>play_arrow</span>
+                  <SemanticIcon name="play_arrow" size={18} className="text-secondary" />
                   {hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
                 </button>
               ))}
@@ -490,8 +495,8 @@ export default function Inicio(){
         {/* 4. Microciclo semanal */}
         <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
           <div className="flex items-center justify-between text-[11px]">
-            <span className="font-label-caps text-[11px] uppercase text-secondary font-semibold">Microciclo · {completedCount}/{totalCount}</span>
-            <span className="font-label-caps text-[11px] text-primary uppercase font-medium">Vol: {weekVolume > 0 ? `${weekVolume.toLocaleString('es-ES')} kg` : '—'}</span>
+            <span className="font-label-caps text-[11px] text-secondary font-semibold">Microciclo · {completedCount}/{totalCount}</span>
+            <span className="font-label-caps text-[11px] text-primary font-medium">Vol: {weekVolume > 0 ? `${weekVolume.toLocaleString('es-ES')} kg` : '—'}</span>
           </div>
           <div className="grid grid-cols-7 gap-1">
             {weekKeys.map((iso)=>{
@@ -506,9 +511,9 @@ export default function Inicio(){
                 <div key={iso} className={`rounded p-1 flex flex-col items-center gap-1 min-w-0 ${isToday ? 'bg-surface-container-high border border-secondary/70' : 'bg-surface-container-high/40 border border-outline-variant/20'}`}>
                   <span className={`font-label-caps text-[9px] font-semibold ${isToday ? 'text-secondary' : 'text-on-surface-variant'}`}>{dayLabel}{dayNumCell}</span>
                   {isCompleted ? (
-                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 14 }}>check_circle</span>
+                    <SemanticIcon name="check_circle" size={14} className="text-primary" />
                   ) : isRestDay ? (
-                    <span className="material-symbols-outlined text-secondary" style={{ fontSize: 14 }}>spa</span>
+                    <SemanticIcon name="spa" size={14} className="text-secondary" />
                   ) : (
                     <span className="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
                   )}
@@ -517,9 +522,9 @@ export default function Inicio(){
             })}
           </div>
           <div className="flex items-center justify-center gap-3">
-            <button onClick={()=>setWeekOffset(o=>o-1)} aria-label="Semana anterior" className="min-h-[44px] min-w-[44px] rounded bg-surface-container-high border border-outline-variant/40 text-on-surface-variant">‹</button>
+            <button onClick={()=>setWeekOffset(o=>o-1)} aria-label="Semana anterior" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded bg-surface-container-high border border-outline-variant/40 text-on-surface-variant">‹</button>
             <span className="font-label-caps text-[10px] text-on-surface-variant">{weekOffset===0 ? 'Esta semana' : weekOffset>0 ? `+${weekOffset} sem` : `${-weekOffset} sem atrás`}</span>
-            <button onClick={()=>setWeekOffset(o=>o+1)} aria-label="Semana siguiente" className="min-h-[44px] min-w-[44px] rounded bg-surface-container-high border border-outline-variant/40 text-on-surface-variant">›</button>
+            <button onClick={()=>setWeekOffset(o=>o+1)} aria-label="Semana siguiente" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded bg-surface-container-high border border-outline-variant/40 text-on-surface-variant">›</button>
           </div>
         </section>
 
@@ -527,17 +532,17 @@ export default function Inicio(){
         <section data-testid="inicio-gasto-calorico" className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-primary" style={{ fontSize: 16 }}>local_fire_department</span>
+              <SemanticIcon name="local_fire_department" size={16} className="text-primary" />
               <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Gasto calórico</span>
             </div>
-            <Link to="/calendario" className="text-[10px] text-on-surface-variant font-label-caps uppercase">Historial →</Link>
+            <Link to="/calendario" className="text-[10px] text-on-surface-variant font-label-caps">Historial →</Link>
           </div>
           {gasto === null ? (
             <p className="text-[12px] text-on-surface-variant">Cargando…</p>
           ) : (
             <div className="space-y-2">
               <GastoRow label="Hoy" res={gasto.hoy} testId="inicio-gasto-hoy" />
-              <GastoRow label="Semana (lun → hoy)" res={gasto.semana} testId="inicio-gasto-semana" />
+              <GastoRow label="Semana (lun → hoy)" res={gasto.semana} testId="inicio-gasto-semana" hideEmptyNote={sinSesiones(gasto.hoy)} />
             </div>
           )}
         </section>
@@ -546,7 +551,7 @@ export default function Inicio(){
         <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-3">
           <div className="flex items-center justify-between border-b border-outline-variant/30 pb-2">
             <div className="flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>insights</span>
+              <SemanticIcon name="insights" size={16} className="text-secondary" />
               <h3 className="font-headline-md text-base font-semibold text-on-surface">Registros de virtud</h3>
             </div>
             <span className="font-label-caps text-[9px] text-on-surface-variant uppercase">Ciclo olímpico</span>
@@ -564,10 +569,10 @@ export default function Inicio(){
           <Link to="/coach" className="block rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>chat</span>
+                <SemanticIcon name="chat" size={16} className="text-secondary" />
                 <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Coach IA · Estado {briefScore}/100</span>
               </div>
-              <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 16 }}>chevron_right</span>
+              <SemanticIcon name="chevron_right" size={16} className="text-on-surface-variant" />
             </div>
             {briefWarn ? <p className="text-[11px] text-on-surface">{briefWarn}</p> : <p className="text-[11px] text-on-surface-variant">Todo estable por acá.</p>}
           </Link>
@@ -660,7 +665,7 @@ export default function Inicio(){
     <div className="min-h-screen bg-transparent space-y-3">
       {routineReview && (
         <section role="alert" data-testid="routine-review-warning" className="rounded-lg border border-error/45 bg-error/10 px-4 py-3 flex flex-wrap items-start gap-3">
-          <span className="material-symbols-outlined text-error" style={{ fontSize: 20 }} aria-hidden="true">warning</span>
+          <SemanticIcon name="warning" size={20} className="text-error" ariaHidden />
           <div className="min-w-0 flex-1">
             <p className="font-label-caps text-[10px] uppercase tracking-widest text-error">Rutina a revisar</p>
             <p className="font-body-md text-sm text-on-surface mt-0.5">
@@ -670,7 +675,7 @@ export default function Inicio(){
             </p>
           </div>
           <Link to="/rutina" aria-label="Revisar la rutina" className="shrink-0 min-h-[44px] px-3 py-2 rounded-lg border border-error/45 text-error font-label-caps text-[10px] uppercase font-bold tracking-wider hover:bg-error/10 transition-colors flex items-center gap-1.5">
-            <span className="material-symbols-outlined" style={{ fontSize: 15 }} aria-hidden="true">edit_square</span>
+            <SemanticIcon name="edit_square" size={15} ariaHidden />
             Revisar rutina
           </Link>
         </section>
@@ -703,18 +708,18 @@ export default function Inicio(){
             <button onClick={()=> setShowCalendarPopover(!showCalendarPopover)}
               aria-label="Ver la semana"
               className="flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] rounded bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
-              <span className="material-symbols-outlined text-outline" style={{ fontSize: 16 }}>date_range</span>
+              <SemanticIcon name="date_range" size={16} className="text-outline" />
               <span className="font-medium text-body-sm">Semana {Math.max(1, Math.floor(daysBetween((cycle as CycleConfig).startDate || todayStr, todayStr) / 7) + 1)}</span>
             </button>
             <button onClick={()=> setShowChangeDay(true)}
               aria-label="Cambiar el entrenamiento de hoy"
               className="flex items-center gap-1.5 px-2.5 py-1.5 min-h-[44px] min-w-[44px] rounded bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
-              <span className="material-symbols-outlined text-outline" style={{ fontSize: 16 }}>swap_horiz</span>
+              <SemanticIcon name="swap_horiz" size={16} className="text-outline" />
               <span className="font-medium text-body-sm hidden sm:inline">Cambiar día</span>
 </button>
              {todayCompleted && (
                <span data-testid="inicio-day-done" className="flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[11px] uppercase font-bold">
-                 <span className="material-symbols-outlined" style={{ fontSize: 17 }}>check_circle</span>
+                 <SemanticIcon name="check_circle" size={17} />
                  Sesión completada
                </span>
              )}
@@ -722,7 +727,7 @@ export default function Inicio(){
                data-testid="inicio-hero-cta"
                aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
                className="btn-primary px-3.5 py-1.5 min-h-[44px]">
-             <span className="material-symbols-outlined" style={{ fontSize: 17 }}>electric_bolt</span>
+             <SemanticIcon name="electric_bolt" size={17} />
              <span className="tracking-wide uppercase font-semibold text-[12px]">{hasActiveSession ? 'Continuar' : 'Comenzar'}</span>
 </button>
           }
@@ -734,10 +739,10 @@ export default function Inicio(){
       <section className="border border-outline-variant/30 rounded-lg px-3 py-2.5">
         <div className="flex flex-wrap items-center justify-between gap-x-2 text-[11px] mb-2">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="font-label-caps text-[11px] uppercase text-secondary font-semibold shrink-0">Microciclo</span>
+            <span className="font-label-caps text-[11px] text-secondary font-semibold shrink-0">Microciclo</span>
             <span className="text-body-sm text-on-surface-variant truncate">· {completedCount}/{totalCount} sesiones</span>
           </div>
-          <span className="font-label-caps text-[11px] text-primary uppercase font-medium shrink-0">Volumen: {weekVolume > 0 ? `${weekVolume.toLocaleString('es-ES')} kg` : '—'}</span>
+          <span className="font-label-caps text-[11px] text-primary font-medium shrink-0 whitespace-nowrap">Volumen: {weekVolume > 0 ? `${weekVolume.toLocaleString('es-ES')} kg` : '—'}</span>
         </div>
         <div className="grid grid-cols-7 gap-1.5">
           {weekKeys.map((iso)=>{
@@ -759,27 +764,27 @@ export default function Inicio(){
               }`}>
                 {isToday && <span className="absolute -top-2 right-1 px-1 py-0.5 rounded bg-secondary text-on-secondary font-label-caps text-[9px] font-bold tracking-wider">HOY</span>}
                 <div className="flex items-center justify-between gap-1">
-                  <span className={`font-label-caps text-[9px] font-semibold truncate min-w-0 ${isToday ? 'text-secondary font-bold' : 'text-on-surface-variant'}`}>{dayLabel} {dayNum}</span>
+                  <span className={`font-label-caps text-[9px] font-semibold break-words min-w-0 ${isToday ? 'text-secondary font-bold' : 'text-on-surface-variant'}`}>{dayLabel} {dayNum}</span>
                   {isCompleted ? (
-                    <span className="material-symbols-outlined text-primary" style={{ fontSize: 14 }}>check_circle</span>
+                    <SemanticIcon name="check_circle" size={14} className="text-primary" />
                   ) : isRestDay ? (
-                    <span className="material-symbols-outlined text-secondary" style={{ fontSize: 15 }}>spa</span>
+                    <SemanticIcon name="spa" size={15} className="text-secondary" />
                   ) : isActive ? (
-                    <span className="material-symbols-outlined text-secondary animate-pulse" style={{ fontSize: 15 }}>play_circle</span>
+                    <SemanticIcon name="play_circle" size={15} className="text-secondary animate-pulse" />
                   ) : (
-                    <span className="material-symbols-outlined text-outline" style={{ fontSize: 15 }}>schedule</span>
+                    <SemanticIcon name="schedule" size={15} className="text-outline" />
                   )}
                 </div>
                 <div className="min-w-0 w-full">
-                  <p className={`font-label-md text-[12px] font-medium truncate ${isToday ? 'text-on-surface font-semibold' : 'text-on-surface'}`}>
+                  <p className={`font-label-md text-[12px] font-medium break-words leading-tight ${isToday ? 'text-on-surface font-semibold' : 'text-on-surface'}`}>
                     {st?.dayName || (isRestDay ? 'Descanso' : '—')}
                   </p>
                   {st?.volume ? (
-                    <p className={`text-[10px] truncate ${isToday ? 'text-primary' : 'text-on-surface-variant'}`}>{st.volume.toLocaleString('es-ES')} kg{st.rating ? ` · ★ ${st.rating}/5` : ''}</p>
+                    <p className={`text-[10px] break-words leading-tight ${isToday ? 'text-primary' : 'text-on-surface-variant'}`}>{st.volume.toLocaleString('es-ES')} kg{st.rating ? ` · ★ ${st.rating}/5` : ''}</p>
                   ) : isRestDay ? (
-                    <p className="text-[10px] text-secondary truncate">Ayuno &amp; Reflexión</p>
+                    <p className="text-[10px] text-secondary break-words leading-tight">Ayuno &amp; Reflexión</p>
                   ) : (
-                    <p className="text-[10px] text-on-surface-variant truncate">Sin datos</p>
+                    <p className="text-[10px] text-on-surface-variant break-words leading-tight">Sin datos</p>
                   )}
                 </div>
                 <div className="w-full bg-surface-bright h-1 rounded-full overflow-hidden">
@@ -790,21 +795,20 @@ export default function Inicio(){
           })}
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-label-caps text-[10px] text-on-surface-variant">
-          <button onClick={()=>setWeekOffset(o=>o-1)} aria-label="Semana anterior" className="min-h-[44px] min-w-[44px] px-2 py-1 rounded bg-surface-container border border-outline-variant hover:bg-surface-container-high transition-colors">‹</button>
+          <button onClick={()=>setWeekOffset(o=>o-1)} aria-label="Semana anterior" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 py-1 rounded bg-surface-container border border-outline-variant hover:bg-surface-container-high transition-colors">‹</button>
           <span className="self-center">{weekOffset===0 ? 'Esta semana' : weekOffset>0 ? `+${weekOffset} sem` : `${-weekOffset} sem atrás`}</span>
-          <button onClick={()=>setWeekOffset(o=>o+1)} aria-label="Semana siguiente" className="min-h-[44px] min-w-[44px] px-2 py-1 rounded bg-surface-container border border-outline-variant hover:bg-surface-container-high transition-colors">›</button>
+          <button onClick={()=>setWeekOffset(o=>o+1)} aria-label="Semana siguiente" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 py-1 rounded bg-surface-container border border-outline-variant hover:bg-surface-container-high transition-colors">›</button>
         </div>
       </section>
 
-      {/* 3. BENTO CORE: WORKOUT (LEFT 8) + WIDGETS (RIGHT 4) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 lg:items-start gap-3">
-        {/* LEFT 8: WORKOUT CARD — ¿Qué tengo que hacer hoy? */}
-        <div className="lg:col-span-8  border border-outline-variant/40 rounded-lg p-4 space-y-3">
+      {/* 3. WORKOUT CARD — ancho completo (reflow C2/I1: se elimina el bento 8/4
+          que dejaba un hueco vacío de ~1378px junto a la columna de widgets). */}
+      <div className="border border-outline-variant/40 rounded-lg p-4 space-y-3">
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Qué tengo que hacer hoy?</div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2.5 border-b border-surface-bright">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-primary-container/30 text-primary border border-primary/30 font-label-caps text-[10px] uppercase">SESIÓN PRINCIPAL</span>
+                <span className="px-2 py-0.5 rounded bg-primary-container/30 text-primary border border-primary/30 font-label-caps text-[10px]">Sesión principal</span>
                 {!isRest && <span className="text-[12px] text-on-surface-variant">{activeMethodName || agenda.name}</span>}
               </div>
               <h2 className="font-headline-md text-headline-sm font-semibold text-on-surface">
@@ -816,7 +820,7 @@ export default function Inicio(){
             </div>
             {todayCompleted && (
               <span data-testid="inicio-start-done" className="self-start sm:self-center flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded bg-primary-container/40 border border-primary/40 text-primary font-label-md text-label-md font-semibold">
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>check_circle</span>
+                <SemanticIcon name="check_circle" size={16} />
                 <span className="uppercase tracking-wider text-[12px] font-semibold">SESIÓN COMPLETADA</span>
               </span>
             )}
@@ -825,14 +829,14 @@ export default function Inicio(){
               data-testid="inicio-start-training"
               aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
               className="self-start sm:self-center flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded bg-primary-container hover:bg-tertiary-container text-on-primary-container border border-outline-variant/50 transition-all font-label-md text-label-md active:scale-[0.98]">
-                <span className="material-symbols-outlined text-secondary" style={{ fontSize: 16 }}>play_arrow</span>
+                <SemanticIcon name="play_arrow" size={16} className="text-secondary" />
                 <span className="uppercase tracking-wider text-[12px] font-semibold">{hasActiveSession ? 'CONTINUAR ENTRENAMIENTO' : 'COMENZAR ENTRENAMIENTO'}</span>
               </button>
             )}
           </div>
 
           {isRest ? (
-            <p className="text-[12px] text-on-surface-variant italic border-t border-surface-bright pt-3">
+            <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-2.5">
               «La recuperación es donde se forja la verdadera fuerza. Descansa con propósito.»
             </p>
           ) : (
@@ -904,7 +908,7 @@ export default function Inicio(){
                             ) : (
                               <button onClick={()=>{ setEditingIdx(i); setEditDraft({reps: ex.reps || 0, weight: ex.weight ?? null, restSec: ex.restSec || 90}) }}
                                 className="px-2 py-0.5 min-h-[44px] min-w-[44px] rounded bg-surface-container-high border border-outline-variant text-on-surface-variant text-[10px] font-label-caps uppercase hover:border-primary hover:text-primary transition-all active:scale-[0.97]">
-                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>edit</span>
+                                <SemanticIcon name="edit" size={14} />
                               </button>
                             )}
                           </td>
@@ -929,16 +933,17 @@ export default function Inicio(){
           )}
         </div>
 
-        {/* RIGHT 4: WIDGETS */}
-        <div className="lg:col-span-4 space-y-4">
+      {/* 4. WIDGETS — banda responsive (reflow C2/I1). items-start: cada widget
+          conserva su altura natural, sin estirarse para rellenar. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 items-start gap-3">
           {/* WIDGET 0: GASTO CALÓRICO DEL EJERCICIO (sesiones reales) */}
           <div data-testid="inicio-gasto-calorico" className="border border-outline-variant/40 rounded-lg p-3.5 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="material-symbols-outlined text-primary" style={{ fontSize: 18 }}>local_fire_department</span>
+                <SemanticIcon name="local_fire_department" size={18} className="text-primary" />
                 <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Gasto calórico del ejercicio</span>
               </div>
-              <Link to="/calendario" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps uppercase hover:text-primary transition-colors">Historial →</Link>
+              <Link to="/calendario" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors">Historial →</Link>
             </div>
             <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-2">
               Estimación MET sobre tus sesiones registradas (duración medida × peso corporal).
@@ -948,7 +953,7 @@ export default function Inicio(){
             ) : (
               <div className="space-y-2">
                 <GastoRow label="Hoy" res={gasto.hoy} testId="inicio-gasto-hoy" />
-                <GastoRow label="Semana (lun → hoy)" res={gasto.semana} testId="inicio-gasto-semana" />
+                <GastoRow label="Semana (lun → hoy)" res={gasto.semana} testId="inicio-gasto-semana" hideEmptyNote={sinSesiones(gasto.hoy)} />
               </div>
             )}
           </div>
@@ -957,11 +962,11 @@ export default function Inicio(){
            <div className="border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-3 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary" style={{ fontSize: 20 }}>favorite</span>
+                <SemanticIcon name="favorite" size={20} className="text-primary" />
                 <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">RECUPERACIÓN ARETE</span>
               </div>
               <span className="px-2 py-0.5 rounded bg-secondary-container/50 border border-secondary/40 text-secondary font-label-caps text-[9px] font-bold">
-                {briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'NIVEL ÁUREO' : briefV2.recovery.lastScore >= 40 ? 'EN PROCESO' : 'NECESITA DESCANSO') : 'SIN DATOS'}
+                {briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Nivel áureo' : briefV2.recovery.lastScore >= 40 ? 'En proceso' : 'Necesita descanso') : 'Sin datos'}
               </span>
             </div>
             <div className="flex items-center gap-3 py-1">
@@ -1001,10 +1006,10 @@ export default function Inicio(){
           <div className="border border-outline-variant/40 rounded-lg p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>water_drop</span>
+                <SemanticIcon name="water_drop" size={18} className="text-secondary" />
                 <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Hidratación</span>
               </div>
-              <Link to="/nutricion" className="inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps uppercase hover:text-primary transition-colors">Nutrición ?</Link>
+              <Link to="/nutricion" className="inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors">Nutrición →</Link>
             </div>
             <WaterBottle size="lg" allowQuickAdd refreshKey={waterVersion} />
             {/* (G) Configuración de las 3 botellas disponible en el propio widget */}
@@ -1023,7 +1028,7 @@ export default function Inicio(){
            <div className="border border-secondary/30 rounded-lg p-3.5 sm:p-4 space-y-2.5 relative overflow-hidden bg-gradient-to-b from-surface-container-low to-surface-container">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-surface-container-high border border-secondary/50 flex-shrink-0 flex items-center justify-center">
-                <span className="material-symbols-outlined text-secondary" style={{ fontSize: 20 }}>psychology</span>
+                <SemanticIcon name="psychology" size={20} className="text-secondary" />
               </div>
               <div>
                 <h3 className="font-headline-sm text-body-md font-semibold text-secondary tracking-wide">Asistente</h3>
@@ -1038,7 +1043,7 @@ export default function Inicio(){
               <span className="text-[10px] text-on-surface-variant">Respuesta adaptada a tus métricas</span>
               <Link to="/coach" className="inline-flex items-center gap-1 min-h-[44px] text-primary hover:text-secondary transition-colors font-label-caps text-[10px] uppercase font-bold">
                 <span>Abrir Asistente</span>
-                <span className="material-symbols-outlined" style={{ fontSize: 13 }}>arrow_forward</span>
+                <SemanticIcon name="arrow_forward" size={13} />
               </Link>
             </div>
           </div>
@@ -1048,10 +1053,10 @@ export default function Inicio(){
             <Link to="/coach" className="block  border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-2 hover:border-primary/40 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>chat</span>
+                  <SemanticIcon name="chat" size={18} className="text-secondary" />
                   <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">COACH IA · ESTADO {briefScore}/100</span>
                 </div>
-                <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: 16 }}>chevron_right</span>
+                <SemanticIcon name="chevron_right" size={16} className="text-on-surface-variant" />
               </div>
               {briefWarn ? (
                 <p className="text-[11px] text-on-surface">{briefWarn}</p>
@@ -1062,26 +1067,25 @@ export default function Inicio(){
                 <div className="flex flex-wrap gap-1.5">
                   {briefV2.progress && (
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-label-caps ${briefV2.progress.trend==='improving'?'bg-primary/20 text-primary':briefV2.progress.trend==='declining'?'bg-error/20 text-error':'bg-secondary/20 text-secondary'}`}>
-                      {briefV2.progress.trend==='improving'?'? Progresando':briefV2.progress.trend==='declining'?'? Bajando':'? Estable'}
+                      {briefV2.progress.trend==='improving'?'↑ Progresando':briefV2.progress.trend==='declining'?'↓ Bajando':'→ Estable'}
                     </span>
                   )}
                   {briefV2.nutrition?.gap && (
                     <span className="px-2 py-0.5 rounded-full bg-secondary/20 text-secondary text-[10px] font-label-caps">
-                      ? {briefV2.nutrition.gap.length > 30 ? briefV2.nutrition.gap.slice(0,30)+'…' : briefV2.nutrition.gap}
+                      Ajuste: {briefV2.nutrition.gap.length > 30 ? briefV2.nutrition.gap.slice(0,30)+'…' : briefV2.nutrition.gap}
                     </span>
                   )}
                 </div>
               )}
             </Link>
           )}
-        </div>
       </div>
 
-      {/* 4. BOTTOM SECTION: REGISTROS DE VIRTUD & VOLUMEN SEMANAL */}
+      {/* 5. BOTTOM SECTION: REGISTROS DE VIRTUD & VOLUMEN SEMANAL */}
       <AltheaPanel className="mt-4">
         <div className="flex items-center justify-between border-b border-outline-variant/30 pb-2.5 mb-3">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>insights</span>
+            <SemanticIcon name="insights" size={18} className="text-secondary" />
             <h3 className="font-headline-md text-title-md font-semibold text-on-surface tracking-wide">Registros de Virtud & Volumen Semanal</h3>
           </div>
           <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">CICLO OLÍMPICO</span>
@@ -1136,7 +1140,7 @@ export default function Inicio(){
                 setShowChangeDay(false)
               }} className={`w-full p-3 rounded border text-left flex items-center justify-between ${effectiveN===d.n?'bg-primary text-on-surface border-primary':'bg-surface-container border-outline-variant text-on-surface'}`}>
                 <span className="text-sm">DÍA N.º {d.n} — {d.name}</span>
-                {effectiveN===d.n && <span className="text-[10px] font-label-caps text-on-surface-variant">? actual</span>}
+                {effectiveN===d.n && <span className="text-[10px] font-label-caps text-on-surface-variant">· actual</span>}
               </button>
             ))}
             <div className="p-3 bg-surface-container border border-outline-variant rounded space-y-2">
@@ -1182,9 +1186,9 @@ export default function Inicio(){
               })}
             </div>
             <div className="flex gap-2">
-              <button onClick={()=>setWeekOffset(w=>w-1)} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant text-on-surface-variant text-sm">? Anterior</button>
+              <button onClick={()=>setWeekOffset(w=>w-1)} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant text-on-surface-variant text-sm">‹ Anterior</button>
               <button onClick={()=>setWeekOffset(0)} className="flex-1 py-2 rounded bg-primary text-on-primary text-sm font-medium">Esta semana</button>
-              <button onClick={()=>setWeekOffset(w=>w+1)} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant text-on-surface-variant text-sm">Siguiente ?</button>
+              <button onClick={()=>setWeekOffset(w=>w+1)} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant text-on-surface-variant text-sm">Siguiente ›</button>
             </div>
             <button onClick={()=>setShowCalendarPopover(false)} className="w-full py-2 rounded bg-surface-container border border-outline-variant text-on-surface-variant text-[11px] font-label-caps uppercase">Cerrar</button>
           </div>

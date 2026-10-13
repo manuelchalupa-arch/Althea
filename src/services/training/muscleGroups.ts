@@ -1,12 +1,12 @@
-// Mapa muscular por GRUPO (PECHO / ESPALDA / PIERNAS / BRAZOS / HOMBROS) y
-// comparación semana a semana del ciclo. Todo derivado de volumen ejecutado
-// (kg x reps) con ponderación por rol muscular real. Sin datos inventados:
-// una semana sin series no genera cambio, se marca como sin base.
+// Mapa muscular por GRUPO (PECHO / ESPALDA / PIERNAS / BRAZOS / HOMBROS /
+// CORE) y comparación semana a semana del ciclo. Todo derivado de volumen
+// ejecutado (kg x reps) con ponderación por rol muscular real. Sin datos
+// inventados: una semana sin series no genera cambio, se marca como sin base.
 import { muscleLoadOf, type MuscleLoad } from './metrics'
 import { cycleWeekRange, completedCycleWeeks, type CycleConfig } from '@/utils/cycle'
 import { todayKey } from '@/utils/dates'
 
-export const MUSCLE_GROUPS = ['PECHO', 'ESPALDA', 'PIERNAS', 'BRAZOS', 'HOMBROS'] as const
+export const MUSCLE_GROUPS = ['PECHO', 'ESPALDA', 'PIERNAS', 'BRAZOS', 'HOMBROS', 'CORE'] as const
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number]
 
 // Un músculo API (o sus sinónimos del seed local) pertenece a un grupo.
@@ -21,6 +21,16 @@ const GROUP_MEMBERS: Record<string, MuscleGroup> = {
   biceps: 'BRAZOS', triceps: 'BRAZOS', forearms: 'BRAZOS',
   biceps_brazo: 'BRAZOS', antebrazos: 'BRAZOS', brazo: 'BRAZOS',
   delts: 'HOMBROS', hombros: 'HOMBROS', hombro: 'HOMBROS', deltoides: 'HOMBROS',
+  // CORE: el vocabulario del tipo Exercise (types/index.ts) ya incluye
+  // 'abdomen' y el atlas ya tenía grupo 'core', pero este mapa no lo
+  // contemplaba, así que TODO el volumen abdominal se descartaba acá y
+  // las regiones del torso se pintaban siempre "Sin datos".
+  abs: 'CORE', core: 'CORE', abdomen: 'CORE', abdominales: 'CORE',
+  oblicuos: 'CORE', oblicuo: 'CORE', serrato: 'CORE', obliquos: 'CORE',
+  'serratus-anterior': 'CORE', 'rectus-abdominis': 'CORE',
+  'obliquus-externus': 'CORE', 'recto-abdominal': 'CORE',
+  'abdominales-superiores': 'CORE', 'abdominales-inferiores': 'CORE',
+  'recto-abdominal-superior': 'CORE', 'recto-abdominal-inferior': 'CORE',
 }
 
 export function groupOfMuscle(muscle: string): MuscleGroup | null {
@@ -47,7 +57,7 @@ export function groupLoadOf(
   let attributed = 0
   for (const l of res.loads) {
     const g = groupOfMuscle(l.muscle)
-    if (!g) { continue } // core/cardio/sin anatomía: fuera de los 5 grupos
+    if (!g) { continue } // sin anatomía asignable (cardio, cuerpo completo, desconocido)
     byGroup[g] = Math.round(((byGroup[g] ?? 0) + l.volume) * 10) / 10
     const arr = musclesByGroup.get(g) ?? []
     arr.push(l)
@@ -87,7 +97,21 @@ export interface GroupWeekStat {
   isComplete: boolean
 }
 
-function trendOf(current: number, prior: number): { trend: MuscleTrend; delta: number | null; deltaPct: number | null } {
+/**
+ * Tendencia de un grupo entre dos períodos, con el umbral de estabilidad.
+ *
+ * ES LA FUENTE ÚNICA de tendencia de este módulo: la comparación semanal de
+ * grupos y el atlas muscular (Progreso) deben pasar por acá. Antes cada uno
+ * calculaba la suya — acá con ±5% y en el atlas con comparación estricta —
+ * y el mismo dato podía leerse "Descenso" en el atlas y "Estable" en la
+ * tabla de semanas.
+ *
+ * `prior <= 0` no es un descenso: es "sin-base" (no hay comparación posible).
+ */
+export function resolveTrend(
+  current: number,
+  prior: number,
+): { trend: MuscleTrend; delta: number | null; deltaPct: number | null } {
   if (!(prior > 0)) { return { trend: 'sin-base', delta: null, deltaPct: null } }
   const delta = Math.round((current - prior) * 10) / 10
   const pct = Math.round((delta / prior) * 1000) / 10
@@ -100,12 +124,23 @@ function trendOf(current: number, prior: number): { trend: MuscleTrend; delta: n
  * La semana 1 completa es BASE. Cada semana posterior se compara con la
  * inmediatamente anterior. La semana en curso se agrega aparte (`current`).
  */
+/** Semana en curso: estado parcial, nunca BASE. `start`/`end` delimitan la ventana usada. */
+export interface CurrentWeekLoad {
+  byGroup: Record<string, number>
+  total: number
+  week: number
+  /** Primer día de la semana en curso (inclusive). */
+  start: string
+  /** Último día considerado: hoy, o el fin de la semana si ya terminó. */
+  end: string
+}
+
 export function weeklyGroupComparison(
   itemsByDate: Array<{ date: string; exerciseId: string; volume: number }>,
   muscleOf: (exerciseId: string) => { primary: string; secondary: string[] } | null,
   cycle: CycleConfig,
   today: string = todayKey(),
-): { weeks: GroupWeekStat[]; current: { byGroup: Record<string, number>; total: number; week: number } | null } {
+): { weeks: GroupWeekStat[]; current: CurrentWeekLoad | null } {
   const complete = completedCycleWeeks(cycle, today)
   const itemsOf = (start: string, end: string) => itemsByDate.filter(i => i.date >= start && i.date <= end)
 
@@ -121,7 +156,9 @@ export function weeklyGroupComparison(
     const delta: Record<MuscleGroup, number | null> = {} as Record<MuscleGroup, number | null>
     const deltaPct: Record<MuscleGroup, number | null> = {} as Record<MuscleGroup, number | null>
     for (const g of MUSCLE_GROUPS) {
-      const t = isBase ? { trend: 'sin-base' as MuscleTrend, delta: null, deltaPct: null } : trendOf(byGroup[g] ?? 0, prior[g] ?? 0)
+      const t = isBase
+        ? { trend: 'sin-base' as MuscleTrend, delta: null, deltaPct: null }
+        : resolveTrend(byGroup[g] ?? 0, prior[g] ?? 0)
       trend[g] = t.trend
       delta[g] = t.delta
       deltaPct[g] = t.deltaPct
@@ -135,8 +172,15 @@ export function weeklyGroupComparison(
   const curRange = cycleWeekRange(curIdx, cycle)
   const current = today >= curRange.start
     ? (() => {
-      const { byGroup } = groupLoadOf(itemsOf(curRange.start, today), muscleOf)
-      return { byGroup, total: MUSCLE_GROUPS.reduce((a, g) => a + (byGroup[g] ?? 0), 0), week: curIdx }
+      const end = today < curRange.end ? today : curRange.end
+      const { byGroup } = groupLoadOf(itemsOf(curRange.start, end), muscleOf)
+      return {
+        byGroup,
+        total: MUSCLE_GROUPS.reduce((a, g) => a + (byGroup[g] ?? 0), 0),
+        week: curIdx,
+        start: curRange.start,
+        end,
+      }
     })()
     : null
 

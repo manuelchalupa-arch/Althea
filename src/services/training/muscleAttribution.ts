@@ -14,6 +14,11 @@ export interface MuscleResolver {
   muscleOf: (exerciseId: string) => MuscleAttribution | null
   partOf: (exerciseId: string) => string | null
   sourceOf: (exerciseId: string) => 'custom' | 'seed' | 'library' | null
+  /**
+   * Nombre legible del ejercicio, con la misma precedencia que `muscleOf`.
+   * Devuelve null si no se conoce: NO se inventa un nombre.
+   */
+  nameOf: (exerciseId: string) => string | null
 }
 
 /** Primary deducido del id "muscle/slug" de la biblioteca activa. */
@@ -54,6 +59,18 @@ export async function buildMuscleResolver(basePartMap: Record<string, string>): 
       if (seedById.get(id) && ((seedById.get(id)?.muscles || []).length || seedById.get(id)?.groupMain)) { return 'seed' }
       if (library[id]?.primary) { return 'library' }
       if (primaryFromId(id)) { return 'library' }
+      return null
+    },
+    nameOf: (id: string) => {
+      const customName = customById.get(id)?.name
+      if (customName) { return String(customName) }
+      const seedName = seedById.get(id)?.name
+      if (seedName) { return String(seedName) }
+      // Biblioteca: id "muscle/slug" -> "Slug legible".
+      const slash = id.indexOf('/')
+      if (slash > 0 && slash < id.length - 1) {
+        return id.slice(slash + 1).replace(/-/g, ' ').trim() || null
+      }
       return null
     },
   }

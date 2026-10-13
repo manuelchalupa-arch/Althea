@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import SemanticIcon from '../ui/SemanticIcon';
 
 interface AltheaCardProps {
   children: ReactNode;
@@ -40,7 +41,7 @@ export function AltheaCardHeader({ title, subtitle, icon, action, className = ''
   return (
     <div className={`flex items-center justify-between gap-3 mb-4 ${className}`}>
       <div className="flex items-center gap-2.5 min-w-0">
-        {icon && <span className="material-symbols-outlined text-[18px] text-primary shrink-0">{icon}</span>}
+        {icon && <SemanticIcon name={icon} size={18} className="text-[18px] text-primary shrink-0" ariaHidden />}
         <div className="min-w-0">
           <h3 className="font-headline-md text-on-surface truncate">{title}</h3>
           {subtitle && <p className="font-body-md text-xs text-on-surface-variant mt-0.5">{subtitle}</p>}

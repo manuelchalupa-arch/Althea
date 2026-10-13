@@ -58,25 +58,29 @@ Los 12 tests `skipped` son los E2E de WGER, que requieren credenciales (`WGER_TE
 - `isCompletedSession` / ErrorBoundary / macros: ya estaban centralizados (una sola definición, múltiples llamadores).
 
 ### F6 · Tokens y UI (completado en fases previas)
-- Doble capa de tokens (`althea-tokens.css` + `index.css`): **diferido** — requiere migración estructural con validación visual amplia; fuera del alcance de solo-no-cambiar-comportamiento.
+- Doble capa de tokens (`althea-tokens.css` + `index.css`): **diferido, con confirmación** — requiere migración estructural con validación visual amplia. Se revisó de nuevo en el Prompt 3 y se mantiene el deferral: el agente no puede revisar imágenes, y una conversión masiva de clases sin revisión visual es exactamente el tipo de cambio riesgoso que este documento decide no hacer. **Acción requerida por el dueño**: revisar los PNG de `althea-shots/` y aprobar una migración en un milestone aparte.
 
 ### F7 · Barrido amplio
-- Mapeo de nombres vía texto UI en `Entrenar.tsx` (~línea 621): **diferido** — apunta a matching por nombre en lugar de por id estable; requiere rediseño a ids y regresión de tests de búsqueda.
+- ~~Mapeo de nombres vía texto UI en `Entrenar.tsx`~~ → **RESUELTO (Prompt 3, §2)**. Se creó `src/services/training/exerciseIdentity.ts`: resolución **por ID estable primero**, con fallback legacy por nombre **exacto** (normalizado y candidato único), etiquetado con su fuente (`custom-id` / `stored-id` / `legacy-name-exact` / `unresolved`). Cableado en `openViewer`, `loadSwapOptions` y `handleSessionLoaded`. El emparejamiento difuso quedó relegado a **pista de visualización** (`scoreNameMatch`, elige el GIF) y **nunca** cambia el `exerciseId` de la sesión. 21 tests en `exerciseIdentity.test.ts` cubren búsqueda, sustitución, variantes y sesiones antiguas.
+- Se eliminó la duplicación de los dos mapas `muscleMap` inline (idénticos) → `apiMuscleFor()` en el mismo módulo. El lookup ahora usa fold (tolera acentos: antes `Bíceps` caía a `pectorals`); el alcance de `piernas` se mantiene conservador (`quads`, no la familia completa) para no cambiar comportamiento.
 
 ## Decisiones de no-cambio (conservadas a propósito)
 
 | Área | Motivo |
 | --- | --- |
 | Subárbol WGER (`wgerSyncEngine` + `WgerSyncPanel`) | Los subclientes (`measurements/` `nutrition/` `stats/` `training/`) se dejan como están: consolidarlos en `wgerClient` es un refactor amplio con credenciales y endpoints ligeramente distintos; se recomienda hacerlo en un milestone aparte. |
-| `getJSON` duplicado en wger (5 copias) | Ídem: misma razón de riesgo/alcance. |
+| ~~`getJSON` duplicado en wger (5 copias)~~ | **RESUELTO (Prompt 3, §5a)**. Las 4 copias byte-a-byte idénticas de los subclientes se unificaron en `src/services/integrations/wger/wgerHttp.ts` (`WGER_API_BASE` + `getJSON`). `wgerClient.ts` **NO** se fusionó: su `request` tiene contrato distinto (timeout 15 s, merge de headers, Bearer, `.status`, body truncado). 6 tests unitarios sin red en `wgerHttp.test.ts` fijan ese contrato. |
 | Notificaciones / `exportImport` / `export` / `demoData` / seeder | Se revisaron; al no tener consumidores funcionales pero ser reutilizables/exportables, se conservan. `exportImport.ts` aún importa `sessionExercises` en la línea 9 que se documentó para futura revisión. |
-| `stripAccents` inline (≈15 sitios) | Copias no exactas: cada sitio encadena operaciones distintas (trim, case, extra replaces en muscleMap/customExercises). Extraer utilitario `stripAccents` en `utils/format` y migrar progresivamente es la recomendación, pero tocar todos cambia matching de búsqueda/IA con riesgo de regresión silenciosa → diferido con tarea propuesta. |
+| ~~`stripAccents` inline (≈15 sitios)~~ | **RESUELTO (Prompt 3, §3)**. La migración ya estaba completa: la única implementación vive en `src/utils/format.ts:10` y los **16 consumidores** importan de allí. Lo que faltaba era cobertura: ahora hay `src/utils/format.test.ts` (24 tests) que fija el orden de operaciones (`toLowerCase` → NFD → quita diacríticos), la no-idempotencia del trim y el matching real de ejercicios/músculos. Sin cambios de comportamiento. |
 | `SESSION_TRANSITIONS` | Constante de dominio; intacta. |
+| Planificación de rutina (`routine.cycle`) | Tiene **su propio versionado** en `routineStore.saveRoutineVersioned` (snapshot por versión, no destructivo). Unificarlo con `db.cycleVersions` (`scope = routineId`) exige migración de datos sobre versiones ya persistidas → **cambio separado documentado**. |
+| `methodSelector.getAvailableDays` (lee `profile.cycle.weekMap`) | Es una **entrada de recomendación sincrónica** (alimenta `selectMethods` → `buildCycleFromProfile`), no una lectura de presentación. Migrarla exige hacer async `selectMethods` y toda su cadena de llamadores → **cambio de alcance separado**. Además, la rama principal es `profile.schedule.availableDays` (la fija Onboarding). |
 
 ## Pendientes/Recomendaciones (próximo milestone)
 
-1. Extraer `stripAccents` en `utils/format` y migrar los ~15 sitios inline uno a uno con tests de búsqueda.
-2. Consolidar la doble capa de tokens CSS (validación visual).
-3. Migrar `Entrenar.tsx` a mapeo por id estable en vez de nombre.
-4. Revisar los subclientes WGER sobrantes para unificarlos en `wgerClient` (con tests E2E reales, requiere credenciales).
-5. Ejecutar los 12 tests E2E WGER con credenciales para cerrar el gap de cobertura.
+1. ~~Extraer `stripAccents` en `utils/format` y migrar los ~15 sitios inline~~ → hecho; ahora cubierto por `format.test.ts`.
+2. Consolidar la doble capa de tokens CSS (validación visual). **Requiere revisión humana de PNG.**
+3. ~~Migrar `Entrenar.tsx` a mapeo por id estable en vez de nombre~~ → hecho (`exerciseIdentity.ts`).
+4. Revisar los subclientes WGER sobrantes para unificarlos en `wgerClient` (con tests E2E reales, requiere credenciales). `getJSON` ya está unificado; queda el resto del cliente.
+5. Ejecutar con credenciales las suites WGER: `wgerPublicContract.test.ts` (sin cuenta, `WGER_PUBLIC_INTEGRATION=1`) y `wgerIntegration.test.ts` (requiere `WGER_TEST_USERNAME`/`WGER_TEST_PASSWORD`).
+6. Considerar unificar `routine.cycle` con `db.cycleVersions` (`scope = routineId`) en un milestone con migración de datos.

@@ -1,7 +1,9 @@
 # WGER ↔ Althea — Integración Final
 
-**Fecha:** 2026-09-29
-**Commit:** pendiente
+**Fecha:** 2026-09-29 (actualizado 2026-10-10)
+**Commit:** **TODAVÍA NO EXISTE** — los cambios del Prompt 3 están SIN COMMITTEAR.
+  HEAD real al momento de escribir esto: `1fb12f7` (`1fb12f7ca5ea8113b155f2207b024e1aff231471`),
+  rama `main`, sin push. Usá `git log --oneline -1` para obtener el hash real después de commitear.
 **Estado:** Integración funcional con sincronización bidireccional
 
 ---
@@ -417,6 +419,45 @@ No se copia ni redistribuye contenido sin verificar la licencia aplicable.
 - HISTORIAL: no pérdida, no duplicación, no modificación destructiva
 
 **Total: 69 tests**
+
+### 13.3 Estructura real de suites (Prompt 3, 2026-10-10)
+
+El gap de cobertura WGER se cerró separando **tres suites con gates distintos**, sin
+red inestable en CI y sin simular autenticación:
+
+| Suite | Archivo | Gate | Corre en CI | Cuenta |
+|---|---|---|---|---|
+| Unidad (sin red) | `wgerHttp.test.ts` | siempre (fetch stubbed) | **Sí** | No |
+| Contrato público | `wgerPublicContract.test.ts` | `WGER_PUBLIC_INTEGRATION=1` | No (opt-in) | **No** |
+| Autenticadas | `wgerIntegration.test.ts` | `WGER_TEST_USERNAME` + `WGER_TEST_PASSWORD` | No | **Sí** |
+
+```bash
+# unidad (va siempre en CI)
+npx vitest run src/services/integrations/wger/wgerHttp.test.ts
+
+# contrato público: sólo conectividad, sin cuenta
+WGER_PUBLIC_INTEGRATION=1 npx vitest run src/services/integrations/wger/wgerPublicContract.test.ts
+
+# operaciones que necesitan cuenta real (fuera de CI)
+WGER_TEST_USERNAME=… WGER_TEST_PASSWORD=… npx vitest run src/services/integrations/wger/wgerIntegration.test.ts
+```
+
+**Hallazgos de la reclasificación (verificados contra la API real el 2026-10-10):**
+
+1. **wger.de ya no es público para `/routine/`, `/nutritionplan/` ni `/workoutsession/`**
+   → responden `403 {"detail":"Authentication credentials were not provided."}`.
+   Esos tests pasaron al suite **autenticado**.
+2. **El rechazo anónimo de endpoints protegidos es `403`, no `401`** → el test que
+   esperaba `401` estaba equivocado (y nunca corrió para descubrirlo).
+3. **`GET /exercise/?limit=invalid` devuelve `200`** (DRF ignora el parámetro), no `400`.
+   Se fijó el comportamiento real en un test en vez de mantener una expectativa falsa.
+4. **Bug previo**: los tests públicos estaban envueltos en `describe.skipIf(!hasCredentials)`
+   aunque no necesitan credenciales, así que **nunca se ejecutaron**. También había un
+   test "manual" que sólo hacía `console.warn` + `expect(true)` (un pase falso) — eliminado.
+
+**Reglas aplicadas:** ninguna suite simula un login exitoso; los errores de red siguen
+siendo errores (el `401` auténtico se aserta que lanza, no que pasa); las suites con red
+están fuera del conjunto obligatorio de CI.
 
 ---
 

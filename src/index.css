@@ -157,6 +157,20 @@ html[data-textscale="l"] { font-size: 112.5%; }
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+  /* Altura reservada por la barra de navegación móvil. Fuente única de verdad:
+     AppNav la define con MOBILE_NAV_OFFSET; este fallback solo evita el "salto"
+     antes de que el JS la escriba. Los FAB (ChatWidget) la consumen para no
+     tapar contenido ni quedar debajo de la barra. */
+  --mobile-nav-offset: calc(env(safe-area-inset-bottom, 0px) + 74px);
+}
+
+/* Stack de FAB flotantes (chat + coach) alineado a la barra de navegación móvil.
+   Desktop: posición fija de borde (la nav lateral no ocupa el ancho del fondo). */
+.fab-chat-stack { bottom: calc(var(--mobile-nav-offset) + 0.625rem); }
+.fab-coach-stack { bottom: calc(var(--mobile-nav-offset) + 4.625rem); }
+@media (min-width: 768px) {
+  .fab-chat-stack { bottom: 2rem; }
+  .fab-coach-stack { bottom: 2rem; }
 }
 
 /* El shell corre todo el contenido por debajo del recorte superior. Resuelve
@@ -165,63 +179,6 @@ html[data-textscale="l"] { font-size: 112.5%; }
 .shell-safe-top { padding-top: var(--safe-top); }
 
 .pb-safe { padding-bottom: var(--safe-bottom); }
-
-/* ---------------------------------------------------------------------------
-   ICONOGRAFIA RESILIENTE (fix C1)
-   Material Symbols es una fuente de ligaduras servida por el CDN de Google
-   Fonts. Sin la fuente, "favorite" deja de ser un glifo y se pinta la palabra
-   inglesa. Eso se observo en produccion: la UI es una PWA offline-first y la
-   fuente puede no cargar por red lenta, ad-blocker o primer vuelo sin conexion.
-
-   Politica fail-safe: el atributo data-ms-icons solo vale 'ready' cuando
-   document.fonts confirma la fuente. El selector usa :not([data-ms-icons='ready'])
-   para que el ESTADO INICIAL sea "oculto", nunca "visible".
-   --------------------------------------------------------------------------- */
-html:not([data-ms-icons='ready']) .material-symbols-outlined {
-  /* font-size 0 colapsa el literal: la palabra no ocupa ni se ve. */
-  font-size: 0 !important;
-  line-height: 0 !important;
-  /* Preserva el tamano de la caja para no romper la maqueta. */
-  min-width: 1em;
-  min-height: 1em;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Sin fuente: marcador de bloque en el color del contexto, nunca texto. */
-html:not([data-ms-icons='ready']) .material-symbols-outlined::after {
-  content: '';
-  display: block;
-  width: 0.72em;
-  height: 0.72em;
-  min-width: 0.72em;
-  min-height: 0.72em;
-  border-radius: 2px;
-  background: currentColor;
-  opacity: 0.32;
-}
-
-/* Con la fuente confirmada, se restablece el comportamiento normal. */
-html[data-ms-icons='ready'] .material-symbols-outlined {
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
-  font-weight: normal;
-  font-style: normal;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  display: inline-block;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  font-feature-settings: 'liga';
-  -webkit-font-smoothing: antialiased;
-}
 
 /* ---------------------------------------------------------------------------
    Offset del area de contenido respecto a la navegacion lateral.
@@ -488,14 +445,6 @@ html[data-ms-icons='ready'] .material-symbols-outlined {
   box-shadow: var(--althea-shadow-sm);
 }
 .light .temple-backdrop, .temple-backdrop.light { background: var(--c-background); }
-
-/* ============================ ICONOGRAFÍA ============================ */
-.material-symbols-outlined {
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  display: inline-block; vertical-align: middle; line-height: 1;
-  font-size: 24px;
-}
-.material-symbols-outlined.fill-1 { font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; }
 
 /* ============================ THEME TOGGLE ============================ */
 .theme-toggle-btn {

@@ -8,6 +8,7 @@ import {
   type AtlasView,
   type MuscleRegion,
 } from './muscleGeometry';
+import { useAtlasFigure, type AtlasSex } from './atlasFigure';
 
 /**
  * MUSCLE DATA — contrato de datos, separado de la geometría (muscleGeometry.ts).
@@ -62,6 +63,12 @@ export interface MuscleAtlasProps {
   width?: number;
   /** 'below' muestra el detalle bajo la figura (a un costado en contenedores anchos). */
   detail?: 'below' | 'none';
+  /**
+   * Sexo del perfil. `M` y `F` renderizan la ilustración correspondiente de
+   * `src/assets/muscle-atlas/` (ya tecleada para dejar el fondo transparente).
+   * `X` dibuja la silueta SVG neutra. Ver atlasFigure.ts.
+   */
+  sex?: AtlasSex;
   className?: string;
 }
 
@@ -101,16 +108,25 @@ export function MuscleAtlas({
   onSelect,
   width = 240,
   detail = 'below',
+  sex = 'X',
   className,
 }: MuscleAtlasProps) {
   const uid = useId().replace(/:/g, '');
   const shadeId = `althea-shade-${uid}`;
+  const maskId = `althea-body-mask-${uid}`;
   const [hovered, setHovered] = useState<string | null>(null);
   const [innerSelected, setInnerSelected] = useState<string | null>(null);
   const selected = selectedId !== undefined ? selectedId : innerSelected;
 
+  // Figura del perfil: ilustración tecleada para M/F, silueta SVG para X.
+  const figure = useAtlasFigure(sex, view);
+
   const regions = MUSCLE_REGIONS[view];
   const lines = BODY_DETAIL[view];
+  const hasFigure = Boolean(figure.url && figure.layout);
+  const figureTransform = figure.layout
+    ? `translate(${figure.layout.tx} ${figure.layout.ty}) scale(${figure.layout.s})`
+    : undefined;
 
   function select(id: string) {
     const next = selected === id ? null : id;
@@ -196,6 +212,8 @@ export function MuscleAtlas({
         <svg
           viewBox={ATLAS_VIEWBOX}
           role="group"
+          data-figure={sex}
+          data-figure-asset={figure.url ? 'png' : 'svg'}
           aria-label={`Mapa muscular, vista ${view === 'front' ? 'frontal' : 'posterior'}`}
           className="althea-atlas__svg"
         >
@@ -205,15 +223,69 @@ export function MuscleAtlas({
               <stop offset="0.55" stopColor="#fff" stopOpacity="0" />
               <stop offset="1" stopColor="#000" stopOpacity="0.2" />
             </linearGradient>
+            {hasFigure && (
+              /*
+               * MÁSCARA DE SILUETA. La geometría de regiones nació para la
+               * silueta SVG neutra; la ilustración del perfil tiene la cabeza
+               * más grande, las piernas más gruesas y los brazos más abiertos,
+               * así que algunos rellenos se salían del cuerpo. Se recortan con
+               * el propio alfa de la imagen tecleada: `brightness(0) invert(1)`
+               * convierte cada píxel no transparente en blanco opaco, y el
+               * fondo ya transparente queda fuera. Así ningún relleno puede
+               * flotar fuera del cuerpo, y el recorte sigue la anatomía real.
+               */
+              <mask
+                id={maskId}
+                maskUnits="userSpaceOnUse"
+                x={-40}
+                y={-20}
+                width={280}
+                height={440}
+                data-testid={`atlas-mask-${sex}-${view}`}
+              >
+                <image
+                  href={figure.url!}
+                  x={0}
+                  y={0}
+                  width={figure.layout!.canvas}
+                  height={figure.layout!.canvas}
+                  transform={figureTransform}
+                  style={{ filter: 'brightness(0) invert(1)' }}
+                  aria-hidden="true"
+                />
+              </mask>
+            )}
           </defs>
-          <g className="althea-atlas__silhouette" aria-hidden="true">
-            <path d={SILHOUETTE} />
-            <path d={SILHOUETTE} transform={MIRROR_TRANSFORM} />
-          </g>
-          {renderHalf(false)}
-          {renderHalf(true)}
-          <g className="althea-atlas__lines" aria-hidden="true">
-            {lines.center.map((d, i) => <path key={i} d={d} />)}
+          {hasFigure && (
+            // Figura del perfil. La imagen se coloca con la geometría medida
+            // de cada archivo (escala uniforme, sin deformar el cuerpo).
+            <image
+              className="althea-atlas__figure-image"
+              href={figure.url!}
+              x={0}
+              y={0}
+              width={figure.layout!.canvas}
+              height={figure.layout!.canvas}
+              transform={figureTransform}
+              pointerEvents="none"
+              data-testid={`atlas-image-${sex}-${view}`}
+              aria-hidden="true"
+            />
+          )}
+          {!hasFigure && (
+            <g className="althea-atlas__silhouette" aria-hidden="true">
+              <path d={SILHOUETTE} />
+              <path d={SILHOUETTE} transform={MIRROR_TRANSFORM} />
+            </g>
+          )}
+          <g mask={hasFigure ? `url(#${maskId})` : undefined}>
+            {renderHalf(false)}
+            {renderHalf(true)}
+            {!figure.url && (
+              <g className="althea-atlas__lines" aria-hidden="true">
+                {lines.center.map((d, i) => <path key={i} d={d} />)}
+              </g>
+            )}
           </g>
         </svg>
       </div>

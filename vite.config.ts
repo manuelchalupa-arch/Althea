@@ -13,6 +13,11 @@ export default defineConfig({
       manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Las cuatro figuras del atlas muscular SÍ se pre-cachean: son los
+        // recursos de `src/assets/muscle-atlas/` que el mapa de Progreso
+        // renderiza para M/F (ver atlasFigure.ts). Suman ~170 KB y hacen que
+        // el atlas funcione sin conexión. No estaban en uso cuando se añadió
+        // el exclusion anterior.
         globIgnores: ['**/*.wasm'],
         maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
         runtimeCaching: [

@@ -1,4 +1,5 @@
 import { useId, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import SemanticIcon from '../ui/SemanticIcon';
 
 interface AltheaInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -18,7 +19,7 @@ export function AltheaInput({ label, hint, error, icon, className = '', id, 'ari
       {label && <label className="text-aux" htmlFor={controlId}>{label}</label>}
       <div className="relative">
         {icon && (
-          <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[18px] text-on-surface-variant pointer-events-none">{icon}</span>
+          <SemanticIcon name={icon} size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none" ariaHidden />
         )}
         <input
           id={controlId}
@@ -49,7 +50,7 @@ export function AltheaSelect({ label, options, className = '', id, ...props }: A
         <select id={controlId} className={`input font-body-md appearance-none cursor-pointer pr-9 ${className}`} {...props}>
           {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <span aria-hidden="true" className="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[16px] text-on-surface-variant pointer-events-none">expand_more</span>
+        <SemanticIcon name="expand_more" size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant pointer-events-none" ariaHidden />
       </div>
     </div>
   );

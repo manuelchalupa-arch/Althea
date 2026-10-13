@@ -1,3 +1,4 @@
+import SemanticIcon from '../ui/SemanticIcon';
 interface AltheaKPICardProps {
   icon: string;
   label: string;
@@ -20,7 +21,7 @@ export function AltheaKPICard({ icon, label, value, subtitle, trend, color = 'pr
     <div className={`althea-level-2 p-5 ${className}`}>
       <div className="flex items-center gap-2.5 mb-3">
         <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
-          <span className="material-symbols-outlined text-[16px] text-primary">{icon}</span>
+          <SemanticIcon name={icon} size={16} className="text-[16px] text-primary" ariaHidden />
         </div>
         <span className="text-aux">{label}</span>
       </div>

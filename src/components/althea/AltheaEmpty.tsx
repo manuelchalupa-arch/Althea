@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import SemanticIcon from '../ui/SemanticIcon';
 
 interface AltheaEmptyProps {
   icon: string;
@@ -12,7 +13,7 @@ export function AltheaEmpty({ icon, title, description, action, className = '' }
   return (
     <div className={`flex flex-col items-center justify-center py-12 text-center ${className}`}>
       <div className="w-16 h-16 rounded-2xl bg-surface-container-low border border-outline-variant flex items-center justify-center mb-4 shadow-al-sm">
-        <span className="material-symbols-outlined text-[28px] text-on-surface-variant">{icon}</span>
+        <SemanticIcon name={icon} size={28} className="text-[28px] text-on-surface-variant" ariaHidden />
       </div>
       <h3 className="text-subtitle mb-1">{title}</h3>
       {description && <p className="font-body-md text-sm text-on-surface-variant max-w-[300px]">{description}</p>}

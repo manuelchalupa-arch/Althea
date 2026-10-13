@@ -84,7 +84,7 @@ export function AppHeader() {
           </span>
         </span>
         <div className="leading-none">
-          <span className="font-headline block text-[15px] font-semibold tracking-[0.22em] text-on-surface">ALTHEA</span>
+          <span className="font-headline block text-[15px] font-semibold tracking-[0.22em] text-on-surface lg:hidden">ALTHEA</span>
           <span className="label-olymp mt-1 block text-on-surface-variant hidden md:block">{SECTION_TITLES[section]}</span>
         </div>
       </div>

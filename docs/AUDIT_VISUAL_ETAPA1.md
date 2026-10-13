@@ -153,3 +153,77 @@ A 1440px "ALTHEA" aparece dos veces: en el header superior y en el sidebar
 
 Ninguno de estos toca lógica de negocio, persistencia ni la máquina de
 estados de entrenamiento (§3).
+
+---
+
+## 6. ETAPA 2 — Estado de resolución y evidencia
+
+Fecha: 2026-10-10.
+
+> **Método y limitación honesta.** El agente que ejecutó esta etapa **no puede
+> inspeccionar imágenes** (modelo sin entrada visual). Por lo tanto la
+> verificación no se hizo "mirando PNG" sino por **geometría del DOM vía CDP**:
+> `getBoundingClientRect()`, `scrollWidth`/`clientWidth` (detección de
+> truncado), `gridTemplateColumns`, conteo de columnas y overflow horizontal de
+> página. Los PNG (`althea-shots/*.png`) se regeneraron y quedan para **revisión
+> humana**. Toda afirmación de "resuelto" abajo está respaldada por una medición,
+> citada.
+
+### Estado por hallazgo
+
+| # | Hallazgo | Estado | Evidencia / verificación |
+| - | -------- | ------ | ------------------------ |
+| C1 | Iconos Material Symbols sin respaldo | **Resuelto** | Codemod de 94 spans en 19 archivos → `SemanticIcon` (SVG inline, `data-icon`). Eliminado el link CDN y `iconFont.ts`. Guardado por `src/components/ui/semantic-icon.test.tsx`. |
+| C2 | Hueco vacío en Inicio desktop | **Resuelto** | Antes (1440): card "¿Qué tengo…?" w=**186px** junto a columna de widgets de **1564px** → hueco ~1378px. Después: card w=**1130px** (ancho completo). CDP `probe-c2.json`. |
+| C3 | Doble "Progreso" en nav | **Ya estaba resuelto** | `AppNav.tsx` dedupea por icono; "Progreso" aparece **1** vez (1440). |
+| I1 | Exceso de contenedores/bordes anidados | **Resuelto** | Eliminado el bento 8/4 (un nivel de caja menos) y el borde interno de las filas de gasto (`GastoRow`). |
+| I2 | FAB del Coach se superpone | **Resuelto** | `--mobile-nav-offset` + clases `.fab-chat-stack`/`.fab-coach-stack`. CDP 390: chat FAB bottom=**84px**, coach=**148px** (nav 74px); 1440: ambos 32px. Sin solape. |
+| I3 | Jerarquía rota por icono como título | **Resuelto** (por C1) | `SemanticIcon` ya no aporta texto; los títulos display se alimentan de texto real. |
+| I4 | All-caps en labels | **Resuelto (alcance Inicio)** | Quitado `uppercase` y sentence-case en: microciclo, volumen, "Historial →", "Sesión principal", badge de recuperación (SIN DATOS→Sin datos). Otras pantallas **no** se tocaron (por indicación). |
+| I5 | Microciclo ilegible a 390px | **Resuelto** | En el árbol móvil (≤767px) el strip muestra día+número+icono, sin truncado ni overflow (390: `hasHOverflow=false`). El problema real estaba en el árbol desktop a **768px** (celdas 85px, nombres truncados: "Espalda + bíceps" 98px, "Hombros + abdomen" 121px). Corregido permitiendo **wrap** (`break-words`, sin `truncate`). Re-medido a 768: **0 truncados**, sin overflow. |
+| I6 | "ALTHEA" duplicado | **Resuelto** | Header ALTHEA `lg:hidden`; visible 1× a 1440 (sidebar) y 1× a 390 (header). |
+| M1 | "VOLUMEN: —" truncado | **Resuelto / no reproducido** | Con `whitespace-nowrap`: sw=cw=**72** → no trunca a 1440. |
+| M2 | Chevrons `‹ ›` desalineados | **Resuelto** | `inline-flex items-center justify-center` en los 4 botones. |
+| M3 | "0 kcal / Sin sesiones" repetido | **Resuelto** | Helper `sinSesiones()`: la fila "Semana" oculta la nota vacía cuando "Hoy" ya está vacío. Testids de `Inicio.gasto.test.tsx` intactos. |
+| M4 | Cita itálica domina la acción | **Resuelto** | Cita de día de descanso a `text-[11px]`, sin itálica, `pt-2.5`. |
+| M5 | "NUTRICIÓN ?" literal | **Resuelto** | Eliminados todos los `?` literales (`Nutrición →`, `↑/↓/→`, `Ajuste:`, `· actual`, `‹ Anterior`/`Siguiente ›`). Probe: `nutritionQ: []`. |
+| M6 | `theme_color` manifest ≠ meta | **Abierto (documentado)** | Requiere verificación en dispositivo real; no reproducible por CDP. Sin cambios. |
+
+### Verificación de C2/I1 (reflow) — geometría CDP
+
+| Viewport | workout card | banda de widgets | overflow horizontal |
+| -------- | ------------ | ---------------- | ------------------- |
+| 1440×900 | w=**1130px** (full) | **3** columnas (368px), 5 widgets | `false` |
+| 1024×800 | w=**714px** (full) | **2** columnas (351px), 5 widgets | `false` |
+| 768×1024 | w=**658px** (full) | **2** columnas (323px), 5 widgets | `false` |
+| 390×844  | árbol móvil | — | `false` |
+
+**Composición:** se eliminó el bento `lg:grid-cols-12` (causa del hueco de C2);
+la workout card pasó a ancho completo y los 5 widgets (Gasto, Recuperación,
+Hidratación, Oráculo, Coach) a `grid-cols-1 md:grid-cols-2 xl:grid-cols-3` con
+`items-start` (sin forzar alturas). No se alteró lógica, cálculos, persistencia
+ni rutas.
+
+**Nota de composición (deuda menor):** el widget de Hidratación mide ~724px de
+alto (WaterBottle + `BottleConfigEditor` + botón) y en `xl` comparte fila con
+tarjetas bajas (Gasto ~242px, Recuperación ~178px), dejando espacio libre bajo
+éstas. Se mantiene el grid aprobado (sin forzar alturas). Una futura mejora es
+un layout tipo *masonry* (`columns`) o plegar el editor de botellas, pero
+fragmenta widgets interactivos y queda **fuera del alcance de esta etapa**.
+
+### Gates tras la etapa 2
+
+- `tsc --noEmit`: **0 errores**
+- `eslint . --max-warnings 0`: **0**
+- `vitest run`: **134 archivos · 1289 pass · 12 skip** (WGER sin credenciales)
+- `npm run build`: OK · `npm run check:release`: OK (sin claves en `dist/`)
+
+### Abiertos / acciones del owner
+
+- M6: verificar `theme_color` del manifest en dispositivo real.
+- Deuda: evaluación de *masonry* para la banda de widgets (no bloqueante).
+- Acciones externas (no ejecutables por el agente): revocar claves Groq/CalorieNinjas
+  históricas, `firebase login` + proyectos, KV de producción del Worker, secretos
+  del Worker, CORS real, deploy Worker+Hosting+`firestore:rules`, usuarios A/B
+  staging, smoke tests post-deploy.
+

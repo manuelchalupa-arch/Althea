@@ -13,17 +13,7 @@ import type {
   WgerProgressionConfig,
   WgerExerciseConfig,
 } from './types'
-
-const BASE = 'https://wger.de/api/v2'
-
-async function getJSON<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json' },
-    signal,
-  })
-  if (!res.ok) {throw new Error(`Wger ${res.status} ${url}`)}
-  return res.json() as Promise<T>
-}
+import { WGER_API_BASE as BASE, getJSON } from '../wgerHttp'
 
 // ─── Workout Sessions ───
 // GET /workoutsession/?workout={id}&date={date}

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import SemanticIcon from '../ui/SemanticIcon';
 import { AltheaButton } from '@/components/althea'
 import {
   interpretMeal,
@@ -127,7 +128,7 @@ function ComponentRow({
             aria-label={`Quitar ${c.displayName}`}
             className="w-12 h-12 shrink-0 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-error hover:border-error flex items-center justify-center transition-colors"
           >
-            <span className="material-symbols-outlined text-[18px]">close</span>
+            <SemanticIcon name="close" size={18} className="text-[18px]" />
           </button>
         </div>
       </div>

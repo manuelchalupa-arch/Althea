@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import SemanticIcon from '../components/ui/SemanticIcon';
 import { prettyExId } from '@/utils/format'
 import { db } from '@/services/storage/db'
 import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaPanel, AltheaStatRow } from '@/components/althea'
@@ -211,7 +212,7 @@ export default function Calendario(){
     <AltheaCard padding="md" className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="material-symbols-outlined text-primary text-[22px] shrink-0">favorite</span>
+          <SemanticIcon name="favorite" size={22} className="text-primary text-[22px] shrink-0" />
           <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario y recuperación</h1>
         </div>
         {todayScore !== null ? (
@@ -221,7 +222,7 @@ export default function Calendario(){
         )}
       </div>
       <div className="font-body-sm text-[13px] text-on-surface-variant flex items-center gap-1.5">
-        <span className="material-symbols-outlined text-[16px]">water_drop</span>
+        <SemanticIcon name="water_drop" size={16} className="text-[16px]" />
         {todayHydration > 0 ? `Agua: ${(todayHydration / 1000).toFixed(1)} L` : 'Agua: Sin datos'}
       </div>
       <AltheaButton icon="favorite" fullWidth onClick={()=>setShowCheckin(true)} className="sm:w-auto sm:min-w-[280px] min-h-[52px]">
@@ -370,11 +371,11 @@ export default function Calendario(){
           <div onClick={e=>e.stopPropagation()} className="bg-surface border border-outline-variant rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-3 pb-safe">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-[22px]">favorite</span>
+                <SemanticIcon name="favorite" size={22} className="text-primary text-[22px]" />
                 <h3 className="font-headline-lg text-base font-semibold text-on-surface">Recuperación</h3>
               </div>
               <button onClick={()=>setShowCheckin(false)} aria-label="Cerrar recuperación" className="p-2 min-w-[48px] min-h-[48px] rounded-lg border border-outline-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center">
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <SemanticIcon name="close" size={20} className="text-[20px]" />
               </button>
             </div>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Solo registra tu estado. No modifica tu rutina.</p>

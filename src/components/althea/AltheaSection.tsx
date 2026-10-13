@@ -1,4 +1,5 @@
 import React from 'react';
+import SemanticIcon from '../ui/SemanticIcon';
 
 export interface AltheaSectionProps {
   title: string;
@@ -28,7 +29,7 @@ export function AltheaSection({ title, subtitle, icon, action, children, classNa
         <div className="althea-section__heading">
           {icon && (
             <span className="althea-section__icon" aria-hidden="true">
-              {typeof icon === 'string' ? <span className="material-symbols-outlined">{icon}</span> : icon}
+              {typeof icon === 'string' ? <SemanticIcon name={icon} ariaHidden /> : icon}
             </span>
           )}
           <div>

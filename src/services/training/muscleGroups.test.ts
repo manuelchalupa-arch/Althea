@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { groupOfMuscle, groupLoadOf, weeklyGroupComparison, STABLE_THRESHOLD_PCT } from '@/services/training/muscleGroups'
+import { groupOfMuscle, groupLoadOf, weeklyGroupComparison, resolveTrend, STABLE_THRESHOLD_PCT } from '@/services/training/muscleGroups'
+import { MUSCLE_CATALOG, getMuscle } from '@/services/training/muscleCatalog'
 import { DEFAULT_CYCLE } from '@/utils/cycle'
 import type { CycleConfig } from '@/utils/cycle'
 
@@ -16,7 +17,7 @@ const muscleOf = (id: string) => map[id] ?? null
 const cycle: CycleConfig = { ...DEFAULT_CYCLE, startDate: '2026-01-05' }
 
 describe('groupOfMuscle', () => {
-  it('mapea músculos API a los 5 grupos', () => {
+  it('mapea músculos API a los 6 grupos', () => {
     expect(groupOfMuscle('pectorals')).toBe('PECHO')
     expect(groupOfMuscle('lats')).toBe('ESPALDA')
     expect(groupOfMuscle('quads')).toBe('PIERNAS')
@@ -24,10 +25,17 @@ describe('groupOfMuscle', () => {
     expect(groupOfMuscle('biceps')).toBe('BRAZOS')
     expect(groupOfMuscle('triceps')).toBe('BRAZOS')
     expect(groupOfMuscle('delts')).toBe('HOMBROS')
+    // CORE existía en el tipo pero no en GROUP_MEMBERS: el volumen abdominal
+    // se descartaba y nunca llegaba al atlas.
+    expect(groupOfMuscle('abs')).toBe('CORE')
+  })
+  it('mapea los alias del core a CORE', () => {
+    for (const alias of ['abs', 'core', 'abdomen', 'abdominales', 'oblicuos', 'serrato']) {
+      expect(groupOfMuscle(alias)).toBe('CORE')
+    }
   })
   it('devuelve null para músculos sin anatomía de grupo', () => {
     expect(groupOfMuscle('cardio')).toBeNull()
-    expect(groupOfMuscle('abs')).toBeNull()
     expect(groupOfMuscle('inventado')).toBeNull()
   })
 })
@@ -158,4 +166,46 @@ describe('weeklyGroupComparison', () => {
 
 describe('STABLE_THRESHOLD_PCT', () => {
   it('es 5%', () => { expect(STABLE_THRESHOLD_PCT).toBe(5) })
+})
+
+describe('resolveTrend', () => {
+  it('usa el umbral: dentro de ±5% es estable', () => {
+    expect(resolveTrend(104, 100).trend).toBe('estable')   // +4%
+    expect(resolveTrend(96, 100).trend).toBe('estable')    // -4%
+  })
+
+  it('el umbral es estricto: ±5% exacto NO es estable', () => {
+    expect(resolveTrend(105, 100).trend).toBe('aumento')   // exactamente +5%
+    expect(resolveTrend(95, 100).trend).toBe('descenso')   // exactamente -5%
+    expect(resolveTrend(106, 100).trend).toBe('aumento')
+    expect(resolveTrend(94, 100).trend).toBe('descenso')
+  })
+
+  it('con una base en cero no inventa porcentaje', () => {
+    const r = resolveTrend(500, 0)
+    expect(r.trend).toBe('sin-base')
+    expect(r.deltaPct).toBeNull()
+  })
+
+  it('con ambos en cero es sin-base y no inventa delta', () => {
+    const r = resolveTrend(0, 0)
+    expect(r.trend).toBe('sin-base')
+    expect(r.delta).toBeNull()
+    expect(r.deltaPct).toBeNull()
+  })
+})
+
+describe('CORE en el catálogo', () => {
+  it('tiene al menos una entrada con group CORE', () => {
+    expect(MUSCLE_CATALOG.some(m => m.group === 'CORE')).toBe(true)
+  })
+
+  it('las entradas CORE resuelven a una región del atlas', () => {
+    for (const m of MUSCLE_CATALOG.filter(c => c.group === 'CORE')) {
+      expect(getMuscle(m.id)).toBeTruthy()
+    }
+    // rectus-abdominis estaba en PECHO: el abdomen inflaba el pecho.
+    expect(MUSCLE_CATALOG.find(m => m.id === 'rectus-abdominis')?.group).toBe('CORE')
+    expect(MUSCLE_CATALOG.find(m => m.id === 'obliquus-externus')?.group).toBe('CORE')
+  })
 })

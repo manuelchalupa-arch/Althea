@@ -6,11 +6,16 @@ const root = join(fileURLToPath(new URL('..', import.meta.url)), 'dist')
 
 const PATTERNS = [
   { name: 'gsk_ (clave Groq embebida)', re: /gsk_[A-Za-z0-9]{8,}/ },
+  { name: 'sk- (clave tipo OpenAI/Groq embebida)', re: /\bsk-[A-Za-z0-9]{20,}/ },
   { name: 'VITE_GROQ_API_KEY', re: /VITE_GROQ_API_KEY/ },
+  { name: 'GROQ_API_KEY en el bundle', re: /GROQ_API_KEY/ },
   { name: 'API de Groq en cliente', re: /api\.groq\.com/ },
   { name: 'X-Api-Key con valor embebido (Ninja/CalorieNinjas)', re: /X-Api-Key['"]?\s*[:=]\s*['"][A-Za-z0-9+/]{24,}['"]|X-Api-Key['"]?\s*[:=]\s*['"][^'"]{40,}['"]/ },
   { name: 'VITE_NINJA_API_KEY', re: /VITE_NINJA_API_KEY/ },
   { name: 'VITE_CALORIE_NINJAS_KEY', re: /VITE_CALORIE_NINJAS_KEY/ },
+  { name: 'Variable privada VITE_*_SECRET embebida', re: /VITE_[A-Z0-9_]*SECRET/ },
+  { name: 'Credencial WGER embebida', re: /WGER_(PASSWORD|API_KEY|SECRET|TOKEN)[^_A-Z]/ },
+  { name: 'Clave privada PEM (service account) embebida', re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
 ]
 
 function walk(dir, out) {

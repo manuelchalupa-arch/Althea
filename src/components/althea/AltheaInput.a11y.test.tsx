@@ -96,13 +96,13 @@ describe('S8 - AltheaInput: hint y error se anuncian con el control', () => {
 describe('S8 - los iconos decorativos no se anuncian', () => {
   it('el icon del AltheaInput es aria-hidden', () => {
     const { container } = render(<AltheaInput label="Buscar" icon="search" />)
-    const icon = container.querySelector('.material-symbols-outlined') as HTMLElement
+    const icon = container.querySelector('[data-icon]') as HTMLElement
     expect(icon.getAttribute('aria-hidden')).toBe('true')
   })
 
   it('el chevron del AltheaSelect es aria-hidden', () => {
     const { container } = render(<AltheaSelect label="Grupo" options={[{ value: 'a', label: 'A' }]} />)
-    const chevron = container.querySelector('.material-symbols-outlined') as HTMLElement
+    const chevron = container.querySelector('[data-icon]') as HTMLElement
     expect(chevron.getAttribute('aria-hidden')).toBe('true')
   })
 })

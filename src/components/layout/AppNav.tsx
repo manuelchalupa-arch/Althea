@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { NAV_ITEMS, MAS_GROUPS, type NavItem } from '@/components/brand/icons'
 import { AltheaNav, type AltheaNavEntry } from '@/components/navigation/AltheaNav'
@@ -44,6 +44,12 @@ export default function AppNav() {
   })
   const { hasActiveSession } = useActiveTrainingSession()
   const { pathname } = useLocation()
+
+  // Publica el offset de la barra móvil como variable CSS para que los FAB
+  // (ChatWidget) u otros elementos flotantes lo consuman sin duplicar el valor.
+  useEffect(() => {
+    try { document.documentElement.style.setProperty('--mobile-nav-offset', MOBILE_NAV_OFFSET) } catch { /* noop */ }
+  }, [])
 
   const primaryItems = NAV_ITEMS.filter(i => {
     if (i.icon === 'training') {return hasActiveSession}

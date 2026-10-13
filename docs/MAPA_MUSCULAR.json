@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "meta": {
+    "feature": "mapa-muscular",
+    "displayName": "Mapa muscular (Atlas)",
+    "description": "Silueta SVG interactiva frente/espalda que pinta el trabajo muscular por grupo derivado del volumen realmente ejecutado (kg x reps) del historial del usuario.",
+    "status": "implemented",
+    "page": "Progreso",
+    "testId": "muscle-atlas",
+    "repo": "https://github.com/manuelchalupa-arch/Althea.git",
+    "branch": "main",
+    "headAtGeneration": "1fb12f7",
+    "generatedAt": "2026-10-11",
+    "files": {
+      "component": "src/components/progress/MuscleAtlas.tsx",
+      "geometry": "src/components/progress/muscleGeometry.ts",
+      "vocabulary": "src/components/progress/muscleVocabulary.ts",
+      "catalog": "src/services/training/muscleCatalog.ts",
+      "attribution": "src/services/training/muscleAttribution.ts",
+      "groupsAndComparison": "src/services/training/muscleGroups.ts",
+      "volumeWeighting": "src/services/training/metrics.ts",
+      "consumer": "src/pages/Progreso.tsx",
+      "css": "src/styles/althea-components.css",
+      "tokens": "src/styles/althea-tokens.css"
+    }
+  },
+
+  "design": {
+    "principle": "Separacion estricta: el atlas NUNCA calcula trabajo, tendencia ni color. Recibe el dato ya resuelto y lo pinta. Toda la logica vive fuera del componente.",
+    "figure": {
+      "viewBox": "0 0 200 400",
+      "viewBoxWidth": 200,
+      "viewBoxHeight": 400,
+      "mirrorTransform": "matrix(-1 0 0 1 200 0)",
+      "construction": "Cada musculo se define UNA sola vez en la mitad izquierda y se refleja con MIRROR_TRANSFORM: izquierda y derecha son identicas por construccion.",
+      "layers": [
+        { "z": 1, "class": "althea-atlas__silhouette", "role": "contorno corporal", "aria": "hidden" },
+        { "z": 2, "class": "althea-atlas__fill", "role": "relleno por tendencia", "aria": "visible" },
+        { "z": 3, "class": "althea-atlas__fibers", "role": "trama de fibras musculares", "aria": "pointer-events: none" },
+        { "z": 4, "class": "althea-atlas__shade", "role": "gradiente lineal de luz/sombra", "aria": "pointer-events: none" },
+        { "z": 5, "class": "althea-atlas__lines", "role": "detalle anatomico (BODY_DETAIL)", "aria": "hidden" }
+      ],
+      "regions": {
+        "totalEntries": 44,
+        "uniqueIds": 37,
+        "frontEntries": 21,
+        "backEntries": 23,
+        "idsPresentInBothViews": [
+          "trapezius-upper",
+          "triceps-lateral-head",
+          "brachioradialis",
+          "lateral-deltoid",
+          "adductors",
+          "gastrocnemius-lateral",
+          "gastrocnemius-medial"
+        ],
+        "parentsWithSubdivisions": [
+          "rectus-abdominis",
+          "pectoralis-major",
+          "trapezius",
+          "triceps-brachii",
+          "quadriceps",
+          "gastrocnemius",
+          "hamstrings"
+        ],
+        "inheritanceRule": "El dato cargado en el PADRE colorea todas sus subdivisiones; el dato cargado en una SUBDIVISION gana sobre el del padre (lookup: data[region.id] ?? data[region.parent]).",
+        "atlasGroups": ["pecho", "espalda", "hombros", "brazos", "piernas", "core"]
+      }
+    },
+    "colorSystem": {
+      "source": "tokens CSS --althea-muscle-*, nunca hex hardcodeados en el componente",
+      "semantic": {
+        "high": { "label": "En aumento", "light": "#3F7A52", "dark": "#4E9B6C" },
+        "mid": { "label": "Estable", "light": "#C9A23E", "dark": "#D6C066" },
+        "low": { "label": "En descenso", "light": "#B0524B", "dark": "#C25B5B" },
+        "idle": { "label": "Sin datos", "light": "#DCD8CC", "dark": "#2A2D27" }
+      },
+      "structural": {
+        "outline": { "light": "#8A8674", "dark": "#6C6F64" },
+        "silhouette": { "light": "#ECE9E1", "dark": "#20241F" },
+        "fiber": { "light": "rgba(46, 43, 34, 0.22)", "dark": "rgba(241, 240, 234, 0.16)" }
+      },
+      "rule": "El color lo decide SOLO la tendencia. El campo 'activation' (0-100) unicamente modula la opacidad del relleno entre 0.6 y 1.0; jamas cambia el color."
+    },
+    "layout": {
+      "width": { "mobile": 260, "desktop": 280, "default": 240 },
+      "detailPosition": "below (bajo la figura; a un costado en contenedores anchos)",
+      "viewSwitch": { "type": "tablist", "labels": { "front": "Frente", "back": "Espalda" } },
+      "responsive": "Progreso renderiza dos caminos (movil y escritorio) con el mismo componente; el ancho se pasa por prop."
+    },
+    "interaction": {
+      "hover": { "effect": "stroke del relleno pasa a --althea-on-surface, width 0.9", "alsoOn": "focus-visible" },
+      "selected": { "effect": "stroke --althea-primary, width 1.4; fibras a opacidad completa" },
+      "selection": "toggle: clic sobre la region seleccionada la deselecciona",
+      "keyboard": ["Enter", "Space"],
+      "sides": "Solo la mitad IZQUIERDA es interactiva (role=button, tabIndex=0, aria-pressed, aria-label). La derecha es aria-hidden y sin handlers: comparte id y se resalta en conjunto."
+    },
+    "accessibility": {
+      "svg": "role=group con aria-label 'Mapa muscular, vista frontal|posterior'",
+      "region": "role=button, tabIndex=0, aria-pressed, aria-label='<etiqueta>, <estado en minisculas>'",
+      "detailPanel": "role=status + aria-live=polite",
+      "viewSwitch": "role=tablist + role=tab + aria-selected",
+      "mirroredHalf": "aria-hidden, sin tabIndex ni handlers",
+      "silhouetteAndLines": "aria-hidden"
+    }
+  },
+
+  "foundation": {
+    "layers": [
+      {
+        "name": "1. Geometria",
+        "file": "src/components/progress/muscleGeometry.ts",
+        "responsibility": "Paths SVG puros. Sin datos, sin logica de negocio.",
+        "exports": ["ATLAS_VIEWBOX", "MIRROR_TRANSFORM", "SILHOUETTE", "BODY_DETAIL", "MUSCLE_REGIONS", "ALL_REGION_IDS", "PARENT_IDS", "AtlasView", "AtlasGroup", "MuscleRegion"],
+        "note": "Archivo generado desde la especificacion anatomica del sistema visual; los paths no se editan a mano."
+      },
+      {
+        "name": "2. Catalogo estatico",
+        "file": "src/services/training/muscleCatalog.ts",
+        "responsibility": "Datos anatomicos de referencia: id estable, nombre en espanol, nombre tecnico, grupo, vista, rol de activacion, sinergistas y ejercicios.",
+        "entries": 20,
+        "groupByDistribution": { "PIERNAS": 6, "ESPALDA": 4, "BRAZOS": 4, "HOMBROS": 3, "PECHO": 3, "CORE": 0 },
+        "activationRoles": ["primary", "secondary", "stabilizer"],
+        "rule": "El mapa SOLO dibuja: nunca define estos datos."
+      },
+      {
+        "name": "3. Vocabulario / puente",
+        "file": "src/components/progress/muscleVocabulary.ts",
+        "responsibility": "Traduce cualquier nombre de musculo que usa Althea a ids de regiones del atlas.",
+        "normalization": "stripAccents -> lowercase -> trim -> separadores (espacio, /, _) a guion",
+        "sourcesCovered": [
+          "ExerciseGymGifsDB 'muscle' y 'secondaryMuscles' (abs, pectorals, delts, upper-back, ...)",
+          "id de MUSCLE_CATALOG",
+          "nombres del seed local en espanol (pectoral mayor, dorsal, isquios, ...)",
+          "grupos MuscleGroup / MUSCLE_GROUPS (PECHO, ESPALDA, ..., pecho, espalda, ...)"
+        ],
+        "nonMuscularTerms": ["cardio", "cuerpo-completo", "full-body"],
+        "nonMuscularRule": "Resuelven a [] a proposito: el atlas dibuja musculos, no categorias. No se inventa una region."
+      },
+      {
+        "name": "4. Atribucion (quien trabaja que)",
+        "file": "src/services/training/muscleAttribution.ts",
+        "responsibility": "Resuelve que musculo(s) trabaja cada ejercicio, con UNA sola fuente de verdad.",
+        "precedence": [
+          { "order": 1, "source": "custom", "when": "ejercicio creado por el usuario (muscle / secondaryMuscles)" },
+          { "order": 2, "source": "seed", "when": "db.exercises local (muscles[] o groupMain)" },
+          { "order": 3, "source": "library", "when": "ExerciseGymGifsDB activa (id 'muscle/slug' + secondaryMuscles)" }
+        ],
+        "fallback": "Si ninguna fuente conoce el ejercicio -> null. NUNCA se inventa un porcentaje ni un musculo.",
+        "exports": ["buildMuscleResolver", "MuscleResolver", "MuscleAttribution"]
+      },
+      {
+        "name": "5. Ponderacion de volumen",
+        "file": "src/services/training/metrics.ts (muscleLoadOf)",
+        "responsibility": "Reparte el volumen de cada serie entre los musculos que la ejecutaron.",
+        "weights": { "primary": 1, "secondary1": 0.5, "secondary2": 0.25 },
+        "volumeFormula": "volume = peso_kg * reps",
+        "unmapped": "El volumen sin atribucion se contabiliza aparte (unmappedVolume / unmappedSets), nunca se reparte.",
+        "rounding": "volumen y pct a 1 decimal"
+      },
+      {
+        "name": "6. Grupos y comparacion semanal",
+        "file": "src/services/training/muscleGroups.ts",
+        "groups": ["PECHO", "ESPALDA", "PIERNAS", "BRAZOS", "HOMBROS"],
+        "excludedFromGroups": "core, cardio y cualquier musculo sin anatomia asignada quedan fuera de los 5 grupos",
+        "stableThresholdPct": 5,
+        "stableThresholdRule": "Variacion absoluta menor al 5% del baseline se marca 'estable' para no mostrar ruido como tendencia",
+        "comparisonUnits": "semanas COMPLETAS del ciclo; la semana 1 completa es BASE; la semana en curso se expone aparte como 'current' y nunca como BASE",
+        "exports": ["groupLoadOf", "weeklyGroupComparison", "groupOfMuscle", "MUSCLE_GROUPS", "STABLE_THRESHOLD_PCT", "TREND_LABEL", "TREND_COLOR"]
+      }
+    ],
+    "dataContract": {
+      "type": "MuscleDataPoint",
+      "fields": [
+        { "name": "muscleId", "type": "string", "required": true },
+        { "name": "current", "type": "number", "required": true, "meaning": "trabajo del periodo actual, unidad libre (aqui: kg)" },
+        { "name": "previous", "type": "number", "required": true, "meaning": "trabajo del periodo anterior, misma unidad" },
+        { "name": "trend", "type": "MuscleTrendInput", "required": true, "allowed": ["up", "flat", "down", "none", "aumento", "estable", "descenso", "sin-base"] },
+        { "name": "activation", "type": "number (0-100)", "required": false, "meaning": "solo modula opacidad del relleno" },
+        { "name": "exercises", "type": "string[]", "required": false },
+        { "name": "unit", "type": "string", "required": false }
+      ],
+      "trendToState": { "up": "high", "aumento": "high", "flat": "mid", "estable": "mid", "down": "low", "descenso": "low", "none": "idle", "sin-base": "idle" },
+      "stateLabels": { "high": "En aumento", "mid": "Estable", "low": "En descenso", "idle": "Sin datos" },
+      "lookupRule": "data[region.id] ?? data[region.parent]"
+    }
+  },
+
+  "dataPipeline": {
+    "trigger": "useEffect en Progreso con dependencia [reloadKey]",
+    "reads": [
+      { "step": 1, "what": "unifiedAllCompletedSets()", "why": "series completadas unificadas de todas las fuentes" },
+      { "step": 2, "what": "db.trainingSessions.toArray()", "why": "sesiones oficiales (KPI de dias entrenados)" },
+      { "step": 3, "what": "db.bodyMeasurements.toArray()", "why": "peso y composicion" },
+      { "step": 4, "what": "db.recoveryChecks.toArray()", "why": "fatiga y sueno" },
+      { "step": 5, "what": "fetchPartMap()", "why": "mapa ejercicio -> parte del cuerpo (se sobrescribe con customExercises.overlayCustomParts)" },
+      { "step": 6, "what": "db.userProfile.toArray()", "why": "perfil para resolver el ciclo canonico" }
+    ],
+    "derivations": [
+      { "step": 7, "what": "buildMuscleResolver(partMap)", "produces": "muscleOf / partOf / sourceOf" },
+      { "step": 8, "what": "getCanonicalCycle(profile)", "produces": "startDate y weekMap del ciclo activo" },
+      { "step": 9, "what": "muscleItemsByDate", "formula": "allLogs.map(l => ({ date: toDateKey(createdAt), exerciseId, volume: weight * reps }))", "important": "usa TODO el historial, NO el filtro de periodo de la pagina: la comparacion es entre semanas de ciclo y recortarla por 'ultimos 30 dias' la romperia" },
+      { "step": 10, "what": "weeklyGroupComparison(itemsByDate, muscleOf, cycle, today)", "produces": "weeks[] (completas, con base) + current (semana en curso)" },
+      { "step": 11, "what": "muscleData", "formula": "por cada entrada de MUSCLE_CATALOG: resolveMuscleIds(m.id) -> current=currentVol[grupo], previous=lastWeek.byGroup[grupo], trend segun ambos; el MISMO punto se escribe en todas sus regiones" }
+    ],
+    "render": "MuscleAtlas recibe data y solo pinta: lookup -> estado -> fill -> fibers -> shade -> lineas -> panel de detalle"
+  },
+
+  "actions": {
+    "computational": [
+      { "id": "A1", "name": "Resolver atribucion muscular", "where": "buildMuscleResolver", "detail": "custom -> seed -> library; si no hay fuente, null (sin invencion)" },
+      { "id": "A2", "name": "Calcular volumen por serie", "where": "Progreso.muscleItemsByDate", "detail": "kg x reps, sobre todo el historial" },
+      { "id": "A3", "name": "Ponderar por rol muscular", "where": "muscleLoadOf", "detail": "primary x1, secondary1 x0.5, secondary2 x0.25" },
+      { "id": "A4", "name": "Agrupar en los 5 grupos", "where": "groupLoadOf", "detail": "GROUP_MEMBERS mapea sinonimos ES/EN al grupo; lo no mapeado queda como volumen sin atribucion" },
+      { "id": "A5", "name": "Comparar semanas de ciclo", "where": "weeklyGroupComparison", "detail": "semana 1 completa = BASE; cada una posterior vs la inmediata anterior; semana en curso aparte" },
+      { "id": "A6", "name": "Resolver tendencia", "where": "trendOf / Progreso.muscleData", "detail": "sin base previa -> 'sin-base'; con base -> aumento / descenso / estable" },
+      { "id": "A7", "name": "Mapear a regiones del atlas", "where": "resolveMuscleIds", "detail": "un id de catalogo puede expandirse a varias regiones; las no musculares devuelven []" },
+      { "id": "A8", "name": "Calcular variacion visible", "where": "variation() en MuscleAtlas", "detail": "((current - previous) / previous) * 100, redondeada a entero; 'Sin base' si previous es 0" }
+    ],
+    "userFacing": [
+      { "id": "U1", "action": "Cambiar vista Frente / Espalda", "ui": "tablist con aria-selected", "state": "useState vista en Progreso" },
+      { "id": "U2", "action": "Pasarse por un musculo (hover)", "ui": "onMouseEnter/Leave", "effect": "resaltado + actualiza el panel de detalle" },
+      { "id": "U3", "action": "Enfocar con teclado (focus)", "ui": "onFocus/onBlur", "effect": "igual que hover" },
+      { "id": "U4", "action": "Seleccionar / deseleccionar un musculo", "ui": "click o Enter/Space", "effect": "toggle; modo controlado via selectedId o interno" },
+      { "id": "U5", "action": "Leer el detalle del musculo activo", "ui": "panel role=status aria-live=polite", "shows": ["Trabajo actual", "Semana anterior", "Variacion", "Tendencia", "Ejercicios que lo activaron (si hay datos)"] }
+    ]
+  },
+
+  "tests": {
+    "unit": [
+      { "file": "src/services/training/muscleGroups.test.ts", "covers": ["groupOfMuscle", "groupLoadOf", "weeklyGroupComparison", "STABLE_THRESHOLD_PCT"] },
+      { "file": "src/services/training/muscleCatalog.test.ts", "covers": ["ids unicos", "vista coherente", "sinergistas referenciados", "ACTIVATION_LABEL"] },
+      { "file": "src/services/analytics.test.ts", "covers": ["muscleLoadOf: ponderacion, sin atribucion, volumen repartido"] },
+      { "file": "src/utils/format.test.ts", "covers": ["stripAccents / normFold usados por el vocabulario y por muscleMap"] },
+      { "file": "src/pages/Progreso.blocks.test.tsx", "covers": ["presencia del bloque data-testid=muscle-atlas"] }
+    ],
+    "notCovered": [
+      "No hay test de render del SVG (MuscleAtlas.tsx no tiene *.test.tsx propio)",
+      "No hay test de accesibilidad del atlas (roles, aria-pressed, teclado)",
+      "No hay test de la resolucion padre -> subdivision en el render"
+    ]
+  },
+
+  "knownLimitations": [
+    {
+      "id": "L1",
+      "severity": "media",
+      "title": "Los grupos CORE nunca reciben datos",
+      "detail": "groupLoadOf descarta explicitamente todo lo que no pertenezca a los 5 grupos ('core/cardio/sin anatomia: fuera de los 5 grupos'), y MUSCLE_CATALOG no tiene ninguna entrada con group CORE. En consecuencia las 4 regiones core del atlas (serratus-anterior, obliquus-externus, rectus-abdominis-upper, rectus-abdominis-lower) quedan siempre en estado idle aunque el usuario entren abdomen.",
+      "effect": "El recto abdominal y los oblicuos aparecen siempre grises ('Sin datos')."
+    },
+    {
+      "id": "L2",
+      "severity": "baja",
+      "title": "Umbral de estabilidad inconsistente",
+      "detail": "muscleGroups.trendOf aplica STABLE_THRESHOLD_PCT = 5 para no marcar ruido como tendencia, pero Progreso.tsx calcula la tendencia del atlas con comparacion estricta (> / < / =) sin ese umbral.",
+      "effect": "El mismo dato puede mostrarse 'Descenso' en el atlas y 'Estable' en la comparacion semanal de grupos."
+    },
+    {
+      "id": "L3",
+      "severity": "baja",
+      "title": "Los campos opcionales del contrato no se llenan en la practica",
+      "detail": "Progreso.tsx construye MuscleDataPoint solo con { muscleId, current, previous, trend, unit }. No envia 'activation' ni 'exercises'.",
+      "effect": "fillOpacity siempre devuelve 1 y la fila 'Ejercicios que lo activaron' del panel de detalle nunca aparece."
+    },
+    {
+      "id": "L4",
+      "severity": "info",
+      "title": "cardio y cuerpo completo no tienen region",
+      "detail": "resolveMuscleIds devuelve [] a proposito para 'cardio', 'cuerpo-completo' y 'full-body'.",
+      "effect": "Ese volumen queda como sin atribucion y no se pinta en ninguna parte de la silueta. Es comportamiento intencionado, no un defecto."
+    },
+    {
+      "id": "L5",
+      "severity": "info",
+      "title": "La comparacion ignora el filtro de periodo de la pagina",
+      "detail": "muscleItemsByDate usa todo el historial, sin importar el periodo elegido arriba.",
+      "effect": "El mapa muscular siempre compara semanas de ciclo; cambiar el filtro no lo altera. Documentado como decision, no como bug."
+    }
+  ],
+
+  "designPrinciples": [
+    "El componente no calcula: recibe dato y lo pinta.",
+    "Nunca se inventa un musculo, un porcentaje ni una tendencia: sin fuente -> null; sin base -> 'sin-base'; sin region -> [].",
+    "El volumen sin atribucion se contabiliza aparte, nunca se reparte a dedo.",
+    "Los ids son estables y compartidos entre geometria, catalogo y vocabulario.",
+    "Todo el color sale de tokens CSS, con variantes claro/oscuro.",
+    "Accesibilidad de primera: la mitad espejo no duplica foco ni lectores de pantalla."
+  ]
+}

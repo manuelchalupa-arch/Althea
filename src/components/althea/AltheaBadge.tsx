@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import SemanticIcon from '../ui/SemanticIcon';
 
 type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'outline';
 
@@ -35,7 +36,7 @@ export function AltheaBadge({ variant = 'default', size = 'sm', icon, dot, dotCo
       {dot && (
         <span className={`w-1.5 h-1.5 rounded-full ${dotColor || 'bg-primary'} ${dot ? 'animate-pulse' : ''}`} />
       )}
-      {icon && <span className="material-symbols-outlined text-[12px]">{icon}</span>}
+      {icon && <SemanticIcon name={icon} size={12} className="text-[12px]" ariaHidden />}
       {children}
     </span>
   );

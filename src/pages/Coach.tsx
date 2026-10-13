@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import SemanticIcon from '../components/ui/SemanticIcon';
 import { Send, Trash2, ChevronDown, ChevronUp, Bot } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 import { db } from '@/services/storage/db'
-import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
+import { getActiveVersion, getCanonicalMethodId, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { METHOD_COACHING_STYLES, resolveCoachTone, type CoachTone } from '@/services/ai/coachPersonality'
 import { setCoachMethodView } from '@/services/ai/coachPreferences'
 import { TRAINING_METHODS, getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import type { UserProfile } from '@/types'
+import type { CycleConfig } from '@/utils/cycle'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
 import {
   prepareUnifiedContext,
@@ -33,14 +35,16 @@ const QUICK_ACTIONS = [
   { label: 'Cómo entreno esta semana', prompt: '¿Cómo debería entrenar esta semana según mi método y mi recuperación?', icon: 'fitness_center' },
 ]
 
-function generateRoutineTips(methodId: string, profile: UserProfile | null): RoutineTip[] {
+function generateRoutineTips(methodId: string, profile: UserProfile | null, canonicalCycle?: CycleConfig | null): RoutineTip[] {
   const method = getMethod(methodId as TrainingMethodId)
   const tips: RoutineTip[] = []
   if (!method) {
     tips.push({ title: 'Configurá tu rutina', detail: 'Andá a Perfil y elegí un método de entrenamiento para recibir consejos personalizados.' })
     return tips
   }
-  const days = profile?.cycle?.trainingDays?.length || 3
+  // Canónico-primero (FASE 1M-B): el ciclo de la versión activa manda;
+  // profile.cycle es sólo el snapshot legacy de relleno.
+  const days = canonicalCycle?.trainingDays?.length || profile?.cycle?.trainingDays?.length || 3
   tips.push({ title: `${method.nameEs} — ${days} días/semana`, detail: method.descriptionEs || 'Método activo en tu ciclo actual.' })
   if (method.structure?.splitType) {tips.push({ title: 'Split', detail: `Distribución: ${method.structure.splitType}. Respetá los grupos musculares asignados por día.` })}
   if (method.defaults?.rpeRange) {tips.push({ title: 'Intensidad', detail: `RPE objetivo: ${method.defaults.rpeRange[0]}-${method.defaults.rpeRange[1]}. Si el RPE sube mucho, bajá carga.` })}
@@ -197,13 +201,16 @@ export default function Coach() {
       const profile = (await db.userProfile.get('me').catch(() => null)) as UserProfile | null
       if (profile?.coachMethodView) { setCoachingMethod(profile.coachMethodView as TrainingMethodId) }
       const pv = await getActiveVersion(PROFILE_SCOPE)
-      const methodId = profile?.coachMethodView ?? pv?.cycle?.methodId ?? profile?.cycle?.methodId ?? coachingMethod
+      // Canónico-primero (FASE 1M-B): método de la versión activa; el snapshot
+      // legacy profile.cycle.methodId sólo rellena si no hay versión.
+      const canonicalMethodId = await getCanonicalMethodId(profile)
+      const methodId = profile?.coachMethodView ?? canonicalMethodId ?? coachingMethod
       setCoachTone(resolveCoachTone({
         coachTone: profile?.coachTone,
         coachIntensity: profile?.coachIntensity,
         methodId: (methodId as TrainingMethodId | undefined) ?? undefined,
       }))
-      setRoutineTips(generateRoutineTips(methodId, profile))
+      setRoutineTips(generateRoutineTips(methodId, profile, pv?.cycle))
       setCoachingTips(generateCoachingTips(methodId))
     }
     load()
@@ -407,7 +414,7 @@ export default function Coach() {
                           disabled={streaming || sending}
                           className="inline-flex items-center gap-2 min-h-[48px] px-3.5 rounded-full border border-outline-variant bg-surface-container-low hover:bg-surface-container-high text-on-surface font-body-md text-xs disabled:opacity-50 transition"
                         >
-                          <span className="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">{a.icon}</span>
+                          <SemanticIcon name={a.icon} size={16} className="text-[16px] text-primary" ariaHidden />
                           {a.label}
                         </button>
                       ))}
@@ -430,7 +437,7 @@ export default function Coach() {
                       }`}>
                         {msg.role === 'assistant' && msg.source === 'local' && (
                           <div className="flex items-center gap-1 mb-1">
-                            <span className="material-symbols-outlined text-[12px] text-tertiary" aria-hidden="true">cloud_off</span>
+                            <SemanticIcon name="cloud_off" size={12} className="text-[12px] text-tertiary" ariaHidden />
                             <span className="font-body-md text-[10px] uppercase tracking-wide text-on-surface-variant">Modo local</span>
                           </div>
                         )}
@@ -478,7 +485,7 @@ export default function Coach() {
                   {error && (
                     <div role="alert" className="rounded-xl border border-error/40 bg-error/10 p-3 space-y-2">
                       <div className="flex items-start gap-2">
-                        <span className="material-symbols-outlined text-[18px] text-error shrink-0" aria-hidden="true">error</span>
+                        <SemanticIcon name="error" size={18} className="text-[18px] text-error shrink-0" ariaHidden />
                         <p className="font-body-md text-sm text-on-surface">{error}</p>
                       </div>
                       {retryText && (
@@ -652,7 +659,7 @@ export function CoachScientificSources() {
         aria-expanded={expanded}
       >
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary" style={{ fontSize: 20 }}>school</span>
+          <SemanticIcon name="school" size={20} className="text-primary" />
           <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">FUENTES CIENTÍFICAS</span>
         </div>
         <span className="text-on-surface-variant inline-flex" aria-hidden="true">
@@ -672,7 +679,7 @@ export function CoachScientificSources() {
               rel="noopener noreferrer"
               className="flex items-start gap-2 p-2 rounded border border-outline-variant/30 hover:border-primary/40 transition-colors text-on-surface text-xs"
             >
-              <span className="material-symbols-outlined text-primary shrink-0" style={{ fontSize: 16 }}>open_in_new</span>
+              <SemanticIcon name="open_in_new" size={16} className="text-primary shrink-0" />
               <div className="min-w-0">
                 <span className="font-body-sm text-sm text-on-surface font-medium block truncate">{src.name}</span>
                 <span className="font-label-caps text-[9px] text-on-surface-variant">{src.organization} · {src.topic}{src.year ? ` · ${src.year}` : ''}</span>

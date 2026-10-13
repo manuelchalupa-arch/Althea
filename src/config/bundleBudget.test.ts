@@ -1,7 +1,10 @@
 /**
  * Presupuesto de bundle del arranque.
  *
- * Objetivo T032: initial JS < 150 KB gzip.
+ * Objetivo T032: initial JS < 150 KB gzip. MEDIDO actual: ~129.9 KB gzip
+ * (index 34.7 + vendor-react 44.7 + vendor-state 31.6 + vendor-router 13.5 +
+ * vendor-icons 4.8 + vendor-utils 0.6). Se cumple; el presupuesto queda como
+ * guard de regresión.
  *
  * Qué protege:
  *   1. Que App.tsx NO vuelva a importar estáticamente nada que arrastre el
@@ -12,8 +15,10 @@
  *   2. Que el set inicial realmente declarado en dist/index.html no crezca
  *      por encima del presupuesto.
  *
- * El punto 2 depende de `dist/`. Si no hay build, se informa en lugar de
- * fallar — el gate real de release siempre construye antes de testear.
+ * El punto 2 depende de `dist/`. En CI (variable CI=true) es OBLIGATORIO:
+ * el workflow compila ANTES de correr los tests, así que un dist/ ausente es
+ * un fallo, no un skip. En una corrida local sin build se informa y se omite
+ * para no bloquear pruebas parciales (motivo explícito de la excepción).
  */
 
 import { describe, it, expect } from 'vitest'
@@ -24,6 +29,7 @@ import zlib from 'node:zlib'
 const ROOT = resolve(__dirname, '..', '..')
 const APP = resolve(ROOT, 'src/App.tsx')
 const BUDGET_INITIAL_JS_GZIP = 150 * 1024
+const REQUIRE_DIST = Boolean(process.env.CI)
 
 describe('budget de bundle: invariantes de código', () => {
   const src = readFileSync(APP, 'utf8')
@@ -68,6 +74,9 @@ describe('budget de bundle: set inicial servido', () => {
 
   it('initial JS gzip < 150 KB', () => {
     if (!existsSync(indexHtml)) {
+      if (REQUIRE_DIST) {
+        throw new Error('CI: falta dist/index.html. El workflow debe compilar (`npm run build`) antes de los tests.')
+      }
       console.warn('dist/ ausente: ejecuta `npm run build` para medir el presupuesto real.')
       return
     }
@@ -97,7 +106,12 @@ describe('budget de bundle: set inicial servido', () => {
   })
 
   it('Firebase NO está en el set inicial (debe diferirse)', () => {
-    if (!existsSync(indexHtml)) return
+    if (!existsSync(indexHtml)) {
+      if (REQUIRE_DIST) {
+        throw new Error('CI: falta dist/index.html. No se puede verificar el diferido de Firebase.')
+      }
+      return
+    }
     const html = readFileSync(indexHtml, 'utf8')
     const declared = [
       ...[...html.matchAll(/(?:src|href)="\/assets\/(vendor-firebase[^"]+\.js)"/g)].map((m) => m[1]),

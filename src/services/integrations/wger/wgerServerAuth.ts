@@ -17,6 +17,7 @@
 
 import { isFirebaseConfigured } from '@/services/firebase/config'
 import { currentUser } from '@/services/firebase/auth'
+import { configuredWgerWorkerBase } from './wgerWorkerBase'
 
 // ─── Tipos ───
 
@@ -39,7 +40,8 @@ export interface WgerLinkStatus {
 
 // ─── Constantes ───
 
-const WORKER_BASE = '/api/wger'
+const WORKER_NOT_CONFIGURED =
+  'El servicio de WGER no está configurado en esta build (falta VITE_GROQ_PROXY_URL).'
 
 // ─── API pública ───
 
@@ -57,8 +59,14 @@ export async function getWgerLinkStatus(): Promise<WgerLinkStatus> {
     return { isLinked: false }
   }
 
+  const base = configuredWgerWorkerBase()
+  if (!base) {
+    console.warn('[wgerServerAuth]', WORKER_NOT_CONFIGURED)
+    return { isLinked: false }
+  }
+
   try {
-    const response = await fetch(`${WORKER_BASE}/user`, {
+    const response = await fetch(`${base}/user`, {
       credentials: 'include',
     })
 
@@ -106,8 +114,13 @@ export async function linkWgerAccount(credentials: WgerCredentials): Promise<Wge
     }
   }
 
+  const base = configuredWgerWorkerBase()
+  if (!base) {
+    return { success: false, message: WORKER_NOT_CONFIGURED }
+  }
+
   try {
-    const response = await fetch(`${WORKER_BASE}/token`, {
+    const response = await fetch(`${base}/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -158,8 +171,13 @@ export async function unlinkWgerAccount(): Promise<WgerAuthResult> {
     }
   }
 
+  const base = configuredWgerWorkerBase()
+  if (!base) {
+    return { success: false, message: WORKER_NOT_CONFIGURED }
+  }
+
   try {
-    const response = await fetch(`${WORKER_BASE}/token`, {
+    const response = await fetch(`${base}/token`, {
       method: 'DELETE',
       credentials: 'include',
     })
@@ -189,8 +207,13 @@ export async function unlinkWgerAccount(): Promise<WgerAuthResult> {
  * El Worker maneja la lógica de refresh automáticamente.
  */
 export async function refreshWgerToken(): Promise<WgerAuthResult> {
+  const base = configuredWgerWorkerBase()
+  if (!base) {
+    return { success: false, message: WORKER_NOT_CONFIGURED }
+  }
+
   try {
-    const response = await fetch(`${WORKER_BASE}/refresh`, {
+    const response = await fetch(`${base}/refresh`, {
       method: 'POST',
       credentials: 'include',
     })
@@ -223,7 +246,12 @@ export async function executeWgerOperation<T>(
   operation: string,
   payload: unknown,
 ): Promise<T> {
-  const response = await fetch(`${WORKER_BASE}/proxy/${operation}`, {
+  const base = configuredWgerWorkerBase()
+  if (!base) {
+    throw new Error(WORKER_NOT_CONFIGURED)
+  }
+
+  const response = await fetch(`${base}/proxy/${operation}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

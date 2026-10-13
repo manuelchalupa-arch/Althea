@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import SemanticIcon from '../components/ui/SemanticIcon';
 import { db } from '@/services/storage/db'
 import {
   getDiaryEntries,
@@ -330,7 +331,7 @@ export default function Nutricion() {
     return (
       <div className="w-full max-w-[1260px] mx-auto px-4 md:px-8 py-4 md:py-6">
         <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-          <span className="material-symbols-outlined text-[40px] text-error">error_outline</span>
+          <SemanticIcon name="error_outline" size={40} className="text-[40px] text-error" />
           <h2 className="font-headline-lg text-headline-lg text-on-surface">No se pudieron cargar tus datos</h2>
           <p className="font-body-sm text-sm text-on-surface-variant max-w-sm">{loadError}</p>
           <AltheaButton variant="secondary" size="lg" className="min-h-[48px]" icon="refresh" onClick={() => loadData(activeDate)}>Reintentar</AltheaButton>
@@ -365,7 +366,7 @@ export default function Nutricion() {
         {/* Cabecera compacta */}
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary" style={{ fontSize: 20 }}>restaurant</span>
+            <SemanticIcon name="restaurant" size={20} className="text-primary" />
           </div>
           <div className="min-w-0">
             <h1 className="font-headline-lg text-xl font-semibold text-on-surface tracking-tight">Nutrición</h1>
@@ -416,7 +417,7 @@ export default function Nutricion() {
         {/* Hidratación */}
         <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3" aria-label="Hidratación del día">
           <div className="flex items-center gap-2 mb-2">
-            <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>water_drop</span>
+            <SemanticIcon name="water_drop" size={18} className="text-secondary" />
             <h2 className="font-label-caps text-[11px] uppercase text-on-surface font-semibold">Hidratación de hoy</h2>
           </div>
           <div className="flex justify-center">
@@ -562,7 +563,7 @@ export default function Nutricion() {
           <AltheaCard level={2}>
             <div className="flex items-center gap-2 pb-2.5 border-b border-outline-variant/30 mb-3">
               <div className="w-8 h-8 rounded-full bg-secondary-container/50 border border-secondary/50 flex items-center justify-center text-secondary">
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>psychology_alt</span>
+                <SemanticIcon name="psychology_alt" size={16} />
               </div>
               <div>
                 <h4 className="text-title-md text-secondary font-semibold">Adherencia nutricional</h4>
@@ -619,7 +620,7 @@ export default function Nutricion() {
                   }}
                   className="w-full flex items-center gap-3 min-h-[52px] px-3 rounded-lg border border-outline-variant/40 bg-surface-container text-left"
                 >
-                  <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>restaurant_menu</span>
+                  <SemanticIcon name="restaurant_menu" size={18} className="text-secondary" />
                   <span className="flex-1 min-w-0">
                     <span className="block font-body-sm text-sm text-on-surface font-medium truncate">{f.name}</span>
                     <span className="block font-body-sm text-[10px] text-on-surface-variant">
@@ -627,7 +628,7 @@ export default function Nutricion() {
                     </span>
                   </span>
                   <span className="flex items-center gap-1 font-label-caps text-[10px] uppercase text-primary shrink-0">
-                    <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span> Agregar
+                    <SemanticIcon name="add" size={14} /> Agregar
                   </span>
                 </button>
               ))}
@@ -664,7 +665,7 @@ export default function Nutricion() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-outline-variant/30">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-[24px] text-primary">restaurant</span>
+            <SemanticIcon name="restaurant" size={24} className="text-[24px] text-primary" />
           </div>
           <div>
             <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">Nutrición</h1>
@@ -877,7 +878,7 @@ export default function Nutricion() {
         {/* Columna derecha: botella de hidratación */}
         <section className="marble-panel p-4" aria-label="Hidratación del día">
           <div className="flex items-center gap-2 shrink-0 mb-2">
-            <span className="material-symbols-outlined text-secondary text-[18px]">water_drop</span>
+            <SemanticIcon name="water_drop" size={18} className="text-secondary text-[18px]" />
             <h2 className="font-label-caps text-[11px] uppercase text-on-surface font-semibold">Hidratación de hoy</h2>
           </div>
           <div className="flex justify-center">
@@ -922,7 +923,7 @@ export default function Nutricion() {
         <AltheaCard level={2}>
           <div className="flex items-center gap-2 pb-2.5 border-b border-outline-variant/30 mb-3">
             <div className="w-8 h-8 rounded-full bg-secondary-container/50 border border-secondary/50 flex items-center justify-center text-secondary">
-              <span className="material-symbols-outlined text-[16px]">psychology_alt</span>
+              <SemanticIcon name="psychology_alt" size={16} className="text-[16px]" />
             </div>
             <div>
               <h4 className="text-title-md text-secondary font-semibold">Adherencia nutricional</h4>
@@ -980,7 +981,7 @@ export default function Nutricion() {
                 }}
                 className="flex items-center gap-3 min-h-[52px] px-3 rounded-lg border border-outline-variant/40 bg-surface-container text-left hover:border-primary transition-colors"
               >
-                <span className="material-symbols-outlined text-secondary text-[18px]">restaurant_menu</span>
+                <SemanticIcon name="restaurant_menu" size={18} className="text-secondary text-[18px]" />
                 <span className="flex-1 min-w-0">
                   <span className="block font-body-sm text-sm text-on-surface font-medium truncate">{f.name}</span>
                   <span className="block font-body-sm text-[10px] text-on-surface-variant">
@@ -988,7 +989,7 @@ export default function Nutricion() {
                   </span>
                 </span>
                 <span className="flex items-center gap-1 font-label-caps text-[10px] uppercase text-primary shrink-0">
-                  <span className="material-symbols-outlined text-[14px]">add</span> Agregar
+                  <SemanticIcon name="add" size={14} className="text-[14px]" /> Agregar
                 </span>
               </button>
             ))}

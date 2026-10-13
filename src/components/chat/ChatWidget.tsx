@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import SemanticIcon from '../ui/SemanticIcon';
 import { useLocation, Link } from 'react-router-dom'
 import { X, Send, Trash2, Bot, User } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
@@ -173,7 +174,7 @@ export default function ChatWidget() {
         className={`fixed z-50 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 ${
           open
             ? 'bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 w-12 h-12 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-            : 'bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-primary text-on-primary hover:scale-105 md:bottom-8 md:right-4'
+            : 'fab-chat-stack right-4 w-14 h-14 bg-primary text-on-primary hover:scale-105 md:right-4'
         }`}
         aria-label={open ? 'Cerrar chat' : 'Abrir chat'}
       >
@@ -184,7 +185,7 @@ export default function ChatWidget() {
           to="/coach"
           aria-label="Abrir Coach"
           title="Coach"
-          className="fixed z-50 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-4 w-12 h-12 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high md:bottom-8 md:right-24"
+          className="fixed z-50 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 fab-coach-stack right-4 w-12 h-12 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high md:right-24"
         >
           <AltheaAvatar context="coach" size={40} alt="Abrir Coach" />
         </Link>
@@ -248,7 +249,7 @@ export default function ChatWidget() {
                   }`}>
                     {msg.role === 'assistant' && msg.source === 'local' && (
                       <div className="flex items-center gap-1 mb-1">
-                        <span className="material-symbols-outlined text-[12px] text-tertiary">cloud_off</span>
+                        <SemanticIcon name="cloud_off" size={12} className="text-[12px] text-tertiary" />
                         <span className="text-[10px] uppercase tracking-wide text-on-surface-variant">Modo local</span>
                       </div>
                     )}

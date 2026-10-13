@@ -71,5 +71,64 @@ Archivos que leen/escriben `cycle` y deben apuntar al util único (`getCycleFrom
 
 ## 6. Estado del ciclo (memoria)
 - FASE 2 (decisión) DOCUMENTADA — pendiente confirmación del usuario para implementar.
-- FASE 3 (implementación) NO iniciada.
+- FASE 3 (implementación) **PARCIALMENTE IMPLEMENTADA** (ver §7).
 - FASE 2 global / deploy / rotación de clave: NO iniciadas.
+
+## 7. Estado real al cierre del Prompt 3 (2026-10-10)
+
+Auditoría completa de lecturas/escrituras. Todo cambio es **no destructivo**: no se
+borraron columnas, tablas ni historial, no se reatribuyeron sesiones y no se
+inventaron ciclos.
+
+### 7.1 Escrituras del ciclo global (`profile.cycle` / `db.cycleVersions`)
+
+| Escritura | Ubicación | Estado |
+|---|---|---|
+| `savePlanning({ cycle, note })` | `Onboarding.tsx:245` | **CANÓNICA** — bootstrap del ciclo inicial |
+| `savePlanning({ cycle, methodId })` | `PeriodizationEditor.tsx:71` | **CANÓNICA** — editor de periodización |
+| `cycle: initialCycle` (snapshot legacy) | `Onboarding.tsx:240` | **SE CONSERVA a propósito** |
+
+**Por qué se conserva el snapshot legacy de Onboarding (desviación respecto de §3):**
+`contextBuilder.ts:303` lee `profile.cycle?.nutritionMethodId` como fallback de
+`profile.activeNutritionMethod`. `nutritionMethodId` **no pertenece a `CycleConfig`**
+(`cycleVersions` no lo modela), así que si Onboarding dejara de escribir el snapshot
+se perdería ese dato para usuarios nuevos. `savePlanning()` ya escribe la versión
+canónica; el snapshot se mantiene como fuente de respaldo mientras exista ese lector
+funcional. **Se puede retirar el snapshot cuando `nutritionMethodId` se migre a su
+propio campo del perfil.**
+
+### 7.2 Lecturas — migradas a canónico-primero en este cierre
+
+| Sitio | Antes | Ahora |
+|---|---|---|
+| `Perfil.tsx` (método activo + tono del coach) | `profile.cycle.methodId` directo | `getCanonicalMethodId(profile)` con fallback legacy |
+| `Coach.tsx` (`generateRoutineTips`) | `profile.cycle.trainingDays` | `canonicalCycle?.trainingDays ?? profile.cycle?.trainingDays ?? 3` |
+| `Rutina.tsx` (hint de método para ejercicios) | `p?.cycle?.methodId` | `getCanonicalMethodId(p ?? null)` |
+
+Se añadió **`getCanonicalMethodId(p)`** en `cycleVersions.ts` para no triplicar la
+cadena de prioridad. Cubierto por 3 tests nuevos en `cycleVersions.test.ts`
+(`FASE 1M-B — getCanonicalMethodId`).
+
+### 7.3 Lecturas — LEGACY conservadas con justificación explícita
+
+| Sitio | Lectura | Por qué no se migró |
+|---|---|---|
+| `utils/cycle.ts:129-130` (`getCycleFromProfile`) | `p.cycle` | **Es el fallback legítimo** que usan todos los lectores canónicos. |
+| `methodSelector.ts:139` (`getAvailableDays`) | `profile.cycle?.weekMap` | Entrada **sincrónica** de `selectMethods` → `buildCycleFromProfile`. Migrarla exige hacer async toda esa cadena; además la rama principal es `profile.schedule.availableDays`. |
+| `contextBuilder.ts:303` | `profile.cycle?.nutritionMethodId` | `nutritionMethodId` no está en `CycleConfig`; ver §7.1. |
+| `Onboarding.tsx:207` (seed) | `profile.cycle \|\| {…}` | Preserva el ciclo existente del usuario al repetir onboarding; el default es idéntico a `DEFAULT_CYCLE`. |
+
+### 7.4 Planificación de rutina (`routine.cycle`)
+
+`saveRoutineVersioned()` (`storage/routineStore.ts:77`) tiene **versionado propio y
+no destructivo**: congela la versión previa como snapshot (`${id}-v${n}`,
+`archived: true`) antes de escribir la nueva. **No se migró a `db.cycleVersions`
+(`scope = routineId`)** porque exige migrar datos ya persistidos → cambio separado.
+
+### 7.5 Garantías de compatibilidad verificadas
+- Sin migración destructiva; sin cambios de esquema Dexie.
+- El fallback legacy sigue operativo: sin versión activa, `getCanonicalCycle` /
+  `getCanonicalMethodId` devuelven el snapshot del perfil (o `DEFAULT_CYCLE`).
+- Ninguna sesión, `setLog` ni `setRecord` fue modificado ni reatribuido.
+- `groupSessionsByVersion` sigue clasificando sin escribir.
+

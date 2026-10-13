@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import SemanticIcon from '../components/ui/SemanticIcon';
 import { DailyRemindersConfig } from '@/components/notifications/DailyRemindersConfig'
 import { useState, useEffect } from 'react'
 import { db } from '@/services/storage/db'
@@ -134,7 +135,7 @@ export default function Mas(){
       {/* ═══ HEADER ═══ */}
       <header className="flex items-center gap-4">
         <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
-          <span className="material-symbols-outlined text-[22px] text-primary">apps</span>
+          <SemanticIcon name="apps" size={22} className="text-[22px] text-primary" />
         </div>
         <div className="min-w-0">
           <h1 className="font-headline-lg text-lg text-on-surface font-semibold">Más</h1>
@@ -229,13 +230,13 @@ export default function Mas(){
                   <AltheaCard level={2} padding="sm" hover className="h-full">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-[18px] text-primary">{l.icon}</span>
+                        <SemanticIcon name={l.icon} size={18} className="text-[18px] text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-headline-md text-sm text-on-surface font-semibold truncate">{l.name}</p>
                         <p className="font-body-md text-xs text-on-surface-variant truncate">{l.desc}</p>
                       </div>
-                      <span className="material-symbols-outlined text-[18px] text-on-surface-variant shrink-0">chevron_right</span>
+                      <SemanticIcon name="chevron_right" size={18} className="text-[18px] text-on-surface-variant shrink-0" />
                     </div>
                   </AltheaCard>
                 </Link>

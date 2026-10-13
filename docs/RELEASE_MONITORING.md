@@ -2,9 +2,21 @@
 
 Qué revisar **después del primer deploy de staging**, y antes de producción.
 Ningún valor de esta tabla es un secreto; ningún secreto se registra aquí.
+Este documento es una lista de comprobación, no un panel. Los valores concretos de
+uso sólo existen en las consolas de cada proveedor.
 
-Este documento es una lista de comprobación, no un panel. Los valores concretos
-de uso sólo existen en las consolas de cada proveedor.
+---
+
+> **Estado (2026-10-10, Prompt 5):** sin release de producción, por lo que no hay
+> período de observación de 24 h corriendo ni alertas que supervisar. El único
+> entorno desplegado es el **Worker de staging** (`althea-proxy-staging`,
+> versión `f38181b8-0a9e-4f2a-9231-0dbd853d8ed6`), cuya salud se comprobó con
+> `npm run staging:worker:live-check` (28 PASS / 0 FAIL). El release quedó
+> bloqueado en §1; ver `docs/RELEASE_REPORT.md`.
+>
+> Las alertas de presupuesto de Firebase y Cloudflare y el WAF **no son
+> verificables desde el repositorio**: requieren consola del propietario.
+
 
 ---
 

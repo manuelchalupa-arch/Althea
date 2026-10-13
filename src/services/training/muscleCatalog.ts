@@ -80,7 +80,8 @@ export const MUSCLE_CATALOG: MuscleEntity[] = [
     id: 'rectus-abdominis',
     nameEs: 'Recto abdominal',
     nameAnatomy: 'Rectus abdominis',
-    group: 'PECHO',
+    // Antes estaba en 'PECHO': el volumen abdominal se le sumaba al pecho.
+    group: 'CORE',
     view: 'front',
     activation: 'secondary',
     synergists: ['obliquus-externus'],
@@ -90,7 +91,8 @@ export const MUSCLE_CATALOG: MuscleEntity[] = [
     id: 'obliquus-externus',
     nameEs: 'Oblicuo externo',
     nameAnatomy: 'Obliquus externus abdominis',
-    group: 'PECHO',
+    // Antes estaba en 'PECHO': mismo problema que el recto abdominal.
+    group: 'CORE',
     view: 'front',
     activation: 'stabilizer',
     synergists: ['rectus-abdominis'],
@@ -227,6 +229,23 @@ export const MUSCLE_CATALOG: MuscleEntity[] = [
     activation: 'secondary',
     synergists: ['hamstrings'],
     exercises: ['Elevaciones de talón', 'Prensa de gemelos', 'Saltos'],
+  },
+
+  // ── Core ────────────────────────────────────────────────────────────────
+  // Faltaba: el atlas sólo genera datos para los ids del catálogo y ninguna
+  // entrada tenía group CORE, así que las regiones del torso quedaban siempre
+  // en "Sin datos". Además rectus-abdominis y obliquus-externus estaban
+  // clasificados como 'PECHO', con lo que el volumen abdominal se le sumaba
+  // al pecho en vez de pintarse en el torso.
+  {
+    id: 'serratus-anterior',
+    nameEs: 'Serrato anterior',
+    nameAnatomy: 'Serratus anterior',
+    group: 'CORE',
+    view: 'front',
+    activation: 'stabilizer',
+    synergists: ['pectoralis-major', 'trapezius'],
+    exercises: ['Push-up plus', 'Protracción de escápula', 'Flexiones'],
   },
 ]
 
