@@ -209,3 +209,51 @@ describe('CORE en el catálogo', () => {
     expect(MUSCLE_CATALOG.find(m => m.id === 'obliquus-externus')?.group).toBe('CORE')
   })
 })
+
+describe('groupOfMuscle — cobertura completa (regresión: espalda sin color)', () => {
+  it('todos los ids del catálogo tienen grupo', () => {
+    for (const m of MUSCLE_CATALOG) {
+      expect(groupOfMuscle(m.id), `id ${m.id}`).toBe(m.group)
+    }
+  })
+
+  it('resuelve el vocabulario real del seed y de la biblioteca', () => {
+    const casos: Array<[string, string]> = [
+      // ESPALDA: era el grupo que quedaba siempre en gris. `GROUP_MEMBERS`
+      // sólo tenía "lats/dorsal/upper-back/traps", no los ids canónicos ni
+      // los nombres en español del seed.
+      ['dorsal', 'ESPALDA'], ['dorsal ancho', 'ESPALDA'], ['espalda', 'ESPALDA'],
+      ['lats', 'ESPALDA'], ['upper-back', 'ESPALDA'],
+      ['trapecio', 'ESPALDA'], ['trapecios', 'ESPALDA'], ['traps', 'ESPALDA'],
+      ['romboides', 'ESPALDA'], ['infraspinoso', 'ESPALDA'], ['redondo mayor', 'ESPALDA'],
+      ['redondo menor', 'ESPALDA'], ['manguito rotador', 'ESPALDA'],
+      ['elevador de la escápula', 'ESPALDA'], ['lumbar', 'ESPALDA'],
+      ['erectores', 'ESPALDA'], ['columna', 'ESPALDA'], ['spine', 'ESPALDA'],
+      ['latissimus-dorsi', 'ESPALDA'], ['trapezius', 'ESPALDA'],
+      ['rhomboids', 'ESPALDA'], ['spinal-erectors', 'ESPALDA'],
+      ['teres-major', 'ESPALDA'], ['infraspinatus', 'ESPALDA'],
+      ['levator-scapulae', 'ESPALDA'],
+      // Otros grupos que también perdían volumen por acentos o plural.
+      ['cuádriceps', 'PIERNAS'], ['isquios', 'PIERNAS'], ['femorales', 'PIERNAS'],
+      ['glúteo', 'PIERNAS'], ['glúteos', 'PIERNAS'], ['quadriceps', 'PIERNAS'],
+      ['gluteus-maximus', 'PIERNAS'], ['gastrocnemius', 'PIERNAS'],
+      ['tibialis-anterior', 'PIERNAS'],
+      ['deltoide', 'HOMBROS'], ['anterior-deltoid', 'HOMBROS'],
+      ['pectoral mayor', 'PECHO'], ['pectoralis-major', 'PECHO'],
+      ['bíceps', 'BRAZOS'], ['tríceps', 'BRAZOS'], ['biceps-brachii', 'BRAZOS'],
+      ['forearm-flexors', 'BRAZOS'], ['braquiorradial', 'BRAZOS'],
+      ['serratus-anterior', 'CORE'],
+    ]
+    for (const [nombre, grupo] of casos) {
+      expect(groupOfMuscle(nombre), `nombre "${nombre}"`).toBe(grupo)
+    }
+  })
+
+  it('sigue devolviendo null para lo que no es un músculo asignable', () => {
+    expect(groupOfMuscle('cardio')).toBeNull()
+    expect(groupOfMuscle('cuerpo-completo')).toBeNull()
+    expect(groupOfMuscle('full-body')).toBeNull()
+    expect(groupOfMuscle('inventado')).toBeNull()
+    expect(groupOfMuscle('')).toBeNull()
+  })
+})

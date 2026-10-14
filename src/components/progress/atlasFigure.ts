@@ -4,33 +4,37 @@
  * Las cuatro figuras de `src/assets/muscle-atlas/` están EN USO.
  *
  * ── Datos comprobados inspeccionando los archivos ─────────────────────────
- * Los cuatro archivos tienen extensión `.png` pero su contenido real es JPEG
- * (firma `FF D8 FF`). JPEG no admite canal alfa, y de hecho el damero de
- * "transparencia" está horneado en los píxeles. Por eso, antes de usarlos se
- * **teclea el fondo en tiempo de ejecución** sobre un canvas: los píxeles
- * gris/blanco del damero pasan a alfa 0 y la figura queda con transparencia
- * real. El resultado se cachea por archivo.
+ * Los cuatro archivos son PNG con **canal alfa real** (RGBA) y lienzo NO
+ * cuadrado: ~394×1024 (M) y ~384–395×1024 (F). Se midieron sus cajas: la
+ * figura ocupa ~368×894 (male-front) dentro de su lienzo, con ~20–27 mil
+ * píxeles transparentes y ~20 mil a alfa parcial (bordes antialias).
+ *
+ * `keyAtlasBackground` sigue corriendo por si un asset trae fondo horneado:
+ * sólo SACA alfa (nunca lo agrega). Si el archivo ya trae alfa real se
+ * respeta tal cual; el tecleo por croma+luminancia+sólo se aplica a los
+ * archivos sin alfa. Esto evita que los grises internos de la ilustración
+ * (destellos de pelo, codos, rodillas) se borren y dejen agujeros.
  *
  * ── Proporción ────────────────────────────────────────────────────────────
- * El LIENZO mide 512×512 (1.0), pero la FIGURA dentro no. Medida píxel a
- * píxel, la altura del cuerpo es ~474–499 px y el ancho ~219–247 px, es decir
- * una proporción de 0.45–0.51, muy cercana a la del `viewBox` de referencia
- * (200×400 = 0.5). La proporción del lienzo NO es la de la anatomía.
+ * El lienzo NO es cuadrado ni coincide con la anatomía: hay que usar las
+ * cajas medidas, nunca el tamaño del archivo. Proporciones de la figura
+ * dentro del lienzo: 0.37 (female-back) a 0.41 (male-front). La silueta SVG
+ * mide 162.2×388.1 = 0.418, así que las figuras calzan dentro de ella.
  *
  * ── Alineación ────────────────────────────────────────────────────────────
  * `assetLayout` mapea la caja de la figura sobre la caja del cuerpo en el
  * espacio del SVG, con escala **uniforme** (por altura, sin deformar) y
- * centrado horizontal. Los valores se obtuvieron midiendo ambos cuerpos con
- * el mismo método; el torso calza casi exacto:
+ * centrado horizontal. Anchura mapeada vs. silueta SVG (162.2 unidades):
  *
- *      altura  SVG nW   PNG nW (male-front)
- *        20%    0.273     0.274
- *        25%    0.291     0.291
- *        30%    0.305     0.312
+ *        archivo      ancho mapeado   vs silueta
+ *        male-front       160.6        −1 %
+ *        male-back        158.3        −2 %
+ *        female-front     147.1        −9 %   (hombros más estrechos)
+ *        female-back      145.1       −10 %
  *
- * Divergencias reales, registradas: la ilustración tiene la cabeza más grande
- * y las piernas más gruesas que la silueta neutra, y los brazos un ~12% más
- * abiertos. Afecta al ancho de algunos rellenos, no a su posición.
+ * La silueta es neutra y la femenina es naturalmente más estrecha. Por eso
+ * el grupo de regiones va ENMASCARADO con la propia figura: el relleno nunca
+ * se sale del cuerpo dibujado.
  */
 import { useEffect, useState } from 'react'
 import type { SexCode } from '@/utils/sex'
@@ -49,8 +53,9 @@ const BODY_HEIGHT = 388.1
 
 /** Geometría de cada archivo, medida sobre los píxeles reales. */
 export interface AtlasAssetLayout {
-  /** Lienzo de origen. */
-  canvas: number
+  /** Lienzo de origen (NO cuadrado: hay que usar las dos medidas). */
+  canvasW: number
+  canvasH: number
   /** Caja de la figura dentro del lienzo (píxeles). */
   figX: number
   figY: number
@@ -62,12 +67,15 @@ export interface AtlasAssetLayout {
   s: number
 }
 
-/** Bounds medidos (píxeles) de la figura dentro del lienzo 512×512. */
-const FIG_BOUNDS: Record<string, { x: number; y: number; w: number; h: number }> = {
-  'male-front.png': { x: 143, y: 16, w: 226, h: 474 },
-  'male-back.png': { x: 133, y: 11, w: 247, h: 483 },
-  'female-front.png': { x: 149, y: 10, w: 219, h: 490 },
-  'female-back.png': { x: 134, y: 4, w: 244, h: 499 },
+/**
+ * Bounds medidos (píxeles) de la figura dentro de su lienzo.
+ * Se midió el bounding box de los píxeles con alfa > 0 de cada PNG.
+ */
+const FIG_BOUNDS: Record<string, { cw: number; ch: number; x: number; y: number; w: number; h: number }> = {
+  'male-front.png': { cw: 394, ch: 1024, x: 11, y: 35, w: 368, h: 894 },
+  'male-back.png': { cw: 390, ch: 1024, x: 12, y: 33, w: 361, h: 886 },
+  'female-front.png': { cw: 384, ch: 1024, x: 18, y: 37, w: 341, h: 898 },
+  'female-back.png': { cw: 395, ch: 1024, x: 31, y: 39, w: 347, h: 938 },
 }
 
 function layoutFor(file: string): AtlasAssetLayout {
@@ -75,7 +83,8 @@ function layoutFor(file: string): AtlasAssetLayout {
   const s = BODY_HEIGHT / b.h
   const figCx = b.x + b.w / 2
   return {
-    canvas: 512,
+    canvasW: b.cw,
+    canvasH: b.ch,
     figX: b.x, figY: b.y, figW: b.w, figH: b.h,
     tx: BODY_CENTER_X - figCx * s,
     ty: BODY_TOP - b.y * s,
@@ -117,22 +126,29 @@ export function atlasImageFiles(): string[] {
 }
 
 // ── Teclado de fondo ──────────────────────────────────────────────────────
-// El damero es gris/blanco (croma R≈B) y MUY claro. Medido sobre los cuatro
-// archivos, el 99% de los píxeles de croma bajo tiene luminancia ≥234.
+// Regla: el tecleo SÓLO quita alfa, nunca lo agrega.
 //
-// NI el croma solo NI el croma + luminancia alcanzan: la ilustración es
-// sepia monocroma y sus destellos claros (pelo, codos, rodillas, muñecas)
-// caen en el mismo rango que el damero y se borraban, dejando agujeros y
-// manchas grises. Se separa por CONECTIVIDAD: un píxeles es fondo solo si
-// además está unido al borde de la imagen. El cuerpo es un bloque central
-// rodeado por contornos oscuros, así que nada de su interior se alcanza.
+// Los PNG actuales traen canal alfa real. En ese caso se respeta tal cual y
+// lo único que se hace es ponear a 0 los píxeles de fondo que la inundación
+// alcance (por si un asset trae fondo horneado). NO se aplica el tecleo por
+// croma: los grises internos de la ilustración (destellos de pelo, codos,
+// rodillas) tienen croma bajo y se borrarían, dejando agujeros.
+//
+// Si el archivo NO trae alfa (un JPEG con damero horneado) se usa el tecleo
+// completo. El damero es gris/blanco (croma R≈B) y MUY claro: el 99% de los
+// píxeles de croma bajo tiene luminancia ≥234. NI el croma solo NI croma +
+// luminancia alcanzan por sí solos, porque la ilustración es sepia monocroma
+// y sus destellos claros caen en el mismo rango. Se separa por
+// CONECTIVIDAD: un píxel es fondo sólo si además está unido al borde de la
+// imagen. El cuerpo es un bloque central rodeado por contornos oscuros, así
+// que nada de su interior se alcanza.
 const CHROMA_MIN = 6
 const CHROMA_MAX = 28
 const BG_LUM_MIN = 220
 
 const keyedCache = new Map<string, string>()
 
-/** Convierte un JPEG (fondo damero horneado) en un PNG con alfa real. */
+/** Convierte el fondo en alfa real sin tocar la figura. */
 export function keyAtlasBackground(src: string): Promise<string> {
   const cached = keyedCache.get(src)
   if (cached) { return Promise.resolve(cached) }
@@ -153,9 +169,12 @@ export function keyAtlasBackground(src: string): Promise<string> {
         const px = data.data
         const n = w * h
 
-        // Candidatos a fondo: gris y claro.
+        // Candidatos a fondo: gris y claro. A la vez detectamos si el archivo
+        // ya trae alfa real (algún píxel con alfa != 255).
+        let realAlpha = false
         const cand = new Uint8Array(n)
         for (let p = 0, i = 0; p < n; p++, i += 4) {
+          if (px[i + 3] !== 255) { realAlpha = true }
           cand[p] = px[i] - px[i + 2] <= CHROMA_MIN && (px[i] + px[i + 1] + px[i + 2]) / 3 >= BG_LUM_MIN ? 1 : 0
         }
 
@@ -178,12 +197,13 @@ export function keyAtlasBackground(src: string): Promise<string> {
         for (let p = 0, i = 0; p < n; p++, i += 4) {
           if (bg[p]) {
             px[i + 3] = 0
-          } else {
+          } else if (!realAlpha) {
             const chroma = px[i] - px[i + 2]
             px[i + 3] = chroma >= CHROMA_MAX ? 255
               : chroma <= CHROMA_MIN ? 255
               : Math.round(((chroma - CHROMA_MIN) / (CHROMA_MAX - CHROMA_MIN)) * 255)
           }
+          // realAlpha: se conserva el alfa de origen (sólo se pudo quitar arriba).
         }
 
         ctx.putImageData(data, 0, 0)

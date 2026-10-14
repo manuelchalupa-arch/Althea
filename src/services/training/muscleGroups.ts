@@ -5,12 +5,23 @@
 import { muscleLoadOf, type MuscleLoad } from './metrics'
 import { cycleWeekRange, completedCycleWeeks, type CycleConfig } from '@/utils/cycle'
 import { todayKey } from '@/utils/dates'
+import { MUSCLE_CATALOG } from './muscleCatalog'
+import { MUSCLE_ALIASES, normalizeMuscleName } from '@/components/progress/muscleVocabulary'
+import { MUSCLE_REGIONS } from '@/components/progress/muscleGeometry'
 
 export const MUSCLE_GROUPS = ['PECHO', 'ESPALDA', 'PIERNAS', 'BRAZOS', 'HOMBROS', 'CORE'] as const
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number]
 
 // Un músculo API (o sus sinónimos del seed local) pertenece a un grupo.
 // Los subgroups del seed español se agrupan en su familia para no perder trabajo.
+//
+// IMPORTANTE: esto es un COMPLEMENTO, no la fuente de verdad. La tabla se
+// deriva abajo de MUSCLE_CATALOG + MUSCLE_ALIASES, que ya conocen el
+// vocabulario completo (ids del catálogo, nombres en español del seed,
+// términos de la biblioteca y sus alias). Mantener acá sólo esta tabla era el
+// bug: `groupOfMuscle` devolvía null para casi todos los ids canónicos y TODO
+// el volumen de ESPALDA caía en `unmappedVolume`, con lo que el atlas de la
+// espalda quedaba siempre "Sin datos".
 const GROUP_MEMBERS: Record<string, MuscleGroup> = {
   pectorals: 'PECHO', pecho: 'PECHO', pectoral: 'PECHO',
   lats: 'ESPALDA', espalda: 'ESPALDA', dorsal: 'ESPALDA', dorsales: 'ESPALDA',
@@ -26,15 +37,61 @@ const GROUP_MEMBERS: Record<string, MuscleGroup> = {
   // contemplaba, así que TODO el volumen abdominal se descartaba acá y
   // las regiones del torso se pintaban siempre "Sin datos".
   abs: 'CORE', core: 'CORE', abdomen: 'CORE', abdominales: 'CORE',
-  oblicuos: 'CORE', oblicuo: 'CORE', serrato: 'CORE', obliquos: 'CORE',
+  oblicuos: 'CORE', obliquo: 'CORE', serrato: 'CORE', obliquos: 'CORE',
   'serratus-anterior': 'CORE', 'rectus-abdominis': 'CORE',
   'obliquus-externus': 'CORE', 'recto-abdominal': 'CORE',
   'abdominales-superiores': 'CORE', 'abdominales-inferiores': 'CORE',
   'recto-abdominal-superior': 'CORE', 'recto-abdominal-inferior': 'CORE',
 }
 
+// ── Derivación de la tabla de grupos ───────────────────────────────────────
+// Región del atlas -> grupo. Fuente única: el catálogo; si la región no está
+// en el catálogo (p. ej. teres-major, soleus) se usa el grupo de la propia
+// geometría del atlas (que está en minúsculas).
+const CATALOG_GROUP = new Map<string, MuscleGroup>(MUSCLE_CATALOG.map((m) => [m.id, m.group]))
+const REGION_GROUP = new Map<string, MuscleGroup>()
+for (const side of ['front', 'back'] as const) {
+  for (const r of MUSCLE_REGIONS[side]) {
+    const g = (r.parent ? CATALOG_GROUP.get(r.parent) : undefined)
+      ?? CATALOG_GROUP.get(r.id)
+      ?? (r.group.toUpperCase() as MuscleGroup)
+    REGION_GROUP.set(r.id, g)
+  }
+}
+
+// Nombre de músculo normalizado -> grupo.
+// Un alias puede apuntar a un id de región O a un id del catálogo (el padre),
+// así que hay que mirar en las dos tablas.
+const ID_GROUP = new Map<string, MuscleGroup>(CATALOG_GROUP)
+for (const [id, g] of REGION_GROUP) { if (!ID_GROUP.has(id)) { ID_GROUP.set(id, g) } }
+
+const GROUP_BY_NAME = new Map<string, MuscleGroup>()
+// 1) ids del catálogo (anatomía oficial del repo).
+for (const m of MUSCLE_CATALOG) { GROUP_BY_NAME.set(normalizeMuscleName(m.id), m.group) }
+// 2) todo lo que ya resuelve el vocabulario del atlas: alias de la biblioteca,
+//    nombres del seed en español e ids de región.
+for (const [alias, ids] of Object.entries(MUSCLE_ALIASES)) {
+  let g: MuscleGroup | undefined
+  for (const id of ids) {
+    const found = ID_GROUP.get(id)
+    if (found) { g = found; break }
+  }
+  if (g) { GROUP_BY_NAME.set(alias, g) }
+}
+// 3) la tabla manual, por último, por si cubre algo sin región (gana).
+for (const [raw, g] of Object.entries(GROUP_MEMBERS)) {
+  GROUP_BY_NAME.set(normalizeMuscleName(raw), g)
+  GROUP_BY_NAME.set(raw, g)
+}
+
+/**
+ * Grupo de un nombre de músculo venga de donde venga (id del catálogo,
+ * nombre del seed, término de la biblioteca, con tildes o sin ellas).
+ * `null` sólo si de verdad no es un músculo asignable (cardio, inventado).
+ */
 export function groupOfMuscle(muscle: string): MuscleGroup | null {
-  return GROUP_MEMBERS[muscle] ?? GROUP_MEMBERS[muscle.toLowerCase()] ?? null
+  if (!muscle) { return null }
+  return GROUP_BY_NAME.get(normalizeMuscleName(muscle)) ?? null
 }
 
 export interface GroupLoad {

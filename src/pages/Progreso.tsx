@@ -6,14 +6,13 @@ import { isDateInPeriod, loadFatigueBalance } from '@/services/training/metrics'
 import { countTrainingDays, countTrainingDaysInPeriod } from '@/services/training/sessionMetrics'
 import { unifiedAllCompletedSets } from '@/services/history'
 import { buildMuscleResolver, type MuscleResolver } from '@/services/training/muscleAttribution'
-import { weeklyGroupComparison, resolveTrend } from '@/services/training/muscleGroups'
+import { weeklyGroupComparison } from '@/services/training/muscleGroups'
 import { getCanonicalCycle } from '@/services/planning/cycleVersions'
 import { todayKey, dayKeyOffset, toDateKey, daysBetween } from '@/utils/dates'
-import { MuscleAtlas, type MuscleDataPoint } from '@/components/progress/MuscleAtlas'
-import { resolveMuscleIds } from '@/components/progress/muscleVocabulary'
-import { buildRegionContributions, relativeActivation } from '@/components/progress/muscleContributions'
+import { MuscleAtlas } from '@/components/progress/MuscleAtlas'
+import { buildAtlasMuscleData } from '@/components/progress/muscleAtlasData'
+import { buildRegionContributions } from '@/components/progress/muscleContributions'
 import { normalizeSex, type SexCode } from '@/utils/sex'
-import { MUSCLE_CATALOG } from '@/services/training/muscleCatalog'
 import { AltheaCard, AltheaCardHeader, AltheaButton, AltheaKPICard, AltheaEmpty, AltheaLoading } from '@/components/althea'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import type { RecoveryCheck, UserProfile } from '@/types'
@@ -355,37 +354,15 @@ export default function Progresos() {
     )
   }, [muscleComparison, muscleItemsByDate, resolver])
 
-  const muscleData = useMemo((): Record<string, MuscleDataPoint> => {
-    if (!hasAnyData) {return {}}
-    const currentVol = muscleComparison.current?.byGroup ?? {}
-    const lastWeek = muscleComparison.weeks[muscleComparison.weeks.length - 1] ?? null
-    const out: Record<string, MuscleDataPoint> = {}
-    for (const m of MUSCLE_CATALOG) {
-      const regionIds = resolveMuscleIds(m.id)
-      if (regionIds.length === 0) {continue}
-      const current = currentVol[m.group] ?? 0
-      const previous = lastWeek?.byGroup[m.group] ?? 0
-      // Fuente ÚNICA de tendencia: mismo umbral ±5% que la tabla de semanas.
-      // Antes el atlas comparaba en estricto y podía decir "Descenso" donde
-      // la comparación semanal decía "Estable".
-      const { trend } = resolveTrend(current, previous)
-      for (const rid of regionIds) {
-        const contribution = contributions.byRegion[rid]
-        out[rid] = {
-          muscleId: m.id,
-          current,
-          previous,
-          trend,
-          unit: 'kg',
-          exercises: contribution?.exercises.slice(0, 4),
-          activation: contribution
-            ? relativeActivation(contribution.volume, contributions.maxVolume)
-            : undefined,
-        }
-      }
-    }
-    return out
-  }, [hasAnyData, muscleComparison, contributions])
+  const muscleData = useMemo(
+    () => buildAtlasMuscleData({
+      enabled: hasAnyData,
+      currentByGroup: muscleComparison.current?.byGroup ?? {},
+      previousByGroup: muscleComparison.weeks[muscleComparison.weeks.length - 1]?.byGroup ?? {},
+      contributions,
+    }),
+    [hasAnyData, muscleComparison, contributions],
+  )
 
   // ─── BLOQUE 7: informe periódico (conclusiones + descarga) ───
   const reportBlock = () => (

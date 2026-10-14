@@ -61,6 +61,7 @@ export const MUSCLE_ALIASES: Record<string, string[]> = {
   lumbar: ['spinal-erectors'], lumbares: ['spinal-erectors'], erectores: ['spinal-erectors'], columna: ['spinal-erectors'],
   trapecio: ['trapezius'], trapecios: ['trapezius'], romboides: ['rhomboids'],
   'redondo-mayor': ['teres-major'], 'redondo-menor': ['infraspinatus'], infraespinoso: ['infraspinatus'],
+  infraspinoso: ['infraspinatus'],
   'manguito-rotador': ['infraspinatus', 'teres-major'],
   'elevador-de-la-escapula': ['levator-scapulae'],
   hombro: DELTS, hombros: DELTS, deltoide: DELTS, deltoides: DELTS,

@@ -247,8 +247,8 @@ export function MuscleAtlas({
                   href={figure.url!}
                   x={0}
                   y={0}
-                  width={figure.layout!.canvas}
-                  height={figure.layout!.canvas}
+                  width={figure.layout!.canvasW}
+                  height={figure.layout!.canvasH}
                   transform={figureTransform}
                   style={{ filter: 'brightness(0) invert(1)' }}
                   aria-hidden="true"
@@ -264,8 +264,8 @@ export function MuscleAtlas({
               href={figure.url!}
               x={0}
               y={0}
-              width={figure.layout!.canvas}
-              height={figure.layout!.canvas}
+              width={figure.layout!.canvasW}
+              height={figure.layout!.canvasH}
               transform={figureTransform}
               pointerEvents="none"
               data-testid={`atlas-image-${sex}-${view}`}
