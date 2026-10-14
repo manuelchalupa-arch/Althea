@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Navigate } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
 import { useRestTimer } from '@/hooks/useRestTimer'
+import { useRestTimerBetweenExercises } from '@/hooks/useRestTimerBetweenExercises'
 import { useExerciseState } from '@/hooks/useExerciseState'
 import { useTrainingSession } from '@/hooks/useTrainingSession'
 import { usePainAlert } from '@/hooks/usePainAlert'
@@ -208,6 +209,8 @@ const exercises: SessionEx[] = seList.map((se) => {
 
   const { restSec, restPaused, restFlash, startRest, pauseRest, resumeRest, adjustRest, dismissFlash } = useRestTimer()
 
+  const { restSec: restBetweenExSec, restPaused: restBetweenExPaused, restFlash: restBetweenExFlash, startRest: startRestBetweenEx, pauseRest: pauseRestBetweenEx, resumeRest: resumeRestBetweenEx, adjustRest: adjustRestBetweenEx, skipRest: skipRestBetweenEx, dismissFlash: dismissFlashBetweenEx } = useRestTimerBetweenExercises()
+
   // Sync sessionStatusRef with hook's sessionStatus
   useEffect(() => {
     sessionStatusRef.current = sessionStatus
@@ -403,12 +406,12 @@ const exercises: SessionEx[] = seList.map((se) => {
   // Navegación entre ejercicios: solo cambia el índice visible, persiste la
   // posición en la sesión (reload/offline la recupera) y actualiza el coach.
   // Nunca reconstruye la sesión ni toca series.
-  // BLOQUEO: no se puede avanzar hacia adelante si hay un descanso activo.
+  // BLOQUEO: no se puede avanzar hacia adelante si hay un descanso activo (entre series o entre ejercicios).
   const goToExercise = (nextIdx:number)=>{
     if(nextIdx<0 || nextIdx>=exs.length) {return}
     const forward = nextIdx>current
-    // Si hay descanso activo, bloquear navegación hacia adelante
-    if(forward && restSec > 0) {return}
+    // Si hay descanso activo (entre series O entre ejercicios), bloquear navegación hacia adelante
+    if(forward && (restSec > 0 || restBetweenExSec > 0)) {return}
     setCurrent(nextIdx)
     nextCoach(nextIdx)
     const sid = sessionId
@@ -505,10 +508,15 @@ const exercises: SessionEx[] = seList.map((se) => {
       setDone({...done, [current]: true})
       saveDecision({ date: today, type:'accept', exercise: cur.name, reason: coach?.reason, contextSnapshot:{weight:weightOrNull,reps:r}})
       try{ if(navigator.vibrate) {navigator.vibrate(12)} }catch{ /* noop */ }
-      // Iniciar descanso obligatorio al completar la serie (si no es el último ejercicio)
+      // Ejercicio completado: iniciar descanso entre ejercicios si hay siguiente ejercicio
       if(current < exs.length - 1) {
-        startRest(restForExercise)
+        const nextEx = exs[current + 1]
+        const restBetweenEx = (nextEx?.restBetweenExercisesSec && nextEx.restBetweenExercisesSec > 0) ? nextEx.restBetweenExercisesSec : 120
+        startRestBetweenEx(restBetweenEx)
       }
+    } else if (setIdx < plannedCount - 1) {
+      // Serie completada pero no es la última: iniciar descanso entre series
+      startRest(restForExercise)
     }
   }
 
@@ -1274,7 +1282,11 @@ const exercises: SessionEx[] = seList.map((se) => {
           </div>
         </section>
 
-        {restFlash && restSec===0 && <button onClick={dismissFlash} className="w-full flex items-center justify-center gap-2 text-[14px] text-on-surface border border-secondary/40 rounded p-2"><Check size={14}/> Descanso terminado — a entrenar</button>}
+        {(restFlash && restSec===0) || (restBetweenExFlash && restBetweenExSec===0) ? (
+          <button onClick={()=> { if(restFlash) {dismissFlash()} if(restBetweenExFlash) {dismissFlashBetweenEx()} }} className="w-full flex items-center justify-center gap-2 text-[14px] text-on-surface border border-secondary/40 rounded p-2">
+            <Check size={14}/> {restBetweenExFlash && restBetweenExSec===0 ? 'Descanso entre ejercicios terminado — a entrenar' : 'Descanso terminado — a entrenar'}
+          </button>
+        ) : null}
 
         {cur && (
           <div className="rounded-xl border border-secondary/40 bg-surface-container-low overflow-hidden">
@@ -1380,14 +1392,27 @@ const exercises: SessionEx[] = seList.map((se) => {
               </div>
             )}
 
-            {(restSec > 0 || restFlash) && (
+            {(restSec > 0 || restFlash || restBetweenExSec > 0 || restBetweenExFlash) && (
               <div className="mx-3 mb-3 rounded-lg border border-secondary/40 bg-secondary-container/15 p-3 flex items-center gap-3">
-                <button onClick={()=> restPaused ? resumeRest() : pauseRest()} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="font-metric-mobile text-[32px] leading-none font-semibold text-on-surface tabular-nums">{Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</button>
-                <span className="font-label-caps text-[10px] text-primary tracking-widest">{restPaused ? 'PAUSADO' : 'RESPIRA HONDO'}</span>
-                <div className="ml-auto flex gap-1.5">
-                  <button onClick={()=>adjustRest(-15)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant/60 text-[13px] text-on-surface-variant">-15s</button>
-                  <button onClick={()=>adjustRest(30)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant/60 text-[13px] text-on-surface-variant">+30s</button>
-                </div>
+                {restBetweenExSec > 0 || restBetweenExFlash ? (
+                  <>
+                    <button onClick={()=> restBetweenExPaused ? resumeRestBetweenEx() : pauseRestBetweenEx()} aria-label={restBetweenExPaused?'Reanudar descanso':'Pausar descanso'} className="font-metric-mobile text-[32px] leading-none font-semibold text-on-surface tabular-nums">{Math.floor(restBetweenExSec/60)}:{String(restBetweenExSec%60).padStart(2,'0')}</button>
+                    <span className="font-label-caps text-[10px] text-secondary tracking-widest">{restBetweenExPaused ? 'PAUSADO' : 'DESCANSO ENTRE EJERCICIOS'}</span>
+                    <div className="ml-auto flex gap-1.5">
+                      <button onClick={()=>adjustRestBetweenEx(-15)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant/60 text-[13px] text-on-surface-variant">-15s</button>
+                      <button onClick={()=>adjustRestBetweenEx(30)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant/60 text-[13px] text-on-surface-variant">+30s</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={()=> restPaused ? resumeRest() : pauseRest()} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="font-metric-mobile text-[32px] leading-none font-semibold text-on-surface tabular-nums">{Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</button>
+                    <span className="font-label-caps text-[10px] text-primary tracking-widest">{restPaused ? 'PAUSADO' : 'RESPIRA HONDO'}</span>
+                    <div className="ml-auto flex gap-1.5">
+                      <button onClick={()=>adjustRest(-15)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant/60 text-[13px] text-on-surface-variant">-15s</button>
+                      <button onClick={()=>adjustRest(30)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant/60 text-[13px] text-on-surface-variant">+30s</button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -1462,7 +1487,15 @@ const exercises: SessionEx[] = seList.map((se) => {
         {/* Barra fija inferior: FINALIZAR / descanso (Gym Mode) */}
         {(sessionStatus==='READY' || sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED' || sessionStatus==='COMPLETING') && (
           <div style={{ bottom: MOBILE_NAV_OFFSET }} className="fixed left-0 right-0 z-40 bg-surface-container/95 backdrop-blur-sm border-t border-outline-variant/50 pl-[14px] pr-20 py-3 flex items-center gap-2.5">
-            {restSec > 0 ? (
+            {restBetweenExSec > 0 ? (
+              <>
+                <button onClick={()=> restBetweenExPaused ? resumeRestBetweenEx() : pauseRestBetweenEx()} aria-label={restBetweenExPaused ? 'Reanudar descanso' : 'Pausar descanso'} className="flex-1 min-w-0 text-left">
+                  <div className="font-label-caps text-[10px] uppercase text-secondary tracking-wider">Descanso entre ejercicios</div>
+                  <div className="font-metric-mobile text-[24px] text-on-surface font-semibold tabular-nums leading-tight">{Math.floor(restBetweenExSec/60)}:{String(restBetweenExSec%60).padStart(2,'0')}</div>
+                </button>
+                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-4 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shrink-0"><Check size={14}/> FIN</button>
+              </>
+            ) : restSec > 0 ? (
               <>
                 <button onClick={()=> restPaused ? resumeRest() : pauseRest()} aria-label={restPaused ? 'Reanudar descanso' : 'Pausar descanso'} className="flex-1 min-w-0 text-left">
                   <div className="font-label-caps text-[10px] uppercase text-secondary tracking-wider">{restPaused ? 'Descanso pausado' : 'Descanso en curso'}</div>
@@ -1571,7 +1604,11 @@ const exercises: SessionEx[] = seList.map((se) => {
           </div>
         </AltheaPanel>
 
-        {restFlash && restSec===0 && <button onClick={dismissFlash} className="w-full flex items-center justify-center gap-2 font-body-md text-[15px] text-on-surface st-completed border rounded p-2 fade-in"><Check size={14}/> Descanso terminado — a entrenar</button>}
+        {(restFlash && restSec===0) || (restBetweenExFlash && restBetweenExSec===0) ? (
+          <button onClick={()=> { if(restFlash) {dismissFlash()} if(restBetweenExFlash) {dismissFlashBetweenEx()} }} className="w-full flex items-center justify-center gap-2 font-body-md text-[15px] text-on-surface st-completed border rounded p-2 fade-in">
+            <Check size={14}/> {restBetweenExFlash && restBetweenExSec===0 ? 'Descanso entre ejercicios terminado — a entrenar' : 'Descanso terminado — a entrenar'}
+          </button>
+        ) : null}
 
         {/* Main Grid: 8-col exercise + 4-col sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -1739,9 +1776,9 @@ const exercises: SessionEx[] = seList.map((se) => {
                       </button>
                     )}
                   </div>
-                  {restSec>0 && (
+                  {(restSec > 0 || restBetweenExSec > 0) && (
                     <div className="w-full flex items-center justify-center gap-2 rounded border border-secondary/40 bg-secondary-container/20 px-3 py-2 font-label-caps text-[10px] uppercase text-on-surface-variant">
-                      <span>Descanso activo {Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</span>
+                      <span>{restBetweenExSec > 0 ? 'Descanso entre ejercicios' : 'Descanso activo'} {Math.floor((restBetweenExSec > 0 ? restBetweenExSec : restSec)/60)}:{String((restBetweenExSec > 0 ? restBetweenExSec : restSec)%60).padStart(2,'0')}</span>
                     </div>
                   )}
                   {done[current] && (
@@ -1773,7 +1810,10 @@ const exercises: SessionEx[] = seList.map((se) => {
                         <h3 className="font-headline-sm text-[20px] text-on-surface group-hover:text-primary transition-colors">{ex.name}</h3>
                         <p className="font-body-sm text-[13px] text-outline mt-1.5">{ex.weight ?? 0}kg · {ex.muscle || ''}</p>
                         <div className="mt-4 flex items-center justify-between pt-3 border-t border-outline-variant/30">
-                          <span className="font-label-caps text-[10px] text-on-surface-variant">Descanso asignado: {restForExercise}s</span>
+                          <span className="font-label-caps text-[10px] text-on-surface-variant">Descanso series: {(ex.restSec && ex.restSec > 0) ? ex.restSec : restForExercise}s</span>
+                          {ex.restBetweenExercisesSec && ex.restBetweenExercisesSec > 0 && (
+                            <span className="font-label-caps text-[10px] text-secondary">Descanso ejercicios: {ex.restBetweenExercisesSec}s</span>
+                          )}
                           <SemanticIcon name="arrow_forward" size={20} className="text-secondary text-[20px]" />
                         </div>
                       </div>
@@ -1786,35 +1826,63 @@ const exercises: SessionEx[] = seList.map((se) => {
 
             {/* 4-col: Sidebar */}
            <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-6 lg:self-start">
-              {/* Rest Timer Widget */}
-              {(restSec > 0 || restFlash) && (
+{/* Rest Timer Widget - shows active rest (between-exercises takes priority) */}
+              {(restSec > 0 || restFlash || restBetweenExSec > 0 || restBetweenExFlash) && (
                 <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-6  flex flex-col items-center text-center relative overflow-hidden">
-                 <div className="w-full flex items-center justify-between pb-3 border-b border-outline-variant/30 mb-5">
-                   <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider flex items-center gap-1.5">
-                     <SemanticIcon name="hourglass_top" size={16} className="text-[16px]" />
-                     RELOJ DE RECUPERACIÓN
-                   </span>
-                 </div>
-                 {/* Circular Timer SVG */}
-                 <div className="relative w-44 h-44 flex items-center justify-center my-2">
-                   <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
-                     <circle className="text-surface-container-highest" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeWidth="6" />
-                     <circle className="text-secondary transition-all duration-1000" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeDasharray={440} strokeDashoffset={440 - (440 * restSec / Math.max(restForExercise, 1))} strokeLinecap="round" strokeWidth="6" />
-                   </svg>
-                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                     <button onClick={()=> restPaused ? resumeRest() : pauseRest()} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="text-[44px] leading-none font-semibold text-on-surface font-mono tracking-tight bg-transparent border-none cursor-pointer hover:text-secondary transition-colors">
-                       {Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}
-                     </button>
-                     <span className="font-label-caps text-[10px] text-primary tracking-widest mt-1">{restPaused ? 'PAUSADO' : 'RESPIRA HONDO'}</span>
-                   </div>
-                 </div>
+                  <div className="w-full flex items-center justify-between pb-3 border-b border-outline-variant/30 mb-5">
+                    <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider flex items-center gap-1.5">
+                      <SemanticIcon name="hourglass_top" size={16} className="text-[16px]" />
+                      {restBetweenExSec > 0 || restBetweenExFlash ? 'DESCANSO ENTRE EJERCICIOS' : 'RELOJ DE RECUPERACIÓN'}
+                    </span>
+                  </div>
+                  {/* Circular Timer SVG */}
+                  <div className="relative w-44 h-44 flex items-center justify-center my-2">
+                    <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
+                      <circle className="text-surface-container-highest" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeWidth="6" />
+                      {restBetweenExSec > 0 || restBetweenExFlash ? (
+                        <>
+                          <circle className="text-secondary transition-all duration-1000" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeDasharray={440} strokeDashoffset={440 - (440 * restBetweenExSec / Math.max((cur?.restBetweenExercisesSec ?? 120), 1))} strokeLinecap="round" strokeWidth="6" />
+                        </>
+                      ) : (
+                        <>
+                          <circle className="text-secondary transition-all duration-1000" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeDasharray={440} strokeDashoffset={440 - (440 * restSec / Math.max(restForExercise, 1))} strokeLinecap="round" strokeWidth="6" />
+                        </>
+                      )}
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      {restBetweenExSec > 0 || restBetweenExFlash ? (
+                        <>
+                          <button onClick={()=> restBetweenExPaused ? resumeRestBetweenEx() : pauseRestBetweenEx()} aria-label={restBetweenExPaused?'Reanudar descanso':'Pausar descanso'} className="text-[44px] leading-none font-semibold text-on-surface font-mono tracking-tight bg-transparent border-none cursor-pointer hover:text-secondary transition-colors">
+                            {Math.floor(restBetweenExSec/60)}:{String(restBetweenExSec%60).padStart(2,'0')}
+                          </button>
+                          <span className="font-label-caps text-[10px] text-secondary tracking-widest mt-1">{restBetweenExPaused ? 'PAUSADO' : 'DESCANSO ENTRE EJERCICIOS'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={()=> restPaused ? resumeRest() : pauseRest()} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="text-[44px] leading-none font-semibold text-on-surface font-mono tracking-tight bg-transparent border-none cursor-pointer hover:text-secondary transition-colors">
+                            {Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}
+                          </button>
+                          <span className="font-label-caps text-[10px] text-primary tracking-widest mt-1">{restPaused ? 'PAUSADO' : 'RESPIRA HONDO'}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                   {/* Timer adjust buttons */}
                   <div className="grid grid-cols-2 gap-2 w-full mt-4">
-                    <button onClick={()=>adjustRest(-15)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">-15s</button>
-                    <button onClick={()=>adjustRest(30)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">+30s</button>
+                    {restBetweenExSec > 0 || restBetweenExFlash ? (
+                      <>
+                        <button onClick={()=>adjustRestBetweenEx(-15)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">-15s</button>
+                        <button onClick={()=>adjustRestBetweenEx(30)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">+30s</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={()=>adjustRest(-15)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">-15s</button>
+                        <button onClick={()=>adjustRest(30)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">+30s</button>
+                      </>
+                    )}
                   </div>
-               </div>
-             )}
+                </div>
+              )}
 
              {/* Oracular Coach */}
             {coach && (
@@ -1872,13 +1940,23 @@ const exercises: SessionEx[] = seList.map((se) => {
             style={{ bottom: MOBILE_NAV_OFFSET }}
             className="fixed left-0 right-0 z-40 md:hidden bg-surface-container/95 backdrop-blur-sm border-t border-outline-variant/50 pl-4 pr-20 py-3 flex items-center gap-2.5"
           >
-            {restSec > 0 ? (
+            {restBetweenExSec > 0 ? (
+              <>
+                <button onClick={()=> restBetweenExPaused ? resumeRestBetweenEx() : pauseRestBetweenEx()} aria-label={restBetweenExPaused ? 'Reanudar descanso' : 'Pausar descanso'} className="flex-1 min-w-0 text-left">
+                  <div className="font-label-caps text-[10px] uppercase text-secondary tracking-wider">Descanso entre ejercicios</div>
+                  <div className="font-headline-md text-[24px] text-on-surface font-semibold tabular-nums leading-tight">{Math.floor(restBetweenExSec/60)}:{String(restBetweenExSec%60).padStart(2,'0')}</div>
+                </button>
+                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-4 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shrink-0">
+                  <Check size={14}/> FIN
+                </button>
+              </>
+            ) : restSec > 0 ? (
               <>
                 <button onClick={()=> restPaused ? resumeRest() : pauseRest()} aria-label={restPaused ? 'Reanudar descanso' : 'Pausar descanso'} className="flex-1 min-w-0 text-left">
                   <div className="font-label-caps text-[10px] uppercase text-secondary tracking-wider">{restPaused ? 'Descanso pausado' : 'Descanso en curso'}</div>
                   <div className="font-headline-md text-[24px] text-on-surface font-semibold tabular-nums leading-tight">{Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</div>
                 </button>
-                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-4 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shrink-0">
+                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-5 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98] shrink-0">
                   <Check size={14}/> FIN
                 </button>
               </>

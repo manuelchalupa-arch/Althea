@@ -194,7 +194,7 @@ export interface PlannedExerciseInput {
   exId: string; name: string; sets: number; reps: number; weight: number | null;
   muscle?: string; gifUrl?: string; routineExerciseId?: string;
   /** Objetivos de planificación que vienen desde la rutina. */
-  restSec?: number; seriesType?: string; tempo?: string;
+  restSec?: number; restBetweenExercisesSec?: number; seriesType?: string; tempo?: string;
   rir?: number; rpe?: number; notes?: string;
   plannedSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
 }
@@ -246,6 +246,7 @@ export async function createSession(input: {
       plannedSetCount: plan.length, actualSetCount: 0,
       plannedSets: plan,
       restSec: p.restSec,
+      restBetweenExercisesSec: p.restBetweenExercisesSec,
       seriesType: resolveSetType(p.seriesType),
       tempo: p.tempo,
       targetRir: p.rir,
@@ -591,7 +592,7 @@ export interface ActiveSession {
     exId: string; name: string; sets: number; reps: number; weight: number | null;
     muscle?: string; gifUrl?: string; imageDataUrl?: string;
     routineExerciseId?: string;
-    restSec?: number; seriesType?: string; tempo?: string;
+    restSec?: number; restBetweenExercisesSec?: number; seriesType?: string; tempo?: string;
     rir?: number; rpe?: number; notes?: string;
     /** Plan por serie (reps/weight propios de cada serie) si la rutina lo define. */
     plannedSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
@@ -627,7 +628,7 @@ async function exercisesOf(sessionId: string): Promise<ActiveSession['exercises'
       exId: r.exerciseId, name: r.exerciseName ?? r.exerciseId,
       sets: r.plannedSets?.length ?? 0,
       reps: r.plannedSets?.[0]?.reps ?? 0, weight: r.plannedSets?.[0]?.weight ?? null,
-      restSec: r.restSec, seriesType: r.seriesType, tempo: r.tempo,
+      restSec: r.restSec, restBetweenExercisesSec: r.restBetweenExercisesSec, seriesType: r.seriesType, tempo: r.tempo,
       rir: r.targetRir, rpe: r.targetRpe, notes: r.notes,
       plannedSets: (r.plannedSets ?? []).map((s) => ({ order: s.order, reps: s.reps, weight: s.weight ?? null, setType: s.setType })),
     }));

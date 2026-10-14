@@ -19,6 +19,7 @@ interface SessionEx {
   plannedSetValues?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>
   seriesType?: string
   restSec?: number
+  restBetweenExercisesSec?: number
   tempo?: string
   rir?: number
   rpe?: number

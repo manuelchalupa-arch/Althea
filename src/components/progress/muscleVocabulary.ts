@@ -29,6 +29,8 @@ const GLUTES = ['gluteus-maximus', 'gluteus-medius'];
 const CALVES = ['gastrocnemius', 'soleus'];
 const LEGS_ALL = ['quadriceps', 'hamstrings', ...GLUTES, 'adductors', 'tensor-fasciae-latae', ...CALVES, 'tibialis-anterior'];
 const UPPER_BACK = ['rhomboids', 'trapezius-middle', 'infraspinatus', 'teres-major'];
+const REAR_DELTS = ['posterior-deltoid'];
+const LOWER_BACK = ['spinal-erectors'];
 
 export const MUSCLE_ALIASES: Record<string, string[]> = {
   // ── ExerciseGymGifsDB (primary + secondary) ─────────────────────────────
@@ -43,8 +45,10 @@ export const MUSCLE_ALIASES: Record<string, string[]> = {
   hamstrings: ['hamstrings'],
   lats: ['latissimus-dorsi'],
   'levator-scapulae': ['levator-scapulae'],
+  'lower-back': LOWER_BACK,
   pectorals: ['pectoralis-major'],
   quads: ['quadriceps'],
+  'rear-delts': REAR_DELTS,
   'serratus-anterior': ['serratus-anterior'],
   spine: ['spinal-erectors'],
   traps: ['trapezius'],
@@ -79,6 +83,27 @@ export const MUSCLE_ALIASES: Record<string, string[]> = {
   gemelos: ['gastrocnemius'], gemelo: ['gastrocnemius'], pantorrillas: CALVES, pantorrilla: CALVES, soleo: ['soleus'],
   'tibial-anterior': ['tibialis-anterior'], tibial: ['tibialis-anterior'],
   piernas: LEGS_ALL, pierna: LEGS_ALL,
+
+  // ── Términos coloquiales / nombres de ejercicio comunes (ES) ────────────
+  tirón: BACK_ALL, 'tirón-dorsal': BACK_ALL, remo: BACK_ALL, 'remo-barral': BACK_ALL, 'remo-mancuerna': BACK_ALL, 'remo-máquina': BACK_ALL, 'remo-en-polea': BACK_ALL,
+  jalón: BACK_ALL, 'jalón-al-pecho': BACK_ALL, 'jalón-abierto': BACK_ALL, 'jalón-cerrado': BACK_ALL,
+  dominadas: BACK_ALL, 'dominadas-supinas': BACK_ALL, 'dominadas-pronas': BACK_ALL, 'dominadas-neutras': BACK_ALL,
+  'peso-muerto': BACK_ALL, 'peso-muerto-rumano': ['hamstrings', 'gluteus-maximus', 'spinal-erectors'],
+  'peso-muerto-con-barola': ['hamstrings', 'gluteus-maximus', 'spinal-erectors', 'latissimus-dorsi', 'trapezius'],
+  'face-pull': ['posterior-deltoid', 'trapezius-middle', 'infraspinatus'],
+  'elevaciones-posteriores': ['posterior-deltoid'],
+  'elevaciones-laterales': ['lateral-deltoid'],
+  'elevaciones-frontales': ['anterior-deltoid'],
+  'press-militar': ['anterior-deltoid', 'lateral-deltoid', 'triceps-brachii'],
+  'press-banca': ['pectoralis-major', 'anterior-deltoid', 'triceps-brachii'],
+  'aperturas': ['pectoralis-major'],
+  'curl-bíceps': ['biceps-brachii'], 'curl-martillo': ['biceps-brachii', 'brachioradialis'],
+  'extensión-tríceps': ['triceps-brachii'], 'fondos': ['triceps-brachii', 'pectoralis-major', 'anterior-deltoid'],
+  sentadilla: ['quadriceps', 'gluteus-maximus'], 'prensa-piernas': ['quadriceps', 'gluteus-maximus'],
+  zancada: ['quadriceps', 'gluteus-maximus'], 'hip-thrust': ['gluteus-maximus'],
+  'elevación-talón': ['gastrocnemius', 'soleus'],
+  plancha: ['rectus-abdominis', 'obliquus-externus', 'spinal-erectors'], crunch: ['rectus-abdominis'],
+  'plancha-lateral': ['obliquus-externus'], 'russian-twist': ['obliquus-externus'],
 
   // ── Grupos (MUSCLE_GROUPS y MuscleGroup) ────────────────────────────────
   'cuerpo-completo': [], 'full-body': [],

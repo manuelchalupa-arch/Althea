@@ -120,8 +120,10 @@ export interface SessionExercise {
   plannedSetCount: number;
   actualSetCount: number;
   plannedSets: PlannedSetSnapshot[];
-  /** Descanso planificado para ESTE ejercicio (segundos). Viene de la rutina. */
+  /** Descanso planificado ENTRE SERIES para ESTE ejercicio (segundos). Viene de la rutina. */
   restSec?: number;
+  /** Descanso planificado ENTRE EJERCICIOS (segundos). Viene de la rutina. Se aplica al terminar este ejercicio y pasar al siguiente. */
+  restBetweenExercisesSec?: number;
   /** Tipo de serie planificado a nivel ejercicio (resumen; cada serie lleva su propio setType). */
   seriesType?: SetType;
   /** Tempo planificado (ej. "3-1-1"). Texto, no se interpreta. */

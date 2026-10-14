@@ -39,7 +39,7 @@ type RutinaDayExercise = {
   weight:number | null;
   /** Plan POR SERIE: fuente de verdad cuando existe. */
   series?: RutinaSeriesPlan[]
-  gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string; restSec?:number; seriesType?:string; tempo?:string; rir?:number; rpe?:number; notes?:string; routineExerciseId?:string
+  gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string; restSec?:number; restBetweenExercisesSec?:number; seriesType?:string; tempo?:string; rir?:number; rpe?:number; notes?:string; routineExerciseId?:string
 }
 type RutinaData = {
   id: string
@@ -467,11 +467,17 @@ export default function RutinaPage(){
                       <div className="mt-3 border-t border-outline-variant/40 pt-2">
                         <span className="font-label-caps text-[10px] uppercase tracking-wider text-outline">Descanso y objetivos</span>
                         <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
-                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Descanso (s)
+                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Descanso entre series (s)
                             <input type="number" value={it.restSec ?? ''} onChange={e=>{
                               const v = e.target.value === '' ? undefined : Math.max(0, Number(e.target.value))
                               updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], restSec: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
-                            }} aria-label={`Descanso en segundos de ${ex?.name || it.name || it.exId}`} placeholder="90" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant" inputMode="numeric"/>
+                            }} aria-label={`Descanso entre series en segundos de ${ex?.name || it.name || it.exId}`} placeholder="90" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant" inputMode="numeric"/>
+                          </label>
+                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Descanso entre ejercicios (s)
+                            <input type="number" value={it.restBetweenExercisesSec ?? ''} onChange={e=>{
+                              const v = e.target.value === '' ? undefined : Math.max(0, Number(e.target.value))
+                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], restBetweenExercisesSec: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
+                            }} aria-label={`Descanso entre ejercicios en segundos de ${ex?.name || it.name || it.exId}`} placeholder="120" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant" inputMode="numeric"/>
                           </label>
                           <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Tipo de serie
                             <select value={it.seriesType || 'Normal'} onChange={e=>{
@@ -674,14 +680,14 @@ export default function RutinaPage(){
           existingIds={(active.dayExercises[pickerFor]||[]).map(e=>e.exId)}
           onAdd={(exId,gifUrl,name,muscle,imageDataUrl)=>{
             const d = getMethodDefaults(active.cycle)
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl, name, muscle, imageDataUrl, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }]}}))
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl, name, muscle, imageDataUrl, restBetweenExercisesSec: 120, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }]}}))
             setPickerFor(null)
           }}
           onAddMany={(items)=>{
             const d = getMethodDefaults(active.cycle)
             updateActive(r=> {
               const already = new Set((r.dayExercises[pickerFor!]||[]).map(e=>e.exId))
-              const toAdd = items.filter(i=> !already.has(i.exId)).map(i=> ({ id: uuid(), exId: i.exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: i.gifUrl, name: i.name, muscle: i.muscle, imageDataUrl: i.imageDataUrl, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }))
+              const toAdd = items.filter(i=> !already.has(i.exId)).map(i=> ({ id: uuid(), exId: i.exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: i.gifUrl, name: i.name, muscle: i.muscle, imageDataUrl: i.imageDataUrl, restBetweenExercisesSec: 120, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }))
               return {...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), ...toAdd]}}
             })
             setPickerFor(null)
@@ -695,7 +701,7 @@ export default function RutinaPage(){
         <ExerciseViewer exercise={viewer} onClose={()=>setViewer(null)} onAdd={()=>{
           if(pickerFor!==null){
             const d = getMethodDefaults(active.cycle)
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId: viewer.id, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: viewer.gifUrl, name: viewer.name, muscle: viewer.muscle, imageDataUrl: viewer.imageDataUrl, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }]}}))
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId: viewer.id, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: viewer.gifUrl, name: viewer.name, muscle: viewer.muscle, imageDataUrl: viewer.imageDataUrl, restBetweenExercisesSec: 120, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }]}}))
           }
           setViewer(null); setPickerFor(null)
         }} />
