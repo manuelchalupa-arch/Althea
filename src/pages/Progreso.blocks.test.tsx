@@ -76,4 +76,23 @@ describe('Progreso — mapa corporal + resumen pequeño + informe PDF', () => {
     expect(screen.queryByRole('button', { name: /^Registrar$/ })).not.toBeInTheDocument()
     expect(screen.queryByText(/Detalle completo/)).not.toBeInTheDocument()
   }, 40000)
+
+  it('la leyenda declara la escala en el MISMO orden que el renderizado', async () => {
+    render(<MemoryRouter><Progreso /></MemoryRouter>)
+    await screen.findByTestId('muscle-atlas', undefined, { timeout: 20000 })
+
+    const leyenda = screen.getByLabelText('Leyenda de intensidad')
+    const textos = [...leyenda.querySelectorAll('.atlas-legend__item')].map((n) => n.textContent?.trim())
+    // Gris → verde → naranja → azul, de menor a mayor intensidad.
+    expect(textos).toEqual(['Sin trabajo', 'Baja', 'Moderada', 'Alta'])
+
+    // Y las muestras de color están en ese mismo orden semántico.
+    const clases = [...leyenda.querySelectorAll('.atlas-legend__sw')].map((n) => n.className)
+    expect(clases).toEqual([
+      'atlas-legend__sw is-idle',
+      'atlas-legend__sw is-low',
+      'atlas-legend__sw is-mid',
+      'atlas-legend__sw is-high',
+    ])
+  }, 40000)
 })

@@ -97,10 +97,20 @@ function visualState(point?: MuscleDataPoint): 'active-high' | 'active-mid' | 'a
   return 'active-low'
 }
 
+/**
+ * Opacidad del relleno muscular.
+ *
+ * Antes iba de 0.40 a 1.00 según la intensidad (`0.4 + 0.6·i/100`): con
+ * actividad baja el relleno quedaba al 40-60%, el fondo anatómico rojizo se
+ * colaba por debajo y TODA la escala se perceived apagada e intercambiable.
+ * Ahora el relleno es prácticamente sólido (0.90–1.00): la intensidad sigue
+ * marcándose con el COLOR (gris/verde/naranja/azul), no con la transparencia,
+ * y el fondo rojo ya no contamina ninguna región.
+ */
 function fillOpacity(point?: MuscleDataPoint): number {
   if (!point || point.intensity === undefined) { return 1; }
   const a = Math.max(0, Math.min(point.intensity, 100));
-  return 0.4 + 0.6 * (a / 100);
+  return 0.9 + 0.1 * (a / 100);
 }
 
 function intensityLabel(intensity?: number): string {
@@ -132,10 +142,12 @@ function variation(point: MuscleDataPoint): string {
  * MuscleAtlas — atlas muscular frente/espalda.
  * Cada región lleva data-muscle-id; izquierda y derecha comparten id y se
  * resaltan juntas. Estados: hover, focus, selected y color por INTENSIDAD de
- * trabajo registrado en el período (no por tendencia): gris = sin trabajo,
- * VERDE = intensidad baja, amarillo = moderada, ROJO = alta. La tendencia
- * histórica se informa en el detalle, nunca en el color. Todo el color sale de
- * tokens CSS (--althea-muscle-*), aplicados en althea-components.css.
+ * trabajo registrado en el período (no por tendencia): GRIS = sin trabajo,
+ * VERDE OSCURO = intensidad baja, NARANJA = moderada, AZUL MARINO = alta.
+ * El rojo queda excluido de la escala a propósito: el fondo anatómico es
+ * rojizo y lo contaminaría. La tendencia histórica se informa en el detalle,
+ * nunca en el color. Todo el color sale de tokens CSS (--althea-muscle-*),
+ * aplicados en althea-components.css.
  */
 export function MuscleAtlas({
   view,
@@ -255,11 +267,14 @@ export function MuscleAtlas({
           className="althea-atlas__svg"
         >
           <defs>
-            <linearGradient id={shadeId} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#fff" stopOpacity="0.28" />
-              <stop offset="0.55" stopColor="#fff" stopOpacity="0" />
-              <stop offset="1" stopColor="#000" stopOpacity="0.2" />
-            </linearGradient>
+/* Sombreado suave para dar volumen. Las opacidades son BAJAS a propósito: con
+               el relleno casi sólido, un velo fuerte lavaría los colores de la
+               escala y los haría indistinguibles del fondo. */
+              <linearGradient id={shadeId} x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="#fff" stopOpacity="0.16" />
+                <stop offset="0.55" stopColor="#fff" stopOpacity="0" />
+                <stop offset="1" stopColor="#000" stopOpacity="0.14" />
+              </linearGradient>
             {hasFigure && (
               /*
                * MÁSCARA DE SILUETA. La geometría de regiones nació para la

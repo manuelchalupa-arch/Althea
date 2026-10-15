@@ -855,14 +855,17 @@ function AtlasCustomRange({ start, end, onStart, onEnd, error, inputClass }: {
   )
 }
 
-/** Leyenda textual: el color nunca es la única vía de interpretación. */
+/** Leyenda textual: el color nunca es la única vía de interpretación.
+ *  El orden es el MISMO que usa el renderizado real, de menor a mayor
+ *  intensidad: sin trabajo (gris) · baja (verde oscuro) · moderada
+ *  (naranja) · alta (azul marino). */
 function AtlasLegend({ metricLabel }: { metricLabel: string }) {
   return (
     <div className="atlas-legend" aria-label="Leyenda de intensidad">
-      <span className="atlas-legend__item"><i className="atlas-legend__sw is-high" aria-hidden="true" />Alta</span>
-      <span className="atlas-legend__item"><i className="atlas-legend__sw is-mid" aria-hidden="true" />Moderada</span>
-      <span className="atlas-legend__item"><i className="atlas-legend__sw is-low" aria-hidden="true" />Baja</span>
       <span className="atlas-legend__item"><i className="atlas-legend__sw is-idle" aria-hidden="true" />Sin trabajo</span>
+      <span className="atlas-legend__item"><i className="atlas-legend__sw is-low" aria-hidden="true" />Baja</span>
+      <span className="atlas-legend__item"><i className="atlas-legend__sw is-mid" aria-hidden="true" />Moderada</span>
+      <span className="atlas-legend__item"><i className="atlas-legend__sw is-high" aria-hidden="true" />Alta</span>
       <p className="atlas-legend__note">
         Intensidad relativa al período y a la métrica elegida ({metricLabel}). La tendencia histórica se muestra en el detalle de cada músculo.
       </p>

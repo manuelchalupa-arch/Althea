@@ -342,12 +342,12 @@
 .althea-atlas__card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--althea-space-2); margin-bottom: var(--althea-space-2); }
 .althea-atlas__card-head strong { font-size: var(--althea-fs-body-md); color: var(--althea-on-surface); }
 .althea-atlas__badge { font-size: var(--althea-fs-label); font-weight: 600; padding: 2px 8px; border-radius: var(--althea-radius-pill); background: var(--althea-surface-3); color: var(--althea-on-surface-muted); white-space: nowrap; }
-/* La insignia usa la MISMA escala de intensidad que el relleno: la insignia
-   debe coincidir con el color del músculo, no contradecirlo. */
-.althea-atlas__badge.is-active-low { background: var(--althea-success-soft); color: var(--althea-success); }
+/* La insignia usa la MISMA escala que el relleno (gris · verde · naranja ·
+   azul): la insignia nunca debe contradecir el color del músculo. */
+.althea-atlas__badge.is-idle { background: var(--althea-muscle-idle-soft); color: var(--althea-on-surface-muted); }
+.althea-atlas__badge.is-active-low { background: var(--althea-muscle-low-soft); color: var(--althea-muscle-low); }
 .althea-atlas__badge.is-active-mid { background: var(--althea-warning-soft); color: var(--althea-warning); }
-.althea-atlas__badge.is-active-high { background: var(--althea-error-soft); color: var(--althea-error); }
-.althea-atlas__badge.is-idle { background: var(--althea-surface-3); color: var(--althea-on-surface-muted); }
+.althea-atlas__badge.is-active-high { background: var(--althea-muscle-high-soft); color: var(--althea-muscle-high); }
 .althea-atlas__rows { margin: 0; display: grid; gap: 4px; font-size: var(--althea-fs-body-sm); }
 .althea-atlas__rows > div { display: flex; justify-content: space-between; gap: var(--althea-space-3); }
 .althea-atlas__rows dt { color: var(--althea-on-surface-muted); }

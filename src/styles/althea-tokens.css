@@ -103,19 +103,24 @@
   --althea-success: #1B4332;
 
   /* ============ MAPA MUSCULAR ============ */
-  /* Escala del atlas por INTENSIDAD RELATIVA de carga (no por tendencia):
-     bajo = verde · moderado = amarillo · alto = rojo · sin trabajo = gris. */
-  --althea-muscle-low: #3F7A52;      /* verde — intensidad baja */
-  --althea-muscle-mid: #C9A23E;      /* amarillo — intensidad moderada */
-  --althea-muscle-high: #B0524B;     /* rojo — intensidad alta */
-  --althea-muscle-idle: #DCD8CC;     /* gris — sin trabajo */
+  /* Escala del atlas por INTENSIDAD RELATIVA de carga (no por tendencia).
+     El fondo anatómico es rojizo: por eso el rojo queda EXCLUIDO de la escala
+     (contaminaría la lectura) y la alta se marca en azul marino.
+     Orden semántico: sin trabajo (gris) · baja · moderada · alta. */
+  --althea-muscle-idle: #969DA7;     /* gris — sin actividad, sólido y visible */
+  --althea-muscle-low: #1B5E20;      /* verde bosque oscuro — intensidad baja */
+  --althea-muscle-mid: #C9A23E;      /* naranja — intensidad moderada (tono previo) */
+  --althea-muscle-high: #12345A;     /* azul marino — intensidad alta */
   --althea-muscle-outline: #8A8674;
   --althea-muscle-silhouette: #ECE9E1;
-  --althea-muscle-fiber: rgba(46, 43, 34, 0.22);
+  --althea-muscle-fiber: rgba(46, 43, 34, 0.16);
   /* Fondos tenues para insignias de intensidad (mismos tonos, legibles). */
   --althea-success-soft: #E7EFE9;
   --althea-warning-soft: rgba(176, 141, 63, 0.16);
   --althea-error-soft: rgba(176, 82, 75, 0.14);
+  --althea-muscle-low-soft: rgba(27, 94, 32, 0.12);
+  --althea-muscle-high-soft: rgba(18, 52, 90, 0.14);
+  --althea-muscle-idle-soft: rgba(120, 126, 136, 0.16);
 }
 
 /* ============ COLOR — MODO OSCURO (obsidiana) ============ */
@@ -148,17 +153,21 @@
   --althea-error: #C25B5B;
   --althea-success: #2F7A54;
 
-  /* Misma escala que en claro: bajo verde · moderado amarillo · alto rojo. */
-  --althea-muscle-low: #4E9B6C;
+  /* Misma escala que en claro (gris · verde · naranja · azul), con el verde y el
+     azul un punto más claros para no fundirse con la superficie oscura. */
+  --althea-muscle-idle: #969DA7;
+  --althea-muscle-low: #2F7D3A;
   --althea-muscle-mid: #D6C066;
-  --althea-muscle-high: #C25B5B;
-  --althea-muscle-idle: #2A2D27;
+  --althea-muscle-high: #1E4E80;
   --althea-muscle-outline: #6C6F64;
   --althea-muscle-silhouette: #20241F;
   --althea-muscle-fiber: rgba(241, 240, 234, 0.16);
   --althea-success-soft: rgba(78, 155, 108, 0.18);
   --althea-warning-soft: rgba(214, 192, 102, 0.16);
   --althea-error-soft: rgba(194, 91, 91, 0.18);
+  --althea-muscle-low-soft: rgba(47, 125, 58, 0.2);
+  --althea-muscle-high-soft: rgba(30, 78, 128, 0.22);
+  --althea-muscle-idle-soft: rgba(150, 157, 167, 0.2);
 
   --althea-shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.24);
   --althea-shadow-panel-hover: 0 4px 14px rgba(0, 0, 0, 0.4);
