@@ -1,4 +1,5 @@
-import { db } from './db'
+/** Fixture de pruebas (ver nota en `demoData.ts`). */
+import { db } from '@/services/storage/db'
 import { v4 as uuid } from 'uuid'
 
 // Seeder coherente — 4 semanas, 3 días/semana, progresión, sin estados vacíos

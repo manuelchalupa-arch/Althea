@@ -35,7 +35,9 @@ describe('WGER Migración — Instalación nueva', () => {
   })
 
   it('versión de la base de datos es correcta', () => {
-    expect(db.verno).toBe(21)
+    // Debe seguir a `db.ts`. v22 añadió las tablas de feedback
+    // (feedbackThreads / feedbackMessages / feedbackOutbox).
+    expect(db.verno).toBe(23)
   })
 
   it('tablas de vinculación WGER existen', () => {

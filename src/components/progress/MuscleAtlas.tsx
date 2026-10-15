@@ -23,33 +23,34 @@ export type MuscleTrendInput =
 
 export interface MuscleDataPoint {
   muscleId: string;
-  /** Trabajo del período actual (unidad libre: kg de volumen, series, %). */
+  /** Valor de la métrica elegida en el período analizado (volumen kg, series o reps). */
   current: number;
-  /** Trabajo del período anterior, misma unidad. */
+  /** Valor de la misma métrica en el período previo comparable (0 si no hay). */
   previous: number;
   /** Tendencia ya resuelta por quien provee el dato. */
   trend: MuscleTrendInput;
-  /** 0–100. Solo modula la intensidad del relleno; no cambia el color. */
-  activation?: number;
+  /** 0–100. Intensidad relativa del trabajo actual (0 = sin trabajo, 100 = máximo del período). */
+  intensity?: number;
   exercises?: string[];
   /** Unidad a mostrar junto a current/previous (ej. "kg"). */
   unit?: string;
+  /** Series completadas atribuidas a la región en el período. */
+  sets?: number;
+  /** Repeticiones registradas atribuidas a la región en el período. */
+  reps?: number;
+  /** Fechas YYYY-MM-DD con actividad en la región. */
+  days?: string[];
+  /** Métrica que colorea el mapa en esta consulta. */
+  metric?: 'volumen' | 'series' | 'reps';
+  /** Valor de esa métrica para la región (igual a `current`). */
+  metricValue?: number;
 }
 
-type VisualState = 'high' | 'mid' | 'low' | 'idle';
-
-const STATE_OF: Record<MuscleTrendInput, VisualState> = {
-  up: 'high', aumento: 'high',
-  flat: 'mid', estable: 'mid',
-  down: 'low', descenso: 'low',
-  none: 'idle', 'sin-base': 'idle',
-};
-
-const STATE_LABEL: Record<VisualState, string> = {
-  high: 'En aumento',
-  mid: 'Estable',
-  low: 'En descenso',
-  idle: 'Sin datos',
+const STATE_LABEL: Record<MuscleTrendInput, string> = {
+  up: 'En aumento', aumento: 'En aumento',
+  flat: 'Estable', estable: 'Estable',
+  down: 'En descenso', descenso: 'En descenso',
+  none: 'Sin base', 'sin-base': 'Sin base',
 };
 
 export interface MuscleAtlasProps {
@@ -76,29 +77,43 @@ function lookup(region: MuscleRegion, data: Record<string, MuscleDataPoint>): Mu
   return data[region.id] ?? (region.parent ? data[region.parent] : undefined);
 }
 
-function stateOf(point?: MuscleDataPoint): VisualState {
-  return point ? STATE_OF[point.trend] ?? 'idle' : 'idle';
+function visualState(point?: MuscleDataPoint): 'active-high' | 'active-mid' | 'active-low' | 'idle' {
+  if (!point) { return 'idle' }
+  const intensity = point.intensity ?? 0
+  if (intensity === 0) { return 'idle' }
+  if (intensity >= 67) { return 'active-high' }
+  if (intensity >= 34) { return 'active-mid' }
+  return 'active-low'
 }
 
 function fillOpacity(point?: MuscleDataPoint): number {
-  if (!point || point.activation === undefined) {return 1;}
-  const a = Math.max(0, Math.min(point.activation, 100));
-  return 0.6 + 0.4 * (a / 100);
+  if (!point || point.intensity === undefined) { return 1; }
+  const a = Math.max(0, Math.min(point.intensity, 100));
+  return 0.4 + 0.6 * (a / 100);
+}
+
+function intensityLabel(intensity?: number): string {
+  if (!intensity || intensity === 0) { return 'Sin trabajo' }
+  if (intensity >= 67) { return 'Alta' }
+  if (intensity >= 34) { return 'Moderada' }
+  return 'Baja'
 }
 
 function variation(point: MuscleDataPoint): string {
-  if (!point.previous) {return 'Sin base';}
-  const pct = ((point.current - point.previous) / point.previous) * 100;
-  const sign = pct > 0 ? '+' : '';
-  return `${sign}${pct.toFixed(0)}%`;
+  if (!point.previous) { return 'Sin base' }
+  const pct = ((point.current - point.previous) / point.previous) * 100
+  const sign = pct > 0 ? '+' : ''
+  return `${sign}${pct.toFixed(0)}%`
 }
 
 /**
  * MuscleAtlas — atlas muscular frente/espalda.
  * Cada región lleva data-muscle-id; izquierda y derecha comparten id y se
- * resaltan juntas. Estados: hover, focus, selected y color por tendencia
- * (rojo descenso / amarillo estable / verde aumento). Todo el color sale de
- * tokens CSS (--althea-muscle-*), aplicados en althea-components.css.
+ * resaltan juntas. Estados: hover, focus, selected y color por INTENSIDAD de
+ * trabajo registrado en el período (no por tendencia): verde = alta,
+ * amarillo = moderada, rojo = baja, gris = sin trabajo. La tendencia histórica
+ * se informa en el detalle, no en el color. Todo el color sale de tokens CSS
+ * (--althea-muscle-*), aplicados en althea-components.css.
  */
 export function MuscleAtlas({
   view,
@@ -142,7 +157,7 @@ export function MuscleAtlas({
     <g transform={mirrored ? MIRROR_TRANSFORM : undefined} aria-hidden={mirrored || undefined}>
       {regions.map((region) => {
         const point = lookup(region, data);
-        const state = stateOf(point);
+        const state = visualState(point);
         const isSelected = selected === region.id;
         const isHovered = hovered === region.id;
         const cls = [
@@ -160,7 +175,7 @@ export function MuscleAtlas({
             role={mirrored ? undefined : 'button'}
             tabIndex={mirrored ? undefined : 0}
             aria-pressed={mirrored ? undefined : isSelected}
-            aria-label={mirrored ? undefined : `${region.label}, ${STATE_LABEL[state].toLowerCase()}`}
+            aria-label={mirrored ? undefined : `${region.label}, ${intensityLabel(point?.intensity).toLowerCase()}`}
             onMouseEnter={() => setHovered(region.id)}
             onMouseLeave={() => setHovered(null)}
             onFocus={mirrored ? undefined : () => setHovered(region.id)}
@@ -305,25 +320,34 @@ export function MuscleAtlas({
 }
 
 function MuscleDetail({ region, point }: { region: MuscleRegion; point?: MuscleDataPoint }) {
-  const state = stateOf(point);
+  const visual = visualState(point);
+  const hasWork = !!point && (point.intensity ?? 0) > 0;
+  const noBaseline = hasWork && (!point || point.trend === 'sin-base' || point.trend === 'none');
   return (
     <div className="althea-atlas__card">
       <div className="althea-atlas__card-head">
         <strong>{region.label}</strong>
-        <span className={`althea-atlas__badge is-${state}`}>{STATE_LABEL[state]}</span>
+        <span className={`althea-atlas__badge is-${visual}`}>{intensityLabel(point?.intensity)}</span>
       </div>
-      {!point ? (
-        <p className="althea-atlas__hint">Sin datos en este período.</p>
+      {!hasWork ? (
+        <p className="althea-atlas__hint">Sin trabajo en este período.</p>
       ) : (
         <dl className="althea-atlas__rows">
-          <div><dt>Trabajo actual</dt><dd>{point.current.toLocaleString('es-AR')}{point.unit ? ` ${point.unit}` : ''}</dd></div>
-          <div><dt>Semana anterior</dt><dd>{point.previous.toLocaleString('es-AR')}{point.unit ? ` ${point.unit}` : ''}</dd></div>
-          <div><dt>Variación</dt><dd>{variation(point)}</dd></div>
-          <div><dt>Tendencia</dt><dd>{STATE_LABEL[state]}</dd></div>
-          {point.exercises && point.exercises.length > 0 && (
+          <div><dt>Intensidad</dt><dd>{intensityLabel(point!.intensity)}</dd></div>
+          <div><dt>Trabajo actual</dt><dd>{point!.current.toLocaleString('es-AR')}{point!.unit ? ` ${point!.unit}` : ''}</dd></div>
+          <div><dt>Series</dt><dd>{(point!.sets ?? 0).toLocaleString('es-AR')}</dd></div>
+          <div><dt>Repeticiones</dt><dd>{(point!.reps ?? 0).toLocaleString('es-AR')}</dd></div>
+          <div><dt>Días con actividad</dt><dd>{(point!.days ?? []).length}</dd></div>
+          <div><dt>Periodo anterior</dt><dd>{point!.previous.toLocaleString('es-AR')}{point!.unit ? ` ${point!.unit}` : ''}</dd></div>
+          <div><dt>Variación</dt><dd>{variation(point!)}</dd></div>
+          <div><dt>Tendencia</dt><dd>{STATE_LABEL[point!.trend]}</dd></div>
+          {noBaseline && (
+            <div className="althea-atlas__note"><dt>Base histórica</dt><dd>Sin período previo comparable.</dd></div>
+          )}
+          {point!.exercises && point!.exercises.length > 0 && (
             <div className="althea-atlas__exercises">
               <dt>Ejercicios que lo activaron</dt>
-              <dd>{point.exercises.slice(0, 4).join(' · ')}</dd>
+              <dd>{point!.exercises.slice(0, 4).join(' · ')}</dd>
             </div>
           )}
         </dl>

@@ -54,11 +54,14 @@ describe('Progreso — mapa corporal + resumen pequeño + informe PDF', () => {
     expect(screen.queryByTestId('progreso-recovery')).not.toBeInTheDocument()
     expect(screen.queryByTestId('progreso-nutrition')).not.toBeInTheDocument()
 
-    // Máximo 2 selectores: acá queda solo el de período (chips)
+    // Máximo 2 selectores: modalidad del mapa + métrica que lo colorea.
     expect(screen.getAllByRole('group', { name: 'Período del informe' })).toHaveLength(1)
+    expect(screen.getByRole('radiogroup', { name: 'Métrica del mapa' })).toBeInTheDocument()
     expect(screen.queryByLabelText('Parte muscular')).not.toBeInTheDocument()
     expect(document.querySelectorAll('[data-testid^="metric-"]')).toHaveLength(0)
-    expect(screen.queryByTestId('progreso-chart')).not.toBeInTheDocument()
+
+    // La gráfica temporal del mapa existe y acompaña al atlas.
+    expect(screen.getByTestId('atlas-chart')).toBeInTheDocument()
 
     // Nada de seguimiento ni acciones ajenas dentro de Progreso
     expect(screen.queryByRole('heading', { name: 'Seguimiento' })).not.toBeInTheDocument()

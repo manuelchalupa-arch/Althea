@@ -41,7 +41,7 @@ Consumidores en el código:
 ## Flujo del proxy (implementado en `worker/`)
 
 1. El frontend configura únicamente `VITE_GROQ_PROXY_URL=https://…workers.dev`.
-2. El worker (`worker/src/index.js` + `worker/wrangler.toml`) recibe las llamadas, agrega
+2. El worker (`worker/src/index.js` + `worker/wrangler.staging.toml` / `worker/wrangler.production.toml`) recibe las llamadas, agrega
    `Authorization: Bearer <GROQ_API_KEY>` desde su secret
    (`npx wrangler secret put GROQ_API_KEY`) y reenvía a
    `https://api.groq.com/openai/v1/chat/completions` (soporta streaming).

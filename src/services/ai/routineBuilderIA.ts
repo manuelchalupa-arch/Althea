@@ -1,3 +1,4 @@
+import { EXERCISE_GYM_BASE as GYM_BASE } from '@/services/exerciseGymBase'
 import { db } from '@/services/storage/db'
 import { METHOD_COACHING_STYLES } from '@/services/ai/coachPersonality'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
@@ -224,7 +225,7 @@ INSTRUCCIONES:
 3. Calcula cargas según historial. Si no hay historial, pon 0.
 4. Genera ${wants.daysPerWeek} días de entrenamiento.
 5. weekMap: 7 valores (Dom=0,Lun=1,Mar=2,Mié=3,Jue=4,Vie=5,Sáb=6). null=descanso, N=número de día.
-6. gifUrl siempre: https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/api/es/exercises/{muscle}/{slug}.gif
+6. gifUrl siempre: ${GYM_BASE}/api/es/exercises/{muscle}/{slug}.gif
 
 Responde SOLO con este JSON (sin explicaciones, sin markdown):
 {
@@ -248,7 +249,7 @@ Responde SOLO con este JSON (sin explicaciones, sin markdown):
         "sets": 4,
         "reps": 10,
         "weight": 0,
-        "gifUrl": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/api/es/exercises/pectorals/barbell-bench-press.gif"
+        "gifUrl": "${GYM_BASE}/api/es/exercises/pectorals/barbell-bench-press.gif"
       }
     ],
     "2": []

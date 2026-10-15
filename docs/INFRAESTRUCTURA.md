@@ -321,12 +321,17 @@ verificados en el código y no supuestos:
 > `connect-src` cuesta una línea; quitar uno que la app usa es una rotura
 > silenciosa en producción.
 
-**Worker en `connect-src`:** se incluye `https://*.workers.dev` porque es el
-host real del proxy mientras no exista dominio propio. Si en producción el
-Worker pasa a un dominio custom, hay que **añadir ese dominio a la CSP** o el
-Coach remoto fallará en producción (el fallback local seguiría funcionando).
-Es un cambio de una línea, deliberadamente no hardcodeado a un dominio
-inexistente.
+**Worker en `connect-src` (SEC-001):** antes era `https://*.workers.dev`, que
+dejaba que la PWA pudiera hablar con **cualquier** Worker de terceros. Ahora es
+`https://althea-proxy-*.workers.dev`: sigue cubriendo los dos Workers del
+proyecto (`althea-proxy-staging` y `althea-proxy-production`) sin depender del
+subdominio de la cuenta, que cambia entre entornos, pero ya no abre la CSP a
+Workers ajenos.
+
+Consecuencia práctica: el nombre del Worker debe empezar por `althea-proxy-`.
+Si alguna vez el proxy pasa a un dominio custom, hay que **añadir ese dominio a
+la CSP** o el Coach remoto fallará en producción (el fallback local seguiría
+funcionando). Es un cambio de una línea.
 
 `Cache-Control`: `index.html`, `sw.js` y `workbox-*.js` → `no-store`
 (necesario para que el SW controle la actualización PWA);

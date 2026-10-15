@@ -79,7 +79,7 @@ describe('MuscleAtlas — figura del perfil', () => {
             previous: 1000,
             trend: 'aumento',
             unit: 'kg',
-            activation: 80,
+            intensity: 80,
             exercises: ['Press de banca'],
           },
         }}
@@ -87,7 +87,7 @@ describe('MuscleAtlas — figura del perfil', () => {
     )
     // Un dato cargado en el padre colorea sus subdivisiones.
     expect(
-      document.querySelector('[data-muscle-id="pectoralis-major-sternal"]')?.classList.contains('is-high'),
+      document.querySelector('[data-muscle-id="pectoralis-major-sternal"]')?.classList.contains('is-active-high'),
     ).toBe(true)
     // Al seleccionarla, el detalle muestra el trabajo y los ejercicios.
     fireEvent.click(screen.getByRole('button', { name: /Pectoral mayor · porción esternal/ }))

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { db } from '@/services/storage/db'
+import { MUSCLE_LIBRARY_GROUPS, sortMuscleLibraryExercises } from '@/data/muscleLibraryConfig'
 import * as Gym from '@/services/exerciseGym'
 import { effectiveBreakdown, listCustomExercises } from '@/services/training/customExercises'
 import { exerciseMatches } from '@/services/training/exerciseSearch'
@@ -99,9 +100,28 @@ export default function Biblioteca(){
       // Ejercicios Wger importados (solo lectura desde Dexie)
       const wgerExercises = await listWgerExercises().catch(()=>[])
       const wgerAsExercise = wgerExercises.map(wgerToExercise)
-      const merged = [...(res.exercises || []), ...wgerAsExercise, ...customs].sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
-      setExercises(merged)
-      if(key==='__all__') { setTotalCount(merged.length) }
+const merged: Gym.Exercise[] = [
+  ...(res.exercises || []),
+  ...wgerAsExercise,
+  ...customs,
+]
+
+const seen = new Set<string>()
+
+const unique = merged.filter(ex => {
+  const id = String(ex.id ?? '').trim()
+  if (!id || seen.has(id)) {return false}
+  seen.add(id)
+  return true
+})
+
+const ordered = sortMuscleLibraryExercises(unique, key)
+
+setExercises(ordered)
+
+if (key === '__all__') {
+  setTotalCount(ordered.length)
+}
       Gym.cacheSet(cacheKey, res.exercises)
     }catch(e:any){
       const cached = Gym.cacheGet(cacheKey)
@@ -171,6 +191,36 @@ export default function Biblioteca(){
         <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Biblioteca</h1>
         <AltheaBadge variant="outline"><Globe size={12}/> {totalCount ?? `…`} ejercicios</AltheaBadge>
       </div>
+      <section aria-label="Grupos musculares" className="space-y-3">
+        <h2 className="text-sm font-semibold text-on-surface">
+          Elegí un grupo muscular
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+          {MUSCLE_LIBRARY_GROUPS.map(group => (
+            <button
+              key={group.id}
+              type="button"
+              aria-pressed={selectedKey === group.id}
+              onClick={() => {
+                setTab('muscle')
+                void load('muscle', group.id)
+              }}
+              className={[
+                'min-h-24 rounded-xl border p-3 text-left',
+                'transition-colors',
+                selectedKey === group.id ? 'border-primary bg-primary/10' : 'border-outline-variant bg-surface-container',
+              ].join(' ')}
+            >
+              <span className="block text-sm font-semibold text-on-surface">
+                {group.label}
+              </span>
+              <span className="mt-1 block text-xs text-on-surface-variant">
+                {group.description}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
       <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Consulta técnica y % muscular — sin copiar.</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

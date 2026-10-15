@@ -56,7 +56,7 @@ describe('configuredWgerWorkerBase', () => {
 })
 
 describe('CSP de hosting permite el Worker WGER', () => {
-  it('connect-src incluye https://*.workers.dev', () => {
+  it('connect-src incluye el patrón acotado del Worker', () => {
     const firebaseJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'firebase.json'), 'utf8'))
     const headers = firebaseJson?.hosting?.headers ?? []
     const cspHeader = headers
@@ -64,7 +64,12 @@ describe('CSP de hosting permite el Worker WGER', () => {
       .find((h: { key: string }) => h.key.toLowerCase() === 'content-security-policy')
 
     expect(cspHeader, 'firebase.json debe declarar Content-Security-Policy').toBeTruthy()
-    expect(cspHeader.value).toContain('https://*.workers.dev')
+    // SEC-001: el comodín abierto `https://*.workers.dev` daba a la PWA acceso a
+    // cualquier Worker de terceros. Ahora está acotado a los Workers del proxy
+    // (`althea-proxy-staging` / `althea-proxy-production`).
+    expect(cspHeader.value).toContain('https://althea-proxy-*.workers.dev')
     expect(cspHeader.value).toContain('connect-src')
+    // La regresión que se quiere evitar: volver al comodín abierto.
+    expect(cspHeader.value).not.toContain('https://*.workers.dev')
   })
 })

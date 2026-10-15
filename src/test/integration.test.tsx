@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { db } from '@/services/storage/db'
 import { exportJSON, importJSON, exportCSV } from '@/services/storage/export'
 import { recoveryScore, recoveryIndex } from '@/utils/calc'
-import { seedCoherentHistory } from '@/services/storage/seeder'
+import { seedCoherentHistory } from '@/test/fixtures/seeder'
 import { v4 as uuid } from 'uuid'
 import type { CycleConfig } from '@/utils/cycle'
 

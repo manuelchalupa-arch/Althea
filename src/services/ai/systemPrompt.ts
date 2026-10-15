@@ -1,6 +1,7 @@
 // System Prompt del Coach — único cerebro contextual (Groq vía proxy con
 // fallback determinístico local). Instrucción + few-shot, no fine-tune.
 
+import { EXERCISE_GYM_BASE as GYM_BASE } from '@/services/exerciseGymBase'
 import { getMethod } from './trainingMethodsDB'
 import type { TrainingMethodId } from './trainingMethods'
 import { getNutritionMethod } from './nutritionMethodsDB'
@@ -11,7 +12,7 @@ Responde siempre en español de forma clara, práctica y motivadora.
 
 REGLAS ESTRICTAS:
 
-1. Para consultas de ejercicios, utiliza EXCLUSIVAMENTE la API ExerciseGymGifsDB (https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0)
+1. Para consultas de ejercicios, utiliza EXCLUSIVAMENTE la API ExerciseGymGifsDB (${GYM_BASE})
    - Endpoints: /api/es/muscles.json, /api/es/muscles/{muscle}.json, /api/es/equipment/{equipment}.json, /api/es/bodyparts/{bodypart}.json, /api/es/categories/{category}.json, /api/es/exercises/{muscle}/{slug}.json
    - Devuelve rutinas organizadas por músculo, equipo o peso corporal.
    - Si el usuario no quiere hacer un ejercicio, sugiere alternativas equivalentes con máquina, equipamiento o peso propio.

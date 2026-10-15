@@ -3,39 +3,72 @@ import SemanticIcon from '../components/ui/SemanticIcon';
 import { db } from '@/services/storage/db'
 import { fetchPartMap } from '@/services/exerciseGym'
 import { isDateInPeriod, loadFatigueBalance } from '@/services/training/metrics'
+import type { AnalysisPeriod } from '@/services/training/metrics'
 import { countTrainingDays, countTrainingDaysInPeriod } from '@/services/training/sessionMetrics'
 import { unifiedAllCompletedSets } from '@/services/history'
 import { buildMuscleResolver, type MuscleResolver } from '@/services/training/muscleAttribution'
-import { weeklyGroupComparison } from '@/services/training/muscleGroups'
-import { getCanonicalCycle } from '@/services/planning/cycleVersions'
 import { todayKey, dayKeyOffset, toDateKey, daysBetween } from '@/utils/dates'
 import { MuscleAtlas } from '@/components/progress/MuscleAtlas'
 import { buildAtlasMuscleData } from '@/components/progress/muscleAtlasData'
 import { buildRegionContributions } from '@/components/progress/muscleContributions'
+import {
+  ATLAS_METRICS,
+  ATLAS_MODES,
+  binSeries,
+  chartValueOf,
+  dailySeries,
+  filterByRange,
+  hasPriorHistory,
+  resolveAtlasWindow,
+  summarizeRows,
+  ROUTINE_WINDOW_DAYS,
+  type AtlasMetric,
+  type AtlasMode,
+  type AtlasSetRow,
+} from '@/components/progress/atlasQuery'
+import { PeriodChart } from '@/components/progress/PeriodChart'
+import { buildRoutineCompliance, type ComplianceSession } from '@/services/training/routineCompliance'
+import { getAllRoutines, getActiveRoutineId, type RoutineData } from '@/services/storage/routineStore'
 import { normalizeSex, type SexCode } from '@/utils/sex'
 import { AltheaCard, AltheaCardHeader, AltheaButton, AltheaKPICard, AltheaEmpty, AltheaLoading } from '@/components/althea'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import type { RecoveryCheck, UserProfile } from '@/types'
 
-type Period = '7' | '30' | '90' | '365' | 'all' | 'custom'
-type UnifiedLog = { exerciseId: string; weight: number; reps: number; createdAt: string }
+type UnifiedLog = {
+  exerciseId: string
+  weight: number
+  reps: number
+  createdAt: string
+  sessionId?: string
+  setNumber?: number
+}
 
-const PERIOD_OPTIONS: [Period, string][] = [
-  ['7', '7 días'],
-  ['30', '30 días'],
-  ['90', '90 días'],
-  ['365', 'Año'],
-  ['all', 'Todo'],
-  ['custom', 'Personalizado'],
-]
+type SessionRow = {
+  sessionId: string
+  calendarDate: string
+  sessionStatus: string
+  routineId?: string | null
+  actualDay?: number | null
+  startedAt?: string
+  completedAt?: string
+  endedAt?: string
+  isDemo?: boolean
+}
 
-const PERIOD_LABELS: Record<Period, string> = {
-  '7': 'Últimos 7 días',
-  '30': 'Últimos 30 días',
-  '90': 'Últimos 90 días',
-  '365': 'Último año',
-  'all': 'Todo el historial',
-  'custom': 'Rango personalizado',
+// El resto de la página (KPIs, informe, reporte) trabaja con el `AnalysisPeriod`
+// clásico; cada modalidad del mapa se proyecta a uno: semana→7d, treinta/rutina→30d.
+const PERIOD_FOR_MODE: Record<AtlasMode, AnalysisPeriod> = {
+  semana: '7',
+  treinta: '30',
+  rutina: '30',
+  personalizada: 'custom',
+}
+
+const MODE_LABELS: Record<AtlasMode, string> = {
+  semana: 'Últimos 7 días',
+  treinta: 'Últimos 30 días',
+  rutina: 'Rutina completa',
+  personalizada: 'Rango personalizado',
 }
 
 function shiftDays(dateStr: string, delta: number): string {
@@ -48,7 +81,7 @@ interface VolumeBucket { from: string; to: string; label: string; volume: number
 // del período. Nunca inventa valores: las celdas sin series quedan en 0.
 function buildVolumeBuckets(
   logs: UnifiedLog[],
-  period: Period,
+  period: AnalysisPeriod,
   opts: { customStart: string; customEnd: string },
 ): { buckets: VolumeBucket[]; unit: 'día' | 'semana' | 'mes' } {
   const today = todayKey()
@@ -89,7 +122,7 @@ function buildVolumeBuckets(
   return { buckets, unit: unit }
 }
 
-function periodDayCount(period: Period, customStart: string, customEnd: string): number {
+function periodDayCount(period: AnalysisPeriod, customStart: string, customEnd: string): number {
   if (period === 'all') { return 0 }
   const today = todayKey()
   if (period === 'custom') {
@@ -182,10 +215,16 @@ function InlineEmpty({ icon, text, sub }: { icon: string; text: string; sub?: st
 
 export default function Progresos() {
   const [allLogs, setAllLogs] = useState<UnifiedLog[]>([])
-  const [trainingSessions, setTrainingSessions] = useState<Array<{ calendarDate: string; sessionStatus: string; isDemo?: boolean }>>([])
+  const [trainingSessions, setTrainingSessions] = useState<SessionRow[]>([])
   const [bodies, setBodies] = useState<Array<{ localDate: string; weightKg?: number; bodyFatPct?: number; muscleMassKg?: number; chestCm?: number; waistCm?: number; hipCm?: number }>>([])
   const [recovery, setRecovery] = useState<RecoveryCheck[]>([])
-  const [period, setPeriod] = useState<Period>('30')
+  const [routines, setRoutines] = useState<RoutineData[]>([])
+  const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null)
+  const [routineSel, setRoutineSel] = useState('')
+  // Modalidad del mapa muscular: semana (7d) · 30 días · rutina · personalizada.
+  const [mode, setMode] = useState<AtlasMode>('treinta')
+  // Métrica que colorea el mapa: volumen (kg) · series · reps.
+  const [metric, setMetric] = useState<AtlasMetric>('volumen')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [resolver, setResolver] = useState<MuscleResolver | null>(null)
@@ -196,7 +235,9 @@ export default function Progresos() {
   const [error, setError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
     const [reportOpen, setReportOpen] = useState(false)
-    const [cycle, setCycle] = useState<Awaited<ReturnType<typeof getCanonicalCycle>> | null>(null)
+
+  // Proyección de la modalidad al período clásico que usan KPIs, informe y reporte.
+  const period: AnalysisPeriod = PERIOD_FOR_MODE[mode]
 
   const isMobile = useIsMobile()
   useEffect(() => {
@@ -210,18 +251,20 @@ export default function Progresos() {
       db.recoveryChecks.toArray().catch(() => []),
       fetchPartMap().catch(() => ({} as Record<string, string>)),
       db.userProfile.toArray().catch(() => []),
+      getAllRoutines().catch(() => [] as RoutineData[]),
+      getActiveRoutineId().catch(() => null as string | null),
     ])
-      .then(async ([unifiedLogs, officialSessions, bodyRows, recRows, baseMap, profileRows]) => {
+      .then(async ([unifiedLogs, officialSessions, bodyRows, recRows, baseMap, profileRows, routineRows, activeRid]) => {
         const { overlayCustomParts } = await import('@/services/training/customExercises')
         const partMap = await overlayCustomParts({ ...(baseMap as Record<string, string>) })
         const res = await buildMuscleResolver(partMap as Record<string, string>).catch(() => null)
-        const cycleCfg = await getCanonicalCycle((profileRows[0] as UserProfile | undefined) ?? null).catch(() => null)
         const profile = (profileRows[0] as UserProfile | undefined) ?? null
-        const allOfficial = officialSessions as unknown as Array<{ calendarDate: string; sessionStatus: import('@/services/training/domain').SessionStatus; isDemo?: boolean }>
+        const allOfficial = officialSessions as unknown as SessionRow[]
         if (!alive) { return }
         setAllLogs(unifiedLogs as unknown as UnifiedLog[])
         setResolver(res)
-        setCycle(cycleCfg)
+        setRoutines(routineRows)
+        setActiveRoutineId(activeRid)
         setTrainingSessions(allOfficial)
         setBodies(bodyRows.slice().sort((a, b) => String(a.localDate || '').localeCompare(String(b.localDate || ''))))
         setRecovery(recRows.slice().sort((a, b) => String(a.localDate || '').localeCompare(String(b.localDate || ''))))
@@ -321,55 +364,138 @@ export default function Progresos() {
     })
   }, [buckets, periodDays, periodSessionDays, totalSessionDays, period, weightStats, recLatest, week7])
 
-  // ─── Mapa muscular: comparación por semana de ciclo ───
-  // Usa TODO el historial (no el filtro de período): la comparación es entre
-  // semanas del ciclo, por lo que recortarla por "últimos 30 días" la rompería.
-  const muscleItemsByDate = useMemo(
-    () => allLogs.map((l) => ({ date: toDateKey(String(l.createdAt || '')), exerciseId: l.exerciseId, volume: Number(l.weight) * Number(l.reps) }))
-      .filter((i) => !!i.date),
-    [allLogs],
-  )
-  const muscleComparison = useMemo(
-    () => weeklyGroupComparison(muscleItemsByDate, resolver?.muscleOf ?? (() => null), cycle ?? { startDate: todayKey(), trainingDays: [], weekMap: [null, null, null, null, null, null, null] }, todayKey()),
-    [muscleItemsByDate, resolver, cycle],
-  )
-
+  // ─── Mapa muscular: UNA sola consulta por modalidad ──────────────────────
+  // Misma fuente de verdad que el resto de la página (`allLogs`: series
+  // completadas reales), filtrada por la ventana resuelta para la modalidad.
+  // La ventana previa (igual duración, inmediata anterior) alimenta la
+  // tendencia por región. Nada depende de la semana del ciclo.
   const hasAnyData = allLogs.length > 0 || bodies.length > 0 || recovery.length > 0 || totalSessionDays > 0
   const hasPeriodData = periodLogs.length > 0 || periodBodies.length > 0 || periodRec.length > 0
 
-  const [vista, setVista] = useState<'front' | 'back'>('front')
+  const winResult = useMemo(
+    () => resolveAtlasWindow(mode, { customStart, customEnd }),
+    [mode, customStart, customEnd],
+  )
+  const win = 'error' in winResult ? null : winResult
+  const winError = 'error' in winResult ? winResult.error : null
 
-  // Contribuciones por región de la MISMA ventana que `current`, para que el
-  // detalle del atlas ("ejercicios que lo activaron") corresponda al trabajo
-  // que muestra. Incluye los músculos secundarios con su ponderación.
+  const toAtlasRow = (l: UnifiedLog): AtlasSetRow => ({
+    date: toDateKey(String(l.createdAt || '')),
+    exerciseId: l.exerciseId,
+    volume: Number(l.weight) * Number(l.reps),
+    reps: Number(l.reps) > 0 ? Number(l.reps) : 0,
+    sessionId: l.sessionId,
+  })
+
+  const windowRows = useMemo(
+    () => (win ? filterByRange(allLogs, (l) => toDateKey(String(l.createdAt || '')), win.start, win.end).map(toAtlasRow) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allLogs, win?.start, win?.end],
+  )
+  const prevRows = useMemo(
+    () => (win ? filterByRange(allLogs, (l) => toDateKey(String(l.createdAt || '')), win.prevStart, win.prevEnd).map(toAtlasRow) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allLogs, win?.prevStart, win?.prevEnd],
+  )
+  const earliestDate = useMemo(() => {
+    let min = ''
+    for (const l of allLogs) {
+      const d = toDateKey(String(l.createdAt || ''))
+      if (d && (!min || d < min)) { min = d }
+    }
+    return min
+  }, [allLogs])
+  const hasPrior = !!win && (prevRows.length > 0 || (!!earliestDate && hasPriorHistory([earliestDate], win.prevStart)))
+
+  const muscleOf = resolver?.muscleOf ?? (() => null)
+  const nameOf = resolver?.nameOf ?? (() => null)
+
+  // Rutina seleccionada (modalidad Rutina): por defecto la activa.
+  const routine = useMemo(() => {
+    if (routines.length === 0) { return null }
+    return routines.find((r) => r.id === (routineSel || activeRoutineId)) ?? routines[0] ?? null
+  }, [routines, routineSel, activeRoutineId])
+
+  const compliance = useMemo(() => {
+    if (mode !== 'rutina' || !routine || !win) { return null }
+    return buildRoutineCompliance({
+      routine,
+      sessions: trainingSessions as ComplianceSession[],
+      sets: windowRows.map((r) => ({ sessionId: r.sessionId ?? '', exerciseId: r.exerciseId })),
+      windowStart: win.start,
+      windowEnd: win.end,
+    })
+  }, [mode, routine, trainingSessions, windowRows, win])
+
+  // Filas del mapa: en modalidad Rutina solo cuentan las sesiones trazadas a
+  // la rutina (por routineId, nunca por nombre). El resto se informa aparte.
+  const scopedRows = useMemo(() => {
+    if (mode !== 'rutina' || !compliance) { return windowRows }
+    const ids = new Set(compliance.sessionIds)
+    return windowRows.filter((r) => r.sessionId && ids.has(r.sessionId))
+  }, [mode, compliance, windowRows])
+  const scopedPrevRows = useMemo(() => {
+    if (mode !== 'rutina' || !compliance) { return prevRows }
+    const ids = new Set(compliance.sessionIds)
+    return prevRows.filter((r) => r.sessionId && ids.has(r.sessionId))
+  }, [mode, compliance, prevRows])
+
   const contributions = useMemo(() => {
-    const window = muscleComparison.current
-    const items = window
-      ? muscleItemsByDate.filter(i => i.date >= window.start && i.date <= window.end)
-      : []
-    return buildRegionContributions(
-      items,
-      resolver?.muscleOf ?? (() => null),
-      resolver?.nameOf ?? (() => null),
-    )
-  }, [muscleComparison, muscleItemsByDate, resolver])
+    const items = scopedRows.map((r) => ({ date: r.date, exerciseId: r.exerciseId, volume: r.volume, reps: r.reps }))
+    return buildRegionContributions(items, muscleOf, nameOf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopedRows, resolver])
+  const prevContributions = useMemo(() => {
+    if (!hasPrior) { return null }
+    const items = scopedPrevRows.map((r) => ({ date: r.date, exerciseId: r.exerciseId, volume: r.volume, reps: r.reps }))
+    return buildRegionContributions(items, muscleOf, nameOf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopedPrevRows, hasPrior, resolver])
 
   const muscleData = useMemo(
     () => buildAtlasMuscleData({
       enabled: hasAnyData,
-      currentByGroup: muscleComparison.current?.byGroup ?? {},
-      previousByGroup: muscleComparison.weeks[muscleComparison.weeks.length - 1]?.byGroup ?? {},
-      contributions,
+      current: contributions,
+      previous: prevContributions,
+      metric,
     }),
-    [hasAnyData, muscleComparison, contributions],
+    [hasAnyData, contributions, prevContributions, metric],
   )
 
+  const totals = useMemo(() => summarizeRows(scopedRows, nameOf),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scopedRows, resolver])
+  const prevTotals = useMemo(() => summarizeRows(scopedPrevRows, nameOf),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scopedPrevRows, resolver])
+  const volumeDeltaPct = prevTotals.volume > 0 && totals.volume > 0
+    ? Math.round(((totals.volume - prevTotals.volume) / prevTotals.volume) * 100)
+    : null
+
+  const chartPoints = useMemo(
+    () => (win ? binSeries(dailySeries(scopedRows, win.days)) : []),
+    [scopedRows, win],
+  )
+  const chartMax = useMemo(
+    () => chartPoints.reduce((a, p) => Math.max(a, chartValueOf(p, metric)), 0),
+    [chartPoints, metric],
+  )
+
+  const [vista, setVista] = useState<'front' | 'back'>('front')
+
   // ─── BLOQUE 7: informe periódico (conclusiones + descarga) ───
+  const showAllHistory = () => {
+    if (earliestDate) {
+      setCustomStart(earliestDate)
+      setCustomEnd(todayKey())
+      setMode('personalizada')
+    }
+  }
   const reportBlock = () => (
     <AltheaCard className="p-4" data-testid="progreso-report">
       <AltheaCardHeader
         title="Informe del período"
-        subtitle={`${PERIOD_LABELS[period]} · conclusiones derivadas solo de tus registros`}
+        subtitle={`${MODE_LABELS[mode]} · conclusiones derivadas solo de tus registros`}
         icon="insights"
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
@@ -420,29 +546,27 @@ export default function Progresos() {
           </p>
         </div>
 
-        <div className="flex gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Período del informe">
-          {PERIOD_OPTIONS.map(([v, label]) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setPeriod(v)}
-              aria-pressed={period === v}
-              data-testid={`period-${v}`}
-              className={`shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${period === v ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {period === 'custom' && (
-          <div className="grid grid-cols-2 gap-2">
-            <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Desde
-              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
-            </label>
-            <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Hasta
-              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
-            </label>
-          </div>
+        <AtlasModeChips
+          mode={mode}
+          onMode={setMode}
+          wrapClass="flex gap-1.5 overflow-x-auto pb-1"
+          chipClass={(active) => `shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
+        />
+        <AtlasMetricControl
+          metric={metric}
+          onMetric={setMetric}
+          wrapClass="flex gap-1.5 items-center overflow-x-auto pb-1"
+          btnClass={(active) => `shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
+        />
+        {mode === 'personalizada' && (
+          <AtlasCustomRange
+            start={customStart}
+            end={customEnd}
+            onStart={setCustomStart}
+            onEnd={setCustomEnd}
+            error={winError}
+            inputClass="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]"
+          />
         )}
 
         {loading ? (
@@ -465,16 +589,31 @@ export default function Progresos() {
               icon="calendar_month"
               title="Sin registros en este período"
               description={`No hay sesiones, mediciones ni check-ins entre ${customStart ? `el ${customStart}` : ''} y el ${customEnd || 'día de hoy'}. Probá otro período o ampliá el rango.`}
-              action={<AltheaButton size="lg" className="min-h-[48px]" onClick={() => setPeriod('all')}>Ver todo el historial</AltheaButton>}
+              action={<AltheaButton size="lg" className="min-h-[48px]" onClick={showAllHistory}>Ver todo el historial</AltheaButton>}
             />
           </AltheaCard>
         ) : (
           <>
-            <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3" data-testid="muscle-atlas">
-              <h2 className="font-headline-lg text-lg font-semibold text-on-surface tracking-tight">Mapa muscular</h2>
-              <p className="font-body-sm text-[11px] text-on-surface-variant mb-3">Trabajo por grupo · ciclo iniciado el {cycle?.startDate ?? todayKey()}</p>
-              <MuscleAtlas view={vista} onViewChange={setVista} data={muscleData} width={260} detail="below" sex={atlasSex} />
-            </section>
+            <AtlasSection
+              win={win}
+              winError={winError}
+              mode={mode}
+              routine={routine}
+              routines={routines}
+              onRoutine={setRoutineSel}
+              routineSel={routineSel || activeRoutineId || ''}
+              compliance={compliance}
+              totals={totals}
+              volumeDeltaPct={volumeDeltaPct}
+              hasPrior={hasPrior}
+              chartPoints={chartPoints}
+              chartMax={chartMax}
+              metric={metric}
+              vista={vista}
+              onVista={setVista}
+              muscleData={muscleData}
+              atlasSex={atlasSex}
+            />
 
             <div className="grid grid-cols-1 gap-2">
               <AltheaKPICard
@@ -528,7 +667,7 @@ export default function Progresos() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg flex items-center gap-2">
             <span className="font-label-caps text-[10px] text-outline uppercase">Período:</span>
-            <span className="font-label-md text-[14px] text-primary font-semibold">{PERIOD_LABELS[period]}</span>
+            <span className="font-label-md text-[14px] text-primary font-semibold">{MODE_LABELS[mode]}</span>
           </div>
           <div className="px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg flex items-center gap-2">
             <span className="font-label-caps text-[10px] text-outline uppercase">Registros:</span>
@@ -536,30 +675,28 @@ export default function Progresos() {
           </div>
         </div>
 </section>
-      {/* ─── Selector de período ─── */}
-      <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Período del informe">
-        {PERIOD_OPTIONS.map(([v, label]) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setPeriod(v)}
-            aria-pressed={period === v}
-            data-testid={`period-${v}`}
-            className={`px-3 py-1.5 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${period === v ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {period === 'custom' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Desde
-            <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
-          </label>
-          <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Hasta
-            <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
-          </label>
-        </div>
+      {/* ─── Selector de modalidad del mapa ─── */}
+      <AtlasModeChips
+        mode={mode}
+        onMode={setMode}
+        wrapClass="flex gap-1.5 flex-wrap"
+        chipClass={(active) => `px-3 py-1.5 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
+      />
+      <AtlasMetricControl
+        metric={metric}
+        onMetric={setMetric}
+        wrapClass="flex gap-1.5 flex-wrap items-center"
+        btnClass={(active) => `px-3 py-1.5 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
+      />
+      {mode === 'personalizada' && (
+        <AtlasCustomRange
+          start={customStart}
+          end={customEnd}
+          onStart={setCustomStart}
+          onEnd={setCustomEnd}
+          error={winError}
+          inputClass="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]"
+        />
       )}
       {loading ? (
         <AltheaLoading lines={4} />
@@ -581,30 +718,33 @@ export default function Progresos() {
             icon="calendar_month"
             title="Sin registros en este período"
             description={`No hay sesiones, mediciones ni check-ins entre ${customStart ? `el ${customStart}` : ''} y el ${customEnd || 'día de hoy'}. Probá otro período o ampliá el rango.`}
-            action={<AltheaButton size="lg" className="min-h-[48px]" onClick={() => setPeriod('all')}>Ver todo el historial</AltheaButton>}
+            action={<AltheaButton size="lg" className="min-h-[48px]" onClick={showAllHistory}>Ver todo el historial</AltheaButton>}
           />
         </AltheaCard>
       ) : (
         <>
           {/* ─── BLOQUE 1 · atlas muscular (protagonista, ancho completo) ─── */}
-          <section className="rounded-2xl border border-outline-variant/40 bg-surface-container-low p-4 md:p-5" data-testid="muscle-atlas">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-              <div>
-                <h2 className="font-headline-lg text-xl font-semibold text-on-surface tracking-tight">Mapa muscular</h2>
-                <p className="font-body-sm text-xs text-on-surface-variant">
-                  Trabajo por grupo · ciclo iniciado el {cycle?.startDate ?? todayKey()}
-                </p>
-              </div>
-            </div>
-            <MuscleAtlas
-              view={vista}
-              onViewChange={setVista}
-              data={muscleData}
-              width={280}
-              detail="below"
-              sex={atlasSex}
-            />
-          </section>
+          <AtlasSection
+            win={win}
+            winError={winError}
+            mode={mode}
+            routine={routine}
+            routines={routines}
+            onRoutine={setRoutineSel}
+            routineSel={routineSel || activeRoutineId || ''}
+            compliance={compliance}
+            totals={totals}
+            volumeDeltaPct={volumeDeltaPct}
+            hasPrior={hasPrior}
+            chartPoints={chartPoints}
+            chartMax={chartMax}
+            metric={metric}
+            vista={vista}
+            onVista={setVista}
+            muscleData={muscleData}
+            atlasSex={atlasSex}
+            wide
+          />
 
           {/* ─── BLOQUES 2, 3 y 5 · días, peso y volumen comparable ─── */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -647,5 +787,243 @@ function ReportModalLazy(props: { open: boolean; onClose: () => void }) {
     <Suspense fallback={null}>
       <ReportModalLazyInner {...props} />
     </Suspense>
+  )
+}
+
+// ─── Sub-componentes del mapa muscular (compartidos mobile/desktop) ─────────
+
+/** Selector de modalidad del mapa. Es EL selector de período de la página. */
+function AtlasModeChips({ mode, onMode, wrapClass, chipClass }: {
+  mode: AtlasMode
+  onMode: (m: AtlasMode) => void
+  wrapClass: string
+  chipClass: (active: boolean) => string
+}) {
+  return (
+    <div className={wrapClass} role="group" aria-label="Período del informe">
+      {ATLAS_MODES.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          onClick={() => onMode(m.id)}
+          aria-pressed={mode === m.id}
+          data-testid={m.testid}
+          title={m.description}
+          className={chipClass(mode === m.id)}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Métrica que colorea el mapa: volumen (kg) · series · reps. */
+function AtlasMetricControl({ metric, onMetric, wrapClass, btnClass }: {
+  metric: AtlasMetric
+  onMetric: (m: AtlasMetric) => void
+  wrapClass: string
+  btnClass: (active: boolean) => string
+}) {
+  return (
+    <div className={wrapClass} role="radiogroup" aria-label="Métrica del mapa">
+      <span className="atlas-metric__label">Color por:</span>
+      {ATLAS_METRICS.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          role="radio"
+          aria-checked={metric === m.id}
+          data-testid={m.testid}
+          onClick={() => onMetric(m.id)}
+          className={btnClass(metric === m.id)}
+        >
+          {m.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function AtlasCustomRange({ start, end, onStart, onEnd, error, inputClass }: {
+  start: string
+  end: string
+  onStart: (v: string) => void
+  onEnd: (v: string) => void
+  error: string | null
+  inputClass: string
+}) {
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Desde
+          <input type="date" value={start} onChange={e => onStart(e.target.value)} className={inputClass} />
+        </label>
+        <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Hasta
+          <input type="date" value={end} onChange={e => onEnd(e.target.value)} className={inputClass} />
+        </label>
+      </div>
+      {error && <p className="atlas-error" role="alert">{error}</p>}
+    </div>
+  )
+}
+
+/** Leyenda textual: el color nunca es la única vía de interpretación. */
+function AtlasLegend({ metricLabel }: { metricLabel: string }) {
+  return (
+    <div className="atlas-legend" aria-label="Leyenda de intensidad">
+      <span className="atlas-legend__item"><i className="atlas-legend__sw is-high" aria-hidden="true" />Alta</span>
+      <span className="atlas-legend__item"><i className="atlas-legend__sw is-mid" aria-hidden="true" />Moderada</span>
+      <span className="atlas-legend__item"><i className="atlas-legend__sw is-low" aria-hidden="true" />Baja</span>
+      <span className="atlas-legend__item"><i className="atlas-legend__sw is-idle" aria-hidden="true" />Sin trabajo</span>
+      <p className="atlas-legend__note">
+        Intensidad relativa al período y a la métrica elegida ({metricLabel}). La tendencia histórica se muestra en el detalle de cada músculo.
+      </p>
+    </div>
+  )
+}
+
+/** Indicadores del intervalo: mismos datos que la gráfica y el mapa. */
+function AtlasSummary({ totals, volumeDeltaPct, hasPrior, windowLabel }: {
+  totals: { sets: number; reps: number; volume: number; exercises: number; days: number }
+  volumeDeltaPct: number | null
+  hasPrior: boolean
+  windowLabel: string
+}) {
+  const stats: Array<[string, string, string]> = [
+    ['Días con entrenamiento', String(totals.days), windowLabel],
+    ['Ejercicios', String(totals.exercises), `${totals.sets} series · ${totals.reps.toLocaleString('es-AR')} reps`],
+    ['Volumen', `${Math.round(totals.volume).toLocaleString('es-AR')} kg`,
+      volumeDeltaPct !== null
+        ? `${volumeDeltaPct >= 0 ? '+' : ''}${volumeDeltaPct}% vs período anterior`
+        : (hasPrior ? 'Sin volumen previo comparable' : 'Sin período previo con datos')],
+  ]
+  return (
+    <dl className="atlas-stats">
+      {stats.map(([label, value, sub]) => (
+        <div key={label} className="atlas-stats__item">
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+          <dd className="atlas-stats__sub">{sub}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function fmtMin(sec: number | null): string {
+  if (sec === null || !(sec > 0)) { return 'no disponible' }
+  const m = Math.round(sec / 60)
+  return m < 1 ? 'menos de 1 min' : `${m} min`
+}
+
+function pctText(done: number, planned: number, pct: number | null): string {
+  return `${done}/${planned}${pct === null ? ' · sin plan' : ` · ${pct}%`}`
+}
+
+/** Sección completa del mapa: ventana, rutina, gráfica, indicadores, mapa y leyenda. */
+function AtlasSection(props: {
+  win: { start: string; end: string; label: string } | null
+  winError: string | null
+  mode: AtlasMode
+  routine: RoutineData | null
+  routines: RoutineData[]
+  onRoutine: (id: string) => void
+  routineSel: string
+  compliance: import('@/services/training/routineCompliance').RoutineCompliance | null
+  totals: { sets: number; reps: number; volume: number; exercises: number; days: number }
+  volumeDeltaPct: number | null
+  hasPrior: boolean
+  chartPoints: import('@/components/progress/atlasQuery').BinnedPoint[]
+  chartMax: number
+  metric: AtlasMetric
+  vista: 'front' | 'back'
+  onVista: (v: 'front' | 'back') => void
+  muscleData: Record<string, import('@/components/progress/MuscleAtlas').MuscleDataPoint>
+  atlasSex: import('@/utils/sex').SexCode
+  wide?: boolean
+}) {
+  const {
+    win, winError, mode, routine, routines, onRoutine, routineSel, compliance,
+    totals, volumeDeltaPct, hasPrior, chartPoints, chartMax, metric,
+    vista, onVista, muscleData, atlasSex, wide,
+  } = props
+  const metricMeta = ATLAS_METRICS.find((m) => m.id === metric) ?? ATLAS_METRICS[0]
+  const subtitle = !win
+    ? 'Resolvé el rango para ver el mapa.'
+    : mode === 'rutina' && routine
+      ? `${routine.name} · ${win.start.slice(5)} – ${win.end.slice(5)} (últimos ${ROUTINE_WINDOW_DAYS} días)`
+      : win.label
+  return (
+    <section className={wide ? 'rounded-2xl border border-outline-variant/40 bg-surface-container-low p-4 md:p-5' : 'rounded-xl border border-outline-variant/40 bg-surface-container p-3'} data-testid="muscle-atlas">
+      <h2 className={wide ? 'font-headline-lg text-xl font-semibold text-on-surface tracking-tight' : 'font-headline-lg text-lg font-semibold text-on-surface tracking-tight'}>Mapa muscular</h2>
+      <p className={wide ? 'font-body-sm text-xs text-on-surface-variant mb-3' : 'font-body-sm text-[11px] text-on-surface-variant mb-3'}>{subtitle}</p>
+
+      {mode === 'rutina' && (
+        <div className="atlas-routine">
+          {routines.length === 0 ? (
+            <AltheaEmpty
+              icon="rutinas"
+              title="Sin rutina para medir cumplimiento"
+              description="Creá una rutina en la pestaña Rutina: el cumplimiento se calcula contra lo planificado en ella."
+            />
+          ) : (
+            <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rutina
+              <select
+                value={routineSel}
+                onChange={(e) => onRoutine(e.target.value)}
+                aria-label="Rutina a evaluar"
+                className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]"
+              >
+                {routines.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+      )}
+
+      {winError && <p className="atlas-error" role="alert">{winError}</p>}
+
+      {win && !winError && (
+        <>
+          {totals.sets === 0 && (
+            <AltheaEmpty
+              icon="fitness_center"
+              title="Sin trabajo en este intervalo"
+              description="No hay series completadas en el rango elegido. Cambiá de modalidad o ampliá el rango."
+            />
+          )}
+          <PeriodChart points={chartPoints} metric={metric} max={chartMax} unit={metricMeta.unit} />
+          <AtlasSummary totals={totals} volumeDeltaPct={volumeDeltaPct} hasPrior={hasPrior} windowLabel={win.label} />
+          {mode === 'rutina' && compliance && (
+            <div className="atlas-compliance" data-testid="atlas-compliance">
+              <h3 className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">Cumplimiento de la rutina</h3>
+              {!compliance.hasPlan ? (
+                <p className="font-body-sm text-[12px] text-on-surface-variant">La rutina no tiene ejercicios planificados.</p>
+              ) : (
+                <dl className="atlas-stats">
+                  <div className="atlas-stats__item"><dt>Series</dt><dd>{pctText(compliance.seriesDone, compliance.seriesPlanned, compliance.seriesPct)}</dd><dd className="atlas-stats__sub">completadas / planificadas</dd></div>
+                  <div className="atlas-stats__item"><dt>Ejercicios</dt><dd>{pctText(compliance.exDone, compliance.exPlanned, compliance.exPct)}</dd><dd className="atlas-stats__sub">completados / planificados</dd></div>
+                  <div className="atlas-stats__item"><dt>Días</dt><dd>{pctText(compliance.daysDone, compliance.daysPlanned, compliance.daysPct)}</dd><dd className="atlas-stats__sub">realizados / programados</dd></div>
+                  <div className="atlas-stats__item"><dt>Sesiones</dt><dd>{compliance.sessionsDone} hechas</dd><dd className="atlas-stats__sub">{compliance.sessionsPending} día(s) sin cobertura</dd></div>
+                  <div className="atlas-stats__item"><dt>Carga ejecutada</dt><dd>{Math.round(totals.volume).toLocaleString('es-AR')} kg</dd><dd className="atlas-stats__sub">{totals.sets} series · {totals.reps.toLocaleString('es-AR')} reps</dd></div>
+                  <div className="atlas-stats__item"><dt>Duración registrada</dt><dd>{fmtMin(compliance.durationSec)}</dd><dd className="atlas-stats__sub">suma de sesiones con inicio y fin</dd></div>
+                </dl>
+              )}
+              {compliance.untrackedSets > 0 && (
+                <p className="font-body-sm text-[12px] text-on-surface-variant">
+                  {compliance.untrackedSets} serie(s) del intervalo no pertenecen a esta rutina (otra rutina o sin trazabilidad) y no cuentan para el cumplimiento.
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      <MuscleAtlas view={vista} onViewChange={onVista} data={muscleData} width={wide ? 280 : 260} detail="below" sex={atlasSex} />
+      <AtlasLegend metricLabel={metricMeta.label} />
+    </section>
   )
 }

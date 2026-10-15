@@ -20,12 +20,12 @@ const MAP: Record<string, Attr> = {
 const muscleOf = (id: string) => MAP[id] ?? null
 const nameOf = (id: string) => (id === 'press' ? 'Press de banca' : id === 'crunch' ? 'Crunch' : null)
 
-const items = (list: Array<[string, string, number]>): ContributionItem[] =>
-  list.map(([date, exerciseId, volume]) => ({ date, exerciseId, volume }))
+const items = (list: Array<[string, string, number, number?]>): ContributionItem[] =>
+  list.map(([date, exerciseId, volume, reps]) => ({ date, exerciseId, volume, reps: reps ?? 10 }))
 
 describe('buildRegionContributions', () => {
   it('reparte el volumen por rol con los pesos del resto del repo', () => {
-    const r = buildRegionContributions(items([['2026-01-05', 'press', 1000]]), muscleOf, nameOf)
+    const r = buildRegionContributions(items([['2026-01-05', 'press', 1000, 8]]), muscleOf, nameOf)
     // primary ×1
     expect(r.byRegion['pectoralis-major'].volume).toBe(1000)
     // secondary[0] ×0.5
@@ -35,6 +35,27 @@ describe('buildRegionContributions', () => {
     expect(r.byRegion['lateral-deltoid'].volume).toBe(250)
     expect(r.byRegion['posterior-deltoid'].volume).toBe(250)
     expect(r.maxVolume).toBe(1000)
+    // sets/reps/days: conteo directo de la serie (sin ponderar)
+    expect(r.byRegion['pectoralis-major'].sets).toBe(1)
+    expect(r.byRegion['pectoralis-major'].reps).toBe(8)
+    expect(r.byRegion['pectoralis-major'].days).toEqual(['2026-01-05'])
+    expect(r.byRegion['anterior-deltoid'].sets).toBe(1)
+    expect(r.byRegion['anterior-deltoid'].reps).toBe(8)
+  })
+
+  it('acumula sets, reps y días de varias series', () => {
+    const r = buildRegionContributions(
+      items([
+        ['2026-01-05', 'press', 200, 8],
+        ['2026-01-05', 'press', 200, 8],
+        ['2026-01-06', 'press', 200, 10],
+      ]),
+      muscleOf, nameOf,
+    )
+    expect(r.byRegion['pectoralis-major'].sets).toBe(3)
+    expect(r.byRegion['pectoralis-major'].reps).toBe(26)
+    expect(r.byRegion['pectoralis-major'].days).toEqual(['2026-01-05', '2026-01-06'])
+    expect(r.byRegion['pectoralis-major'].volume).toBe(600)
   })
 
   it('lista los ejercicios por volumen desc', () => {

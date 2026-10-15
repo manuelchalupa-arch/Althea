@@ -15,10 +15,22 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         // Las cuatro figuras del atlas muscular SÍ se pre-cachean: son los
         // recursos de `src/assets/muscle-atlas/` que el mapa de Progreso
-        // renderiza para M/F (ver atlasFigure.ts). Suman ~170 KB y hacen que
-        // el atlas funcione sin conexión. No estaban en uso cuando se añadió
-        // el exclusion anterior.
-        globIgnores: ['**/*.wasm'],
+        // renderiza para M/F (ver atlasFigure.ts). Suman ~1.4 MB y hacen que
+        // el atlas funcione sin conexión. No están en WebP, así que no se
+        // pueden excluir como los fallbacks de marca.
+        //
+        // PERF-001: `AltheaAvatar` sirve WebP con `<picture>` y usa el PNG solo
+        // como fallback para navegadores sin soporte. Los tres PNG grandes se
+        // descargaban en cada instalación de la PWA sin necesidad (1,59 MB).
+        // Se excluyen del precache; el PNG pequeño `althea-header-96.png`
+        // sí se conserva porque `reportPdf.ts` lo hace fetch() para el informe,
+        // igual que `apple-touch-icon-180.png` e `althea-avatar-128.png`.
+        globIgnores: [
+          '**/*.wasm',
+          '**/althea-hero-1000.png',
+          '**/althea-empty-state-700.png',
+          '**/althea-coach-480.png',
+        ],
         maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
         runtimeCaching: [
           {

@@ -4,8 +4,9 @@
 // Unica fuente a usar según instrucción del usuario — wger y seeds locales deprecados
 
 import { fetchWithRetry } from './apiUtils'
+import { EXERCISE_GYM_BASE } from './exerciseGymBase'
 
-export const BASE = 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0'
+export const BASE = EXERCISE_GYM_BASE
 export const LANG = 'es' // siempre español
 
 export type MuscleShare = { name: string; pct: number; role: 'Principal' | 'Secundario' }

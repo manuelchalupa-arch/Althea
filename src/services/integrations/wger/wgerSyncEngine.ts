@@ -1362,23 +1362,12 @@ async function syncMeasurementsIncremental(
 }
 
 // ─── Reconexión / Offline (FASE 27) ───
-
-let wasOffline = false
-
-export function initOfflineSync(): void {
-  if (typeof window === 'undefined') {return}
-
-  window.addEventListener('online', async () => {
-    if (wasOffline) {
-      wasOffline = false
-      await syncAltheaToWger()
-    }
-  })
-
-  window.addEventListener('offline', () => {
-    wasOffline = true
-  })
-}
+//
+// `initOfflineSync` se retiró (DEAD-006): registraba listeners online/offline que
+// ejecutaban `syncAltheaToWger()` al reconectar, sin ningún llamador. Autoenviar
+// el historial de entrenamiento a Wger al recuperar conexión es una decisión de
+// producto y de privacidad, no un dead-code que se pueda activar por omisión: la
+// sincronización queda bajo control explícito desde Perfil → panel de Wger.
 
 export async function retryWithReconnection(fn: () => Promise<SyncResult>, maxRetries = 3): Promise<SyncResult> {
   let lastResult: SyncResult = { success: false, synced: 0, failed: 0, conflicts: 0, errors: ['Not attempted'] }

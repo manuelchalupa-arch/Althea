@@ -9,6 +9,8 @@ export const GROUP_MUSCLES: Record<string, string[]> = {
   hombros: ['delts', 'traps'],
   brazos: ['biceps', 'triceps', 'forearms'],
   abdomen: ['abs', 'core'],
+  core: ['abs', 'core'],
+  'hombros-y-brasos': ['delts', 'biceps', 'triceps', 'forearms'],
 }
 
 export function musclesForGroup(group: string): string[] {

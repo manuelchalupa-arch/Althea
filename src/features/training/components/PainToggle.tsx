@@ -178,8 +178,9 @@ export function PainToggle({ exerciseId, exerciseName, initialLevel = 'none', on
           </div>
 
           <div>
-            <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Notas (opcional)</label>
+            <label htmlFor="pt-notas" className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Notas (opcional)</label>
             <textarea
+                id="pt-notas"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Tipo de molestia, cuándo aparece, qué la alivia..."

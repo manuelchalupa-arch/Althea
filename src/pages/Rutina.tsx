@@ -11,7 +11,6 @@ import { generateRoutineWithAI, isRoutineAIAvailable, type GeneratedRoutine, typ
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { getActiveVersion, getCanonicalMethodId, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
-import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import * as Gym from '@/services/exerciseGym'
 import { PeriodizationEditor } from '@/components/recovery/PeriodizationEditor'
 import { MAX_ROUTINES } from '@/services/storage/routineStore'

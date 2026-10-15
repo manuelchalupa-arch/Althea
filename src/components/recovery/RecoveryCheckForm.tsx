@@ -146,7 +146,7 @@ const save = async () => {
         {RECOVERY_FIELDS.map(([k, label]) => (
           <label key={k} className="block">
             <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>{label}</span><span>{vals[k as keyof RecoveryCheckValues]}/10</span></div>
-            <input type="range" min={1} max={10} value={Number(vals[k as keyof RecoveryCheckValues])} onChange={e => update(k, Number(e.target.value))} className="w-full accent-primary" />
+            <input type="range" min={1} max={10} aria-label={label} value={Number(vals[k as keyof RecoveryCheckValues])} onChange={e => update(k, Number(e.target.value))} className="w-full accent-primary" />
           </label>
         ))}
         <label className="block font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Zona del dolor
@@ -159,11 +159,11 @@ const save = async () => {
           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Sueño</div>
           <label className="block">
             <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Horas dormidas</span><span>{vals.sleepHours ?? 7} h</span></div>
-            <input type="range" min={0} max={12} step={0.5} value={vals.sleepHours ?? 7} onChange={e => update('sleepHours', Number(e.target.value))} className="w-full accent-primary" />
+            <input type="range" min={0} max={12} step={0.5} aria-label="Horas dormidas" value={vals.sleepHours ?? 7} onChange={e => update('sleepHours', Number(e.target.value))} className="w-full accent-primary" />
           </label>
           <label className="block">
             <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>Calidad del sueño</span><span>{vals.sleepQuality ?? 7}/10</span></div>
-            <input type="range" min={1} max={10} value={vals.sleepQuality ?? 7} onChange={e => update('sleepQuality', Number(e.target.value))} className="w-full accent-primary" />
+            <input type="range" min={1} max={10} aria-label="Calidad del sueño" value={vals.sleepQuality ?? 7} onChange={e => update('sleepQuality', Number(e.target.value))} className="w-full accent-primary" />
           </label>
         </div>
         <button onClick={save} disabled={hydration !== 'hydrated'} className="w-full py-3 min-h-[48px] rounded-xl bg-primary text-on-primary font-medium disabled:opacity-50">{saving ? 'Guardando…' : 'Guardar recuperación'}</button>

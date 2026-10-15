@@ -25,12 +25,15 @@ const Nutricion = lazy(() => import('@/pages/Nutricion'))
 const Recuperacion = lazy(() => import('@/pages/Recuperacion'))
 const Perfil = lazy(() => import('@/pages/Perfil'))
 const Login = lazy(() => import('@/pages/Login'))
+const Feedback = lazy(() => import('@/pages/Feedback'))
+const AdminFeedback = lazy(() => import('@/pages/AdminFeedback'))
 // El chat es un FAB que está montado siempre, pero arrastra detrás todo el
 // subsistema de IA (chatService → unifiedPipeline → systemPrompt → contextBuilder
 // → *MethodsDB), que son ~150 KB de JS que el primer render no usa. Con import
 // estático esa cadena entra en el chunk inicial. Se difiere: el FAB aparece
 // tras cargar su chunk, sin bloquear el resto de la app.
 const ChatWidget = lazy(() => import('@/components/chat/ChatWidget'))
+import FeedbackFab from '@/components/feedback/FeedbackFab'
 
 // Fallback component for lazy loading
 function PageLoader() {
@@ -211,6 +214,8 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
       <div className="shell-content relative z-10 max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-6 pt-4 pb-24 md:pb-10 transition-[margin-left] duration-200">
       <Routes>
         <Route path="/login" element={<LazyPage><Login onDone={() => navigate('/', { replace: true })} /></LazyPage>} />
+        <Route path="/feedback" element={<LazyPage><Feedback /></LazyPage>} />
+        <Route path="/admin/feedback" element={<LazyPage><AdminFeedback /></LazyPage>} />
         <Route path="/" element={<LazyPage><Inicio /></LazyPage>} />
         <Route path="/entrenar" element={<LazyPage><EntrenarErrorBoundary componentName="Entrenar"><Entrenar /></EntrenarErrorBoundary></LazyPage>} />
         <Route path="/progresos" element={<LazyPage><ProgresoErrorBoundary componentName="Progreso"><Progresos /></ProgresoErrorBoundary></LazyPage>} />
@@ -233,6 +238,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
           <ChatWidget/>
         </Suspense>
       )}
+      {!hideNav && <FeedbackFab/>}
       {updateReady && <div style={{ top: 'calc(var(--safe-top) + 0.5rem)' }} className="fixed left-2 right-2 z-50 bg-tertiary text-on-tertiary text-sm p-3 rounded-xl text-center shadow-al-md">Nueva versión disponible — recargá la app</div>}
       <OnlineBanner/>
       </RequiredActionGate>

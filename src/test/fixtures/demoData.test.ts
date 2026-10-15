@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { db } from './db'
+import { db } from '@/services/storage/db'
 import { loadDemoData, deleteDemoData, getDemoStatus, isDemoEntity } from './demoData'
-import { exportJSON, exportCSV, importJSON, generateImportPreview } from './exportImport'
+import { exportJSON, exportCSV, importJSON, generateImportPreview } from '@/services/storage/exportImport'
 import { seedCoherentHistory } from './seeder'
 import type { CycleConfig } from '@/utils/cycle'
-import type { RoutineData } from './routineStore'
+import type { RoutineData } from '@/services/storage/routineStore'
 import type { TrainingSession } from '@/services/training/domain'
 
 describe('T028 — Demo Data + Export/Import', () => {

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import SemanticIcon from '../ui/SemanticIcon';
-import { useLocation, Link } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { X, Send, Trash2, Bot, User } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
@@ -65,6 +65,18 @@ export default function ChatWidget() {
     window.addEventListener('althea:open-chat', openChat)
     return () => window.removeEventListener('althea:open-chat', openChat)
   }, [])
+
+  // El acceso flotante al Coach (avatar + Link a /coach) se retiró: ese lugar
+  // ahora lo ocupa el botón F de Feedback (FeedbackFab, montado en App). El
+  // chat en sí no cambia: mismo FAB, mismo historial, mismos servicios.
+  //
+  // Se publica el estado "abierto" en <html data-chat-open> para que el FAB de
+  // Feedback pueda ocultarse y no superponerse al panel del chat.
+  useEffect(() => {
+    const el = document.documentElement
+    if (open) { el.setAttribute('data-chat-open', '1') } else { el.removeAttribute('data-chat-open') }
+    return () => { el.removeAttribute('data-chat-open') }
+  }, [open])
 
   // Refresh usage every 10s while open
   useEffect(() => {
@@ -180,16 +192,6 @@ export default function ChatWidget() {
       >
         {open ? <X size={20} /> : <IconChatBubble className="w-6 h-6" />}
       </button>
-      {!open && (
-        <Link
-          to="/coach"
-          aria-label="Abrir Coach"
-          title="Coach"
-          className="fixed z-50 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 fab-coach-stack right-4 w-12 h-12 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high md:right-24"
-        >
-          <AltheaAvatar context="coach" size={40} alt="Abrir Coach" />
-        </Link>
-      )}
 
       {/* Chat overlay */}
       {open && (

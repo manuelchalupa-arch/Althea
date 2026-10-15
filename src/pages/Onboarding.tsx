@@ -405,8 +405,8 @@ export default function Onboarding(){
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sexo</label>
-                <div className="flex gap-1 mt-1">
+                <div id="ob-sexo" className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sexo</div>
+                <div className="flex gap-1 mt-1" role="group" aria-labelledby="ob-sexo">
                   {(['M', 'F', 'X'] as const).map(s => (
                     <button key={s} type="button" onClick={() => setSexo(s)} className={`flex-1 py-2.5 rounded-lg border font-body-sm text-xs capitalize ${sexo === s ? 'bg-primary border-primary text-on-primary font-bold' : 'bg-surface-container-low/90 border-outline-variant text-on-surface'}`}>{SEX_LABEL[s]}</button>
                   ))}

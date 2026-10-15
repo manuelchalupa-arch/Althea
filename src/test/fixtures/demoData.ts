@@ -1,7 +1,12 @@
-import { db } from './db'
+/**
+ * Fixture de pruebas. No forma parte de la app: solo lo usan los tests de
+ * integración (`demoData.test.ts`, `src/test/integration.test.tsx`) para
+ * levantar un historial coherente y verificar export/import.
+ */
+import { db } from '@/services/storage/db'
 import { v4 as uuid } from 'uuid'
 import type { TrainingSession, SessionExercise, SetRecord, SessionEvent, NegativeSet, ExerciseObservation } from '@/services/training/domain'
-import type { RoutineData } from './routineStore'
+import type { RoutineData } from '@/services/storage/routineStore'
 import type { RecoveryCheck, HydrationLog, BodyMeasurement } from '@/types'
 import type { CycleConfig } from '@/utils/cycle'
 

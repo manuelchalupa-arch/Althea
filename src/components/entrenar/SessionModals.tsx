@@ -307,10 +307,10 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
 
         <div className="rounded bg-surface-container border border-outline-variant p-3 space-y-3">
           <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider">Encuesta rápida</div>
-          <div>
-            <label className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">¿Cómo estuvo la sesión?</label>
-            <div className="flex gap-2">
-              {[{ v:2, label:'Fácil' },{ v:3, label:'Normal' },{ v:4, label:'Difícil' }].map(({ v, label })=>(
+<div>
+          <div id="sw-valoracion" className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">¿Cómo estuvo la sesión?</div>
+          <div className="flex gap-2" role="group" aria-labelledby="sw-valoracion">
+          {[{ v:2, label:'Fácil' },{ v:3, label:'Normal' },{ v:4, label:'Difícil' }].map(({ v, label })=>(
                 <button key={v} onClick={()=> setSurvey('sessionRating', v)}
                   className={`flex-1 py-2 rounded border transition text-sm font-medium ${Number(finishSurvey.sessionRating)===v ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
                   {label}
@@ -318,10 +318,10 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
               ))}
             </div>
           </div>
-          <div>
-            <label className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">¿Dolor muscular?</label>
-            <div className="flex gap-1.5">
-              {[{ v:0, label:'No' },{ v:1, label:'Sí' }].map(({ v, label })=>(
+<div>
+          <div id="sw-dolor" className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">¿Dolor muscular?</div>
+          <div className="flex gap-1.5" role="group" aria-labelledby="sw-dolor">
+          {[{ v:0, label:'No' },{ v:1, label:'Sí' }].map(({ v, label })=>(
                 <button key={v} onClick={()=> setSurvey('pain', v)}
                   className={`flex-1 py-1.5 rounded border transition text-sm font-medium ${Number(finishSurvey.pain)===v ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
                   {label}
@@ -332,15 +332,15 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
           {finishSurvey.pain === 1 && (
             <>
               <div>
-                <label className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">Zona del dolor</label>
-                <select value={finishSurvey.painZone || ''} onChange={e=> setSurvey('painZone', e.target.value)} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
+                <label htmlFor="sw-zona-dolor" className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">Zona del dolor</label>
+                <select id="sw-zona-dolor" value={finishSurvey.painZone || ''} onChange={e=> setSurvey('painZone', e.target.value)} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
                   <option value="">Seleccionar zona</option>
                   {['Hombros','Pecho','Espalda','Brazos','Abdomen','Glúteos','Piernas','Rodillas','Lumbar','Cuello','Otro'].map((z)=><option key={z} value={z.toLowerCase()}>{z}</option>)}
                 </select>
               </div>
               <div>
-                <label className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">Detalle del dolor</label>
-                <textarea value={finishSurvey.painDetail || ''} onChange={e=> setSurvey('painDetail', e.target.value)} placeholder="Descripción (opcional)" rows={2} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+                <label htmlFor="sw-detalle-dolor" className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">Detalle del dolor</label>
+                <textarea id="sw-detalle-dolor" value={finishSurvey.painDetail || ''} onChange={e=> setSurvey('painDetail', e.target.value)} placeholder="Descripción (opcional)" rows={2} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
               </div>
             </>
           )}

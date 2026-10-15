@@ -1,9 +1,133 @@
 rules_version = '2';
 
-// Althea: cada usuario accede SOLO a su subárbol users/{uid}.
+// Althea: cada usuario accede SOLO a su subárbol users/{uid).
 // Sin autenticación no hay lectura ni escritura. Sin excepciones.
+//
+// Feedback (003): colección top-level feedbackThreads con subcolecciones
+// messages e internalNotes. La autorización administrativa es una lista de UIDs
+// en el documento admins/uids, gestionada EXCLUSIVAMENTE desde Firebase
+// Console: los clientes no pueden crearlo, modificarlo ni eliminarlo (las reglas
+// de escritura están en false). Ningún mecanismo de admin se basa en variables
+// de frontend, correos declarados en cliente ni rutas ocultas.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Admin autorizado: el UID debe figurar en admins/uids. Si el documento no
+    // existe o no contiene el UID, la get() falla y la función es false.
+    function isFeedbackAdmin() {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/admins/uids).data.uids;
+    }
+
+    function threadPath(threadId) {
+      return /databases/$(database)/documents/feedbackThreads/$(threadId);
+    }
+
+    // getAfter: permite validar el hilo padre aunque se cree en el MISMO batch
+    // que el primer mensaje (get() no ve escrituras del lote en curso).
+    function parentOwner(threadId) {
+      return getAfter(threadPath(threadId)).data.ownerId;
+    }
+
+    // ── Lista de administradores ──────────────────────────────────────────
+    match /admins/uids {
+      // Autoconsulta defensiva: solo un UID ya listado puede leer el documento.
+      allow get: if signedIn() && request.auth.uid in resource.data.uids;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // ── Conversaciones de feedback ────────────────────────────────────────
+    match /feedbackThreads/{threadId} {
+
+      allow get: if signedIn()
+        && (resource.data.ownerId == request.auth.uid || isFeedbackAdmin());
+
+      // El cliente dueño SIEMPRE consulta con where('ownerId','==', uid).
+      allow list: if signedIn()
+        && (resource.data.ownerId == request.auth.uid || isFeedbackAdmin());
+
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.category in ['error', 'duda', 'propuesta', 'otro']
+        && request.resource.data.status == 'pendiente'
+        && request.resource.data.subject is string
+        && request.resource.data.subject.size() <= 120
+        && request.resource.data.messageCount == 1
+        && request.resource.data.unreadForOwner == 0
+        && request.resource.data.unreadForAdmin == 1;
+
+      allow update: if signedIn() && (
+        // Administrador: puede actualizar estado, contadores y metadatos.
+        isFeedbackAdmin()
+        // Dueño: solo metadatos de actividad/lectura. Jamás estado, categoría,
+        // asunto, propiedad ni borrado.
+        || (
+          resource.data.ownerId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'updatedAt', 'lastActivityAt', 'lastMessagePreview',
+            'lastMessageAuthorRole', 'messageCount',
+            'unreadForOwner', 'unreadForAdmin'
+          ])
+          && request.resource.data.unreadForOwner == 0
+        )
+      );
+
+      allow delete: if false;
+
+      // ── Mensajes ────────────────────────────────────────────────────────
+      match /messages/{messageId} {
+
+        allow get: if signedIn()
+          && (resource.data.ownerId == request.auth.uid || isFeedbackAdmin());
+
+        // El dueño lista con where('ownerId','==', uid); el admin sin filtro.
+        allow list: if signedIn()
+          && (resource.data.ownerId == request.auth.uid || isFeedbackAdmin());
+
+        allow create: if signedIn()
+          && request.resource.data.threadId == threadId
+          && request.resource.data.ownerId == parentOwner(threadId)
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && (
+            (request.resource.data.authorRole == 'user'
+              && parentOwner(threadId) == request.auth.uid)
+            || (request.resource.data.authorRole == 'admin'
+              && isFeedbackAdmin())
+          );
+
+        // Mensajes inmutables salvo el flag de lectura del propio lector.
+        allow update: if signedIn() && (
+          (isFeedbackAdmin()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['readByAdmin']))
+          || (resource.data.ownerId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['readByOwner']))
+        );
+
+        allow delete: if isFeedbackAdmin();
+      }
+
+      // ── Notas internas (solo administración) ────────────────────────────
+      // Ninguna cuenta normal puede leer ni escribir aquí: ni siquiera el dueño
+      // del hilo. Nunca se envían al usuario.
+      match /internalNotes/{noteId} {
+        allow get, list: if isFeedbackAdmin();
+        allow create: if isFeedbackAdmin()
+          && request.resource.data.threadId == threadId
+          && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if isFeedbackAdmin();
+      }
+    }
+
     match /users/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }

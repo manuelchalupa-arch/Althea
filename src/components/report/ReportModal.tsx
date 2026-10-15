@@ -144,7 +144,7 @@ className="w-full mt-1 bg-surface-container border border-outline-variant rounde
                   data-testid={`report-section-${s.id}`}
                   className={`flex items-start gap-3 p-3 min-h-[52px] rounded-lg border cursor-pointer ${sections.includes(s.id) ? 'bg-primary/10 border-primary/30' : 'bg-surface-container border-outline-variant/40'}`}
                 >
-                  <input type="checkbox" checked={sections.includes(s.id)} onChange={() => toggle(s.id as SectionId)} className="mt-0.5" />
+                  <input type="checkbox" aria-label={`Incluir la sección ${s.label}`} checked={sections.includes(s.id)} onChange={() => toggle(s.id as SectionId)} className="mt-0.5" />
                   <div className="min-w-0">
                     <div className="font-label-caps text-[11px] font-semibold uppercase tracking-wider text-on-surface">{s.label}</div>
                     <div className="font-body-sm text-[11px] text-on-surface-variant">{s.desc}</div>

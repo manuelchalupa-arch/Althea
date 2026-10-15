@@ -45,7 +45,11 @@ describe('D — /entrenar solo muestra sesión activa (fuente de verdad)', () =>
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/entrenar" element={withEntrenar ? <Entrenar /> : null} />
-          <Route path="/inicio" element={<div data-testid="inicio-screen">Inicio</div>} />
+          <Route path="/" element={<div data-testid="inicio-screen">Inicio</div>} />
+          {/* ERR-001: sin este comodín, una redirección a una ruta inexistente
+              (como el antiguo "/inicio") caería en pantalla vacía y el test
+              seguiría pasando por accidente. */}
+          <Route path="*" element={<div data-testid="unknown-route">ruta desconocida</div>} />
         </Routes>
         <LocationSpy />
       </MemoryRouter>,
@@ -62,22 +66,23 @@ describe('D — /entrenar solo muestra sesión activa (fuente de verdad)', () =>
 
   afterEach(() => { while (mounted.length) mounted.pop()!() })
 
-  it('sin sesión activa: /entrenar redirige a /inicio y NO crea sesiones', async () => {
+  it('sin sesión activa: /entrenar redirige a la raíz y NO crea sesiones', async () => {
     await seedTrainingDay()
     renderIn('/entrenar')
     await waitFor(() => {
       expect(screen.getByTestId('inicio-screen')).toBeInTheDocument()
     }, { timeout: 15000 })
-    expect(screen.getByTestId('loc').textContent).toBe('/inicio')
+    expect(screen.getByTestId('loc').textContent).toBe('/')
+    expect(screen.queryByTestId('unknown-route')).not.toBeInTheDocument()
     expect(await db.trainingSessions.count()).toBe(0)
   }, 30000)
 
   it('la CTA de Inicio crea la sesión (READY) y navega a /entrenar', async () => {
     await seedTrainingDay()
     const view = render(
-      <MemoryRouter initialEntries={['/inicio']}>
+      <MemoryRouter initialEntries={['/']}>
         <Routes>
-          <Route path="/inicio" element={<Inicio />} />
+          <Route path="/" element={<Inicio />} />
           <Route path="/entrenar" element={<div data-testid="entrenar-screen">Entrenar</div>} />
         </Routes>
         <LocationSpy />

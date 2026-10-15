@@ -38,7 +38,7 @@ import { getHealthInfo } from './wgerHealth'
 import { getQueueStats } from './wgerSyncQueue'
 import { syncWgerToAlthea, syncAltheaToWger } from './wgerSyncEngine'
 
-const BASE = 'https://wger.de/api/v2'
+import { WGER_API_BASE as BASE } from './wgerHttp'
 
 // ─── WgerClient — Clase base con timeout y manejo de errores ───
 // FASE 26: Patrón de cliente TypeScript.

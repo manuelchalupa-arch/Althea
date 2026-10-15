@@ -103,13 +103,17 @@
   --althea-success: #1B4332;
 
   /* ============ MAPA MUSCULAR ============ */
-  --althea-muscle-low: #B0524B;      /* rojo — descenso/bajo */
-  --althea-muscle-mid: #C9A23E;      /* amarillo — estable */
-  --althea-muscle-high: #3F7A52;     /* verde — óptimo/aumento */
-  --althea-muscle-idle: #DCD8CC;     /* sin datos */
+  --althea-muscle-low: #B0524B;      /* rojo — intensidad baja */
+  --althea-muscle-mid: #C9A23E;      /* amarillo — intensidad moderada */
+  --althea-muscle-high: #3F7A52;     /* verde — intensidad alta */
+  --althea-muscle-idle: #DCD8CC;     /* sin trabajo */
   --althea-muscle-outline: #8A8674;
   --althea-muscle-silhouette: #ECE9E1;
   --althea-muscle-fiber: rgba(46, 43, 34, 0.22);
+  /* Fondos tenues para insignias de intensidad (mismos tonos, legibles). */
+  --althea-success-soft: #E7EFE9;
+  --althea-warning-soft: rgba(176, 141, 63, 0.16);
+  --althea-error-soft: rgba(176, 82, 75, 0.14);
 }
 
 /* ============ COLOR — MODO OSCURO (obsidiana) ============ */
@@ -149,6 +153,9 @@
   --althea-muscle-outline: #6C6F64;
   --althea-muscle-silhouette: #20241F;
   --althea-muscle-fiber: rgba(241, 240, 234, 0.16);
+  --althea-success-soft: rgba(78, 155, 108, 0.18);
+  --althea-warning-soft: rgba(214, 192, 102, 0.16);
+  --althea-error-soft: rgba(194, 91, 91, 0.18);
 
   --althea-shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.24);
   --althea-shadow-panel-hover: 0 4px 14px rgba(0, 0, 0, 0.4);

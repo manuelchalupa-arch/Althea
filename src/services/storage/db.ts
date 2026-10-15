@@ -70,6 +70,16 @@ export class TrainDB extends Dexie {
   requiredActionStates!: Table<{ id: string; configId: string; date: string; status: 'pending' | 'completed'; completedAt?: string; createdAt: string }>
   externalAccountLinks!: Table<import('@/services/integrations/wger/wgerTypes').ExternalAccountLink>
   externalEntityLinks!: Table<import('@/services/integrations/wger/wgerTypes').ExternalEntityLink>
+  feedbackThreads!: Table<import('@/services/feedback/feedbackTypes').FeedbackThread>
+  feedbackMessages!: Table<import('@/services/feedback/feedbackTypes').FeedbackLocalMessage>
+  feedbackOutbox!: Table<import('@/services/feedback/feedbackTypes').FeedbackOutboxEntry>
+  restTimerState!: Table<{
+    id: string
+    endsAt: number | null
+    pausedRemainingSec: number | null
+    flash: boolean
+    updatedAt: string
+  }>
   constructor() {
     super('trainPWA')
     this.version(1).stores({
@@ -195,6 +205,21 @@ export class TrainDB extends Dexie {
     this.version(21).stores({
       externalAccountLinks: 'id, altheaUserId, externalProvider, externalUserId, status, linkedAt, lastSyncAt',
       externalEntityLinks: 'id, altheaEntityId, externalProvider, externalEntityId, entityType, linkedAt, lastSyncAt',
+    })
+    // v22: Feedback usuario↔admin (solo aditivo). Espejo local de los hilos y
+    // mensajes del usuario + cola de salida idempotente (outbox). NO entra en la
+    // sincronización genérica users/{uid}: feedback vive en feedbackThreads (top-level)
+    // con permisos propios en firestore.rules.
+    this.version(22).stores({
+      feedbackThreads: 'id, ownerId, status, category, lastActivityAt, updatedAt',
+      feedbackMessages: 'id, threadId, createdAt, syncStatus',
+      feedbackOutbox: 'id, kind, threadId, status, createdAt',
+    })
+    // v23: Cronómetro de descanso persistente — tiempo restante, estado y flash.
+    // Almacenado por timerId para permitir múltiples cronómetros independientes
+    // (entre series y entre ejercicios). Sobrevive a cierre/recarga de la app.
+    this.version(23).stores({
+      restTimerState: 'id, endsAt, pausedRemainingSec, flash, updatedAt',
     })
   }
 }

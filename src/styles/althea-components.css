@@ -313,10 +313,18 @@
 }
 .althea-atlas__fibers { fill: none; stroke: var(--althea-muscle-fiber); stroke-width: 0.25; pointer-events: none; }
 .althea-atlas__shade { pointer-events: none; }
+
+/* Estados de INTENSIDAD (trabajo actual): controlan el color del relleno */
 .althea-atlas__muscle.is-idle .althea-atlas__fill { fill: var(--althea-muscle-idle); }
+.althea-atlas__muscle.is-active-low .althea-atlas__fill { fill: var(--althea-muscle-low); }
+.althea-atlas__muscle.is-active-mid .althea-atlas__fill { fill: var(--althea-muscle-mid); }
+.althea-atlas__muscle.is-active-high .althea-atlas__fill { fill: var(--althea-muscle-high); }
+
+/* Mantener compatibilidad con estados de tendencia legacy (no usados para color) */
 .althea-atlas__muscle.is-low .althea-atlas__fill { fill: var(--althea-muscle-low); }
 .althea-atlas__muscle.is-mid .althea-atlas__fill { fill: var(--althea-muscle-mid); }
 .althea-atlas__muscle.is-high .althea-atlas__fill { fill: var(--althea-muscle-high); }
+
 .althea-atlas__muscle.is-hovered .althea-atlas__fill,
 .althea-atlas__muscle:focus-visible .althea-atlas__fill { stroke: var(--althea-on-surface); stroke-width: 0.9; }
 .althea-atlas__muscle.is-selected .althea-atlas__fill { stroke: var(--althea-primary); stroke-width: 1.4; }
@@ -334,9 +342,10 @@
 .althea-atlas__card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--althea-space-2); margin-bottom: var(--althea-space-2); }
 .althea-atlas__card-head strong { font-size: var(--althea-fs-body-md); color: var(--althea-on-surface); }
 .althea-atlas__badge { font-size: var(--althea-fs-label); font-weight: 600; padding: 2px 8px; border-radius: var(--althea-radius-pill); background: var(--althea-surface-3); color: var(--althea-on-surface-muted); white-space: nowrap; }
-.althea-atlas__badge.is-high { background: var(--althea-primary-soft); color: var(--althea-success); }
-.althea-atlas__badge.is-mid { color: var(--althea-warning); }
-.althea-atlas__badge.is-low { color: var(--althea-error); }
+.althea-atlas__badge.is-active-high { background: var(--althea-success-soft); color: var(--althea-success); }
+.althea-atlas__badge.is-active-mid { background: var(--althea-warning-soft); color: var(--althea-warning); }
+.althea-atlas__badge.is-active-low { background: var(--althea-error-soft); color: var(--althea-error); }
+.althea-atlas__badge.is-idle { background: var(--althea-surface-3); color: var(--althea-on-surface-muted); }
 .althea-atlas__rows { margin: 0; display: grid; gap: 4px; font-size: var(--althea-fs-body-sm); }
 .althea-atlas__rows > div { display: flex; justify-content: space-between; gap: var(--althea-space-3); }
 .althea-atlas__rows dt { color: var(--althea-on-surface-muted); }
@@ -349,6 +358,34 @@
 @container (min-width: 560px) {
   .althea-atlas { flex-direction: row; align-items: flex-start; justify-content: center; }
 }
+
+/* ============ MAPA MUSCULAR — gráfica, leyenda e indicadores ============ */
+.atlas-error { margin: 8px 0 0; font-size: var(--althea-fs-body-sm); color: var(--althea-error); }
+.atlas-chart { width: 100%; margin-top: 12px; }
+.atlas-chart__bars { display: flex; align-items: flex-end; gap: 3px; height: 96px; padding: 4px 2px 0; border-bottom: 1px solid var(--althea-outline); }
+.atlas-chart__col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 2px; }
+.atlas-chart__bar { width: 100%; max-width: 26px; border-radius: 3px 3px 0 0; }
+.atlas-chart__bar.is-active { background: var(--althea-primary); }
+.atlas-chart__bar.is-zero { height: 2px !important; background: var(--althea-outline); opacity: 0.7; }
+.atlas-chart__label { font-size: 9px; color: var(--althea-on-surface-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.atlas-chart__foot { margin: 4px 0 0; font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted); }
+.atlas-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
+.atlas-legend__item { display: inline-flex; align-items: center; gap: 6px; font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface); }
+.atlas-legend__sw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--althea-muscle-outline); display: inline-block; }
+.atlas-legend__sw.is-high { background: var(--althea-muscle-high); }
+.atlas-legend__sw.is-mid { background: var(--althea-muscle-mid); }
+.atlas-legend__sw.is-low { background: var(--althea-muscle-low); }
+.atlas-legend__sw.is-idle { background: var(--althea-muscle-idle); }
+.atlas-legend__note { flex-basis: 100%; margin: 0; font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted); }
+.atlas-stats { margin: 12px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.atlas-stats__item { background: var(--althea-surface-2); border: var(--althea-border-width) solid var(--althea-outline); border-radius: var(--althea-radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.atlas-stats__item dt { font-size: var(--althea-fs-label); text-transform: uppercase; letter-spacing: 0.06em; color: var(--althea-on-surface-muted); }
+.atlas-stats__item dd { margin: 0; font-weight: 600; color: var(--althea-on-surface); font-variant-numeric: tabular-nums; }
+.atlas-stats__sub { font-weight: 400 !important; font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted) !important; }
+.atlas-metric__label { font-size: var(--althea-fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--althea-on-surface-muted); }
+.atlas-routine { margin: 8px 0; }
+.atlas-compliance { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.althea-atlas__note { flex-direction: column; gap: 2px; }
 
 /* ============ MACRO PLATE ============ */
 .althea-plate { display: inline-flex; flex-direction: column; align-items: center; gap: var(--althea-space-4); width: 100%; }

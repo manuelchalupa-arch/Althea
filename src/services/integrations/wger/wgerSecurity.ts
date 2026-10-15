@@ -13,6 +13,7 @@
 // - Comprobación de ownership antes de escribir recursos privados.
 // - Nunca confiar ciegamente en una respuesta remota.
 
+import { WGER_API_BASE } from './wgerHttp'
 import { z } from 'zod'
 
 // ─── Schemas Zod para validación ───
@@ -133,7 +134,7 @@ export const WgerIngredientSchema = z.object({
 // ─── Configuración de seguridad ───
 
 export const WGER_SECURITY_CONFIG = {
-  baseUrl: 'https://wger.de/api/v2',
+  baseUrl: WGER_API_BASE,
   timeoutMs: 10000,
   maxPayloadSizeBytes: 5 * 1024 * 1024,
   maxRetries: 3,

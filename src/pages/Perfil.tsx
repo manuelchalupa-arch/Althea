@@ -12,6 +12,7 @@ import { getCanonicalMethodId } from '@/services/planning/cycleVersions'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { SyncStatusCard } from '@/components/sync/SyncStatusCard'
 import { WgerSyncPanel } from '@/components/sync/WgerSyncPanel'
+import { DataOwnership } from '@/components/profile/DataOwnership'
 import { IconDumbbell, IconFire, IconBody, IconHeart, IconWater, IconUtensils, IconSleep, IconClipboard, IconLightning, IconTarget, IconUser, IconShield } from '@/components/brand/FitnessIcons'
 import { AltheaButton, AltheaBadge, AltheaSelect, AltheaEmpty, AltheaPanel, AltheaMetric } from '@/components/althea'
 import * as Gym from '@/services/exerciseGym'
@@ -174,6 +175,11 @@ export default function Perfil() {
   const [form, setForm] = useState({ name: '', age: '', sex: '', heightCm: '', weightKg: '', targetWeightKg: '', bodyFatPct: '', muscleMassKg: '', activityLevel: 'moderado', restrictions: '', allergies: '', dislikedFoods: '' })
   const [notifCfgs, setNotifCfgs] = useState<NotifConfig[]>([])
   const [notifPerm, setNotifPerm] = useState<NotificationPermission | 'unknown'>('unknown')
+  // DEAD-007: la activación de push existía en messaging.ts sin ningún control
+  // en la interfaz. enablePush() valida Firebase, soporte del navegador, permiso
+  // y VAPID por pasos, y falla con un mensaje accionable en cada caso.
+  const [pushState, setPushState] = useState<'idle' | 'working' | 'done'>('idle')
+  const [pushError, setPushError] = useState<string | null>(null)
   const [showAddNotif, setShowAddNotif] = useState(false)
   const [editTimeId, setEditTimeId] = useState<string | null>(null)
   const [editTimeIdx, setEditTimeIdx] = useState<number>(0)
@@ -612,6 +618,41 @@ export default function Perfil() {
               : `Permiso: ${notifPerm} · Las notificaciones disparan con la app abierta; en segundo plano dependen de la plataforma.`}
           </p>
 
+          {/* DEAD-007 — control de activación de notificaciones push. */}
+          <div className="rounded-xl bg-surface-container/50 border border-outline-variant/30 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-body-md text-[15px] text-on-surface font-medium">Notificaciones push</span>
+              {pushState === 'done'
+                ? <AltheaBadge variant="success">Activadas</AltheaBadge>
+                : <AltheaBadge variant="outline">Sin activar</AltheaBadge>}
+            </div>
+            <p className="font-body-sm text-[11px] text-on-surface-variant">
+              Recibir avisos aunque la app esté cerrada. Requiere cuenta de Althea y que
+              Firebase esté configurado en esta instalación.
+            </p>
+            <button
+              onClick={async () => {
+                setPushError(null)
+                setPushState('working')
+                try {
+                  const { enablePush } = await import('@/services/firebase/messaging')
+                  await enablePush()
+                  setPushState('done')
+                } catch (e) {
+                  setPushError(e instanceof Error ? e.message : 'No se pudieron activar las notificaciones push.')
+                  setPushState('idle')
+                }
+              }}
+              disabled={pushState === 'working'}
+              className="w-full py-2.5 min-h-[48px] rounded-lg border border-primary/30 text-primary font-label-caps text-[10px] uppercase font-bold disabled:opacity-50"
+            >
+              {pushState === 'working' ? 'Activando…' : pushState === 'done' ? 'Push activado' : 'Activar notificaciones push'}
+            </button>
+            {pushError && (
+              <p role="alert" className="font-label-caps text-[10px] text-error">{pushError}</p>
+            )}
+          </div>
+
           {notifCfgs.length === 0 && (
             <p className="text-center text-on-surface-variant text-sm py-4">Sin notificaciones configuradas</p>
           )}
@@ -697,6 +738,11 @@ export default function Perfil() {
       {/* ═══ WGER ═══ */}
       <WgerSyncPanel />
 
+      {/* ═══ PROPIEDAD DE LOS DATOS (DEAD-001) ═══ */}
+      <Section title="Tus datos" icon={<IconUser className="w-5 h-5" />}>
+        <DataOwnership />
+      </Section>
+
       {/* ═══ CUENTA ═══ */}
       <div className="space-y-2">
         {firebaseReady && email && (
@@ -742,6 +788,7 @@ export default function Perfil() {
                   <label key={ex.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-surface-container/60 border border-outline-variant/40 cursor-pointer transition hover:border-primary/40">
                     <input
                       type="checkbox"
+                    aria-label={`Excluir ${ex.name}`}
                       className="w-6 h-6 accent-primary"
                       checked={excluded.includes(ex.id)}
                       onChange={() => toggleExcluded(ex.id)}

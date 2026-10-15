@@ -12,6 +12,7 @@ import { type CycleConfig } from '@/utils/cycle'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 
 import { Check, AlertTriangle, RotateCcw } from 'lucide-react'
+import RestTimerOverlay from '@/components/entrenar/RestTimerOverlay'
 
 import ResultPanel from '@/components/entrenar/ResultPanel'
 import ExerciseSeriesTable from '@/components/entrenar/ExerciseSeriesTable'
@@ -209,7 +210,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
   const { restSec, restPaused, restFlash, startRest, pauseRest, resumeRest, adjustRest, dismissFlash } = useRestTimer()
 
-  const { restSec: restBetweenExSec, restPaused: restBetweenExPaused, restFlash: restBetweenExFlash, startRest: startRestBetweenEx, pauseRest: pauseRestBetweenEx, resumeRest: resumeRestBetweenEx, adjustRest: adjustRestBetweenEx, skipRest: skipRestBetweenEx, dismissFlash: dismissFlashBetweenEx } = useRestTimerBetweenExercises()
+  const { restSec: restBetweenExSec, restPaused: restBetweenExPaused, restFlash: restBetweenExFlash, startRest: startRestBetweenEx, pauseRest: pauseRestBetweenEx, resumeRest: resumeRestBetweenEx, adjustRest: adjustRestBetweenEx, dismissFlash: dismissFlashBetweenEx } = useRestTimerBetweenExercises()
 
   // Sync sessionStatusRef with hook's sessionStatus
   useEffect(() => {
@@ -1152,7 +1153,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   // ofrece creación (único punto: Inicio) y redirige a Inicio. Excepción: si ya
   // hay un resultado (COMPLETED/PARTIAL/CANCELLED) se conserva la pantalla.
   const showsResult = sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL'
-  if(redirectHome && !showsResult){ return <Navigate to="/inicio" replace /> }
+  if(redirectHome && !showsResult){ return <Navigate to="/" replace /> }
 
   // Reanudación: sesión ACTIVA de otra fecha (continuar / finalizar / abandonar).
   if(resumeBanner && !session){
@@ -1396,6 +1397,10 @@ const exercises: SessionEx[] = seList.map((se) => {
               <div className="mx-3 mb-3 rounded-lg border border-secondary/40 bg-secondary-container/15 p-3 flex items-center gap-3">
                 {restBetweenExSec > 0 || restBetweenExFlash ? (
                   <>
+                    <RestTimerOverlay
+                      seconds={restBetweenExSec}
+                      onAdjust={adjustRestBetweenEx}
+                    />
                     <button onClick={()=> restBetweenExPaused ? resumeRestBetweenEx() : pauseRestBetweenEx()} aria-label={restBetweenExPaused?'Reanudar descanso':'Pausar descanso'} className="font-metric-mobile text-[32px] leading-none font-semibold text-on-surface tabular-nums">{Math.floor(restBetweenExSec/60)}:{String(restBetweenExSec%60).padStart(2,'0')}</button>
                     <span className="font-label-caps text-[10px] text-secondary tracking-widest">{restBetweenExPaused ? 'PAUSADO' : 'DESCANSO ENTRE EJERCICIOS'}</span>
                     <div className="ml-auto flex gap-1.5">
