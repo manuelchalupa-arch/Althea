@@ -14,19 +14,15 @@ import { buildRegionContributions } from '@/components/progress/muscleContributi
 import {
   ATLAS_METRICS,
   ATLAS_MODES,
-  binSeries,
-  chartValueOf,
-  dailySeries,
+  DEFAULT_ATLAS_MODE,
   filterByRange,
   hasPriorHistory,
   resolveAtlasWindow,
   summarizeRows,
-  ROUTINE_WINDOW_DAYS,
   type AtlasMetric,
   type AtlasMode,
   type AtlasSetRow,
 } from '@/components/progress/atlasQuery'
-import { PeriodChart } from '@/components/progress/PeriodChart'
 import { buildRoutineCompliance, type ComplianceSession } from '@/services/training/routineCompliance'
 import { getAllRoutines, getActiveRoutineId, type RoutineData } from '@/services/storage/routineStore'
 import { normalizeSex, type SexCode } from '@/utils/sex'
@@ -56,18 +52,20 @@ type SessionRow = {
 }
 
 // El resto de la página (KPIs, informe, reporte) trabaja con el `AnalysisPeriod`
-// clásico; cada modalidad del mapa se proyecta a uno: semana→7d, treinta/rutina→30d.
+// clásico. Solo el mapa usa las ventanas de calendario (semana/mes/ciclo).
 const PERIOD_FOR_MODE: Record<AtlasMode, AnalysisPeriod> = {
   semana: '7',
+  mes: '30',
   treinta: '30',
   rutina: '30',
   personalizada: 'custom',
 }
 
 const MODE_LABELS: Record<AtlasMode, string> = {
-  semana: 'Últimos 7 días',
-  treinta: 'Últimos 30 días',
-  rutina: 'Rutina completa',
+  semana: 'Semana actual (lunes a domingo)',
+  mes: 'Mes actual',
+  treinta: 'Mes actual',
+  rutina: 'Semana del ciclo de la rutina',
   personalizada: 'Rango personalizado',
 }
 
@@ -221,8 +219,8 @@ export default function Progresos() {
   const [routines, setRoutines] = useState<RoutineData[]>([])
   const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null)
   const [routineSel, setRoutineSel] = useState('')
-  // Modalidad del mapa muscular: semana (7d) · 30 días · rutina · personalizada.
-  const [mode, setMode] = useState<AtlasMode>('treinta')
+  // Modalidad del mapa muscular: semana · mes · rutina · personalizada.
+  const [mode, setMode] = useState<AtlasMode>(DEFAULT_ATLAS_MODE)
   // Métrica que colorea el mapa: volumen (kg) · series · reps.
   const [metric, setMetric] = useState<AtlasMetric>('volumen')
   const [customStart, setCustomStart] = useState('')
@@ -372,9 +370,17 @@ export default function Progresos() {
   const hasAnyData = allLogs.length > 0 || bodies.length > 0 || recovery.length > 0 || totalSessionDays > 0
   const hasPeriodData = periodLogs.length > 0 || periodBodies.length > 0 || periodRec.length > 0
 
+  // Rutina seleccionada (modalidad Rutina): por defecto la activa. Se resuelve
+  // ANTES de la ventana porque el modo Rutina se ancla al ciclo real de la
+  // rutina (`cycle.startDate`), no a una ventana móvil.
+  const routine = useMemo(() => {
+    if (routines.length === 0) { return null }
+    return routines.find((r) => r.id === (routineSel || activeRoutineId)) ?? routines[0] ?? null
+  }, [routines, routineSel, activeRoutineId])
+
   const winResult = useMemo(
-    () => resolveAtlasWindow(mode, { customStart, customEnd }),
-    [mode, customStart, customEnd],
+    () => resolveAtlasWindow(mode, { customStart, customEnd, cycle: routine?.cycle ?? null }),
+    [mode, customStart, customEnd, routine?.cycle],
   )
   const win = 'error' in winResult ? null : winResult
   const winError = 'error' in winResult ? winResult.error : null
@@ -409,12 +415,6 @@ export default function Progresos() {
 
   const muscleOf = resolver?.muscleOf ?? (() => null)
   const nameOf = resolver?.nameOf ?? (() => null)
-
-  // Rutina seleccionada (modalidad Rutina): por defecto la activa.
-  const routine = useMemo(() => {
-    if (routines.length === 0) { return null }
-    return routines.find((r) => r.id === (routineSel || activeRoutineId)) ?? routines[0] ?? null
-  }, [routines, routineSel, activeRoutineId])
 
   const compliance = useMemo(() => {
     if (mode !== 'rutina' || !routine || !win) { return null }
@@ -471,15 +471,6 @@ export default function Progresos() {
   const volumeDeltaPct = prevTotals.volume > 0 && totals.volume > 0
     ? Math.round(((totals.volume - prevTotals.volume) / prevTotals.volume) * 100)
     : null
-
-  const chartPoints = useMemo(
-    () => (win ? binSeries(dailySeries(scopedRows, win.days)) : []),
-    [scopedRows, win],
-  )
-  const chartMax = useMemo(
-    () => chartPoints.reduce((a, p) => Math.max(a, chartValueOf(p, metric)), 0),
-    [chartPoints, metric],
-  )
 
   const [vista, setVista] = useState<'front' | 'back'>('front')
 
@@ -606,8 +597,6 @@ export default function Progresos() {
               totals={totals}
               volumeDeltaPct={volumeDeltaPct}
               hasPrior={hasPrior}
-              chartPoints={chartPoints}
-              chartMax={chartMax}
               metric={metric}
               vista={vista}
               onVista={setVista}
@@ -736,8 +725,6 @@ export default function Progresos() {
             totals={totals}
             volumeDeltaPct={volumeDeltaPct}
             hasPrior={hasPrior}
-            chartPoints={chartPoints}
-            chartMax={chartMax}
             metric={metric}
             vista={vista}
             onVista={setVista}
@@ -934,8 +921,6 @@ function AtlasSection(props: {
   totals: { sets: number; reps: number; volume: number; exercises: number; days: number }
   volumeDeltaPct: number | null
   hasPrior: boolean
-  chartPoints: import('@/components/progress/atlasQuery').BinnedPoint[]
-  chartMax: number
   metric: AtlasMetric
   vista: 'front' | 'back'
   onVista: (v: 'front' | 'back') => void
@@ -945,14 +930,14 @@ function AtlasSection(props: {
 }) {
   const {
     win, winError, mode, routine, routines, onRoutine, routineSel, compliance,
-    totals, volumeDeltaPct, hasPrior, chartPoints, chartMax, metric,
+    totals, volumeDeltaPct, hasPrior, metric,
     vista, onVista, muscleData, atlasSex, wide,
   } = props
   const metricMeta = ATLAS_METRICS.find((m) => m.id === metric) ?? ATLAS_METRICS[0]
   const subtitle = !win
     ? 'Resolvé el rango para ver el mapa.'
     : mode === 'rutina' && routine
-      ? `${routine.name} · ${win.start.slice(5)} – ${win.end.slice(5)} (últimos ${ROUTINE_WINDOW_DAYS} días)`
+      ? `${routine.name} · ${win.start.slice(5)} – ${win.end.slice(5)} (semana del ciclo)`
       : win.label
   return (
     <section className={wide ? 'rounded-2xl border border-outline-variant/40 bg-surface-container-low p-4 md:p-5' : 'rounded-xl border border-outline-variant/40 bg-surface-container p-3'} data-testid="muscle-atlas">
@@ -995,7 +980,6 @@ function AtlasSection(props: {
               description="No hay series completadas en el rango elegido. Cambiá de modalidad o ampliá el rango."
             />
           )}
-          <PeriodChart points={chartPoints} metric={metric} max={chartMax} unit={metricMeta.unit} />
           <AtlasSummary totals={totals} volumeDeltaPct={volumeDeltaPct} hasPrior={hasPrior} windowLabel={win.label} />
           {mode === 'rutina' && compliance && (
             <div className="atlas-compliance" data-testid="atlas-compliance">

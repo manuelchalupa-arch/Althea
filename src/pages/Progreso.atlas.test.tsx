@@ -30,7 +30,9 @@ describe('Progreso — atlas con registros reales', () => {
 
   it('la espalda trabajada hoy se colorea y el frente queda inactivo', async () => {
     render(<MemoryRouter><Progreso /></MemoryRouter>)
-    await screen.findByTestId('atlas-chart', undefined, { timeout: 20000 })
+    // El atlas espera al mapa (ya no hay gráfica que esperar).
+    await screen.findByTestId('muscle-atlas', undefined, { timeout: 20000 })
+    expect(screen.queryByTestId('atlas-chart')).not.toBeInTheDocument()
 
     // Vista posterior: dorsal con trabajo → activo (no gris).
     fireEvent.click(screen.getByRole('tab', { name: 'Espalda' }))
@@ -45,10 +47,20 @@ describe('Progreso — atlas con registros reales', () => {
 
   it('el detalle muestra el ejercicio que aportó, sin inventar datos', async () => {
     render(<MemoryRouter><Progreso /></MemoryRouter>)
-    await screen.findByTestId('atlas-chart', undefined, { timeout: 20000 })
+    await screen.findByTestId('muscle-atlas', undefined, { timeout: 20000 })
 
     fireEvent.click(screen.getByRole('tab', { name: 'Espalda' }))
     fireEvent.click(screen.getByRole('button', { name: /Dorsal ancho/ }))
     expect(screen.getByText('remo test')).toBeInTheDocument()
+  }, 40000)
+
+  it('el atlas no renderiza ninguna gráfica de barras ni auxiliar', async () => {
+    const { container } = render(<MemoryRouter><Progreso /></MemoryRouter>)
+    const atlas = await screen.findByTestId('muscle-atlas', undefined, { timeout: 20000 })
+    // Ningún resto de gráfica en toda la página (barras, series o equivalente).
+    expect(container.querySelector('.atlas-chart')).toBeNull()
+    expect(container.querySelector('.atlas-chart__bar')).toBeNull()
+    expect(screen.queryByTestId('atlas-chart')).not.toBeInTheDocument()
+    expect(atlas.querySelector('svg[role="img"]')).toBeNull()
   }, 40000)
 })

@@ -4,7 +4,7 @@ import { MUSCLE_REGIONS, ALL_REGION_IDS } from './muscleGeometry'
 import { MUSCLE_CATALOG } from '@/services/training/muscleCatalog'
 import type { ContributionResult, RegionContribution } from './muscleContributions'
 
-const NO_CONTRIB: ContributionResult = { byRegion: {}, maxVolume: 0 }
+const NO_CONTRIB: ContributionResult = { byRegion: {}, maxVolume: 0, totalSets: 0, unattributedSets: 0 }
 
 const region = (volume: number, exercises: string[]): RegionContribution => ({
   volume,
@@ -29,6 +29,8 @@ const BACK_CONTRIBUTIONS: ContributionResult = {
     'trapezius-upper': region(80, ['Encogimientos']),
   },
   maxVolume: 100,
+  totalSets: 10,
+  unattributedSets: 0,
 }
 
 // Ventana previa: mismo volumen salvo latissimus-dorsi, que baja.
@@ -40,6 +42,8 @@ const PREV_CONTRIBUTIONS: ContributionResult = {
     'spinal-erectors': region(70, ['Peso muerto']),
   },
   maxVolume: 80,
+  totalSets: 4,
+  unattributedSets: 0,
 }
 
 function sampleData(overrides: Partial<Parameters<typeof buildAtlasMuscleData>[0]> = {}) {
@@ -191,5 +195,68 @@ describe('buildAtlasMuscleData — cobertura de regiones', () => {
     expect(p?.days).toEqual(['2026-03-10'])
     expect(p?.exercises).toEqual(['Dominadas'])
     expect(p?.metric).toBe('volumen')
+  })
+})
+
+describe('buildAtlasMuscleData — escala de intensidad y estados vacíos', () => {
+  it('la intensidad es relativa al período y ordena de baja a alta', () => {
+    const data = sampleData()
+    // Máximo del período = 100 (latissimus-dorsi).
+    expect(data['latissimus-dorsi']?.intensity).toBe(100)
+    expect(data['levator-scapulae']?.intensity).toBe(30)
+    expect(data['infraspinatus']?.intensity).toBe(40)
+    // Escalones de la escala usados por MuscleAtlas: 0 / 1-33 / 34-66 / 67-100.
+    const nivel = (i: number) => (i === 0 ? 'idle' : i >= 67 ? 'high' : i >= 34 ? 'mid' : 'low')
+    expect(nivel(data['levator-scapulae']?.intensity ?? 0)).toBe('low')
+    expect(nivel(data['infraspinatus']?.intensity ?? 0)).toBe('mid')
+    expect(nivel(data['latissimus-dorsi']?.intensity ?? 0)).toBe('high')
+  })
+
+  it('actividad actual SIN historial previo: coloreado por intensidad, tendencia sin base', () => {
+    const data = sampleData({ previous: null })
+    const p = data['latissimus-dorsi']
+    expect(p?.current).toBeGreaterThan(0)
+    expect(p?.intensity).toBe(100)
+    expect(p?.trend).toBe('sin-base')
+    // Tener trabajo nunca debe quedar en el mismo estado que no tener ninguno.
+    expect(p?.emptyReason).toBe('ok')
+  })
+
+  it('SIN series en el período: absence de actividad (no falta de atribución)', () => {
+    const data = buildAtlasMuscleData({
+      enabled: true,
+      current: { byRegion: {}, maxVolume: 0, totalSets: 0, unattributedSets: 0 },
+      previous: null,
+      metric: 'volumen',
+    })
+    for (const id of ALL_REGION_IDS) {
+      expect(data[id]?.current).toBe(0)
+      expect(data[id]?.intensity).toBe(0)
+      expect(data[id]?.emptyReason).toBe('ok')
+    }
+  })
+
+  it('CON series pero sin atribución: se distingue de "no entrenaste"', () => {
+    const data = buildAtlasMuscleData({
+      enabled: true,
+      current: { byRegion: {}, maxVolume: 0, totalSets: 12, unattributedSets: 12 },
+      previous: null,
+      metric: 'volumen',
+    })
+    for (const id of ALL_REGION_IDS) {
+      expect(data[id]?.intensity).toBe(0)
+      expect(data[id]?.emptyReason).toBe('sin-atribucion')
+    }
+  })
+
+  it('región sin volumen atribuible dentro de una ventana con trabajo: sin alcance', () => {
+    const data = sampleData()
+    // Hay trabajo en el período, pero esta región no recibió volumen.
+    for (const id of ['quadriceps', 'gluteus-maximus']) {
+      const p = data[id]
+      if (p && p.current === 0) {
+        expect(p.emptyReason).toBe('sin-alcance')
+      }
+    }
   })
 })

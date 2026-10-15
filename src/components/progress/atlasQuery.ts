@@ -7,40 +7,62 @@
  * `buildAtlasMuscleData()` (baseline previo):
  *
  *   - resolución de la ventana analizada según la modalidad elegida;
- *   - ventana previa comparable (misma duración, inmediatamente anterior);
+ *   - ventana previa comparable (misma naturaleza, inmediatamente anterior);
  *   - filtrado de registros por rango de fechas;
  *   - agregados por región y totales del intervalo (sin doble conteo: los
  *     totales salen de las series únicas, no de la suma por región — una
  *     misma serie trabaja varios músculos a la vez);
- *   - serie diaria para la gráfica temporal (con días cero explícitos);
  *   - métrica visual seleccionable (volumen / series / reps) con su
  *     normalización documentada.
+ *
+ * NO hay gráfica temporal en el atlas: el cuerpo anatómico es la única
+ * representación gráfica. Por eso este módulo no expone ninguna serie diaria
+ * ni agregación en barras.
  *
  * Todo sale de registros reales (series completadas). Sin datos → 0 y
  * `hasPrior = false`; nunca se inventan valores.
  */
-import { dayKeyOffset, daysBetween, todayKey } from '@/utils/dates'
+import { dayKeyOffset, daysBetween, monthEndKey, monthStartKey, todayKey, weekStartKey } from '@/utils/dates'
+import { cycleWeekIndexOf, cycleWeekRange, type CycleConfig } from '@/utils/cycle'
 import type { RegionContribution } from './muscleContributions'
 
-export type AtlasMode = 'semana' | 'treinta' | 'rutina' | 'personalizada'
+/**
+ * `treinta` es un identificador OBSOLETO (30 días móviles) que se conserva
+ * únicamente para normalizar valores guardados en el pasado: resolverlo
+ * devuelve el mes calendario actual. Nunca se ofrece en la interfaz.
+ */
+export type AtlasMode = 'semana' | 'mes' | 'treinta' | 'rutina' | 'personalizada'
+
+/** Modalidades ofrecidas al usuario (sin el alias obsoleto `treinta`). */
+export type AtlasModeId = Exclude<AtlasMode, 'treinta'>
 
 export type AtlasMetric = 'volumen' | 'series' | 'reps'
 
-export const ATLAS_MODES: Array<{ id: AtlasMode; label: string; testid: string; description: string }> = [
-  { id: 'semana', label: 'Semana', testid: 'mode-semana', description: 'Últimos 7 días' },
-  { id: 'treinta', label: '30 días', testid: 'mode-treinta', description: 'Últimos 30 días' },
-  { id: 'rutina', label: 'Rutina', testid: 'mode-rutina', description: 'Rutina completa · últimos 30 días' },
+export const ATLAS_MODES: Array<{ id: AtlasModeId; label: string; testid: string; description: string }> = [
+  { id: 'semana', label: 'Semana', testid: 'mode-semana', description: 'Lunes a domingo de la semana actual' },
+  { id: 'mes', label: 'Mes actual', testid: 'mode-mes', description: 'Del 1.º al último día del mes en curso' },
+  { id: 'rutina', label: 'Rutina', testid: 'mode-rutina', description: 'Semana del ciclo actual de la rutina' },
   { id: 'personalizada', label: 'Personalizado', testid: 'mode-personalizada', description: 'Rango personalizado' },
 ]
+
+/** Valor inicial seguro: el mes calendario en curso. */
+export const DEFAULT_ATLAS_MODE: AtlasModeId = 'mes'
+
+/**
+ * Normaliza cualquier valor guardado (incluido el antiguo `treinta`) a una
+ * modalidad vigente. Nunca lanza: un valor desconocido cae en el mes actual.
+ */
+export function normalizeAtlasMode(raw: string | null | undefined): AtlasMode {
+  if (raw === 'treinta') { return 'mes' }
+  const known: AtlasMode[] = ['semana', 'mes', 'rutina', 'personalizada']
+  return known.includes(raw as AtlasMode) ? (raw as AtlasMode) : 'mes'
+}
 
 export const ATLAS_METRICS: Array<{ id: AtlasMetric; label: string; testid: string; unit: string }> = [
   { id: 'volumen', label: 'Volumen', testid: 'metrica-volumen', unit: 'kg' },
   { id: 'series', label: 'Series', testid: 'metrica-series', unit: 'series' },
   { id: 'reps', label: 'Reps', testid: 'metrica-reps', unit: 'reps' },
 ]
-
-/** Ventana fija de la modalidad Rutina: los últimos 30 días calendario. */
-export const ROUTINE_WINDOW_DAYS = 30
 
 export interface AtlasWindow {
   /** Primer día incluido (YYYY-MM-DD). */
@@ -78,18 +100,67 @@ function enumerateDays(start: string, end: string): string[] {
 /**
  * Resuelve la ventana analizada para una modalidad. `today` es inyectable
  * para poder testear sin depender del reloj.
+ *
+ * Reglas por modalidad (todas ancladas al CALENDARIO local de la app):
+ * - `semana`: lunes → domingo de la semana en curso.
+ * - `mes`: día 1 → último día del mes en curso.
+ * - `rutina`: semana del ciclo real (derivada de `cycle.startDate`). Si no hay
+ *   ciclo utilizable devuelve un error explícito; NUNCA cae en 30 días.
+ * - `personalizada`: fechas exactas, ambos extremos incluidos.
+ *
+ * La ventana PREVIA es de la misma naturaleza (semana anterior, mes anterior,
+ * semana de ciclo anterior) para que la comparación sea real.
  */
 export function resolveAtlasWindow(
   mode: AtlasMode,
-  opts: { customStart?: string; customEnd?: string; today?: string } = {},
+  opts: { customStart?: string; customEnd?: string; today?: string; cycle?: CycleConfig | null } = {},
 ): AtlasWindow | WindowError {
   const today = opts.today ?? todayKey()
+  const resolved: AtlasMode = normalizeAtlasMode(mode)
+
   let start = today
   let end = today
-  if (mode === 'semana') {
-    start = dayKeyOffset(today, -6)
-  } else if (mode === 'treinta' || mode === 'rutina') {
-    start = dayKeyOffset(today, -(ROUTINE_WINDOW_DAYS - 1))
+  let prevStart = ''
+  let prevEnd = ''
+  let label = ''
+
+  if (resolved === 'semana') {
+    // Lunes a domingo. `weekStartKey` ancla en el lunes de la semana local.
+    start = weekStartKey(today)
+    end = dayKeyOffset(start, 6)
+    prevEnd = dayKeyOffset(start, -1)
+    prevStart = weekStartKey(prevEnd)
+    label = `Semana del ${start.slice(8)}/${start.slice(5, 7)} al ${end.slice(8)}/${end.slice(5, 7)}`
+  } else if (resolved === 'mes') {
+    start = monthStartKey(today)
+    end = monthEndKey(today)
+    // Mes calendario anterior completo, no una ventana de igual largo cualquiera.
+    prevEnd = dayKeyOffset(start, -1)
+    prevStart = monthStartKey(prevEnd)
+    label = `Mes de ${start.slice(5, 7)}/${start.slice(0, 4)}`
+  } else if (resolved === 'rutina') {
+    const cycle = opts.cycle
+    if (!cycle || !cycle.startDate) {
+      return { error: 'No se pudo determinar el ciclo: la rutina no tiene fecha de inicio. Elegí otra modalidad para ver el mapa.' }
+    }
+    const index = cycleWeekIndexOf(today, cycle)
+    if (index < 1) {
+      return { error: 'El ciclo de la rutina todavía no empieza: su fecha de inicio es posterior a hoy. Elegí otra modalidad para ver el mapa.' }
+    }
+    const cur = cycleWeekRange(index, cycle)
+    start = cur.start
+    end = cur.end
+    if (index > 1) {
+      const prev = cycleWeekRange(index - 1, cycle)
+      prevStart = prev.start
+      prevEnd = prev.end
+    } else {
+      // Primera semana del ciclo: no hay semana de ciclo anterior, se usa la
+      // semana calendario inmediatamente previa (declarado, no inventado).
+      prevEnd = dayKeyOffset(start, -1)
+      prevStart = dayKeyOffset(prevEnd, -6)
+    }
+    label = `Semana ${index} del ciclo`
   } else {
     const s = (opts.customStart || '').trim()
     const e = (opts.customEnd || '').trim() || today
@@ -104,19 +175,22 @@ export function resolveAtlasWindow(
     }
     start = s
     end = e
+    // Intervalo inclusivo exacto: la previa tiene la MISMA cantidad de días,
+    // terminada el día anterior al inicio (un día → un día).
+    prevEnd = dayKeyOffset(start, -1)
+    prevStart = dayKeyOffset(prevEnd, -daysBetween(start, end))
+    label = `${start.slice(5)} – ${end.slice(5)}`
   }
+
   if (start > end) { start = end }
-  const lengthDays = Math.max(1, daysBetween(start, end) + 1)
-  const prevEnd = dayKeyOffset(start, -1)
-  const prevStart = dayKeyOffset(prevEnd, -(lengthDays - 1))
-  const modeLabel = ATLAS_MODES.find((m) => m.id === mode)?.description ?? ''
+  const modeLabel = ATLAS_MODES.find((m) => m.id === resolved)?.description ?? ''
   return {
     start,
     end,
     prevStart,
     prevEnd,
     days: enumerateDays(start, end),
-    label: mode === 'personalizada' ? `${start.slice(5)} – ${end.slice(5)}` : modeLabel,
+    label: resolved === 'personalizada' ? label : `${modeLabel}${label ? ` · ${label}` : ''}`,
   }
 }
 
@@ -177,85 +251,6 @@ export function summarizeRows(
     days: days.size,
     exerciseNames: [...names.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => n),
   }
-}
-
-export interface DayPoint {
-  date: string
-  label: string
-  volume: number
-  sets: number
-  reps: number
-  hasWork: boolean
-}
-
-/** Serie diaria con días cero explícitos (sin inventar sesiones). */
-export function dailySeries(rows: AtlasSetRow[], days: string[]): DayPoint[] {
-  const byDay = new Map<string, { volume: number; sets: number; reps: number }>()
-  for (const r of rows) {
-    if (!r.date) { continue }
-    const cur = byDay.get(r.date) ?? { volume: 0, sets: 0, reps: 0 }
-    cur.volume += Number(r.volume) > 0 ? Number(r.volume) : 0
-    cur.sets += 1
-    cur.reps += Number(r.reps) > 0 ? Number(r.reps) : 0
-    byDay.set(r.date, cur)
-  }
-  return days.map((d) => {
-    const v = byDay.get(d)
-    return {
-      date: d,
-      label: d.slice(5),
-      volume: Math.round((v?.volume ?? 0) * 10) / 10,
-      sets: v?.sets ?? 0,
-      reps: v?.reps ?? 0,
-      hasWork: (v?.sets ?? 0) > 0,
-    }
-  })
-}
-
-export interface BinnedPoint {
-  key: string
-  label: string
-  from: string
-  to: string
-  volume: number
-  sets: number
-  reps: number
-  hasWork: boolean
-}
-
-/**
- * Agrupa la serie diaria en bloques semanales cuando hay demasiados días
- * para una gráfica legible (> 31). Con ≤ 31 días se mantiene el día a día.
- */
-export function binSeries(points: DayPoint[], maxBars = 31): BinnedPoint[] {
-  if (points.length <= maxBars) {
-    return points.map((p) => ({
-      key: p.date, label: p.label, from: p.date, to: p.date,
-      volume: p.volume, sets: p.sets, reps: p.reps, hasWork: p.hasWork,
-    }))
-  }
-  const out: BinnedPoint[] = []
-  for (let i = 0; i < points.length; i += 7) {
-    const chunk = points.slice(i, i + 7)
-    out.push({
-      key: chunk[0].date,
-      label: `${chunk[0].label} – ${chunk[chunk.length - 1].label}`,
-      from: chunk[0].date,
-      to: chunk[chunk.length - 1].date,
-      volume: Math.round(chunk.reduce((a, p) => a + p.volume, 0) * 10) / 10,
-      sets: chunk.reduce((a, p) => a + p.sets, 0),
-      reps: chunk.reduce((a, p) => a + p.reps, 0),
-      hasWork: chunk.some((p) => p.hasWork),
-    })
-  }
-  return out
-}
-
-/** Valor de un punto agregado en la métrica elegida (para la gráfica). */
-export function chartValueOf(p: Pick<BinnedPoint, 'volume' | 'sets' | 'reps'>, metric: AtlasMetric): number {
-  if (metric === 'series') { return p.sets }
-  if (metric === 'reps') { return p.reps }
-  return p.volume
 }
 
 export function metricValueOf(stat: Pick<RegionContribution, 'volume' | 'sets' | 'reps'>, metric: AtlasMetric): number {

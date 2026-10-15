@@ -142,8 +142,10 @@
     --althea-carb: #f59e0b;
     --althea-warning: #f59e0b;
     --althea-success: #15803d;
+    /* Atlas: bajo verde · moderado ámbar · alto rojo (escala de intensidad). */
+    --althea-muscle-low: #4edea3;
     --althea-muscle-mid: #ffc174;
-    --althea-muscle-high: #4edea3;
+    --althea-muscle-high: #f2726f;
     --althea-shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.3);
     --althea-shadow-panel-hover: 0 4px 14px rgba(0, 0, 0, 0.5);
   }

@@ -55,6 +55,13 @@ export interface ContributionResult {
   byRegion: Record<string, RegionContribution>
   /** Mayor volumen entre todas las regiones; base para la activación relativa. */
   maxVolume: number
+  /**
+   * Series entregadas a la agregación. Permite distinguir "no entrenaste"
+   * de "entrenaste pero el ejercicio no se pudo mapear a ninguna región".
+   */
+  totalSets: number
+  /** De `totalSets`, cuántas quedaron sin atribuir a ninguna región. */
+  unattributedSets: number
 }
 
 /** Máximo de ejercicios listados por región (el atlas muestra 4). */
@@ -74,11 +81,13 @@ export function buildRegionContributions(
   const daysByRegion = new Map<string, Set<string>>()
   /** Región -> ejercicio -> volumen que ese ejercicio le aportó. */
   const byRegionExercise = new Map<string, Map<string, number>>()
+  // Series con carga real que ningún músculo reclamó (hueco del mapeo).
+  let unattributedSets = 0
 
   for (const item of items) {
     if (!(item.volume > 0)) { continue }
     const attribution = muscleOf(item.exerciseId)
-    if (!attribution) { continue }
+    if (!attribution) { unattributedSets++; continue }
 
     const label = nameOf(item.exerciseId)
     const muscles = [attribution.primary, attribution.secondary?.[0], attribution.secondary?.[1]]
@@ -135,7 +144,7 @@ export function buildRegionContributions(
     }
   }
 
-  return { byRegion, maxVolume }
+  return { byRegion, maxVolume, totalSets: items.length, unattributedSets }
 }
 
 /**

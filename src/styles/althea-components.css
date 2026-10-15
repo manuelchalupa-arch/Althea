@@ -342,9 +342,11 @@
 .althea-atlas__card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--althea-space-2); margin-bottom: var(--althea-space-2); }
 .althea-atlas__card-head strong { font-size: var(--althea-fs-body-md); color: var(--althea-on-surface); }
 .althea-atlas__badge { font-size: var(--althea-fs-label); font-weight: 600; padding: 2px 8px; border-radius: var(--althea-radius-pill); background: var(--althea-surface-3); color: var(--althea-on-surface-muted); white-space: nowrap; }
-.althea-atlas__badge.is-active-high { background: var(--althea-success-soft); color: var(--althea-success); }
+/* La insignia usa la MISMA escala de intensidad que el relleno: la insignia
+   debe coincidir con el color del músculo, no contradecirlo. */
+.althea-atlas__badge.is-active-low { background: var(--althea-success-soft); color: var(--althea-success); }
 .althea-atlas__badge.is-active-mid { background: var(--althea-warning-soft); color: var(--althea-warning); }
-.althea-atlas__badge.is-active-low { background: var(--althea-error-soft); color: var(--althea-error); }
+.althea-atlas__badge.is-active-high { background: var(--althea-error-soft); color: var(--althea-error); }
 .althea-atlas__badge.is-idle { background: var(--althea-surface-3); color: var(--althea-on-surface-muted); }
 .althea-atlas__rows { margin: 0; display: grid; gap: 4px; font-size: var(--althea-fs-body-sm); }
 .althea-atlas__rows > div { display: flex; justify-content: space-between; gap: var(--althea-space-3); }
@@ -359,16 +361,9 @@
   .althea-atlas { flex-direction: row; align-items: flex-start; justify-content: center; }
 }
 
-/* ============ MAPA MUSCULAR — gráfica, leyenda e indicadores ============ */
+/* ============ MAPA MUSCULAR — leyenda e indicadores ============ */
+/* El atlas no tiene gráfica: el cuerpo anatómico es la única representación. */
 .atlas-error { margin: 8px 0 0; font-size: var(--althea-fs-body-sm); color: var(--althea-error); }
-.atlas-chart { width: 100%; margin-top: 12px; }
-.atlas-chart__bars { display: flex; align-items: flex-end; gap: 3px; height: 96px; padding: 4px 2px 0; border-bottom: 1px solid var(--althea-outline); }
-.atlas-chart__col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 2px; }
-.atlas-chart__bar { width: 100%; max-width: 26px; border-radius: 3px 3px 0 0; }
-.atlas-chart__bar.is-active { background: var(--althea-primary); }
-.atlas-chart__bar.is-zero { height: 2px !important; background: var(--althea-outline); opacity: 0.7; }
-.atlas-chart__label { font-size: 9px; color: var(--althea-on-surface-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.atlas-chart__foot { margin: 4px 0 0; font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted); }
 .atlas-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
 .atlas-legend__item { display: inline-flex; align-items: center; gap: 6px; font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface); }
 .atlas-legend__sw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--althea-muscle-outline); display: inline-block; }

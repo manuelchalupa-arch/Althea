@@ -103,10 +103,12 @@
   --althea-success: #1B4332;
 
   /* ============ MAPA MUSCULAR ============ */
-  --althea-muscle-low: #B0524B;      /* rojo — intensidad baja */
+  /* Escala del atlas por INTENSIDAD RELATIVA de carga (no por tendencia):
+     bajo = verde · moderado = amarillo · alto = rojo · sin trabajo = gris. */
+  --althea-muscle-low: #3F7A52;      /* verde — intensidad baja */
   --althea-muscle-mid: #C9A23E;      /* amarillo — intensidad moderada */
-  --althea-muscle-high: #3F7A52;     /* verde — intensidad alta */
-  --althea-muscle-idle: #DCD8CC;     /* sin trabajo */
+  --althea-muscle-high: #B0524B;     /* rojo — intensidad alta */
+  --althea-muscle-idle: #DCD8CC;     /* gris — sin trabajo */
   --althea-muscle-outline: #8A8674;
   --althea-muscle-silhouette: #ECE9E1;
   --althea-muscle-fiber: rgba(46, 43, 34, 0.22);
@@ -146,9 +148,10 @@
   --althea-error: #C25B5B;
   --althea-success: #2F7A54;
 
-  --althea-muscle-low: #C25B5B;
+  /* Misma escala que en claro: bajo verde · moderado amarillo · alto rojo. */
+  --althea-muscle-low: #4E9B6C;
   --althea-muscle-mid: #D6C066;
-  --althea-muscle-high: #4E9B6C;
+  --althea-muscle-high: #C25B5B;
   --althea-muscle-idle: #2A2D27;
   --althea-muscle-outline: #6C6F64;
   --althea-muscle-silhouette: #20241F;

@@ -44,6 +44,17 @@ export interface MuscleDataPoint {
   metric?: 'volumen' | 'series' | 'reps';
   /** Valor de esa métrica para la región (igual a `current`). */
   metricValue?: number;
+  /**
+   * Por qué una región con intensidad 0 sigue gris. Distingue tres estados que
+   * NO son el mismo:
+   * - 'ok'                 → no hay series del período: sin actividad.
+   * - 'sin-atribucion'     → el período tiene series pero ninguna se pudo
+   *                          atribuir a una región: es un hueco del mapeo,
+   *                          no ausencia de entrenamiento.
+   * - 'sin-alcance'        → hay regiones con trabajo, esta no registra
+   *                          volumen atribuible (p. ej. sólo series sin carga).
+   */
+  emptyReason?: 'ok' | 'sin-atribucion' | 'sin-alcance';
 }
 
 const STATE_LABEL: Record<MuscleTrendInput, string> = {
@@ -99,6 +110,17 @@ function intensityLabel(intensity?: number): string {
   return 'Baja'
 }
 
+/** Motivo textual de un músculo gris: no es lo mismo no haber entrenado. */
+function emptyLabel(point?: MuscleDataPoint): string {
+  if (!point || point.emptyReason === undefined || point.emptyReason === 'ok') {
+    return 'Sin trabajo en este período.'
+  }
+  if (point.emptyReason === 'sin-atribucion') {
+    return 'Hay series en este período, pero ninguna se pudo atribuir a un músculo: falta información de la correspondencia ejercicio–músculo.'
+  }
+  return 'Este músculo no tiene volumen atribuible en el período (puede haber entrenado sólo con series sin carga registrada).'
+}
+
 function variation(point: MuscleDataPoint): string {
   if (!point.previous) { return 'Sin base' }
   const pct = ((point.current - point.previous) / point.previous) * 100
@@ -110,10 +132,10 @@ function variation(point: MuscleDataPoint): string {
  * MuscleAtlas — atlas muscular frente/espalda.
  * Cada región lleva data-muscle-id; izquierda y derecha comparten id y se
  * resaltan juntas. Estados: hover, focus, selected y color por INTENSIDAD de
- * trabajo registrado en el período (no por tendencia): verde = alta,
- * amarillo = moderada, rojo = baja, gris = sin trabajo. La tendencia histórica
- * se informa en el detalle, no en el color. Todo el color sale de tokens CSS
- * (--althea-muscle-*), aplicados en althea-components.css.
+ * trabajo registrado en el período (no por tendencia): gris = sin trabajo,
+ * VERDE = intensidad baja, amarillo = moderada, ROJO = alta. La tendencia
+ * histórica se informa en el detalle, nunca en el color. Todo el color sale de
+ * tokens CSS (--althea-muscle-*), aplicados en althea-components.css.
  */
 export function MuscleAtlas({
   view,
@@ -330,7 +352,7 @@ function MuscleDetail({ region, point }: { region: MuscleRegion; point?: MuscleD
         <span className={`althea-atlas__badge is-${visual}`}>{intensityLabel(point?.intensity)}</span>
       </div>
       {!hasWork ? (
-        <p className="althea-atlas__hint">Sin trabajo en este período.</p>
+        <p className="althea-atlas__hint">{emptyLabel(point)}</p>
       ) : (
         <dl className="althea-atlas__rows">
           <div><dt>Intensidad</dt><dd>{intensityLabel(point!.intensity)}</dd></div>

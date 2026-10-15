@@ -60,8 +60,16 @@ describe('Progreso — mapa corporal + resumen pequeño + informe PDF', () => {
     expect(screen.queryByLabelText('Parte muscular')).not.toBeInTheDocument()
     expect(document.querySelectorAll('[data-testid^="metric-"]')).toHaveLength(0)
 
-    // La gráfica temporal del mapa existe y acompaña al atlas.
-    expect(screen.getByTestId('atlas-chart')).toBeInTheDocument()
+    // El atlas NO tiene gráfica: el cuerpo anatómico es la única
+    // representación gráfica del área del mapa.
+    const atlas = screen.getByTestId('muscle-atlas')
+    expect(atlas).toBeInTheDocument()
+    expect(screen.queryByTestId('atlas-chart')).not.toBeInTheDocument()
+    expect(atlas.querySelector('[data-testid="atlas-chart"]')).toBeNull()
+    expect(atlas.querySelector('.atlas-chart')).toBeNull()
+    expect(atlas.querySelector('svg[data-testid="atlas-chart"]')).toBeNull()
+    // Y el cuerpo anatómico sí está: el SVG del atlas se dibuja.
+    expect(atlas.querySelector('.althea-atlas__svg')).not.toBeNull()
 
     // Nada de seguimiento ni acciones ajenas dentro de Progreso
     expect(screen.queryByRole('heading', { name: 'Seguimiento' })).not.toBeInTheDocument()

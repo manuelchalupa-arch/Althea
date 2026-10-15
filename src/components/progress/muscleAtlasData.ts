@@ -28,7 +28,7 @@ import { intensityOf, metricUnitOf, metricValueOf, type AtlasMetric } from './at
 export interface AtlasDataInput {
   /** false → sin datos de entrenamiento, devuelve {}. */
   enabled: boolean
-  /** Agregado por región de la ventana ANALIZADA (misma que la gráfica). */
+  /** Agregado por región de la ventana ANALIZADA. */
   current: ContributionResult
   /** Agregado por región de la ventana PREVIA comparable, o null si no hay. */
   previous: ContributionResult | null
@@ -59,6 +59,12 @@ export function buildAtlasMuscleData(input: AtlasDataInput): Record<string, Musc
     if (v > maxMetric) { maxMetric = v }
   }
 
+  // Series de la ventana: sin ninguna, un músculo gris es "sin actividad".
+  // Con series pero sin atribución a ninguna región, el gris es un hueco del
+  // mapeo ejercicio–músculo y NO debe leerse como "no entrenaste".
+  const windowSets = current.totalSets ?? 0
+  const noAttributionAtAll = windowSets > 0 && maxMetric === 0
+
   const pointForRegion = (regionId: string, catalogId: string): MuscleDataPoint => {
     const stat: RegionContribution | undefined = current.byRegion[regionId]
     const value = currentMetricByRegion[regionId] ?? 0
@@ -85,6 +91,14 @@ export function buildAtlasMuscleData(input: AtlasDataInput): Record<string, Musc
       days: stat?.days ?? [],
       metric,
       metricValue: Math.round(value * 10) / 10,
+      emptyReason:
+        intensity > 0
+          ? 'ok'
+          : noAttributionAtAll
+            ? 'sin-atribucion'
+            : windowSets > 0
+              ? 'sin-alcance'
+              : 'ok',
     }
   }
 

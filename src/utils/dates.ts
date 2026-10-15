@@ -55,3 +55,11 @@ export function weekStartKey(key: DateKey): DateKey {
 export function monthStartKey(key: DateKey): DateKey {
   return `${key.slice(0, 7)}-01`
 }
+
+/** Último día del mes de `key` (YYYY-MM-DD), sin pasar por UTC. */
+export function monthEndKey(key: DateKey): DateKey {
+  const d = parseLocalDateKey(monthStartKey(key))
+  // Mes siguiente (día 0 del mes +1 = último día del mes actual).
+  d.setMonth(d.getMonth() + 1, 0)
+  return toLocalDateKey(d)
+}
