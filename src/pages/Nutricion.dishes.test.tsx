@@ -243,7 +243,8 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
     })
     renderPage()
     await screen.findByTestId('summary-table')
-    await waitFor(() => expect(screen.getByText('Arroz con pollo de ayer')).toBeInTheDocument())
+    // La comida de ayer sigue guardada en la base, pero no se muestra hoy
+    expect(await db.nutritionDiary.get('ayer-1')).toBeTruthy()
     // la comida de ayer está guardada pero no cuenta para el consumo de hoy
     expect(texto('consumed-carbs')).toContain('0 g')
     expect(carbPct()).toBe(0)

@@ -199,13 +199,51 @@ describe('Cantidades ausentes — estimación marcada y editable', () => {
 })
 
 describe('Confianza y texto irreconocible', () => {
-  it('texto sin alimentos reconocidos devuelve null (no inventa)', () => {
-    expect(interpretMeal('comida rara que no existe')).toBeNull()
-    expect(interpretMeal('')).toBeNull()
+  it('texto sin alimentos reconocidos devuelve ficha de limitación con estimación genérica', () => {
+    const result = interpretMeal('comida rara que no existe')
+    expect(result).not.toBeNull()
+    expect(result!).toHaveProperty('_unrecognizedFood', 'comida rara que no existe')
+    // En vez de macros en cero, se ofrece una estimación genérica de un plato
+    expect(result!.totals.calories).toBeGreaterThan(0)
+    expect(result!.totals.proteins).toBeGreaterThan(0)
+    expect(result!.totals.carbs).toBeGreaterThan(0)
+    expect(result!.totals.fats).toBeGreaterThan(0)
+    expect(result!.confidence).toBe(0.1)
+    expect(result!.needsConfirmation).toBe(false)
   })
 
   it('una receta conocida tiene más confianza que un alimento suelto', () => {
     expect(interpretMeal('fideos con boloñesa')!.confidence).toBeGreaterThan(0.8)
     expect(interpretMeal('pollo')!.confidence).toBeLessThan(0.9)
+  })
+
+  it('un alimento desconocido con cantidad escrita respeta esa cantidad', () => {
+    const meal = interpretMeal('500 gramos de manjar de otro planeta')!
+    expect(meal._unrecognizedFood).toBe('500 gramos de manjar de otro planeta')
+    const leaf = flattenComponents(meal.components)[0]
+    expect(leaf.grams).toBe(500)
+    expect(meal.hasExplicitAmount).toBe(true)
+    expect(meal.hasEstimatedQuantities).toBe(false)
+  })
+})
+
+describe('Preparaciones específicas — no se confunden con la receta genérica', () => {
+  it('"150 gramos de budín de banana" usa budín de banana, nunca budín de pan', () => {
+    const meal = interpretMeal('150 gramos de budín de banana')!
+    const leaves = flattenComponents(meal.components)
+    expect(leaves).toHaveLength(1)
+    expect(leaves[0].canonicalFoodId).toBe('budin-banana')
+    expect(leaves[0].displayName).toBe('Budín de banana')
+    expect(leaves[0].grams).toBe(150)
+    expect(leaves.some(c => c.canonicalFoodId === 'budin-pan')).toBe(false)
+  })
+
+  it('"250 gramos de hamburguesa completa" escala el plato a ~250 g', () => {
+    const meal = interpretMeal('250 gramos de hamburguesa completa')!
+    const dish = meal.components[0]
+    expect(dish.type).toBe('dish')
+    expect(dish.grams).toBeGreaterThan(245)
+    expect(dish.grams).toBeLessThan(255)
+    expect(flattenComponents(meal.components)).toHaveLength(2)
   })
 })

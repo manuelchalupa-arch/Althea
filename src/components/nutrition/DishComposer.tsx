@@ -8,13 +8,18 @@ import {
   setComponentQuantity,
   resolveComponentOption,
   dropComponent,
+  addFoodComponent,
+  addFoodBaseComponent,
+  emptyMeal,
   componentQuantityLabel,
   componentTypeLabel,
   type MealInterpretation,
   type MealComponent,
 } from '@/services/nutrition/mealInterpretation'
 import { ingredientsOf, type DishDraft, type DishIngredient } from '@/services/nutrition/recipeInterpreter'
-import type { Macros } from '@/services/nutrition/foodComposition'
+import { getFood, type FoodBase, type FoodState, type Macros } from '@/services/nutrition/foodComposition'
+import type { FoodSearchResult } from '@/services/nutrition/foodSearch'
+import { FoodSearchPanel } from './FoodSearchPanel'
 
 // Etiquetas rápidas. NO son obligatorias: el campo de texto acepta cualquier
 // nombre libre ("Pre-entrenamiento", "Comida 1", "Colación"...).
@@ -34,6 +39,7 @@ export interface DishSavePayload {
   mealLabel: string
   ingredients: DishIngredient[]
   totals: Macros
+  _unrecognizedFood?: string
 }
 
 export interface DishComposerProps {
@@ -118,10 +124,10 @@ function ComponentRow({
             step={5}
             value={c.quantity}
             onChange={e => onQuantity(c.id, e.target.value)}
-            aria-label={c.unit === 'g' ? `Cantidad en gramos de ${c.displayName}` : `Cantidad en unidades de ${c.displayName}`}
+            aria-label={c.unit === 'ml' ? `Cantidad en mililitros de ${c.displayName}` : c.unit === 'unidad' ? `Cantidad en unidades de ${c.displayName}` : `Cantidad en gramos de ${c.displayName}`}
             className="input w-[76px] min-h-[48px] text-right font-mono text-sm"
           />
-          <span className="font-mono text-[10px] text-on-surface-variant">{c.unit === 'g' ? 'g' : 'un.'}</span>
+          <span className="font-mono text-[10px] text-on-surface-variant">{c.unit === 'ml' ? 'ml' : c.unit === 'unidad' ? 'un.' : 'g'}</span>
           <button
             type="button"
             onClick={() => onDrop(c.id)}
@@ -168,13 +174,7 @@ export function DishComposer({ onSave, onCancel, initial, initialText, initialMe
 
   const runInterpret = () => {
     const parsed = interpretMeal(text)
-    if (!parsed) {
-      setMeal(null)
-      setError(
-        'No pude identificar los ingredientes. Probá con más detalle: “fideos con boloñesa”, “pastel de papa con queso” o “200 g de pollo”.'
-      )
-      return
-    }
+    if (!parsed) { return }
     setError(null)
     setMeal(parsed)
     setName(parsed.mealName)
@@ -192,15 +192,42 @@ export function DishComposer({ onSave, onCancel, initial, initialText, initialMe
     setMeal(prev => (prev ? dropComponent(prev, id) : prev))
   }
 
+  // Agrega un alimento elegido en la búsqueda (catálogo, receta, personalizado,
+  // USDA o externo). Si el alimento está en la tabla local se usa su id; si no
+  // (USDA, externos), se construye un FoodBase con su `per100` para que la
+  // cantidad se pueda seguir editando después.
+  const pickFood = (result: FoodSearchResult, grams: number) => {
+    setError(null)
+    setMeal(prev => {
+      const base = prev ?? emptyMeal(text.trim())
+      if (getFood(result.id)) { return addFoodComponent(base, result.id, grams) }
+      const food: FoodBase = {
+        id: result.id,
+        label: result.label,
+        per100: result.per100,
+        aliases: [],
+        standardGrams: result.standardGrams,
+        unit: result.unit,
+        brand: result.brand,
+        state: result.state as FoodState | undefined,
+        extras: result.extras,
+        source: result.source,
+      }
+      return addFoodBaseComponent(base, food, grams)
+    })
+    setName(prev => (prev.trim() ? prev : (text.trim() || result.label)))
+  }
+
   const submit = () => {
     if (!meal) { return }
     const ingredients = ingredientsOf(meal)
-    if (ingredients.length === 0 || meal.needsConfirmation) { return }
+    if (ingredients.length === 0 && !meal._unrecognizedFood) { return }
     onSave({
       name: name.trim() || meal.mealName,
       mealLabel: mealLabel.trim() || 'Comida',
       ingredients,
       totals: meal.totals,
+      _unrecognizedFood: meal._unrecognizedFood,
     })
   }
 
@@ -250,8 +277,12 @@ export function DishComposer({ onSave, onCancel, initial, initialText, initialMe
         )}
       </div>
 
+      {/* Armar la comida con alimentos concretos: buscar en el catálogo,
+          buscar en línea o crear un alimento manualmente. */}
+      <FoodSearchPanel onPick={pickFood} suggestedName={meal?._unrecognizedFood} />
+
       {/* Confirmación antes de guardar: plato + composición, editable */}
-      {meal && flattenComponents(meal.components).length > 0 && (
+      {meal && (flattenComponents(meal.components).length > 0 || meal._unrecognizedFood) && (
         <div className="althea-level-3 p-4 space-y-4" data-testid="dish-review">
           <div className="space-y-1">
             <label htmlFor="dish-name" className="text-aux">
@@ -318,6 +349,19 @@ export function DishComposer({ onSave, onCancel, initial, initialText, initialMe
           <p className="font-body-sm text-[11px] text-on-surface-variant text-center">
             Estimación nutricional. Podés ajustar ingredientes o cantidades.
           </p>
+
+          {/* Limitación de reconocimiento */}
+          {meal._unrecognizedFood && (
+            <div
+              role="alert"
+              className="font-body-sm text-xs bg-secondary/10 border border-secondary/30 rounded-lg p-3 text-on-surface mt-2"
+            >
+              <div className="font-body-sm text-sm font-medium">Alimento no reconocido</div>
+              <div className="font-body-sm text-[10px] text-on-surface-variant mt-1">
+                No pudimos identificar "{meal._unrecognizedFood}" en nuestro catálogo. Los macros mostrados son una estimación genérica. Para mejores resultados, intentá especificar los ingredientes o seleccionar una opción similar.
+              </div>
+            </div>
+          )}
 
           {/* Etiqueta libre de la comida */}
           <div className="space-y-2">

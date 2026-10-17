@@ -31,11 +31,11 @@ import { MacroPlate } from '@/components/nutrition/MacroPlate'
 import { getBottleDailySummary, getCalculatedHydrationGoal, getBottleConfigs, completeBottle, addHydrationMl, type BottleConfig } from '@/services/recovery/hydrationBottles'
 import { DishComposer, type DishSavePayload } from '@/components/nutrition/DishComposer'
 import { dishFromEntry, type DishDraft } from '@/services/nutrition/recipeInterpreter'
-import { todayKey, dayKeyOffset, weekdayOfKey } from '@/utils/dates'
+import { loadCustomFoods } from '@/services/storage/customFoodStore'
+import { todayKey, weekdayOfKey } from '@/utils/dates'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
 type PageStatus = 'loading' | 'ready' | 'error'
-type FrequentFood = DiaryEntry & { count: number }
 
 /** Metas de referencia: solo se usan si el usuario no cargó peso y altura.
  *  No son datos del usuario, la pantalla lo aclara. */
@@ -46,7 +46,6 @@ export default function Nutricion() {
   const [perfil, setPerfil] = useState<UserProfile | null>(null)
   const [, setPesoEvo] = useState<BodyMeasurement[]>([])
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
-  const [frequentFoods, setFrequentFoods] = useState<FrequentFood[]>([])
   const [safetyAlerts, setSafetyAlerts] = useState<NutritionSafetyAlert[]>([])
   const [adherenceRecord, setAdherenceRecord] = useState<AdherenceRecord | null>(null)
   const [goals, setGoals] = useState<MacroGoals>(FALLBACK_GOALS)
@@ -87,17 +86,6 @@ export default function Nutricion() {
   const loadDay = useCallback(async (date: string) => {
     const entries = await getDiaryEntries(date)
     setDiaryEntries(entries)
-    const recent = await db.nutritionDiary
-      .where('date').between(dayKeyOffset(date, -30), date).toArray().catch(() => [] as DiaryEntry[])
-    const byName = new Map<string, FrequentFood>()
-    for (const e of recent) {
-      const k = e.name.trim().toLowerCase()
-      const cur = byName.get(k)
-      if (!cur) { byName.set(k, { ...e, count: 1 }) }
-      else if (e.addedAt > cur.addedAt) { byName.set(k, { ...e, count: cur.count + 1 }) }
-      else { cur.count += 1 }
-    }
-    setFrequentFoods([...byName.values()].sort((a, b) => b.count - a.count).slice(0, 5))
   }, [])
 
   const loadData = useCallback(async (date: string) => {
@@ -106,6 +94,9 @@ export default function Nutricion() {
     try {
       await migrateDiaryFromLocalStorage()
       await migrateAdherenceFromLocalStorage()
+      // Inyecta los alimentos personalizados del usuario en el intérprete para
+      // que la búsqueda y el reconocimiento de texto los incluyan.
+      await loadCustomFoods().catch(() => {})
       const p = await db.userProfile.get('me')
       setPerfil(p ?? null)
       const bodies = await db.bodyMeasurements.toArray().catch(() => [])
@@ -236,7 +227,7 @@ export default function Nutricion() {
             ...prev,
             name: payload.name,
             mealType: payload.mealLabel,
-            servingLabel: payload.ingredients.map(i => `${i.label} ${i.grams}g`).join(' · '),
+            servingLabel: payload.ingredients.map(i => `${i.label} ${i.grams}${i.unit === 'ml' ? 'ml' : 'g'}`).join(' · '),
             amount: payload.ingredients.reduce((a, i) => a + i.grams, 0),
             ingredients: toRecords(payload.ingredients),
             macros: { ...payload.totals },
@@ -251,7 +242,7 @@ export default function Nutricion() {
           date: activeDate,
           name: payload.name,
           mealType: payload.mealLabel,
-          servingLabel: payload.ingredients.map(i => `${i.label} ${i.grams}g`).join(' · '),
+          servingLabel: payload.ingredients.map(i => `${i.label} ${i.grams}${i.unit === 'ml' ? 'ml' : 'g'}`).join(' · '),
           amount: payload.ingredients.reduce((a, i) => a + i.grams, 0),
           unit: 'g',
           macros: { ...payload.totals },
@@ -470,40 +461,47 @@ export default function Nutricion() {
               description="Escribí arriba qué vas a comer y revisá la estimación antes de agregarla."
             />
           ) : (
-            <div className="space-y-2" data-testid="day-meals">
+            <div className="space-y-1.5" data-testid="day-meals">
               {dayEntries.map(e => (
-                <div key={e.id} className="rounded-lg border border-outline-variant/40 bg-surface-container p-3" data-testid="meal-row">
-                  <div className="flex items-start justify-between gap-2">
+                <div key={e.id} className="rounded-lg border border-outline-variant/40 bg-surface-container px-2.5 py-2" data-testid="meal-row">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-sm text-on-surface font-semibold truncate">{e.name}</span>
                         {e.mealType && (
                           <span className="font-label-caps text-[9px] uppercase text-primary border border-primary/30 rounded px-1.5 py-0.5">{e.mealType}</span>
                         )}
                         <span className="font-mono text-[10px] text-on-surface-variant">{diaryEntryTime(e)}</span>
                       </div>
-                      <div className="font-mono text-[11px] text-on-surface-variant mt-1">
-                        <span data-testid="meal-kcal">{Math.round(Number(e.macros?.calories || 0))} kcal</span>
-                        {' · '}{Math.round(Number(e.macros?.proteins || 0))}P
-                        {' · '}{Math.round(Number(e.macros?.carbs || 0))}C
-                        {' · '}{Math.round(Number(e.macros?.fats || 0))}G
+                      <div className="flex items-baseline gap-x-2 font-mono text-[11px] text-on-surface-variant mt-0.5 min-w-0">
+                        <span className="shrink-0">
+                          <span data-testid="meal-kcal">{Math.round(Number(e.macros?.calories || 0))} kcal</span>
+                          {' · '}{Math.round(Number(e.macros?.proteins || 0))}P
+                          {' · '}{Math.round(Number(e.macros?.carbs || 0))}C
+                          {' · '}{Math.round(Number(e.macros?.fats || 0))}G
+                        </span>
+                        {e.ingredients && e.ingredients.length > 0 && (
+                          <span
+                            className="truncate min-w-0 flex-1 text-on-surface-variant/70"
+                            title={e.ingredients.map(i => `${i.label} ${i.grams}g`).join(' · ')}
+                          >
+                            {e.ingredients.map(i => `${i.label} ${i.grams}g`).join(' · ')}
+                          </span>
+                        )}
                       </div>
-                      {e.ingredients && e.ingredients.length > 0 && (
-                        <div className="text-[11px] text-on-surface-variant mt-1">{e.ingredients.map(i => `${i.label} ${i.grams}g`).join(' · ')}</div>
-                      )}
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => startEdit(e)}
                         aria-label={`Editar ${e.name}`}
-                        className="w-10 h-10 rounded-lg border border-outline-variant/40 text-on-surface-variant flex items-center justify-center"
+                        className="w-11 h-11 rounded-lg border border-outline-variant/40 text-on-surface-variant flex items-center justify-center"
                       >
                         <Pencil size={15} />
                       </button>
                       <button
                         onClick={() => removeEntry(e.id)}
                         aria-label={`Eliminar ${e.name}`}
-                        className="w-10 h-10 rounded-lg border border-outline-variant/40 text-on-surface-variant flex items-center justify-center"
+                        className="w-11 h-11 rounded-lg border border-outline-variant/40 text-on-surface-variant flex items-center justify-center"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -601,41 +599,7 @@ export default function Nutricion() {
           </AltheaCard>
         )}
 
-        {frequentFoods.length > 0 && (
-          <AltheaSection title="Alimentos frecuentes" subtitle="Los que más registraste en los últimos 30 días" icon="history">
-            <div className="space-y-2">
-              {frequentFoods.map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => {
-                    const entry: DiaryEntry = {
-                      ...f,
-                      id: `food-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                      date: activeDate,
-                      time: nowLocalTime(),
-                      addedAt: new Date().toISOString(),
-                    }
-                    setDiaryEntries(prev => [...prev, entry])
-                    addDiaryEntry(entry)
-                  }}
-                  className="w-full flex items-center gap-3 min-h-[52px] px-3 rounded-lg border border-outline-variant/40 bg-surface-container text-left"
-                >
-                  <SemanticIcon name="restaurant_menu" size={18} className="text-secondary" />
-                  <span className="flex-1 min-w-0">
-                    <span className="block font-body-sm text-sm text-on-surface font-medium truncate">{f.name}</span>
-                    <span className="block font-body-sm text-[10px] text-on-surface-variant">
-                      {Math.round(Number(f.macros?.calories || 0))} kcal · P{Number(f.macros?.proteins || 0)}g C{Number(f.macros?.carbs || 0)}g G{Number(f.macros?.fats || 0)}g
-                    </span>
-                  </span>
-                  <span className="flex items-center gap-1 font-label-caps text-[10px] uppercase text-primary shrink-0">
-                    <SemanticIcon name="add" size={14} /> Agregar
-                  </span>
-                </button>
-              ))}
-            </div>
-          </AltheaSection>
-        )}
-      </div>
+        </div>
     )
   }
 
@@ -800,12 +764,12 @@ export default function Nutricion() {
             description="Escribí arriba qué vas a comer y revisá la estimación antes de agregarla."
           />
         ) : (
-          <div className="space-y-2" data-testid="day-meals">
+          <div className="space-y-1.5" data-testid="day-meals">
             {dayEntries.map(e => (
-              <div key={e.id} className="althea-level-2 p-4" data-testid="meal-row">
-                <div className="space-y-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
+              <div key={e.id} className="althea-level-2 px-3 py-2" data-testid="meal-row">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="font-body-md text-sm text-on-surface font-semibold truncate">{e.name}</span>
                       {e.mealType && (
                         <span className="font-label-caps text-[9px] uppercase text-primary border border-primary/30 rounded px-1.5 py-0.5">
@@ -814,30 +778,35 @@ export default function Nutricion() {
                       )}
                       <span className="font-mono text-[10px] text-on-surface-variant">{diaryEntryTime(e)}</span>
                     </div>
-                    <div className="font-mono text-xs text-on-surface-variant mt-1">
-                      <span data-testid="meal-kcal">{Math.round(Number(e.macros?.calories || 0))} kcal</span>
-                      {' · '}{Math.round(Number(e.macros?.proteins || 0))} g proteína
-                      {' · '}{Math.round(Number(e.macros?.carbs || 0))} g carbohidratos
-                      {' · '}{Math.round(Number(e.macros?.fats || 0))} g grasas
+                    <div className="flex items-baseline gap-x-2 font-mono text-[11px] text-on-surface-variant mt-0.5 min-w-0">
+                      <span className="shrink-0">
+                        <span data-testid="meal-kcal">{Math.round(Number(e.macros?.calories || 0))} kcal</span>
+                        {' · '}{Math.round(Number(e.macros?.proteins || 0))}P
+                        {' · '}{Math.round(Number(e.macros?.carbs || 0))}C
+                        {' · '}{Math.round(Number(e.macros?.fats || 0))}G
+                      </span>
+                      {e.ingredients && e.ingredients.length > 0 && (
+                        <span
+                          className="truncate min-w-0 flex-1 text-on-surface-variant/70"
+                          title={e.ingredients.map(i => `${i.label} ${i.grams}g`).join(' · ')}
+                        >
+                          {e.ingredients.map(i => `${i.label} ${i.grams}g`).join(' · ')}
+                        </span>
+                      )}
                     </div>
-                    {e.ingredients && e.ingredients.length > 0 && (
-                      <div className="font-body-sm text-[11px] text-on-surface-variant mt-1">
-                        {e.ingredients.map(i => `${i.label} ${i.grams}g`).join(' · ')}
-                      </div>
-                    )}
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => startEdit(e)}
                       aria-label={`Editar ${e.name}`}
-                      className="w-12 h-12 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary flex items-center justify-center transition-colors"
+                      className="w-11 h-11 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary flex items-center justify-center transition-colors"
                     >
                       <Pencil size={16} />
                     </button>
                     <button
                       onClick={() => removeEntry(e.id)}
                       aria-label={`Eliminar ${e.name}`}
-                      className="w-12 h-12 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-error hover:border-error flex items-center justify-center transition-colors"
+                      className="w-11 h-11 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-error hover:border-error flex items-center justify-center transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -961,43 +930,7 @@ export default function Nutricion() {
         </AltheaCard>
       )}
 
-      {/* Alimentos frecuentes reales (historial) */}
-      {frequentFoods.length > 0 && (
-        <AltheaSection title="Alimentos frecuentes" subtitle="Los que más registraste en los últimos 30 días" icon="history">
-          <div className="grid gap-2 sm:grid-cols-2">
-            {frequentFoods.map(f => (
-              <button
-                key={f.id}
-                onClick={() => {
-                  const entry: DiaryEntry = {
-                    ...f,
-                    id: `food-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                    date: activeDate,
-                    time: nowLocalTime(),
-                    addedAt: new Date().toISOString(),
-                  }
-                  setDiaryEntries(prev => [...prev, entry])
-                  addDiaryEntry(entry)
-                }}
-                className="flex items-center gap-3 min-h-[52px] px-3 rounded-lg border border-outline-variant/40 bg-surface-container text-left hover:border-primary transition-colors"
-              >
-                <SemanticIcon name="restaurant_menu" size={18} className="text-secondary text-[18px]" />
-                <span className="flex-1 min-w-0">
-                  <span className="block font-body-sm text-sm text-on-surface font-medium truncate">{f.name}</span>
-                  <span className="block font-body-sm text-[10px] text-on-surface-variant">
-                    {Math.round(Number(f.macros?.calories || 0))} kcal · P{Number(f.macros?.proteins || 0)}g C{Number(f.macros?.carbs || 0)}g G{Number(f.macros?.fats || 0)}g
-                  </span>
-                </span>
-                <span className="flex items-center gap-1 font-label-caps text-[10px] uppercase text-primary shrink-0">
-                  <SemanticIcon name="add" size={14} className="text-[14px]" /> Agregar
-                </span>
-              </button>
-            ))}
-          </div>
-        </AltheaSection>
-      )}
-
-    </div>
+      </div>
   )
 }
 

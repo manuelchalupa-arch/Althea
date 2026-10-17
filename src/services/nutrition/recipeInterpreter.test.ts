@@ -167,3 +167,66 @@ describe('Interprete de comidas — calculo de macros y recalculo', () => {
     expect(interpretDish('200 g de pollo')!.name).toBe('200 g de pollo')
   })
 })
+
+function totalGrams(draft: { ingredients: Array<{ grams: number }> }): number {
+  return draft.ingredients.reduce((a, i) => a + i.grams, 0)
+}
+
+describe('Interprete de comidas — preparaciones con cantidad indicada', () => {
+  it('"150 gramos de budín de banana" usa el budín de banana, no el de pan, con 150 g', () => {
+    const d = interpretDish('150 gramos de budín de banana')!
+    expect(ids(d)).toEqual(['budin-banana'])
+    expect(gramsOf(d, 'budin-banana')).toBe(150)
+    expect(ids(d)).not.toContain('budin-pan')
+    expect(d.hasExplicitAmount).toBe(true)
+  })
+
+  it('"250 gramos de hamburguesa completa" escala el plato a 250 g', () => {
+    const d = interpretDish('250 gramos de hamburguesa completa')!
+    expect(ids(d)).toEqual(['pan-hamburguesa', 'medallon-carne'])
+    expect(totalGrams(d)).toBeGreaterThan(245)
+    expect(totalGrams(d)).toBeLessThan(255)
+  })
+
+  it('"300 gramos de guiso de lentejas" escala el guiso y conserva la lenteja', () => {
+    const d = interpretDish('300 gramos de guiso de lentejas')!
+    expect(ids(d)).toContain('lentejas')
+    expect(totalGrams(d)).toBeGreaterThan(295)
+    expect(totalGrams(d)).toBeLessThan(305)
+  })
+
+  it('"200 gramos de milanesa napolitana" escala la receta napolitana a 200 g', () => {
+    const d = interpretDish('200 gramos de milanesa napolitana')!
+    expect(ids(d)).toContain('carne')
+    expect(ids(d)).toContain('mozzarella')
+    expect(totalGrams(d)).toBeGreaterThan(195)
+    expect(totalGrams(d)).toBeLessThan(205)
+  })
+
+  it('"180 gramos de pizza de muzzarella" escala la pizza sin duplicar la mozzarella', () => {
+    const d = interpretDish('180 gramos de pizza de muzzarella')!
+    expect(ids(d)).toEqual(['masa-pizza', 'salsa-tomate', 'mozzarella'])
+    expect(ids(d).filter(x => x === 'mozzarella')).toHaveLength(1)
+    expect(totalGrams(d)).toBeGreaterThan(175)
+    expect(totalGrams(d)).toBeLessThan(185)
+  })
+
+  it('cada preparación da una composición y un cálculo distintos', () => {
+    const dishes = [
+      interpretDish('200 gramos de budín de banana')!,
+      interpretDish('200 gramos de hamburguesa completa')!,
+      interpretDish('200 gramos de guiso de lentejas')!,
+      interpretDish('200 gramos de milanesa napolitana')!,
+      interpretDish('200 gramos de pizza de muzzarella')!,
+    ]
+    for (const d of dishes) { expect(d.totals.calories).toBeGreaterThan(0) }
+    const cal = new Set(dishes.map(d => d.totals.calories))
+    expect(cal.size).toBe(dishes.length)
+  })
+
+  it('duplicar los gramos duplica las calorías (cambio proporcional)', () => {
+    const doscientos = interpretDish('200 gramos de hamburguesa')!
+    const cuatrocientos = interpretDish('400 gramos de hamburguesa')!
+    expect(cuatrocientos.totals.calories).toBeCloseTo(doscientos.totals.calories * 2, -1)
+  })
+})

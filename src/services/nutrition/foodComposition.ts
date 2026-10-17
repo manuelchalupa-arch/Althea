@@ -1,4 +1,5 @@
 import { stripAccents } from '@/utils/format'
+import { CATALOG_FOODS } from './foodCatalog'
 // Composición de alimentos — tabla local de referencia, valores por 100 g.
 //
 // Estos valores son datos de referencia publiqueos (tablas composicion de
@@ -19,6 +20,50 @@ export interface Macros {
   fats: number
 }
 
+/** Id del alimento de respaldo usado como estimación genérica. */
+export const GENERIC_FOOD_ID = 'comida-generica'
+
+export type FoodCategory =
+  | 'cereal' | 'legumbre' | 'lacteo' | 'carne' | 'huevo' | 'pescado'
+  | 'fruta' | 'verdura' | 'grasa' | 'condimento' | 'bebida' | 'endulzante'
+  | 'fruto-seco' | 'semilla' | 'panificado' | 'otro'
+
+/** Estado de preparación: distingue seco/crudo/cocido/hervido/escurrido. */
+export type FoodState =
+  | 'crudo' | 'seco' | 'cocido' | 'hervido' | 'escurrido'
+  | 'en conserva' | 'listo' | 'frito' | 'horneado' | 'en polvo'
+  | 'asado' | 'congelado' | 'tostado'
+
+/**
+ * Nutrientes OPCIONALES (no energéticos) por 100 g / 100 ml. Todos son
+ * opcionales: un dato desconocido queda AUSENTE, nunca como 0 ficticio.
+ * `sodium` se expresa en miligramos y `salt` en gramos: son magnitudes
+ * distintas y NO se guardan una como la otra sin conversión explícita.
+ */
+export interface FoodExtras {
+  fiber?: number
+  sugars?: number
+  addedSugars?: number
+  saturatedFat?: number
+  transFat?: number
+  /** sodio en mg por 100 g / 100 ml */
+  sodium?: number
+  /** sal en g por 100 g / 100 ml (magnitud distinta al sodio) */
+  salt?: number
+  /** energía en kJ por 100 g / 100 ml (alternativa a kcal) */
+  energyKj?: number
+}
+
+/** g de sal equivalen a mg de sodio × 2.5 / 1000 (NaCl ≈ 2.5× Na). */
+export function sodiumToSalt(sodiumMg: number): number {
+  return Math.round((sodiumMg * 2.5) / 1000 * 100) / 100
+}
+
+/** Kcal derivadas de kJ (1 kcal = 4.184 kJ). Solo conversión de energía. */
+export function kjToKcal(kj: number): number {
+  return Math.round((kj / 4.184) * 10) / 10
+}
+
 export interface FoodBase {
   id: string
   label: string
@@ -29,6 +74,18 @@ export interface FoodBase {
   standardGrams: number
   /** gramos de una unidad, solo para alimentos contables ("2 huevos") */
   unitGrams?: number
+  /** familia del alimento (cereal, legumbre, lacteo...). */
+  category?: FoodCategory
+  /** estado de preparación; distingue seco de cocido, etc. */
+  state?: FoodState
+  /** nutrientes opcionales (fibra, azúcares, grasas específicas, sodio...). */
+  extras?: FoodExtras
+  /** unidad de referencia de los valores (por 100 g o por 100 ml). */
+  unit?: 'g' | 'ml'
+  /** marca comercial, si aplica. */
+  brand?: string
+  /** origen de los datos: 'referencia-local', 'ARGENFOODS', 'USDA', 'manual'... */
+  source?: string
 }
 
 function round1(n: number): number {
@@ -275,12 +332,105 @@ export const FOODS: FoodBase[] = [
     aliases: ['queso cremoso', 'queso crema', 'queso untable', 'cream cheese'],
     standardGrams: 30,
   },
+  // ── Budines y repostería ────────────────────────────────────────
+  {
+    id: 'budin-pan',
+    label: 'Budín de pan',
+    per100: { calories: 280, proteins: 6, carbs: 45, fats: 8 },
+    aliases: ['budín de pan', 'budin de pan', 'budin', 'pan con dias'],
+    standardGrams: 100,
+  },
+  {
+    id: 'budin-banana',
+    label: 'Budín de banana',
+    per100: { calories: 250, proteins: 3, carbs: 48, fats: 7 },
+    aliases: ['budín de banana', 'budin de banana', 'budina de banana', 'budín banana'],
+    standardGrams: 100,
+  },
+  {
+    id: 'budin-ingles',
+    label: 'Budín inglés',
+    per100: { calories: 300, proteins: 5, carbs: 52, fats: 9 },
+    aliases: ['budín inglés', 'budin ingles', 'budingles'],
+    standardGrams: 100,
+  },
+  {
+    id: 'budin-chocolate',
+    label: 'Budín de chocolate',
+    per100: { calories: 320, proteins: 4, carbs: 50, fats: 10 },
+    aliases: ['budín de chocolate', 'budin de chocolate', 'budín choc'],
+    standardGrams: 100,
+  },
+  {
+    id: 'tortas',
+    label: 'Torta',
+    per100: { calories: 350, proteins: 4, carbs: 48, fats: 12 },
+    aliases: ['torta', 'pastel', 'pastel de cumpleaños'],
+    standardGrams: 100,
+  },
+  {
+    id: 'lentejas',
+    label: 'Lentejas',
+    per100: { calories: 119, proteins: 8.9, carbs: 20.1, fats: 0.4 },
+    aliases: ['lentejas'],
+    standardGrams: 100,
+  },
+  {
+    id: 'arvejas',
+    label: 'Arvejas',
+    per100: { calories: 81, proteins: 5.4, carbs: 14.7, fats: 0.4 },
+    aliases: ['arvejas', 'guisantes'],
+    standardGrams: 100,
+  },
+  {
+    // Alimento de respaldo cuando el usuario escribe algo que no está en la
+    // tabla. No tiene aliases: nunca se detecta por texto. Solo se usa desde
+    // mealInterpretation para dar una estimación genérica de un plato estándar
+    // en vez de guardar la comida con macros en cero.
+    id: GENERIC_FOOD_ID,
+    label: 'Comida (estimación genérica)',
+    per100: { calories: 150, proteins: 8, carbs: 15, fats: 6 },
+    aliases: [],
+    standardGrams: 350,
+  },
+  // ── Carbohidratos y acompañamientos ─────────────────────────────
+
 ]
 
 const BY_ID = new Map(FOODS.map(f => [f.id, f]))
 
+// ── Catálogo ampliado (seco/crudo/cocido/hervido/escurrido, es/en) ───────────
+// Se agrega a la tabla de referencia sin duplicar ids ya existentes.
+for (const f of CATALOG_FOODS) {
+  if (!BY_ID.has(f.id)) { FOODS.push(f); BY_ID.set(f.id, f) }
+}
+
+// ── Registro en memoria de alimentos personalizados ─────────────────────────
+// Los alimentos creados por el usuario (persistidos en Dexie) se inyectan acá
+// para que la interpretación de texto, la búsqueda y el recálculo por gramos los
+// reconozcan sin tocar el catálogo base. Se recarga al iniciar la app.
+let EXTRA_FOODS: FoodBase[] = []
+let EXTRA_BY_ID = new Map<string, FoodBase>()
+
+/** Reemplaza los alimentos personalizados activos (los de mayor prioridad). */
+export function registerExtraFoods(foods: FoodBase[]): void {
+  EXTRA_FOODS = [...foods]
+  EXTRA_BY_ID = new Map(EXTRA_FOODS.map(f => [f.id, f]))
+}
+
+/** Limpia el registro (tests / logout). */
+export function clearExtraFoods(): void {
+  EXTRA_FOODS = []
+  EXTRA_BY_ID = new Map()
+}
+
+/** Alimentos personalizados + catálogo base, en ese orden de prioridad. */
+export function allFoods(): FoodBase[] {
+  return EXTRA_FOODS.length ? [...EXTRA_FOODS, ...FOODS] : FOODS
+}
+
 export function getFood(id: string): FoodBase | undefined {
-  return BY_ID.get(id)
+  return EXTRA_BY_ID.get(id) ?? BY_ID.get(id)
 }
 
 /** Normaliza texto de entrada: minusculas, sin acentos, solo alfanumerico. */
@@ -298,7 +448,7 @@ export function normalizeDishText(text: string): string {
 export function findFoodInText(text: string): { food: FoodBase; alias: string } | null {
   const padded = ` ${text} `
   let best: { food: FoodBase; alias: string } | null = null
-  for (const food of FOODS) {
+  for (const food of allFoods()) {
     for (const alias of food.aliases) {
       if (!padded.includes(` ${alias} `)) { continue }
       if (!best || alias.length > best.alias.length) { best = { food, alias } }
@@ -311,7 +461,7 @@ export function findFoodInText(text: string): { food: FoodBase; alias: string } 
 export function findFoodByLabel(label: string): FoodBase | undefined {
   const n = normalizeDishText(label)
   if (!n) { return undefined }
-  for (const food of FOODS) {
+  for (const food of allFoods()) {
     if (food.aliases.includes(n) || normalizeDishText(food.label) === n) { return food }
   }
   return undefined

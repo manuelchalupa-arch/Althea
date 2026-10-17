@@ -8,6 +8,7 @@
 import {
   findFoodByLabel,
   getFood,
+  GENERIC_FOOD_ID,
   FOODS,
   normalizeDishText,
   scaleMacros,
@@ -28,6 +29,8 @@ export interface DishIngredient {
   label: string
   grams: number
   macros: Macros
+  /** unidad de referencia del alimento: 'ml' cuando la base es por 100 ml */
+  unit?: 'g' | 'ml'
 }
 
 export interface DishDraft {
@@ -47,6 +50,7 @@ export function ingredientsOf(meal: MealInterpretation): DishIngredient[] {
       label: c.displayName,
       grams: c.grams,
       macros: c.macros,
+      unit: c.unit === 'ml' ? 'ml' : 'g',
     }))
 }
 
@@ -58,7 +62,9 @@ export function interpretDish(input: string): DishDraft | null {
   const meal = interpretMeal(input)
   if (!meal) { return null }
   const ingredients = ingredientsOf(meal)
-  if (ingredients.length === 0) { return null }
+  // Si lo único que hay es la estimación genérica, no es un plato reconocido:
+  // interpretDish nunca inventa ingredientes.
+  if (ingredients.length === 0 || ingredients.every(i => i.foodId === GENERIC_FOOD_ID)) { return null }
   return {
     name: meal.mealName,
     ingredients,
@@ -84,7 +90,7 @@ export function setIngredientGrams(
   if (!food) { return ingredients }
   const g = Math.max(0, Math.round(grams))
   const next = ingredients.slice()
-  next[index] = { foodId: current.foodId, label: food.label, grams: g, macros: scaleMacros(food.per100, g) }
+  next[index] = { foodId: current.foodId, label: food.label, grams: g, macros: scaleMacros(food.per100, g), unit: current.unit }
   return next
 }
 
@@ -105,7 +111,7 @@ export function toDishIngredients(records: DiaryIngredientRecord[] | undefined):
     // que editar una cantidad nunca deje macros viejos.
     const food = getFood(foodId)
     if (food) {
-      return { foodId, label: food.label, grams: r.grams, macros: scaleMacros(food.per100, r.grams) }
+      return { foodId, label: food.label, grams: r.grams, macros: scaleMacros(food.per100, r.grams), unit: food.unit === 'ml' ? 'ml' : 'g' }
     }
     return {
       foodId,

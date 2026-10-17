@@ -4,6 +4,7 @@ import type { TrainingSession, SessionExercise, SetRecord, SessionEvent, PostWor
 import type { CustomExercise } from '@/services/training/customExercises'
 import type { RoutineData } from './routineStore'
 import type { DiaryEntry, AdherenceRecord } from './diaryStore'
+import type { CustomFood } from './customFoodStore'
 import type { SessionOverrideData } from './sessionOverrideStore'
 import type { ChatMessage, ChatConversation } from '@/services/ai/chatHistory'
 import type { CoachDecision, CoachQA } from '@/services/ai/coachMemory'
@@ -46,6 +47,46 @@ export class TrainDB extends Dexie {
   trainingSessions!: Table<TrainingSession>
   sessionExercises!: Table<SessionExercise>
   setRecords!: Table<SetRecord>
+  /**
+   * v24. Sesiones de actividad deportiva. Mapea sobre la forma de
+   * `ActivitySession` (services/activity/activityService.ts) para que ese
+   * módulo sea quien escriba y el atlas sólo lea. Campos opcionales: la
+   * distancia, el peso o la intensidad pueden no existir y eso es válido.
+   */
+  activitySessions!: Table<{
+    id: string
+    userId: string
+    activityId: string
+    activityName: string
+    modalidad?: string
+    calendarDate: string
+    startedAt: string
+    durationMinutes?: number
+    distanceMeters?: number
+    distanceKm?: number | null
+    distanceSource?: 'manual' | 'gps' | 'machine' | null
+    weightKg?: number | null
+    intensity?: string
+    met?: number
+    metSourceCode?: string
+    metEstimated?: boolean
+    variantId?: string
+    variantLabel?: string
+    sessionRpe?: number | null
+    sessionLoad?: number | null
+    grossKcal?: number | null
+    netKcal?: number | null
+    activeKcal?: number | null
+    calorieMethod?: 'MET' | 'ACSM_WALK' | 'ACSM_RUN' | null
+    calorieEstimated?: boolean
+    inclinePercent?: number | null
+    powerWatts?: number | null
+    machineKcal?: number | null
+    kcalFormula?: string | null
+    notes?: string
+    createdAt: string
+    updatedAt: string
+  }>
   sessionEvents!: Table<SessionEvent>
   postWorkoutSurveys!: Table<PostWorkoutSurvey>
   negativeSets!: Table<NegativeSet>
@@ -80,6 +121,7 @@ export class TrainDB extends Dexie {
     flash: boolean
     updatedAt: string
   }>
+  customFoods!: Table<CustomFood>
   constructor() {
     super('trainPWA')
     this.version(1).stores({
@@ -220,6 +262,28 @@ export class TrainDB extends Dexie {
     // (entre series y entre ejercicios). Sobrevive a cierre/recarga de la app.
     this.version(23).stores({
       restTimerState: 'id, endsAt, pausedRemainingSec, flash, updatedAt',
+    })
+    // v24: Actividades deportivas (pádel, correr, ciclismo, natación, ...).
+    // Solo aditivo. Es la ÚNICA fuente de verdad sporting: el atlas la lee en
+    // modo solo lectura, sin duplicar datos ni crear una segunda tabla.
+    // `weightKg` es el peso registrado en ESA sesión; si viene null, el cálculo
+    // usa el peso corporal histórico de la fecha (nunca el actual por defecto).
+    // v25 (solo índices): userId para aislamiento por cuenta, más campos de
+    // snapshot (variante MET, RPE, carga, kcal) para que el historial no
+    // recalcule al cambiar el perfil.
+    this.version(24).stores({
+      activitySessions: 'id, activityId, calendarDate, startedAt',
+    })
+    this.version(25).stores({
+      activitySessions: 'id, userId, activityId, calendarDate, startedAt',
+    })
+    // v26: Alimentos personalizados creados manualmente por el usuario.
+    // Solo aditivo. Fuente de verdad de las altas manuales (nombre, macros,
+    // base de cálculo, sinónimos). No altera nutritionDiary: cada DiaryEntry
+    // conserva su snapshot de macros, así que editar/borrar un alimento
+    // personalizado nunca reescribe comidas ya registradas.
+    this.version(26).stores({
+      customFoods: 'id, name, updatedAt, source',
     })
   }
 }

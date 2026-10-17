@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-import '@testing-library/jest-dom'
 import userEvent from '@testing-library/user-event'
 import { DishComposer, type DishSavePayload } from './DishComposer'
 
@@ -111,14 +110,33 @@ describe('Revisión de comida — plato + composición antes de guardar', () => 
     expect(Math.round(payload.totals.calories)).toBe(despues)
   })
 
-  it('texto irreconocible no arma ninguna revisión ni inventa ingredientes', async () => {
+  it('texto irreconocible muestra limitación y una estimación genérica, y permite guardar', async () => {
     const user = userEvent.setup()
-    render(<DishComposer onSave={vi.fn()} onCancel={vi.fn()} />)
+    const onSave = vi.fn()
+    render(<DishComposer onSave={onSave} onCancel={vi.fn()} />)
     await user.type(screen.getByLabelText('Qué vas a comer'), 'comida rara sin sentido')
     await user.click(screen.getByRole('button', { name: /Interpretar/i }))
 
-    const alerta = await screen.findByRole('alert')
-    expect(alerta.textContent ?? '').toMatch(/No pude identificar los ingredientes/i)
-    expect(screen.queryByTestId('dish-review')).not.toBeInTheDocument()
+    // Esperar a que aparezca la sección de revisión
+    const review = await screen.findByTestId('dish-review')
+
+    // El botón de guardar debería estar habilitado (aunque con aviso de limitación)
+    const saveButton = within(review).getByTestId('dish-save')
+    expect(saveButton).not.toBeDisabled()
+
+    // Debería aparecer la ficha de limitación
+    const limitation = within(review).getByText(/No pudimos identificar/)
+    expect(limitation).toBeInTheDocument()
+
+    // En vez de macros en cero, se muestra una estimación genérica editable
+    expect(within(review).getByText('Comida (estimación genérica)')).toBeInTheDocument()
+    const calories = Number(within(review).getByTestId('dish-total-calories').textContent?.replace(/[^\d]/g, ''))
+    expect(calories).toBeGreaterThan(0)
+
+    await user.click(saveButton)
+    expect(onSave).toHaveBeenCalledTimes(1)
+    const payload = onSave.mock.calls[0][0] as DishSavePayload
+    expect(payload.ingredients.map(i => i.foodId)).toEqual(['comida-generica'])
+    expect(payload.totals.calories).toBeGreaterThan(0)
   })
 })
