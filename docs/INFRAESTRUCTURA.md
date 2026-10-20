@@ -6,20 +6,32 @@ contra entornos reales.
 
 ```
 CODE-COMPLETE      = TRUE
-WORKER-STAGING     = DEPLOYED   (althea-proxy-staging · re-verificado en vivo 2026-10-10)
-STAGING-VALIDATED   = FALSE   (falta proyecto Firebase + secret GROQ + Hosting)
-PRODUCTION-READY   = FALSE   (falta staging + revocación de claves históricas)
-RELEASE-PROD       = BLOCKED   (Prompt 5, 2026-10-10 · ver docs/RELEASE_REPORT.md)
+WORKER-PRODUCTION  = DEPLOYED   (althea-proxy-production · v57ca4c80 · 28 PASS + Groq E2E 200 · 2026-10-20)
+HOSTING-PRODUCTION = DEPLOYED   (https://althea-4b1d0.web.app · route check 30 PASS/0 FAIL · 2026-10-20)
+FIRESTORE-RULES    = DEPLOYED   (althea-4b1d0 · users/{uid} · 2026-10-20)
+ENTORNOS           = SINGLE-PROJECT (decisión del propietario: un SOLO proyecto Firebase, althea-4b1d0,
+                     para staging y producción; el Worker althea-proxy-staging queda como banco de pruebas)
+RELEASE-PROD       = DEPLOYED   (2026-10-20 · ver docs/RELEASE_REPORT.md §6)
 ```
 
-> **Prompt 4 (2026-10-10):** no se desplegó nada nuevo. Se re-validó lo que ya
-> existía y se cerraron los defectos locales del preflight. El estado de
-> staging sigue sin ser `VALIDADO`: ver §8 para lo que falta.
+> **2026-10-20 — Release ejecutado.** El propietario autorizó PUBLICAR con
+> proyecto único `althea-4b1d0`. Resultado: Worker `althea-proxy-production`
+> desplegado con KV propio y secret `GROQ_API_KEY` activo (Groq E2E 200),
+> reglas `firestore.rules` liberadas a Firestore, Hosting con120 archivos y
+> route check 30 PASS / 0 FAIL. La validación E2E de aislamiento
+> staging↔producción (`staging:firestore:e2e`) **no aplica** con proyecto único
+> (el script aborta por diseño si staging == producción). Rollback de Hosting:
+> `firebase hosting:rollback --project althea-4b1d0`.
+>
+> **Revocaciones (§9):** clave histórica de Groq **NO revocada — decisión del
+> propietario** (se usa la clave nueva creada el 2026-10-20 en los Workers; la
+> vieja sigue vigente, riesgo aceptado y anotado). CalorieNinjas **N/A**:
+> eliminado de runtime en `7f3c687` (sin clientes, claves ni llamadas).
 >
 > **Prompt 5 (2026-10-10):** el release de producción **no comenzó**. Cinco
-> condiciones previas del §1 están en FAIL (CI sin commitear, staging sin
+> condiciones previas del §1 estaban en FAIL (CI sin commitear, staging sin
 > validar, secret Groq ausente, claves históricas sin revocar, KV de producción
-> con placeholder). Detalle y desbloqueo en `docs/RELEASE_REPORT.md`.
+> con placeholder). Detalle en `docs/RELEASE_REPORT.md`.
 
 ---
 

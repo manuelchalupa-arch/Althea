@@ -1,11 +1,15 @@
 # RELEASE — Informe de producción
 
+> **ESTADO FINAL: PUBLICADO el 2026-10-20 → https://althea-4b1d0.web.app**
+> Ver §6 (Release ejecutado) al final. El §1–§5 que siguen son el análisis del
+> intento bloqueado del 2026-10-10, conservado como histórico.
+
 | Dato | Valor |
 |---|---|
 | Fecha del intento | 2026-10-10 |
 | Commit en árbol de trabajo | `1fb12f7` (`1fb12f7ca5ea8113b155f2207b024e1aff231471`) — **59 archivos SIN COMMITTEAR** |
 | Entorno objetivo | producción (Firebase Hosting + Cloudflare Worker `althea-proxy-production`) |
-| **Resultado** | **BLOCKED — no se desplegó nada** |
+| **Resultado del intento** | **BLOCKED — no se desplegó nada** (superado por el release del 2026-10-20, §6) |
 
 Ningún comando de despliegue fue ejecutado. No se corrieron
 `worker:deploy:production`, `worker:secret:production`, `worker:kv:production`,
@@ -68,3 +72,36 @@ En orden estricto (§1 → §2 → §3):
 6. Confirmar el **dominio real** de producción para alinear `CORS_ORIGIN`.
 7. `npm run worker:secret:production` con la clave nueva pegada en el terminal del propietario.
 8. Autorización explícita del propietario → `ALTHEA_ALLOW_PRODUCTION_DEPLOY=1 npm run deploy:hosting:production` + deploy de `firestore.rules` con `--project` explícito.
+
+---
+
+## 6. Release ejecutado — 2026-10-20 ✅ PUBLICADO
+
+**URL en vivo: https://althea-4b1d0.web.app** · Proyecto Firebase: `althea-4b1d0` (único entorno).
+
+| Artefacto | Valor |
+|---|---|
+| Frontend | Hosting release desplegado (120 archivos) — **route check 30 PASS / 0 FAIL** |
+| Worker producción | `althea-proxy-production` · Version ID `57ca4c80-8139-468b-83d0-d2e833de185b` |
+| Worker security matrix | **28 PASS / 0 FAIL** (CORS/métodos/Content-Type/límites/payload/rate limit `durable-object`) |
+| Groq E2E | **200 con contenido del modelo** vía proxy (antes: los4 NOT VALIDATED) |
+| KV producción | namespace `RATE_LIMIT_PRODUCTION` → `598bd1ae4ca9455ab86181d59ae69217` |
+| Firestore rules | desplegadas a `althea-4b1d0` (`users/{uid}`) |
+| Bundle publicado | `althea-proxy-production` en el JS · sin proxy viejo · **0 claves** (`check:release` OK) |
+| Suite previa | tsc 0 · lint 0 · **1648 tests OK** · build PWA OK |
+
+### Desviaciones respecto del plan §1 (decisiones del propietario)
+
+1. **Proyecto único** `althea-4b1d0` para staging y producción — se prescindió del entorno Firebase separado; `staging:firestore:e2e` no aplica (aborta si staging == producción por diseño). El Worker `althea-proxy-staging` queda como banco de pruebas de seguridad.
+2. **Clave histórica de Groq NO revocada** — el propietario decidió usar sólo la clave nueva (2026-10-20) y no rotar la vieja; riesgo aceptado y registrado en `INFRAESTRUCTURA.md` §9.
+3. **CalorieNinjas sin acción** — fuera de runtime desde `7f3c687` (sin clientes/claves/llamadas); el bloqueo §1.5 era obsoleto.
+4. **CI sobre el release**: los59 archivos del intento anterior fueron commiteados y subidos (commits `3c50871`, `a6c7d96`, `4f40d93`) +2 commits locales de preparación (`beaf655`, `e9345f0`) — **push de `e9345f0`/`beaf655` pendiente de autorización del propietario**.
+5. **Dominio**: CORS incluye `althea-4b1d0.web.app` + `althea.app` + `www.althea.app`. Si `althea.app` no apunta (o aún no existe), la app funciona igual desde `althea-4b1d0.web.app`.
+6. **VAPID/push**: sin clave → notificaciones push deshabilitadas (no bloqueante; añadir desde Firebase Console → Cloud Messaging si se desea).
+
+### Rollback (ya disponible)
+
+```bash
+firebase hosting:rollback --project althea-4b1d0   # frontend
+cd worker && npx wrangler rollback -c wrangler.production.toml   # worker
+```
