@@ -12,8 +12,9 @@
  * de prueba se crean por el endpoint público de registro y se autentican por
  * contraseña, que es exactamente el camino que usa un usuario real.
  *
- * No se ejecuta nada en producción: exige FIREBASE_STAGING_PROJECT_ID y
- * verifica que el proyecto NO sea el de producción.
+ * No se ejecuta nada en producción: EXIGE FIREBASE_STAGING_PROJECT_ID, comprueba
+ * que VITE_FIREBASE_PROJECT_ID coincida con él y que ni él ni el build sean el
+ * proyecto de producción. Sin la identidad declarada de staging, aborta.
  *
  * No imprime contraseñas ni tokens.
  *
@@ -23,6 +24,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { checkFirestoreE2eTarget } from './lib/env-config.mjs'
 
 const ROOT = process.cwd()
 
@@ -54,17 +56,16 @@ console.log('=== FIRESTORE ISOLATION E2E (staging) ===')
 console.log(`project = ${projectId || '(sin definir)'}`)
 
 // ── Guardas de ambiente ──────────────────────────────────────────────────────
-if (!projectId) {
-  block('Falta VITE_FIREBASE_PROJECT_ID (staging). No se puede probar el aislamiento.')
+// La lógica vive en scripts/lib/env-config.mjs (pura y con tests propios) para
+// que no se pueda "aflojar" sin que un test lo detecte.
+const guard = checkFirestoreE2eTarget({ projectId, apiKey, stagingId, productionId })
+if (!guard.ok) {
+  if (guard.level === 'abort') {
+    console.error(`\nABORT: ${guard.message}`)
+    process.exit(1)
+  }
+  block(guard.message)
   process.exit(2)
-}
-if (!apiKey) {
-  block('Falta VITE_FIREBASE_API_KEY (staging).')
-  process.exit(2)
-}
-if (productionId && projectId === productionId) {
-  console.error('\nABORT: el proyecto configurado es el de PRODUCCIÓN. Esta prueba es sólo de staging.')
-  process.exit(1)
 }
 
 // ── Helpers Identity Toolkit ────────────────────────────────────────────────

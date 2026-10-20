@@ -213,6 +213,62 @@ export function validateBuildEnv({ mode, values = {}, otherProjectId = '', other
   }
 }
 
+/**
+ * Decide si la prueba E2E de aislamiento de Firestore puede ejecutarse.
+ *
+ * Garantiza que el destino sea la identidad DECLARADA de staging y nunca el
+ * proyecto de producción. Puro y sin efectos.
+ *
+ * @param {{ projectId?: string, apiKey?: string, stagingId?: string, productionId?: string }} args
+ * @returns {{ ok: boolean, level: 'ok'|'block'|'abort', code: string, message: string }}
+ *   level 'block' = falta configuración (salida 2) · 'abort' = apunta a producción (salida 1)
+ */
+export function checkFirestoreE2eTarget({ projectId, apiKey, stagingId, productionId } = {}) {
+  const p = String(projectId ?? '').trim()
+  const k = String(apiKey ?? '').trim()
+  const s = String(stagingId ?? '').trim()
+  const prod = String(productionId ?? '').trim()
+
+  if (!p) {
+    return {
+      ok: false,
+      level: 'block',
+      code: 'MISSING_PROJECT',
+      message: 'Falta VITE_FIREBASE_PROJECT_ID (staging). No se puede probar el aislamiento.',
+    }
+  }
+  if (!k) {
+    return { ok: false, level: 'block', code: 'MISSING_API_KEY', message: 'Falta VITE_FIREBASE_API_KEY (staging).' }
+  }
+  if (!s) {
+    return {
+      ok: false,
+      level: 'block',
+      code: 'MISSING_STAGING_ID',
+      message:
+        'Falta FIREBASE_STAGING_PROJECT_ID: sin la identidad declarada de staging no se puede garantizar que el destino no sea producción.',
+    }
+  }
+  if (p !== s) {
+    return {
+      ok: false,
+      level: 'block',
+      code: 'PROJECT_NOT_STAGING',
+      message: `EL PROYECTO NO ES EL DECLARADO COMO STAGING: VITE_FIREBASE_PROJECT_ID="${p}" ≠ FIREBASE_STAGING_PROJECT_ID="${s}". Abortado para no tocar un proyecto no declarado como staging.`,
+    }
+  }
+  if (prod && s === prod) {
+    return {
+      ok: false,
+      level: 'abort',
+      code: 'STAGING_IS_PRODUCTION',
+      message:
+        'FIREBASE_STAGING_PROJECT_ID y FIREBASE_PRODUCTION_PROJECT_ID son el MISMO proyecto. Revisá la configuración.',
+    }
+  }
+  return { ok: true, level: 'ok', code: 'OK', message: '' }
+}
+
 /** Cabecera común de los `.env.<modo>` generados por el asistente. */
 function envHeader(mode) {
   const label = mode === 'production' ? 'PRODUCCIÓN' : 'STAGING'

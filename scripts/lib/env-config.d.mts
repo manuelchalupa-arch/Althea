@@ -36,6 +36,20 @@ export function validateBuildEnv(args: {
   otherWorkerName?: string
 }): BuildEnvValidation
 
+export interface FirestoreE2eGuard {
+  ok: boolean
+  level: 'ok' | 'block' | 'abort'
+  code: string
+  message: string
+}
+
+export function checkFirestoreE2eTarget(args: {
+  projectId?: string
+  apiKey?: string
+  stagingId?: string
+  productionId?: string
+}): FirestoreE2eGuard
+
 export function buildEnvFileContent(args: {
   mode: string
   values?: Record<string, string>
