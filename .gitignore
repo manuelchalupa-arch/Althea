@@ -19,6 +19,8 @@ skills-lock.json
 *.exe
 # worker build cache
 worker/.wrangler/
+# firebase CLI cache (temp de deploys)
+.firebase/
 
 # artefactos de entrega/export: copias de archivos ya versionados en src/ y public/
 ALTHEA_VISUAL_SYSTEM_FINAL/
