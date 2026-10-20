@@ -6,22 +6,35 @@ contra entornos reales.
 
 ```
 CODE-COMPLETE      = TRUE
-WORKER-PRODUCTION  = DEPLOYED   (althea-proxy-production · v57ca4c80 · 28 PASS + Groq E2E 200 · 2026-10-20)
-HOSTING-PRODUCTION = DEPLOYED   (https://althea-4b1d0.web.app · route check 30 PASS/0 FAIL · 2026-10-20)
-FIRESTORE-RULES    = DEPLOYED   (althea-4b1d0 · users/{uid} · 2026-10-20)
+FRONTEND-PROD      = NETLIFY   (https://altheafit.netlify.app · deploy 2026-10-20 · bundle verificado: Firebase althea-4b1d0 + Coach IA activo)
+WORKER-PRODUCTION  = DEPLOYED  (althea-proxy-production · v bd6472e9 · 28 PASS + Groq E2E 200 · CORS incluye altheafit.netlify.app)
+BACKEND            = FIREBASE  (althea-4b1d0 · Auth + Firestore rules users/{uid} desplegadas 2026-10-20)
 ENTORNOS           = SINGLE-PROJECT (decisión del propietario: un SOLO proyecto Firebase, althea-4b1d0,
                      para staging y producción; el Worker althea-proxy-staging queda como banco de pruebas)
-RELEASE-PROD       = DEPLOYED   (2026-10-20 · ver docs/RELEASE_REPORT.md §6)
+HOSTING-FIREBASE   = DISABLED  (2026-10-20 · web.app → 404 · la app NO se sirve desde Firebase Hosting)
+NETLIFY-BUILD      = netlify.toml versiona las env VITE_* públicas (los .env no llegan a Netlify por gitignore)
+RELEASE-PROD       = DEPLOYED EN NETLIFY (2026-10-20 · ver docs/RELEASE_REPORT.md §6)
 ```
 
 > **2026-10-20 — Release ejecutado.** El propietario autorizó PUBLICAR con
-> proyecto único `althea-4b1d0`. Resultado: Worker `althea-proxy-production`
-> desplegado con KV propio y secret `GROQ_API_KEY` activo (Groq E2E 200),
-> reglas `firestore.rules` liberadas a Firestore, Hosting con120 archivos y
-> route check 30 PASS / 0 FAIL. La validación E2E de aislamiento
-> staging↔producción (`staging:firestore:e2e`) **no aplica** con proyecto único
-> (el script aborta por diseño si staging == producción). Rollback de Hosting:
-> `firebase hosting:rollback --project althea-4b1d0`.
+> proyecto único `althea-4b1d0`. Resultado final:
+>
+> - **Frontend** → **Netlify (https://altheafit.netlify.app)**. Deploy manual
+>   con `netlify-cli deploy --prod --no-build --dir dist` sobre un `dist`
+>   compilado en verde (el build nativo de Netlify fallaba por código WIP no
+>   commiteado de una sesión paralela). `netlify.toml` versiona las `VITE_*`
+>   públicas porque los `.env` no llegan a Netlify (gitignore). Bundle en vivo
+>   verificado: config Firebase `althea-4b1d0` + proxy `althea-proxy-production`.
+> - **Backend** → Firebase `althea-4b1d0` (Auth + Firestore rules `users/{uid}`).
+> - **Worker** → `althea-proxy-production` (KV `598bd1ae…`, secret `GROQ_API_KEY`
+>   activo, CORS con `altheafit.netlify.app`; 28 PASS + Groq E2E 200).
+> - **Hosting Firebase** → **DISABLED** (`web.app` → 404). No se pudo borrar:
+>   el sitio **default** de un proyecto no es borrable (la API devuelve
+>   `FAILED_PRECONDITION: Cannot delete default Hosting Site`). Se rehabilita
+>   con cualquier deploy de Hosting.
+> - La validación E2E de aislamiento staging↔producción (`staging:firestore:e2e`)
+>   **no aplica** con proyecto único (el script aborta por diseño si staging ==
+>   producción).
 >
 > **Revocaciones (§9):** clave histórica de Groq **NO revocada — decisión del
 > propietario** (se usa la clave nueva creada el 2026-10-20 en los Workers; la

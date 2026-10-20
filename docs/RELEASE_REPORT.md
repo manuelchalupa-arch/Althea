@@ -1,6 +1,7 @@
 # RELEASE — Informe de producción
 
-> **ESTADO FINAL: PUBLICADO el 2026-10-20 → https://althea-4b1d0.web.app**
+> **ESTADO FINAL: PUBLICADO el 2026-10-20 → https://altheafit.netlify.app**
+> (Frontend en Netlify · Backend Firebase `althea-4b1d0` · Hosting Firebase deshabilitado, ver §6)
 > Ver §6 (Release ejecutado) al final. El §1–§5 que siguen son el análisis del
 > intento bloqueado del 2026-10-10, conservado como histórico.
 
@@ -75,19 +76,20 @@ En orden estricto (§1 → §2 → §3):
 
 ---
 
-## 6. Release ejecutado — 2026-10-20 ✅ PUBLICADO
+## 6. Release ejecutado — 2026-10-20 ✅ PUBLICADO EN NETLIFY
 
-**URL en vivo: https://althea-4b1d0.web.app** · Proyecto Firebase: `althea-4b1d0` (único entorno).
+**URL en vivo: https://altheafit.netlify.app** · Backend: Firebase `althea-4b1d0` (único entorno). El Hosting de Firebase (`althea-4b1d0.web.app`) quedó **deshabilitado** (404) por decisión del propietario: Firebase es SOLO backend.
 
 | Artefacto | Valor |
 |---|---|
-| Frontend | Hosting release desplegado (120 archivos) — **route check 30 PASS / 0 FAIL** |
-| Worker producción | `althea-proxy-production` · Version ID `57ca4c80-8139-468b-83d0-d2e833de185b` |
+| Frontend | **Netlify deploy** 2026-10-20 (`--no-build` de `dist` compilado en verde) — bundle en vivo verificado: config `althea-4b1d0` + proxy + `/onboarding` 200 |
+| Worker producción | `althea-proxy-production` · Version ID `bd6472e9-0e73-49f9-b42c-2f4858074cca` (CORS con `altheafit.netlify.app`) |
 | Worker security matrix | **28 PASS / 0 FAIL** (CORS/métodos/Content-Type/límites/payload/rate limit `durable-object`) |
-| Groq E2E | **200 con contenido del modelo** vía proxy (antes: los4 NOT VALIDATED) |
-| KV producción | namespace `RATE_LIMIT_PRODUCTION` → `598bd1ae4ca9455ab86181d59ae69217` |
+| Groq E2E | **200 con contenido del modelo** vía proxy desde origen netlify y web.app (antes: los 4 NOT VALIDATED) |
+| KV producción | namespace `RATE_LIMIT_PRODUCTION` → `598bd1ae4ca9455ab86181d55ae69217` |
 | Firestore rules | desplegadas a `althea-4b1d0` (`users/{uid}`) |
-| Bundle publicado | `althea-proxy-production` en el JS · sin proxy viejo · **0 claves** (`check:release` OK) |
+| Hosting Firebase | **DISABLED** 2026-10-20 (`web.app` → 404). El sitio default **no es borrable** (API: `FAILED_PRECONDITION: Cannot delete default Hosting Site`). Se reactiva con `firebase deploy --only hosting` |
+| Build/secret scan | `check:release` OK — **0 claves** en `dist/` |
 | Suite previa | tsc 0 · lint 0 · **1648 tests OK** · build PWA OK |
 
 ### Desviaciones respecto del plan §1 (decisiones del propietario)
@@ -95,13 +97,17 @@ En orden estricto (§1 → §2 → §3):
 1. **Proyecto único** `althea-4b1d0` para staging y producción — se prescindió del entorno Firebase separado; `staging:firestore:e2e` no aplica (aborta si staging == producción por diseño). El Worker `althea-proxy-staging` queda como banco de pruebas de seguridad.
 2. **Clave histórica de Groq NO revocada** — el propietario decidió usar sólo la clave nueva (2026-10-20) y no rotar la vieja; riesgo aceptado y registrado en `INFRAESTRUCTURA.md` §9.
 3. **CalorieNinjas sin acción** — fuera de runtime desde `7f3c687` (sin clientes/claves/llamadas); el bloqueo §1.5 era obsoleto.
-4. **CI sobre el release**: los59 archivos del intento anterior fueron commiteados y subidos (commits `3c50871`, `a6c7d96`, `4f40d93`) +2 commits locales de preparación (`beaf655`, `e9345f0`) — **push de `e9345f0`/`beaf655` pendiente de autorización del propietario**.
-5. **Dominio**: CORS incluye `althea-4b1d0.web.app` + `althea.app` + `www.althea.app`. Si `althea.app` no apunta (o aún no existe), la app funciona igual desde `althea-4b1d0.web.app`.
+4. **CI sobre el release**: los archivos del intento anterior fueron commiteados y subidos (commits `3c50871`, `a6c7d96`, `4f40d93`) + commits de preparación y publicación (`beaf655`…`7beb682` + docs) — **push autorizado por el propietario y ejecutado**.
+5. **Dominio**: el frontend vive en `https://altheafit.netlify.app` (CORS del Worker incluye ese origen + `althea.app` + `www.althea.app`). Hosting Firebase deshabilitado; `althea-4b1d0.web.app` ya no sirve la app.
 6. **VAPID/push**: sin clave → notificaciones push deshabilitadas (no bloqueante; añadir desde Firebase Console → Cloud Messaging si se desea).
+7. **Build nativo de Netlify falla con WIP ajeno**: el sitio tiene build command `npm run build` en la UI; si hay código sin commitear que no compila, el deploy automático falla. La publicación se hizo con `--no-build` + `dist` verde. `netlify.toml` versiona las `VITE_*` para que el build de Netlify (cuando esté verde) tenga la config completa.
 
 ### Rollback (ya disponible)
 
 ```bash
-firebase hosting:rollback --project althea-4b1d0   # frontend
 cd worker && npx wrangler rollback -c wrangler.production.toml   # worker
+# frontend Netlify: redeploy del dist anterior:
+#   npx netlify-cli deploy --prod --no-build --dir dist --site 42c60f79-a4b4-4161-a194-79c79192ca83
+# reactivar Hosting Firebase (quedó DISABLED):
+#   firebase deploy --only hosting --project althea-4b1d0
 ```

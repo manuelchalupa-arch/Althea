@@ -30,3 +30,5 @@ final-test-results*.txt
 test-output.txt
 test-run-results.txt
 muscle-atlas-diagnostic.json
+# estado local de Netlify CLI
+.netlify/
