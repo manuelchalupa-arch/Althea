@@ -199,6 +199,7 @@ export interface AtlasSetRow {
   date: string
   exerciseId: string
   volume: number
+  externalKg: number | null
   reps: number
   sessionId?: string
 }

@@ -4,8 +4,40 @@ import {
   sendPasswordResetEmail,
   signOut as fbSignOut,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   type User,
 } from 'firebase/auth'
+
+export function isIOS(): boolean {
+  if (typeof navigator === 'undefined') { return false }
+  const ua = navigator.userAgent || ''
+  return /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && (navigator as { maxTouchPoints?: number }).maxTouchPoints !== undefined && (navigator as { maxTouchPoints?: number }).maxTouchPoints! > 1)
+}
+
+export async function signInWithGoogle(): Promise<User> {
+  const provider = new GoogleAuthProvider()
+  provider.setCustomParameters({ prompt: 'select_account' })
+  try {
+    if (isIOS()) {
+      await signInWithRedirect(firebaseAuth(), provider)
+      const cred = await getRedirectResult(firebaseAuth())
+      if (!cred || !cred.user) {
+        throw new Error('No se pudo completar el inicio de sesión con Google.')
+      }
+      setOfflineMode(false)
+      return cred.user
+    }
+    const cred = await signInWithPopup(firebaseAuth(), provider)
+    setOfflineMode(false)
+    return cred.user
+  } catch (e: any) {
+    throw new Error(toMessage(e?.code || '', 'No se pudo iniciar sesión con Google.'))
+  }
+}
 import { firebaseAuth, isFirebaseConfigured } from './config'
 
 export type { User }

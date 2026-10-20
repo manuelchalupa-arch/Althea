@@ -318,6 +318,10 @@ export async function listCustomFoods(): Promise<CustomFood[]> {
 
 export async function deleteCustomFood(id: string): Promise<void> {
   await db.customFoods.delete(id).catch(() => null)
+  try {
+    const { recordDelete } = await import('@/services/firebase/sync')
+    await recordDelete('customFoods', id)
+  } catch { /* noop */ }
   await refreshCustomFoods()
 }
 

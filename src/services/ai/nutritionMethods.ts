@@ -120,29 +120,6 @@ export interface NutritionMethod {
   }
 }
 
-// ─── Compatibilidad entre métodos ───
-export interface NutritionCompatibility {
-  methodA: NutritionMethodId
-  methodB: NutritionMethodId
-  compatible: boolean
-  interference: 'none' | 'low' | 'moderate' | 'high'
-  synergy: string     // describe sinergia si la hay
-  notes: string
-}
-
-// ─── Recomendación de método nutricional ───
-export interface NutritionMethodRecommendation {
-  primary: NutritionMethodId
-  secondary: NutritionMethodId[]
-  complementary: NutritionMethodId[]
-  notRecommended: NutritionMethodId[]
-  mixed?: MixedNutritionMethod
-  justification: string
-  confidence: number
-  factors: string[]
-  safetyWarnings: string[]
-}
-
 // ─── Método mixto nutricional ───
 export interface MixedNutritionMethod {
   id: string
@@ -197,20 +174,4 @@ export interface NutritionUserProfile {
   sleepHours?: number
   stressLevel?: number
   recoveryScore?: number
-}
-
-// ─── Resultado de scoring interno ───
-export interface NutritionMethodScore {
-  methodId: NutritionMethodId
-  score: number           // 0-1
-  breakdown: {
-    goalFit: number
-    trainingFit: number
-    preferenceFit: number
-    sustainability: number
-    evidence: number
-    safety: number
-    complexity: number
-  }
-  reason: string
 }

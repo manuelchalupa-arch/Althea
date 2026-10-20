@@ -1,5 +1,6 @@
 // Métricas recalculables desde SetRecord/SessionExercise (§35-37, §39). Sin doble fuente.
 import type { SetRecord, SessionExercise } from './domain';
+import type { MuscleAttribution } from './muscleAttribution';
 import { todayKey, dayKeyOffset } from '@/utils/dates';
 
 export interface Completion { exPct: number; setPct: number; completedEx: number; plannedEx: number; completedSets: number; plannedSets: number }
@@ -210,7 +211,7 @@ export interface MuscleLoadResult {
 
 export function muscleLoadOf(
   items: MuscleLoadInput[],
-  muscleOf: (exerciseId: string) => { primary: string; secondary: string[] } | null,
+  muscleOf: (exerciseId: string) => MuscleAttribution | null,
   weights = { primary: 1, secondary1: 0.5, secondary2: 0.25 },
 ): MuscleLoadResult {
   const acc = new Map<string, { volume: number; sets: number }>()
@@ -225,9 +226,17 @@ export function muscleLoadOf(
     if (!(it.volume > 0)) { continue }
     const m = muscleOf(it.exerciseId)
     if (!m) { unmappedVolume += it.volume; unmappedSets += 1; continue }
-    add(m.primary, it.volume * weights.primary)
-    if (m.secondary[0]) { add(m.secondary[0], it.volume * weights.secondary1) }
-    if (m.secondary[1]) { add(m.secondary[1], it.volume * weights.secondary2) }
+    // Usa pct explícito si existe; si no, cae al peso general por rol
+    const primaryWeight = m.primary.pct !== undefined ? m.primary.pct / 100 : weights.primary
+    add(m.primary.name, it.volume * primaryWeight)
+    if (m.secondary[0]) {
+      const s1Weight = m.secondary[0].pct !== undefined ? m.secondary[0].pct / 100 : weights.secondary1
+      add(m.secondary[0].name, it.volume * s1Weight)
+    }
+    if (m.secondary[1]) {
+      const s2Weight = m.secondary[1].pct !== undefined ? m.secondary[1].pct / 100 : weights.secondary2
+      add(m.secondary[1].name, it.volume * s2Weight)
+    }
   }
   const totalVolume = [...acc.values()].reduce((a, b) => a + b.volume, 0)
   const loads = [...acc.entries()]

@@ -310,7 +310,7 @@ export async function generateReport(sel: ReportSelection): Promise<ReportData> 
       const { muscleLoadOf } = await import('@/services/training/metrics')
       const items = periodSets.map(s => ({ exerciseId: String(s.exerciseId), volume: Number(s.actualWeight || 0) * Number(s.actualReps || 0) }))
       // resolver real si existe
-      let resolver: { muscleOf: (id: string) => { primary: string; secondary: string[] } | null } | null = null
+      let resolver: { muscleOf: (id: string) => import('@/services/training/muscleAttribution').MuscleAttribution | null } | null = null
       try {
         const { fetchPartMap } = await import('@/services/exerciseGym')
         const base = await fetchPartMap().catch(() => ({}))

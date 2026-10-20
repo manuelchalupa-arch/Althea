@@ -60,39 +60,51 @@ export function buildAtlasMuscleData(input: AtlasDataInput): Record<string, Musc
   }
 
   // Series de la ventana: sin ninguna, un músculo gris es "sin actividad".
-  // Con series pero sin atribución a ninguna región, el gris es un hueco del
-  // mapeo ejercicio–músculo y NO debe leerse como "no entrenaste".
   const windowSets = current.totalSets ?? 0
   const noAttributionAtAll = windowSets > 0 && maxMetric === 0
 
+  /** Resuelve el dato para una región, heredando del padre si es subdivisión y no tiene dato directo. */
   const pointForRegion = (regionId: string, catalogId: string): MuscleDataPoint => {
     const stat: RegionContribution | undefined = current.byRegion[regionId]
+
+    // Si es subdivisión y no tiene dato directo, heredar del padre.
+    let inheritedFrom: string | undefined
+    let effectiveStat = stat
+    if (!stat && regionId !== catalogId) {
+      const parentStat = current.byRegion[catalogId]
+      if (parentStat) {
+        effectiveStat = parentStat
+        inheritedFrom = catalogId
+      }
+    }
+
     const value = currentMetricByRegion[regionId] ?? 0
+    // Si heredamos del padre, usar el valor del padre para la métrica.
+    const effectiveValue = inheritedFrom ? (currentMetricByRegion[catalogId] ?? 0) : value
     const prevValue = previousOf(previous, regionId, metric)
-    const intensity = intensityOf(value, maxMetric)
+    const intensity = intensityOf(effectiveValue, maxMetric)
 
     // TENDENCIA: misma región y misma métrica contra la ventana previa.
-    // Sin trabajo actual o sin baseline previo → 'sin-base' (no apaga el color).
     let trend: MuscleTrend = 'sin-base'
-    if (value > 0 && prevValue > 0) {
-      trend = resolveTrend(value, prevValue).trend
+    if (effectiveValue > 0 && prevValue > 0) {
+      trend = resolveTrend(effectiveValue, prevValue).trend
     }
 
     return {
       muscleId: catalogId,
-      current: Math.round(value * 10) / 10,
+      current: Math.round(effectiveValue * 10) / 10,
       previous: Math.round(prevValue * 10) / 10,
       trend,
       unit,
-      exercises: stat?.exercises.slice(0, 4) ?? [],
+      exercises: effectiveStat?.exercises.slice(0, 4).map((e) => e.name) ?? [],
       intensity,
-      sets: stat?.sets ?? 0,
-      reps: stat?.reps ?? 0,
-      days: stat?.days ?? [],
+      sets: effectiveStat?.sets ?? 0,
+      reps: effectiveStat?.reps ?? 0,
+      days: effectiveStat?.days ?? [],
       metric,
-      metricValue: Math.round(value * 10) / 10,
+      metricValue: Math.round(effectiveValue * 10) / 10,
       emptyReason:
-        intensity > 0
+        effectiveValue > 0
           ? 'ok'
           : noAttributionAtAll
             ? 'sin-atribucion'

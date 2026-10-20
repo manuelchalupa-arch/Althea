@@ -202,13 +202,6 @@ export function cycleWeekRange(index: number, cycle: CycleConfig): { start: stri
   return { start, end: dayKeyOffset(start, 6) }
 }
 
-/** Info de la semana de ciclo que contiene `dateStr`. */
-export function cycleWeekInfoOf(dateStr: string, cycle: CycleConfig, today: string = todayKey()): CycleWeekInfo {
-  const index = Math.max(1, cycleWeekIndexOf(dateStr, cycle))
-  const { start, end } = cycleWeekRange(index, cycle)
-  return { index, start, end, isComplete: end < today, isCurrent: start <= today && today <= end }
-}
-
 /**
  * Semanas de ciclo YA COMPLETAS hasta `today`, ordenadas ascendente.
  * La primera de esta lista es la línea BASE de la comparación.

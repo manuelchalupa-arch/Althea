@@ -126,7 +126,8 @@ export const NON_MUSCULAR_TERMS = ['cardio', 'cuerpo-completo', 'full-body'];
 
 /** Región(es) del atlas para un nombre de músculo cualquiera. [] si no es un músculo. */
 export function resolveMuscleIds(name: string): string[] {
-  return MUSCLE_ALIASES[normalizeMuscleName(name)] ?? [];
+  const normalized = normalizeMuscleName(name)
+  return MUSCLE_ALIASES[normalized] ?? MUSCLE_ALIASES[name] ?? []
 }
 
 /** Expande un id de catálogo (padre) a los ids de regiones que dibuja. */

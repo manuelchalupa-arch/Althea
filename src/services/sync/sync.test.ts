@@ -5,7 +5,7 @@ import {
   enqueueOp, pendingOps, pendingCount, type RemoteAdapter,
 } from './opQueue'
 import { processQueue } from './engine'
-import { applyDownloadPolicy } from '@/services/firebase/sync'
+import { applyDownloadPolicy, recordDelete, pendingDeletes, clearProcessedDeletes } from '@/services/firebase/sync'
 import { updateRecoveryCheck } from '../recovery/recoveryService'
 import { addDiaryEntry } from '../storage/diaryStore'
 import { addHydration } from '../recovery/recoveryService'
@@ -216,5 +216,42 @@ describe('FASE 8 — Offline-first y sync idempotente', () => {
     expect(summary.failed.length).toBe(1)
     expect((await db.trainingSessions.get(s.sessionId))?.sessionStatus).toBe('COMPLETED')
     expect(await pendingCount()).toBe(1)
+  })
+
+  describe('borrados en sincronización (no resucitan)', () => {
+    it('pendingDeletes devuelve los rastros de borrado registrados', async () => {
+      await db.syncDeletes.add({ table: 'nutritionDiary', docId: 'd1', deletedAt: 't1' })
+      await db.syncDeletes.add({ table: 'customExercises', docId: 'ex-1', deletedAt: 't2' })
+      const dels = await pendingDeletes()
+      expect(dels.map((d) => d.docId).sort()).toEqual(['d1', 'ex-1'])
+    })
+
+    it('clearProcessedDeletes elimina los rastros por id auto-generado', async () => {
+      const id1 = await db.syncDeletes.add({ table: 'sessionOverrides', docId: '2026-09-10', deletedAt: 't1' })
+      const id2 = await db.syncDeletes.add({ table: 'sessionOverrides', docId: '2026-09-11', deletedAt: 't2' })
+      expect((await pendingDeletes()).length).toBe(2)
+      await clearProcessedDeletes([id1, id2] as number[])
+      expect((await pendingDeletes()).length).toBe(0)
+    })
+
+    it('recordDelete registra borrado para sync', async () => {
+      const id = await recordDelete('nutritionDiary', 'd-direct')
+      expect(typeof id).toBe('number')
+      const dels = await pendingDeletes()
+      expect(dels.some((d) => d.table === 'nutritionDiary' && d.docId === 'd-direct')).toBe(true)
+    })
+
+    it('removeDiaryEntry registra borrado para sync', async () => {
+      await addDiaryEntry({
+        id: 'd-del', date: '2026-09-20', name: 'Pollo', mealType: 'almuerzo',
+        servingLabel: '100g', amount: 100, unit: 'g',
+        macros: { calories: 165, proteins: 31, carbs: 0, fats: 3.6 },
+        addedAt: '2026-09-20T13:00:00Z',
+      })
+      const { removeDiaryEntry } = await import('../storage/diaryStore')
+      await removeDiaryEntry('d-del')
+      const dels = await pendingDeletes()
+      expect(dels.some((d) => d.table === 'nutritionDiary' && d.docId === 'd-del')).toBe(true)
+    })
   })
 })

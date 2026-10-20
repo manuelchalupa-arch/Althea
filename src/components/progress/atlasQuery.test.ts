@@ -29,7 +29,7 @@ const CYCLE: CycleConfig = {
 }
 
 const row = (date: string, exerciseId: string, volume: number, reps = 10, sessionId = 's1'): AtlasSetRow => ({
-  date, exerciseId, volume, reps, sessionId,
+  date, exerciseId, volume, externalKg: null, reps, sessionId,
 })
 
 describe('normalizeAtlasMode', () => {

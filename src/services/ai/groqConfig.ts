@@ -11,7 +11,3 @@ export function getGroqUrl(): string {
 export function getGroqHeaders(): Record<string, string> {
   return { 'Content-Type': 'application/json' }
 }
-
-export function isProxyConfigured(): boolean {
-  return !!PROXY_URL
-}

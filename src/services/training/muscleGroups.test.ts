@@ -4,13 +4,13 @@ import { MUSCLE_CATALOG, getMuscle } from '@/services/training/muscleCatalog'
 import { DEFAULT_CYCLE } from '@/utils/cycle'
 import type { CycleConfig } from '@/utils/cycle'
 
-const map: Record<string, { primary: string; secondary: string[] }> = {
-  press: { primary: 'pectorals', secondary: ['triceps', 'delts'] },
-  row: { primary: 'lats', secondary: ['upper-back'] },
-  squat: { primary: 'quads', secondary: ['glutes', 'hamstrings'] },
-  curl: { primary: 'biceps', secondary: ['forearms'] },
-  lateral: { primary: 'delts', secondary: [] },
-  run: { primary: 'cardio', secondary: [] },
+const map: Record<string, { primary: { name: string }; secondary: { name: string }[] }> = {
+  press: { primary: { name: 'pectorals' }, secondary: [{ name: 'triceps' }, { name: 'delts' }] },
+  row: { primary: { name: 'lats' }, secondary: [{ name: 'upper-back' }] },
+  squat: { primary: { name: 'quads' }, secondary: [{ name: 'glutes' }, { name: 'hamstrings' }] },
+  curl: { primary: { name: 'biceps' }, secondary: [{ name: 'forearms' }] },
+  lateral: { primary: { name: 'delts' }, secondary: [] },
+  run: { primary: { name: 'cardio' }, secondary: [] },
 }
 const muscleOf = (id: string) => map[id] ?? null
 

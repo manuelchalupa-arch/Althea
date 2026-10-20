@@ -1,6 +1,5 @@
 // COACH PERSONALITY — Tono + estilo de entrenamiento del Coach
 // La personalidad ahora se deriva del método de entrenamiento seleccionado
-import type { GoalLogic } from './goalEngine'
 import type { TrainingMethodId } from './trainingMethods'
 import { mapTone } from './systemPrompt'
 
@@ -233,11 +232,6 @@ export function getPersonalityConfig(tone: CoachTone): PersonalityConfig {
   return PERSONALITY_CONFIGS[tone] || PERSONALITY_CONFIGS.ABUELITOS
 }
 
-/** Obtener estilo de coaching desde un método de entrenamiento */
-export function getMethodCoachingStyle(methodId: TrainingMethodId): MethodCoachingStyle {
-  return METHOD_COACHING_STYLES[methodId] || METHOD_COACHING_STYLES.hypertrophy
-}
-
 /**
  * FASE 2 S6 · Resolución ÚNICA del tono del Coach.
  *
@@ -270,46 +264,4 @@ export function resolveCoachTone(input: {
   }
   if (input.coachIntensity) { return mapTone(input.coachIntensity) }
   return 'ABUELITOS'
-}
-
-/** Obtener configuración de personalidad desde un método de entrenamiento */
-export function getPersonalityFromMethod(methodId: TrainingMethodId): PersonalityConfig {
-  const style = METHOD_COACHING_STYLES[methodId]
-  if (!style) {return PERSONALITY_CONFIGS.ABUELITOS}
-
-  return {
-    tone: style.tone,
-    progressionModifier: style.progressionSpeed,
-    riskToleranceModifier: style.riskLevel,
-    restModifier: style.restModifier,
-    motivationalMessages: style.directness < 0.5,
-    directnessLevel: style.directness,
-    interventionThreshold: 0.5,
-  }
-}
-
-/** Aplicar personalidad a la lógica de objetivo */
-export function applyPersonality(goalLogic: GoalLogic, tone: CoachTone): GoalLogic {
-  const config = getPersonalityConfig(tone)
-  return {
-    ...goalLogic,
-    progressionRate: goalLogic.progressionRate === 'conservative' ? 'conservative' :
-      goalLogic.progressionRate === 'moderate' ? (config.progressionModifier > 1 ? 'aggressive' : 'moderate') : 'aggressive',
-    toleranceForRisk: Math.min(1, goalLogic.toleranceForRisk * config.riskToleranceModifier),
-    restBetweenSets: config.restModifier < 0.9 ? 'short' : config.restModifier > 1.1 ? 'long' : goalLogic.restBetweenSets,
-  }
-}
-
-/** Aplicar estilo de coaching de método a la lógica de objetivo */
-export function applyMethodCoaching(goalLogic: GoalLogic, methodId: TrainingMethodId): GoalLogic {
-  const style = METHOD_COACHING_STYLES[methodId]
-  if (!style) {return goalLogic}
-
-  return {
-    ...goalLogic,
-    progressionRate: goalLogic.progressionRate === 'conservative' ? 'conservative' :
-      goalLogic.progressionRate === 'moderate' ? (style.progressionSpeed > 1 ? 'aggressive' : 'moderate') : 'aggressive',
-    toleranceForRisk: Math.min(1, goalLogic.toleranceForRisk * style.riskLevel),
-    restBetweenSets: style.restModifier < 0.9 ? 'short' : style.restModifier > 1.1 ? 'long' : goalLogic.restBetweenSets,
-  }
 }

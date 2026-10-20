@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore'
+import { collection, doc, getDocs, setDoc, writeBatch, deleteDoc } from 'firebase/firestore'
 import { db } from '@/services/storage/db'
 import { firebaseDb } from './config'
 import type { RemoteAdapter } from '@/services/sync/opQueue'
@@ -70,6 +70,34 @@ export function lastSyncAt(): string | null {
   }
 }
 
+// Registra un borrado local para que se propague a Firestore en el próximo sync.
+// Devuelve el id auto-generado del rastro (para borrarlo tras confirmar el envío).
+export async function recordDelete(table: string, docId: string): Promise<number | undefined> {
+  try {
+    return await db.syncDeletes.add({
+      table,
+      docId,
+      deletedAt: new Date().toISOString(),
+    }) as unknown as number
+  } catch { /* noop: la escritura local ya ocurrió */ return undefined }
+}
+
+export interface DeleteTrace { id: number; table: string; docId: string; deletedAt: string }
+
+export async function pendingDeletes(): Promise<DeleteTrace[]> {
+  try {
+    return await db.syncDeletes.toArray() as unknown as DeleteTrace[]
+  } catch {
+    return []
+  }
+}
+
+export async function clearProcessedDeletes(ids: number[]): Promise<void> {
+  try {
+    for (const id of ids) { await db.syncDeletes.delete(id).catch(() => {}) }
+  } catch { /* noop */ }
+}
+
 function stampOf(r: any): number {
   const t = r?.updatedAt || r?.createdAt || 0
   const n = typeof t === 'string' ? Date.parse(t) : Number(t) || 0
@@ -131,6 +159,7 @@ async function tableExists(table: string): Promise<boolean> {
 export interface SyncResult {
   uploaded: number
   downloaded: number
+  deleted: number
   tables: string[]
   at: string
   conflicts: SyncConflict[]
@@ -200,9 +229,26 @@ export async function syncAll(
     }
   } catch {}
 
+  // --- borrados: local -> nube (deleteDoc, nunca resucitan en la descarga) ---
+  let deleted = 0
+  const toClear: number[] = []
+  try {
+    const dels = await pendingDeletes()
+    for (const d of dels) {
+      try {
+        await deleteDoc(doc(fsdb, 'users', uid, d.table, d.docId))
+        deleted += 1
+      } catch {
+        // falla en silencio: se reintentará en el próximo sync
+      }
+      toClear.push(d.id)
+    }
+  } catch {}
+  await clearProcessedDeletes(toClear)
+
   const at = new Date().toISOString()
   try {
     localStorage.setItem(LAST_SYNC_KEY, at)
   } catch {}
-  return { uploaded, downloaded, tables, at, conflicts: conflicts.slice(0, 50) }
+  return { uploaded, downloaded, deleted, tables, at, conflicts: conflicts.slice(0, 50) }
 }

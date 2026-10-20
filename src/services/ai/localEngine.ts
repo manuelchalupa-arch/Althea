@@ -25,12 +25,3 @@ export function shouldDeload(volumeLast3Weeks:number[], recoveryScores:number[])
   }
   return null
 }
-
-export function variantForPain(exerciseId:string, pain:'mild'|'moderate'|'severe'): string[] {
-  if(pain==='severe') {return ['Detener ejercicio, consultar profesional']}
-  const map:Record<string,string[]> = {
-    'ex-001': ['ex-002','ex-003'], // press banca → mancuernas → máquina
-    'ex-006': ['ex-007'], // sentadilla → prensa
-  }
-  return map[exerciseId] ?? ['Buscar en Biblioteca por mismo patrón/músculo']
-}

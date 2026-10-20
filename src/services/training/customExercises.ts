@@ -200,6 +200,10 @@ export async function deleteCustomExercise(id: string): Promise<'archived' | 'de
     return 'archived'
   }
   await db.customExercises.delete(id).catch(() => null)
+  try {
+    const { recordDelete } = await import('@/services/firebase/sync')
+    await recordDelete('customExercises', id)
+  } catch { /* noop */ }
   return 'deleted'
 }
 

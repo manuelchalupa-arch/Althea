@@ -6,10 +6,13 @@
 // Cuando ninguna fuente conoce el ejercicio → null. NUNCA se inventa un
 // porcentaje ni un músculo: el volumen sin atribución se contabiliza aparte.
 import { db } from '@/services/storage/db'
-import { listCustomExercises } from './customExercises'
+import { listCustomExercises, effectiveBreakdown } from './customExercises'
 import { fetchMuscleMap } from '@/services/exerciseGym'
 
-export interface MuscleAttribution { primary: string; secondary: string[] }
+export interface MuscleAttribution {
+  primary: { name: string; pct?: number }
+  secondary: { name: string; pct?: number }[]
+}
 export interface MuscleResolver {
   muscleOf: (exerciseId: string) => MuscleAttribution | null
   partOf: (exerciseId: string) => string | null
@@ -40,17 +43,42 @@ export async function buildMuscleResolver(basePartMap: Record<string, string>): 
   return {
     muscleOf: (id: string) => {
       const c = customById.get(id)
-      if (c?.muscle) { return { primary: c.muscle, secondary: c.secondaryMuscles || [] } }
+      if (c) {
+        const breakdown = effectiveBreakdown(c)
+        const primary = breakdown.find((b) => b.role === 'Principal')
+        const secondary = breakdown.filter((b) => b.role === 'Secundario')
+        if (primary) {
+          return {
+            primary: { name: primary.name, pct: primary.pct },
+            secondary: secondary.map((s) => ({ name: s.name, pct: s.pct })),
+          }
+        }
+      }
       const s = seedById.get(id)
       if (s) {
         const muscles = (s.muscles || []).filter(Boolean)
         const primary = muscles[0] || s.groupMain
-        if (primary) { return { primary, secondary: muscles.slice(1) } }
+        if (primary) {
+          return {
+            primary: { name: primary },
+            secondary: muscles.slice(1).map((m) => ({ name: m })),
+          }
+        }
       }
       const lib = library[id]
-      if (lib?.primary) { return { primary: lib.primary, secondary: lib.secondary || [] } }
+      if (lib?.primary) {
+        return {
+          primary: { name: lib.primary },
+          secondary: (lib.secondary || []).map((m) => ({ name: m })),
+        }
+      }
       const fromId = primaryFromId(id)
-      if (fromId) { return { primary: fromId, secondary: lib?.secondary || [] } }
+      if (fromId) {
+        return {
+          primary: { name: fromId },
+          secondary: (lib?.secondary || []).map((m) => ({ name: m })),
+        }
+      }
       return null
     },
     partOf: (id: string) => basePartMap[id] || null,

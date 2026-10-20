@@ -42,6 +42,10 @@ export async function setOverride(date: string, dayN: number, changed: Record<st
 
 export async function removeOverride(date: string): Promise<void> {
   await table().delete(date)
+  try {
+    const { recordDelete } = await import('@/services/firebase/sync')
+    await recordDelete('sessionOverrides', date)
+  } catch { /* noop */ }
 }
 
 // ─── Migration from localStorage ───

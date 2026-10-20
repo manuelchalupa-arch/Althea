@@ -39,6 +39,10 @@ export type RoutineData = {
   rotationDays: number
   /** Fecha en que la rutina debe revisarse (YYYY-MM-DD). Si no existe, se usa createdAt + rotationDays. */
   reviewDate?: string | null
+  /** Posponer la revisión hasta esta fecha (YYYY-MM-DD). Mientras esté vigente no se muestra el aviso. */
+  reviewSnoozedUntil?: string | null
+  /** Fecha en que el usuario ratificó la rutina vigente (YYYY-MM-DD). */
+  reviewAcknowledgedAt?: string | null
   cycle: CycleConfig
   dayExercises: Record<number, RoutineDayExercise[]>
   isDemo?: boolean

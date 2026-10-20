@@ -107,12 +107,6 @@ export async function completeRecoveryCheck(date?: string): Promise<void> {
   }
 }
 
-export async function getActionStatus(configId: string, date?: string): Promise<RequiredStatus | null> {
-  const dateStr = date ?? todayStr()
-  const st = await db.requiredActionStates.get(stateId(configId, dateStr)).catch(() => null) as unknown as RequiredActionState | null
-  return st?.status ?? null
-}
-
 // Reapertura app con acción pendiente: isBlocked usa Dexie, no React state
 export async function hasPendingOnReopen(date?: string): Promise<boolean> {
   return isBlocked(date)

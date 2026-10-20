@@ -59,10 +59,6 @@ export const MUSCLE_LIBRARY_GROUPS = [
   },
 ] as const
 
-const ALL_PRIORITY_NAMES = MUSCLE_LIBRARY_GROUPS.flatMap(
-  group => [...group.priorityNames],
-)
-
 function difficultyRank(item: {
   exerciseDifficulty?: string
   difficulty?: string
@@ -87,32 +83,13 @@ export function sortMuscleLibraryExercises<
   },
 >(
   items: T[],
-  groupId: string,
+  _groupId: string,
 ): T[] {
-  const group = MUSCLE_LIBRARY_GROUPS.find(g => g.id === groupId)
-  const terms = group
-    ? [...group.priorityNames]
-    : groupId === '__all__'
-      ? ALL_PRIORITY_NAMES
-      : []
-
-  // Sin coincidencia: se ubica después de todos los prioritarios. findIndex
-  // devuelve -1, que ordenaba a los no prioritarios ANTES que los prioritarios.
-  const noMatchRank = terms.length
-
-  const rank = (item: T) => {
-    const name = normFold(String(item.name ?? ''))
-    const index = terms.findIndex(
-      term => name.includes(normFold(term)) || normFold(term).includes(name)
-    )
-    return index === -1 ? noMatchRank : index
-  }
-
   return [...items].sort((a, b) => {
     const difficultyDifference = difficultyRank(a) - difficultyRank(b)
-    if (difficultyDifference !== 0) {return difficultyDifference}
+    if (difficultyDifference !== 0) { return difficultyDifference }
 
-    // Misma prioridad y mismo nivel: orden alfabético estable
+    // Dentro de un mismo nivel: orden alfabético estable.
     return String(a.name ?? '').localeCompare(String(b.name ?? ''), 'es')
   })
 }

@@ -96,11 +96,3 @@ export async function updateUnifiedConfig(id: string, patch: Partial<Omit<Unifie
   await db.unifiedNotifConfigs.put(updated as never)
   return updated
 }
-
-// Helpers puros para tests
-export function isEnabled(cfg: UnifiedNotifConfig): boolean {
-  return cfg.enabled
-}
-export function getSchedule(cfg: UnifiedNotifConfig): string[] {
-  return cfg.type === 'preparar_habitacion' ? [cfg.time] : cfg.times
-}

@@ -27,12 +27,6 @@ export type DayEx = {
   routineExerciseId?: string
 }
 
-/** Plan por serie de un ejercicio del día: si no existe, se expande el escalar. */
-export function seriesPlanOf(it: { sets: number; reps: number; weight: number | null; series?: { reps: number; weight: number | null }[] }): { reps: number; weight: number | null }[] {
-  if (it.series && it.series.length > 0) { return it.series }
-  return Array.from({ length: Math.max(0, it.sets || 0) }, () => ({ reps: it.reps, weight: it.weight ?? null }))
-}
-
 export async function getDayExercises(dayN:number | null, _cycle: CycleConfig): Promise<DayEx[]> {
   if(!dayN) {return []}
   // intenta desde routineStore (Dexie)
@@ -82,16 +76,4 @@ export async function getDayExercises(dayN:number | null, _cycle: CycleConfig): 
     }
   }catch{}
   return []
-}
-
-export function muscleForDayName(dayName:string): string {
-  const lower = dayName.toLowerCase()
-  if(lower.includes('pecho')) {return 'pecho'}
-  if(lower.includes('espalda')) {return 'espalda'}
-  if(lower.includes('hombro')) {return 'hombros'}
-  if(lower.includes('pierna')) {return 'piernas'}
-  if(lower.includes('biceps') || lower.includes('bíceps')) {return 'biceps'}
-  if(lower.includes('triceps') || lower.includes('tríceps')) {return 'triceps'}
-  if(lower.includes('abdomen') || lower.includes('abdominal')) {return 'abdominales'}
-  return 'general'
 }

@@ -110,6 +110,7 @@ export const MAS_GROUPS: MasGroup[] = [
     title: 'Entrenamiento',
     items: [
       { to: '/rutina', label: 'Rutinas', icon: 'routines' },
+      { to: '/actividad', label: 'Actividad deportiva', icon: 'energy' },
       { to: '/calendario', label: 'Calendario y recuperación', icon: 'calendar' },
     ],
   },

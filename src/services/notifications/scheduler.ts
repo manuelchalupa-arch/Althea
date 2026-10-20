@@ -256,14 +256,6 @@ export async function permissionStatus(): Promise<NotificationPermission> {
   } catch { return 'denied' }
 }
 
-export function platformSupport(): { api: boolean; serviceWorker: boolean } {
-  let api = false
-  let sw = false
-  try { api = 'Notification' in window } catch { /* noop */ }
-  try { sw = 'serviceWorker' in navigator } catch { /* noop */ }
-  return { api, serviceWorker: sw }
-}
-
 export async function requestPermission(): Promise<NotificationPermission> {
   try {
     if (!('Notification' in window)) { return 'denied' }

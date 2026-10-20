@@ -24,17 +24,6 @@ export async function sendNotification(_type: PushType, title: string, body: str
   } catch { return false }
 }
 
-export function schedulePreEntreno(trainingTime: string) {
-  // trainingTime "18:00" → notif 45 min antes si es hoy y aún no entrenó.
-  // Solo in-app (setTimeout): si la app está cerrada no dispara (limitación declarada).
-  const [h, m] = trainingTime.split(':').map(Number)
-  const now = new Date(); const target = new Date(); target.setHours(h, m - 45, 0, 0)
-  const delay = target.getTime() - now.getTime()
-  if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
-    setTimeout(() => sendNotification('pre-entreno', 'En 45 min entrenás', 'Revisá la rutina y preparate.'), delay)
-  }
-}
-
 // ===== Notification Log API (Dexie; estados verificables) =====
 export interface NotificationLogEntry {
   id: string

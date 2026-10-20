@@ -146,15 +146,3 @@ export async function buildGlobalScore(): Promise<GlobalScore> {
   } catch { /* noop */ }
   return result
 }
-
-export async function getScoreHistory(limit = 30): Promise<Array<{ date: string; score: number }>> {
-  try {
-    const rows = await db.coachMemory.where('type').equals('score').toArray().catch(() => [])
-    return rows
-      .map((r) => ({ date: String(r.date || ''), score: Number((r as { score?: number }).score ?? 0) }))
-      .sort((a, b) => (a.date < b.date ? -1 : 1))
-      .slice(-limit)
-  } catch {
-    return []
-  }
-}

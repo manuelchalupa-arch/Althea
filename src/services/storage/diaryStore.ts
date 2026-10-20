@@ -59,6 +59,10 @@ export async function updateDiaryEntry(entry: DiaryEntry): Promise<void> {
 
 export async function removeDiaryEntry(id: string): Promise<void> {
   await db.nutritionDiary.delete(id)
+  try {
+    const { recordDelete } = await import('@/services/firebase/sync')
+    await recordDelete('nutritionDiary', id)
+  } catch { /* noop: la escritura local ya ocurrió */ }
 }
 
 /** Hora local HH:MM del registro. Los registros heredados no tienen `time`, asi

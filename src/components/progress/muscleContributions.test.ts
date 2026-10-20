@@ -10,18 +10,18 @@ import {
  * secondary[0] ×0.5, secondary[1] ×0.25). Son estimaciones del registro de
  * entrenamiento, no mediciones fisiológicas exactas.
  */
-type Attr = { primary: string; secondary: string[] }
+type Attr = { primary: { name: string; pct?: number }; secondary: { name: string; pct?: number }[] }
 
 const MAP: Record<string, Attr> = {
-  press: { primary: 'pectorals', secondary: ['triceps', 'delts'] },
-  run: { primary: 'cardio', secondary: [] },
-  crunch: { primary: 'abs', secondary: ['obliques-not-in-vocab'] },
+  press: { primary: { name: 'pectorals', pct: 100 }, secondary: [{ name: 'triceps', pct: 50 }, { name: 'delts', pct: 25 }] },
+  run: { primary: { name: 'cardio', pct: 100 }, secondary: [] },
+  crunch: { primary: { name: 'abs', pct: 100 }, secondary: [{ name: 'obliques-not-in-vocab', pct: 50 }] },
 }
 const muscleOf = (id: string) => MAP[id] ?? null
 const nameOf = (id: string) => (id === 'press' ? 'Press de banca' : id === 'crunch' ? 'Crunch' : null)
 
 const items = (list: Array<[string, string, number, number?]>): ContributionItem[] =>
-  list.map(([date, exerciseId, volume, reps]) => ({ date, exerciseId, volume, reps: reps ?? 10 }))
+  list.map(([date, exerciseId, externalKg, reps]) => ({ date, exerciseId, externalKg, reps: reps ?? 10 }))
 
 describe('buildRegionContributions', () => {
   it('reparte el volumen por rol con los pesos del resto del repo', () => {
@@ -67,9 +67,9 @@ describe('buildRegionContributions', () => {
       muscleOf, nameOf,
     )
     // Crunch (900) va a ABS, no a pectorals; Press (200) sí va a pectorals.
-    expect(r.byRegion['pectoralis-major'].exercises).toEqual(['Press de banca'])
+    expect(r.byRegion['pectoralis-major'].exercises.map((e) => e.name)).toEqual(['Press de banca'])
     expect(r.byRegion['rectus-abdominis'].volume).toBe(900)
-    expect(r.byRegion['rectus-abdominis'].exercises).toEqual(['Crunch'])
+    expect(r.byRegion['rectus-abdominis'].exercises.map((e) => e.name)).toEqual(['Crunch'])
   })
 
   it('no inventa regiones para músculos no anatómicos (cardio)', () => {
@@ -94,16 +94,78 @@ describe('buildRegionContributions', () => {
     expect(r.byRegion['pectoralis-major'].exercises).toEqual([])
   })
 
-  it('descarta ejercicios sin atribución y volumen no positivo', () => {
+  it('las series de peso corporal (externalKg 0 o null) cuentan como actividad, no se descartan', () => {
     const r = buildRegionContributions(
       items([
-        ['2026-01-05', 'desconocido', 100],
-        ['2026-01-05', 'press', 0],
-        ['2026-01-05', 'press', -50],
+        ['2026-01-05', 'desconocido', 100], // sin atribución → excluida
+        ['2026-01-05', 'press', 0], // peso corporal: externa 0, pero actividad válida
+        ['2026-01-05', 'press', -50], // peso negativo: se trata como sin carga externa, actividad válida
       ]),
       muscleOf, nameOf,
     )
-    expect(r.byRegion).toEqual({})
+    // 'desconocido' no tiene atribución: no contribuye regiones.
+    // 'press' con externalKg 0 y -50: ambas cuentan como peso corporal (externalKg=null).
+    // Cada una aporta sets=1, reps=10 (default) a pectoralis-major, triceps-brachii, y los 3 deltoides.
+    expect(r.byRegion['pectoralis-major'].sets).toBe(2)
+    expect(r.byRegion['pectoralis-major'].reps).toBe(20) // 2 items × 10 reps
+    expect(r.byRegion['pectoralis-major'].volume).toBe(0) // sin carga externa ni estimada
+    expect(r.byRegion['triceps-brachii'].sets).toBe(2)
+    expect(r.bodyweightSets).toBe(2)
+    expect(r.unattributedSets).toBe(1) // 'desconocido' sin atribución
+  })
+
+  it('serie de peso corporal con repeticiones válidas cuenta sets y reps aunque sin kg', () => {
+    const r = buildRegionContributions(
+      items([['2026-01-05', 'press', 0, 12]]),
+      muscleOf, nameOf,
+    )
+    expect(r.byRegion['pectoralis-major'].sets).toBe(1)
+    expect(r.byRegion['pectoralis-major'].reps).toBe(12)
+    expect(r.byRegion['pectoralis-major'].volume).toBe(0)
+    expect(r.byRegion['pectoralis-major'].volumeMeasuredKg).toBe(0)
+    expect(r.byRegion['pectoralis-major'].volumeEstimatedKg).toBe(0)
+    expect(r.bodyweightSets).toBe(1)
+  })
+
+  it('serie con externalKg null (peso corporal sin carga registrada) cuenta como actividad', () => {
+    const r = buildRegionContributions(
+      [{ date: '2026-01-05', exerciseId: 'press', externalKg: null, reps: 15 }],
+      muscleOf, nameOf,
+    )
+    expect(r.byRegion['pectoralis-major'].sets).toBe(1)
+    expect(r.byRegion['pectoralis-major'].reps).toBe(15)
+    expect(r.byRegion['pectoralis-major'].volume).toBe(0)
+    expect(r.bodyweightSets).toBe(1)
+  })
+
+  it('nombres musculares con y sin tildes resuelven a las mismas regiones', () => {
+    const muscleOfWithAccents = (id: string) => MAP[id] ?? null
+    const r = buildRegionContributions(
+      items([['2026-01-05', 'press', 100, 8]]),
+      muscleOfWithAccents, nameOf,
+    )
+    // 'pectorals' → 'pectoralis-major' (alias sin acento)
+    expect(r.byRegion['pectoralis-major'].volume).toBe(100)
+    // 'delts' → 3 regiones del deltoides, cada una recibe 100 × 0.25 = 25
+    expect(r.byRegion['anterior-deltoid'].volume).toBe(25)
+    expect(r.byRegion['lateral-deltoid'].volume).toBe(25)
+    expect(r.byRegion['posterior-deltoid'].volume).toBe(25)
+  })
+
+  it('capa deportiva: etiqueta actividad, minutos y fecha sin tocar volumen', () => {
+    const r = buildRegionContributions([], muscleOf, nameOf, {}, [
+      {
+        date: '2026-01-05', activityId: 'futbol', activityName: 'Fútbol',
+        durationMinutes: 60,
+        regions: [{ regionId: 'quadriceps', precision: 'musculo', resistedFactor: 1 }],
+      },
+    ])
+    const quad = r.byRegion['quadriceps']
+    expect(quad).toBeDefined()
+    expect(quad.volume).toBe(0)
+    expect(quad.sets).toBe(0)
+    expect(quad.exercises.map((e) => e.name)).toEqual(['Fútbol · 60 min · 2026-01-05 (actividad estimada)'])
+    expect(r.audit.some((a) => a.kind === 'actividad' && a.admitted)).toBe(true)
   })
 })
 

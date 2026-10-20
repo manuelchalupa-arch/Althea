@@ -128,13 +128,13 @@ export function resolveAtlasLevel(input: LevelInput): LevelResult {
     return { level: 'sin-actividad', ratioToTarget: null, ratioToReference: null, basis: 'ninguna' }
   }
 
-  if (setsTarget != null && setsTarget > 0) {
+  if (setsTarget !== null && setsTarget !== undefined && setsTarget > 0) {
     const ratio = exposure / setsTarget
     const level = OBJECTIVE_BANDS.find((b) => ratio < b.until)?.level ?? 'sobre-objetivo'
     return { level, ratioToTarget: null, ratioToReference: null, basis: 'objetivo' }
   }
 
-  if (personalReference != null && personalReference > 0) {
+  if (personalReference !== null && personalReference !== undefined && personalReference > 0) {
     const ratio = exposure / personalReference
     const level = OBJECTIVE_BANDS.find((b) => ratio < b.until)?.level ?? 'sobre-objetivo'
     return { level, ratioToTarget: null, ratioToReference: ratio, basis: 'referencia-personal' }

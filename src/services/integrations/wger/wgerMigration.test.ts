@@ -35,9 +35,9 @@ describe('WGER Migración — Instalación nueva', () => {
   })
 
   it('versión de la base de datos es correcta', () => {
-    // Debe seguir a `db.ts`. v22 añadió las tablas de feedback
-    // (feedbackThreads / feedbackMessages / feedbackOutbox).
-    expect(db.verno).toBe(23)
+    // Debe seguir a `db.ts`. v25 añadió índices userId a activitySessions;
+    // v26 añadió la tabla customFoods; v27 añadió syncDeletes (borrados en sync).
+    expect(db.verno).toBe(27)
   })
 
   it('tablas de vinculación WGER existen', () => {

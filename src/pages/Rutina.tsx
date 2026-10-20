@@ -48,6 +48,10 @@ type RutinaData = {
   rotationDays: number
   /** Fecha de revisión/vencimiento configurable (YYYY-MM-DD). */
   reviewDate?: string | null
+  /** Posponer la revisión hasta esta fecha (YYYY-MM-DD). */
+  reviewSnoozedUntil?: string | null
+  /** Fecha en que el usuario ratificó la rutina vigente (YYYY-MM-DD). */
+  reviewAcknowledgedAt?: string | null
   cycle: CycleConfig
   dayExercises: Record<number, RutinaDayExercise[]>
   version?: number

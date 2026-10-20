@@ -1,5 +1,5 @@
 // TRAINING METHODS DATABASE — Conocimiento completo de cada método
-import type { TrainingMethod, TrainingMethodId, MethodCategory } from './trainingMethods'
+import type { TrainingMethod, TrainingMethodId } from './trainingMethods'
 
 export const TRAINING_METHODS: TrainingMethod[] = [
   // ═══════════════════════════════════════════════════
@@ -634,19 +634,4 @@ export const TRAINING_METHODS: TrainingMethod[] = [
 /** Buscar método por ID */
 export function getMethod(id: TrainingMethodId): TrainingMethod | undefined {
   return TRAINING_METHODS.find(m => m.id === id)
-}
-
-/** Obtener todos los métodos de una categoría */
-export function getMethodsByCategory(category: MethodCategory): TrainingMethod[] {
-  return TRAINING_METHODS.filter(m => m.category === category)
-}
-
-/** Obtener métodos de estructura (split types) */
-export function getStructureMethods(): TrainingMethod[] {
-  return TRAINING_METHODS.filter(m => m.category === 'structure')
-}
-
-/** Obtener métodos de entrenamiento (no estructura) */
-export function getTrainingMethods(): TrainingMethod[] {
-  return TRAINING_METHODS.filter(m => m.category !== 'structure' && m.category !== 'preparation')
 }

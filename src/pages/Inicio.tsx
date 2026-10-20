@@ -12,6 +12,7 @@ import BrandIcon from '@/components/brand/BrandIcon'
 import { WaterBottle } from '@/components/recovery/WaterBottle'
 import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
 import { AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
+import ActivityModal from '@/components/activity/ActivityModal'
 import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -62,6 +63,9 @@ export default function Inicio(){
   const [addingWater, setAddingWater] = useState(false)
   const [waterVersion, setWaterVersion] = useState(0)
   const [routineReview, setRoutineReview] = useState<{ days: number; limit: number; reviewKey?: string; daysLeft?: number } | null>(null)
+  const [routineBlocked, setRoutineBlocked] = useState(false)
+  const [snoozeOpen, setSnoozeOpen] = useState(false)
+  const [snoozeDays, setSnoozeDays] = useState(7)
   const [briefScore, setBriefScore] = useState<number|null>(null)
   const [briefWarn, setBriefWarn] = useState<string|null>(null)
   const [briefV2, setBriefV2] = useState<{progress?:{trend?:string;rate?:number};recovery?:{lastScore?:number;trend?:string};nutrition?:{tdee?:number;proteinPerKg?:number;gap?:string|null}}|null>(null)
@@ -82,6 +86,7 @@ export default function Inicio(){
   const [editDraft, setEditDraft] = useState<{reps:number; weight:number|null; restSec:number}>({reps:0, weight:0, restSec:90})
   const [, setSavedIdx] = useState<number|null>(null)
   const [showCalendarPopover, setShowCalendarPopover] = useState(false)
+  const [activityOpen, setActivityOpen] = useState(false)
 
   const loadDay = async (cycleToUse:any, dayN:number | null)=>{
     const { getDayExercises } = await import('@/utils/routine')
@@ -166,6 +171,9 @@ export default function Inicio(){
 
   // Gasto calórico del ejercicio (fecha actual + semana en curso, lun→hoy).
   // Un solo motor (exerciseEnergy) compartido con historial e informes PDF.
+  // Calorías activas: sesiones de fuerza (netKcal, sin reposo) + sesiones de
+  // Actividad (activeKcal del snapshot). Nunca brutas ni TDEE: no duplican.
+  const [activasHoy, setActivasHoy] = useState<number | null>(null)
   useEffect(()=>{
     let alive = true
     const load = async ()=>{
@@ -178,6 +186,17 @@ export default function Inicio(){
       const hoy = computeExpenditure({ from: todayStr, to: todayStr, sessions, weightRows })
       const semana = computeExpenditure({ from: desde, to: todayStr, sessions, weightRows })
       if(alive){ setGasto({ hoy, semana }) }
+      try {
+        const { getActivityHistoryBetween } = await import('@/services/activity/activityService')
+        const acts = await getActivityHistoryBetween(todayStr, todayStr)
+        const strengthActive = hoy.sesiones.reduce((a, s) => a + (Number(s.netKcal) > 0 ? s.netKcal : 0), 0)
+        const sportActive = acts.reduce((a, r) => {
+          const v = r.activeKcal ?? r.netKcal ?? null
+          return a + (typeof v === 'number' && v > 0 ? v : 0)
+        }, 0)
+        const total = Math.round((strengthActive + sportActive) * 10) / 10
+        if(alive){ setActivasHoy((strengthActive + sportActive) > 0 ? total : null) }
+      } catch { if(alive){ setActivasHoy(null) } }
     }
     load().catch(()=>{})
     const onChange = ()=>{ load().catch(()=>{}) }
@@ -243,11 +262,25 @@ export default function Inicio(){
         const today = todayKey()
         const fallbackKey = r.createdAt ? addDaysToKey(toDateKey(r.createdAt), limit) : null
         const reviewKey = (r.reviewDate && isDateKey(r.reviewDate)) ? r.reviewDate : fallbackKey
-        if(!reviewKey) {setRoutineReview(null); return}
+        const snoozedUntil = r.reviewSnoozedUntil && isDateKey(r.reviewSnoozedUntil) ? r.reviewSnoozedUntil : null
+        if (snoozedUntil && daysBetween(today, snoozedUntil) > 0) {
+          setRoutineReview(null)
+          setRoutineBlocked(false)
+          return
+        }
+        // Ratificación vigente: si ratificó después del vencimiento, no avisa
+        // de nuevo hasta el próximo ciclo (reviewDate ya se actualizó).
+        if (r.reviewAcknowledgedAt && r.reviewAcknowledgedAt >= (reviewKey ?? '')) {
+          setRoutineReview(null)
+          setRoutineBlocked(false)
+          return
+        }
+        if(!reviewKey) {setRoutineReview(null); setRoutineBlocked(false); return}
         const daysLeft = daysBetween(today, reviewKey)
-        if(daysLeft > 0) {setRoutineReview(null); return}
+        if(daysLeft > 0) {setRoutineReview(null); setRoutineBlocked(false); return}
         const days = r.createdAt ? daysBetween(toDateKey(r.createdAt), today) : limit
         setRoutineReview({ days, limit, reviewKey, daysLeft })
+        setRoutineBlocked(true)
       }catch{ if(alive) {setRoutineReview(null)} }
     }
     evaluate()
@@ -287,6 +320,10 @@ export default function Inicio(){
   // (D) Único punto de creación de sesión: INICIO. Con sesión activa solo
   // navega (la sesión es la fuente de verdad); sin sesión, crea la inicial.
   const startOrContinueTraining = async ()=>{
+    if (routineBlocked && routineReview) {
+      setSnoozeOpen(true)
+      return
+    }
     try{
       if(hasActiveSession){ nav('/entrenar'); return }
       // Día ya completado: nunca se crea una segunda sesión para la misma fecha
@@ -323,8 +360,45 @@ export default function Inicio(){
       nav('/entrenar')
     }catch{ /* el usuario permanece en Inicio y puede reintentar */ }
   }
-  const completedCount = Object.values(dayStatus).filter(s=> s.sessionStatus==='COMPLETED').length
-  const totalCount = Object.values(dayStatus).filter(s=> s.planned).length
+  const ratifyRoutine = async () => {
+    try {
+      const { getAllRoutines, getActiveRoutineId, saveAllRoutines } = await import('@/services/storage/routineStore')
+      const list = await getAllRoutines()
+      const aid = await getActiveRoutineId()
+      const idx = list.findIndex((r: any) => r.id === aid)
+      if (idx >= 0) {
+        const r: any = list[idx]
+        const newReview = addDaysToKey(todayKey(), Number(r.rotationDays) > 0 ? Number(r.rotationDays) : 30)
+        list[idx] = { ...r, reviewDate: newReview, reviewAcknowledgedAt: todayKey(), reviewSnoozedUntil: null, updatedAt: new Date().toISOString() }
+        await saveAllRoutines(list, aid)
+        window.dispatchEvent(new Event('routineChange'))
+      }
+    } catch { /* noop */ }
+    setRoutineReview(null)
+    setRoutineBlocked(false)
+    setSnoozeOpen(false)
+  }
+
+  const snoozeRoutine = async (days: number) => {
+    try {
+      const { getAllRoutines, getActiveRoutineId, saveAllRoutines } = await import('@/services/storage/routineStore')
+      const list = await getAllRoutines()
+      const aid = await getActiveRoutineId()
+      const idx = list.findIndex((r: any) => r.id === aid)
+      if (idx >= 0) {
+        const r: any = list[idx]
+        const until = addDaysToKey(todayKey(), days)
+        list[idx] = { ...r, reviewSnoozedUntil: until, updatedAt: new Date().toISOString() }
+        await saveAllRoutines(list, aid)
+        window.dispatchEvent(new Event('routineChange'))
+      }
+    } catch { /* noop */ }
+    setRoutineReview(null)
+    setRoutineBlocked(false)
+    setSnoozeOpen(false)
+  }
+  const completedCount = Object.values(dayStatus).filter(s => s.sessionStatus === 'COMPLETED').length
+  const totalCount = Object.values(dayStatus).filter(s => s.planned).length
   const weekVolume = Object.values(dayStatus).reduce((a,s)=> a + (s.volume||0), 0)
   const maxDayVol = Math.max(1, ...Object.values(dayStatus).map(s=> s.volume||0))
   // Intensidad media PROYECTADA del día: promedio del RPE planificado en la
@@ -382,6 +456,16 @@ export default function Inicio(){
             </button>
             <button onClick={()=>setShowChangeDay(true)} aria-label="Cambiar el entrenamiento de hoy" className="flex-1 flex items-center justify-center gap-1.5 min-h-[44px] rounded-lg bg-surface-container-high border border-outline-variant/40 text-[12px] text-on-surface">
               <SemanticIcon name="swap_horiz" size={16} className="text-outline" /> Cambiar día
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivityOpen(true)}
+              aria-haspopup="dialog"
+              aria-label="Registrar actividad libre"
+              data-testid="inicio-activity-btn"
+              className="flex-1 flex items-center justify-center min-h-[44px] rounded-lg bg-teal-700 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 text-[12px] font-semibold tracking-wide uppercase"
+            >
+              Actividad libre
             </button>
           </div>
         </section>
@@ -543,6 +627,12 @@ export default function Inicio(){
             <div className="space-y-2">
               <GastoRow label="Hoy" res={gasto.hoy} testId="inicio-gasto-hoy" />
               <GastoRow label="Semana (lun → hoy)" res={gasto.semana} testId="inicio-gasto-semana" hideEmptyNote={sinSesiones(gasto.hoy)} />
+              <div className="flex items-center justify-between py-1" data-testid="inicio-activas-hoy">
+                <span className="text-[12px] text-on-surface-variant">Calorías activas registradas hoy</span>
+                <span className="font-mono text-sm text-secondary font-semibold">
+                  {activasHoy !== null ? `${Math.round(activasHoy)} kcal` : 'sin datos'}
+                </span>
+              </div>
             </div>
           )}
         </section>
@@ -654,12 +744,51 @@ export default function Inicio(){
           </div>
         )}
 
-        <footer className="pt-2 pb-2 text-center">
-          <p className="font-label-caps text-[10px] tracking-widest text-on-surface-variant uppercase">ALTHEA PLATFORM · PALAESTRA DE ARETE</p>
-        </footer>
-      </div>
-    )
-  }
+      <footer className="pt-2 pb-2 text-center">
+        <p className="font-label-caps text-[10px] tracking-widest text-on-surface-variant uppercase">ALTHEA PLATFORM · PALAESTRA DE ARETE</p>
+      </footer>
+
+      {activityOpen && (
+        <ActivityModal onClose={() => setActivityOpen(false)} />
+      )}
+
+      {routineBlocked && routineReview && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="routine-block-title">
+          <div className="w-full max-w-md rounded-2xl bg-surface border border-outline-variant p-5 space-y-4">
+            <h2 id="routine-block-title" className="font-headline-md text-lg text-on-surface">Revisión de rutina requerida</h2>
+            <p className="text-[12px] text-on-surface-variant">
+              Tu rutina lleva <strong>{routineReview.days} días</strong> (límite {routineReview.limit}); venció el <strong>{routineReview.reviewKey}</strong>.
+              Antes de entrenar debés ratificarla o posponer la revisión.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button onClick={ratifyRoutine} className="min-h-[44px] rounded-lg bg-primary text-on-primary font-label-caps text-[12px] uppercase font-bold">Ratificar rutina</button>
+              <button onClick={() => setSnoozeOpen(true)} className="min-h-[44px] rounded-lg bg-surface-container border border-outline-variant text-on-surface font-label-caps text-[12px] uppercase">Posponer revisión</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {snoozeOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="snooze-title">
+          <div className="w-full max-w-sm rounded-2xl bg-surface border border-outline-variant p-5 space-y-4">
+            <h2 id="snooze-title" className="font-headline-md text-lg text-on-surface">Posponer revisión</h2>
+            <p className="text-[12px] text-on-surface-variant">¿Por cuánto tiempo?</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[{d:7,l:'1 semana'},{d:14,l:'2 semanas'},{d:30,l:'1 mes'},{d:60,l:'2 meses'}].map(o=>(
+                <button key={o.d} onClick={()=>setSnoozeDays(o.d)} className={`min-h-[44px] rounded-lg border text-[12px] font-label-caps uppercase ${snoozeDays===o.d?'bg-primary text-on-primary border-primary':'bg-surface-container border-outline-variant text-on-surface'}`}>{o.l}</button>
+              ))}
+            </div>
+            <input type="number" min={1} max={365} value={snoozeDays} onChange={(e) => setSnoozeDays(Math.max(1, Math.min(365, Number(e.target.value) || 7)))} className="w-full min-h-[44px] rounded-lg bg-surface-container border border-outline-variant px-3 text-on-surface" aria-label="Días a posponer" />
+            <div className="flex gap-2">
+              <button onClick={()=>setSnoozeOpen(false)} className="flex-1 min-h-[44px] rounded-lg bg-surface-container border border-outline-variant text-on-surface-variant font-label-caps text-[11px] uppercase">Cancelar</button>
+              <button onClick={()=>snoozeRoutine(snoozeDays)} className="flex-1 min-h-[44px] rounded-lg bg-primary text-on-primary font-label-caps text-[11px] uppercase font-bold">Posponer</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
   return (
     <div className="min-h-screen bg-transparent space-y-3">
@@ -717,6 +846,15 @@ export default function Inicio(){
               <SemanticIcon name="swap_horiz" size={16} className="text-outline" />
               <span className="font-medium text-body-sm hidden sm:inline">Cambiar día</span>
 </button>
+            <button
+              type="button"
+              onClick={() => setActivityOpen(true)}
+              aria-haspopup="dialog"
+              aria-label="Registrar actividad libre"
+              data-testid="inicio-activity-btn-desktop"
+              className="flex items-center px-3 py-1.5 min-h-[44px] rounded bg-teal-700 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 transition-colors cursor-pointer">
+              <span className="font-semibold text-body-sm tracking-wide uppercase">Actividad libre</span>
+            </button>
              {todayCompleted && (
                <span data-testid="inicio-day-done" className="flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[11px] uppercase font-bold">
                  <SemanticIcon name="check_circle" size={17} />
@@ -954,6 +1092,12 @@ export default function Inicio(){
               <div className="space-y-2">
                 <GastoRow label="Hoy" res={gasto.hoy} testId="inicio-gasto-hoy" />
                 <GastoRow label="Semana (lun → hoy)" res={gasto.semana} testId="inicio-gasto-semana" hideEmptyNote={sinSesiones(gasto.hoy)} />
+                <div className="flex items-center justify-between py-1" data-testid="inicio-activas-hoy">
+                  <span className="text-[12px] text-on-surface-variant">Calorías activas registradas hoy</span>
+                  <span className="font-mono text-sm text-secondary font-semibold">
+                    {activasHoy !== null ? `${Math.round(activasHoy)} kcal` : 'sin datos'}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -1198,9 +1342,13 @@ export default function Inicio(){
       {/* Footer */}
       <footer className="pt-4 pb-6 text-center space-y-3 mt-4">
         <p className="font-label-caps text-[10px] tracking-widest text-on-surface-variant uppercase">
-          ALTHEA PLATFORM · PALAESTRA DE ARETE
+          ALTHEA PLATFORM A� PALAESTRA DE ARETE
         </p>
       </footer>
+
+      {activityOpen && (
+        <ActivityModal onClose={() => setActivityOpen(false)} />
+      )}
     </div>
   )
 }

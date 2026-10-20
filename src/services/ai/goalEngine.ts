@@ -87,14 +87,3 @@ export function resolveGoal(goal: TrainingGoal, level?: ExperienceLevel): GoalLo
 
   return base
 }
-
-export function getGoalLabel(goal: TrainingGoal): string {
-  const labels: Record<TrainingGoal, string> = {
-    strength: 'Fuerza',
-    fat_loss: 'Pérdida de grasa',
-    hypertrophy: 'Hipertrofia',
-    mobility: 'Movilidad',
-    general_health: 'Salud general',
-  }
-  return labels[goal]
-}

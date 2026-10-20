@@ -76,11 +76,13 @@ export function cacheGet(key:string){ try{ const v=localStorage.getItem(`exgym:$
 // desde la propia API (sin segunda taxonomía). Cacheado para offline.
 const PARTS = ['arms', 'back', 'cardio', 'chest', 'core', 'legs', 'shoulders']
 export const BODY_PARTS = PARTS
+
+/** ¿Una respuesta de la API parece completa? Requiere al menos un ejercicio por parte. */
+function isPartialResponse(map: Record<string, string> | Record<string, MuscleMapEntry>): boolean {
+  return Object.keys(map).length === 0
+}
+
 export async function fetchPartMap(): Promise<Record<string,string>> {
-  try{
-    const cached = localStorage.getItem('gym:partmap:v1')
-    if(cached) {return JSON.parse(cached)}
-  }catch{ /* noop */ }
   const map: Record<string,string> = {}
   const lists = await Promise.all(PARTS.map((p)=> fetchByBodyPart(p).catch(()=>null)))
   for(let i=0;i<PARTS.length;i++){
@@ -88,7 +90,19 @@ export async function fetchPartMap(): Promise<Record<string,string>> {
     if(!res) {continue}
     for(const ex of res.exercises || []){ if(ex?.id && !map[ex.id]) {map[ex.id] = PARTS[i]} }
   }
-  try{ localStorage.setItem('gym:partmap:v1', JSON.stringify(map)) }catch{ /* noop */ }
+
+  // Si la API devolvió datos válidos, persíguelos en caché. Si falló todo,
+  // no devolvemos caché antiguo como si fuera válido.
+  if (!isPartialResponse(map)) {
+    try{ localStorage.setItem('gym:partmap:v1', JSON.stringify(map)) }catch{ /* noop */ }
+    return map
+  }
+
+  // Fallback: solo si la API falló por completo, usar caché antiguo como último recurso.
+  try{
+    const cached = localStorage.getItem('gym:partmap:v1')
+    if(cached) {return JSON.parse(cached)}
+  }catch{ /* noop */ }
   return map
 }
 
@@ -97,10 +111,6 @@ export async function fetchPartMap(): Promise<Record<string,string>> {
 // estructura de la biblioteca (muscle / secondaryMuscles) ES el dato.
 export type MuscleMapEntry = { primary: string; secondary: string[] }
 export async function fetchMuscleMap(): Promise<Record<string,MuscleMapEntry>> {
-  try{
-    const cached = localStorage.getItem('gym:musclemap:v1')
-    if(cached) {return JSON.parse(cached)}
-  }catch{ /* noop */ }
   const map: Record<string,MuscleMapEntry> = {}
   const lists = await Promise.all(PARTS.map((p)=> fetchByBodyPart(p).catch(()=>null)))
   for(const res of lists){
@@ -114,6 +124,17 @@ export async function fetchMuscleMap(): Promise<Record<string,MuscleMapEntry>> {
       map[ex.id] = { primary, secondary }
     }
   }
-  try{ localStorage.setItem('gym:musclemap:v1', JSON.stringify(map)) }catch{ /* noop */ }
+
+  // Si la API devolvió datos válidos, persíguelos en caché.
+  if (!isPartialResponse(map)) {
+    try{ localStorage.setItem('gym:musclemap:v1', JSON.stringify(map)) }catch{ /* noop */ }
+    return map
+  }
+
+  // Fallback: solo si la API falló por completo, usar caché antiguo como último recurso.
+  try{
+    const cached = localStorage.getItem('gym:musclemap:v1')
+    if(cached) {return JSON.parse(cached)}
+  }catch{ /* noop */ }
   return map
 }

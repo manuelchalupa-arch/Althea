@@ -7,8 +7,8 @@ import { groupSessionsByVersion, savePlanning } from './planning/cycleVersions'
 import type { CycleConfig } from '@/utils/cycle'
 
 const muscleOf = (id: string) => {
-  if (id === 'ex-press') { return { primary: 'pecho', secondary: ['triceps'] } }
-  if (id === 'custom/abc') { return { primary: 'cuadriceps', secondary: ['gluteos'] } }
+  if (id === 'ex-press') { return { primary: { name: 'pecho' }, secondary: [{ name: 'triceps' }] } }
+  if (id === 'custom/abc') { return { primary: { name: 'cuadriceps' }, secondary: [{ name: 'gluteos' }] } }
   return null
 }
 

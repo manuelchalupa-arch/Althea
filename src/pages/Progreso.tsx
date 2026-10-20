@@ -10,7 +10,9 @@ import { buildMuscleResolver, type MuscleResolver } from '@/services/training/mu
 import { todayKey, dayKeyOffset, toDateKey, daysBetween } from '@/utils/dates'
 import { MuscleAtlas } from '@/components/progress/MuscleAtlas'
 import { buildAtlasMuscleData } from '@/components/progress/muscleAtlasData'
-import { buildRegionContributions } from '@/components/progress/muscleContributions'
+import { buildRegionContributions, type SportItem } from '@/components/progress/muscleContributions'
+import { sportsAttribution } from '@/services/training/activityMuscleMap'
+import { getActivityHistory, type ActivitySessionRecord } from '@/services/activity/activityService'
 import {
   ATLAS_METRICS,
   ATLAS_MODES,
@@ -226,6 +228,8 @@ export default function Progresos() {
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [resolver, setResolver] = useState<MuscleResolver | null>(null)
+  // Sesiones deportivas (Actividad): capa separada del volumen de fuerza.
+  const [sportSessions, setSportSessions] = useState<ActivitySessionRecord[]>([])
   // Sexo del perfil, normalizado a canónico ('M' | 'F' | 'X'). Sólo define
   // qué figura dibuja el atlas; no interviene en ningún cálculo.
   const [atlasSex, setAtlasSex] = useState<SexCode>('X')
@@ -251,8 +255,9 @@ export default function Progresos() {
       db.userProfile.toArray().catch(() => []),
       getAllRoutines().catch(() => [] as RoutineData[]),
       getActiveRoutineId().catch(() => null as string | null),
+      getActivityHistory().catch(() => [] as ActivitySessionRecord[]),
     ])
-      .then(async ([unifiedLogs, officialSessions, bodyRows, recRows, baseMap, profileRows, routineRows, activeRid]) => {
+      .then(async ([unifiedLogs, officialSessions, bodyRows, recRows, baseMap, profileRows, routineRows, activeRid, sports]) => {
         const { overlayCustomParts } = await import('@/services/training/customExercises')
         const partMap = await overlayCustomParts({ ...(baseMap as Record<string, string>) })
         const res = await buildMuscleResolver(partMap as Record<string, string>).catch(() => null)
@@ -264,6 +269,7 @@ export default function Progresos() {
         setRoutines(routineRows)
         setActiveRoutineId(activeRid)
         setTrainingSessions(allOfficial)
+        setSportSessions(sports as ActivitySessionRecord[])
         setBodies(bodyRows.slice().sort((a, b) => String(a.localDate || '').localeCompare(String(b.localDate || ''))))
         setRecovery(recRows.slice().sort((a, b) => String(a.localDate || '').localeCompare(String(b.localDate || ''))))
         setAtlasSex(normalizeSex(profile?.sex))
@@ -389,6 +395,7 @@ export default function Progresos() {
     date: toDateKey(String(l.createdAt || '')),
     exerciseId: l.exerciseId,
     volume: Number(l.weight) * Number(l.reps),
+    externalKg: Number(l.weight) > 0 ? Number(l.weight) : null,
     reps: Number(l.reps) > 0 ? Number(l.reps) : 0,
     sessionId: l.sessionId,
   })
@@ -416,6 +423,42 @@ export default function Progresos() {
   const muscleOf = resolver?.muscleOf ?? (() => null)
   const nameOf = resolver?.nameOf ?? (() => null)
 
+  // Capa deportiva: sesiones de Actividad → SportItem con atribución del
+  // mapa muscular deportivo. Minutos de exposición, nunca series/volumen.
+  // Sin atribución para la actividad igual se informa (auditoría honesta).
+  const toSportItems = (from: string, to: string): SportItem[] => {
+    const out: SportItem[] = []
+    for (const s of sportSessions) {
+      const date = String(s.calendarDate || '')
+      if (!date || date < from || date > to) { continue }
+      if (!(Number(s.durationMinutes) > 0)) { continue }
+      const attr = sportsAttribution(s.activityId)
+      out.push({
+        date,
+        activityId: s.activityId,
+        activityName: s.activityName || s.activityId,
+        durationMinutes: Number(s.durationMinutes),
+        regions: (attr?.regions ?? []).map((r) => ({
+          regionId: r.regionId,
+          precision: r.precision,
+          resistedFactor: attr?.resistedFactor ?? 0,
+        })),
+      })
+    }
+    return out
+  }
+
+  const windowSports = useMemo(
+    () => (win ? toSportItems(win.start, win.end) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sportSessions, win?.start, win?.end],
+  )
+  const prevSports = useMemo(
+    () => (win ? toSportItems(win.prevStart, win.prevEnd) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sportSessions, win?.prevStart, win?.prevEnd],
+  )
+
   const compliance = useMemo(() => {
     if (mode !== 'rutina' || !routine || !win) { return null }
     return buildRoutineCompliance({
@@ -427,6 +470,19 @@ export default function Progresos() {
     })
   }, [mode, routine, trainingSessions, windowRows, win])
 
+  // Compliance separada para la ventana previa: no reutilizar sessionIds
+  // de la ventana actual para filtrar el historial anterior.
+  const prevCompliance = useMemo(() => {
+    if (mode !== 'rutina' || !routine || !win || !win.prevStart) { return null }
+    return buildRoutineCompliance({
+      routine,
+      sessions: trainingSessions as ComplianceSession[],
+      sets: prevRows.map((r) => ({ sessionId: r.sessionId ?? '', exerciseId: r.exerciseId })),
+      windowStart: win.prevStart,
+      windowEnd: win.prevEnd,
+    })
+  }, [mode, routine, trainingSessions, prevRows, win])
+
   // Filas del mapa: en modalidad Rutina solo cuentan las sesiones trazadas a
   // la rutina (por routineId, nunca por nombre). El resto se informa aparte.
   const scopedRows = useMemo(() => {
@@ -435,22 +491,22 @@ export default function Progresos() {
     return windowRows.filter((r) => r.sessionId && ids.has(r.sessionId))
   }, [mode, compliance, windowRows])
   const scopedPrevRows = useMemo(() => {
-    if (mode !== 'rutina' || !compliance) { return prevRows }
-    const ids = new Set(compliance.sessionIds)
+    if (mode !== 'rutina' || !prevCompliance) { return prevRows }
+    const ids = new Set(prevCompliance.sessionIds)
     return prevRows.filter((r) => r.sessionId && ids.has(r.sessionId))
-  }, [mode, compliance, prevRows])
+  }, [mode, prevCompliance, prevRows])
 
   const contributions = useMemo(() => {
-    const items = scopedRows.map((r) => ({ date: r.date, exerciseId: r.exerciseId, volume: r.volume, reps: r.reps }))
-    return buildRegionContributions(items, muscleOf, nameOf)
+    const items = scopedRows.map((r) => ({ date: r.date, exerciseId: r.exerciseId, volume: r.volume, externalKg: r.externalKg ?? null, reps: r.reps }))
+    return buildRegionContributions(items, muscleOf, nameOf, {}, windowSports)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedRows, resolver])
+  }, [scopedRows, resolver, windowSports])
   const prevContributions = useMemo(() => {
     if (!hasPrior) { return null }
-    const items = scopedPrevRows.map((r) => ({ date: r.date, exerciseId: r.exerciseId, volume: r.volume, reps: r.reps }))
-    return buildRegionContributions(items, muscleOf, nameOf)
+    const items = scopedPrevRows.map((r) => ({ date: r.date, exerciseId: r.exerciseId, volume: r.volume, externalKg: r.externalKg ?? null, reps: r.reps }))
+    return buildRegionContributions(items, muscleOf, nameOf, {}, prevSports)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopedPrevRows, hasPrior, resolver])
+  }, [scopedPrevRows, hasPrior, resolver, prevSports])
 
   const muscleData = useMemo(
     () => buildAtlasMuscleData({

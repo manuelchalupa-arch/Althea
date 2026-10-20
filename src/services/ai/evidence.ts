@@ -210,14 +210,3 @@ export function retrieveEvidence(opts: { intent: AiIntent; query: string; limit?
       : h.source.claims.slice(0, 1),
   }))
 }
-
-/** Fuentes reales → texto listo para el prompt del LLM. */
-export function evidenceForPrompt(hits: EvidenceHit[]): string {
-  if (hits.length === 0) { return 'Sin evidencia disponible para esta consulta.' }
-  return hits.map((h, i) => {
-    const claims = h.matchedClaims.length > 0
-      ? h.matchedClaims.map(c => `  - ${c}`).join('\n')
-      : '  - (sin fragmentos citables; usar solo el título/nivel de evidencia)'
-    return `[${i + 1}] ${h.source.title} — ${h.source.organization} (${h.source.evidence})\n    Cita: ${h.source.citationLabel}${h.source.url ? `\n    URL: ${h.source.url}` : ''}\n${claims}`
-  }).join('\n\n')
-}

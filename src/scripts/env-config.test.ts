@@ -14,6 +14,7 @@ import {
   buildEnvFileContent,
   buildFirebasercContent,
   ensureGitignoreEntry,
+  checkFirestoreE2eTarget,
 } from '../../scripts/lib/env-config.mjs'
 
 describe('env-config', () => {
@@ -177,5 +178,42 @@ describe('env-config', () => {
     expect(a.content).toContain('.firebaserc')
     const b = ensureGitignoreEntry(a.content, '.firebaserc')
     expect(b.changed).toBe(false)
+  })
+
+  it('checkFirestoreE2eTarget: exige la identidad de staging y nunca corre contra producción', () => {
+    // Falta el proyecto o la API key.
+    expect(checkFirestoreE2eTarget({})).toMatchObject({ ok: false, level: 'block', code: 'MISSING_PROJECT' })
+    expect(checkFirestoreE2eTarget({ projectId: 'p' })).toMatchObject({ ok: false, code: 'MISSING_API_KEY' })
+
+    // Falta la identidad declarada de staging (agujero histórico: con esto el
+    // script podía correr contra `.env.local` apuntando a producción).
+    expect(checkFirestoreE2eTarget({ projectId: 'p', apiKey: 'k' })).toMatchObject({
+      ok: false,
+      level: 'block',
+      code: 'MISSING_STAGING_ID',
+    })
+
+    // El destino no es el declarado como staging.
+    expect(
+      checkFirestoreE2eTarget({ projectId: 'p', apiKey: 'k', stagingId: 'otro' }),
+    ).toMatchObject({ ok: false, level: 'block', code: 'PROJECT_NOT_STAGING' })
+
+    // staging y production son el mismo proyecto => abortar.
+    expect(
+      checkFirestoreE2eTarget({ projectId: 'mismo', apiKey: 'k', stagingId: 'mismo', productionId: 'mismo' }),
+    ).toMatchObject({ ok: false, level: 'abort', code: 'STAGING_IS_PRODUCTION' })
+
+    // Caso válido: destino = staging declarado, distinto de producción.
+    expect(
+      checkFirestoreE2eTarget({ projectId: 'stg', apiKey: 'k', stagingId: 'stg', productionId: 'prod' }),
+    ).toMatchObject({ ok: true, level: 'ok', code: 'OK' })
+
+    // Si el "staging" declarado es en realidad producción, se rechaza.
+    expect(
+      checkFirestoreE2eTarget({ projectId: 'prod', apiKey: 'k', stagingId: 'prod', productionId: 'prod' }),
+    ).toMatchObject({ ok: false, level: 'abort' })
+    expect(
+      checkFirestoreE2eTarget({ projectId: 'prod', apiKey: 'k', stagingId: 'stg', productionId: 'prod' }),
+    ).toMatchObject({ ok: false, level: 'block', code: 'PROJECT_NOT_STAGING' })
   })
 })

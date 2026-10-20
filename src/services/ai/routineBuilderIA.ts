@@ -406,8 +406,3 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
 export function isRoutineAIAvailable(): boolean {
   return true // Fallback local garantiza que "Crear con IA" siempre esté disponible, con o sin proxy
 }
-
-export function getRateLimitInfo(): { waitSec: number } {
-  const c = canRequestNow()
-  return { waitSec: c.waitSec }
-}

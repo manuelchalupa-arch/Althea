@@ -1,310 +1,300 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import SemanticIcon from '../ui/SemanticIcon';
-import { useLocation } from 'react-router-dom'
-import { X, Send, Trash2, Bot, User } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Send, Mail, Trash2 } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
-import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 import { IconChatBubble } from '@/components/brand/FitnessIcons'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
-import {
-  prepareUnifiedContext,
-  buildUnifiedSystemPrompt,
-  composeUnifiedLocalReply,
-  validateUnifiedAnswer,
-} from '@/services/ai/unifiedPipeline'
-import { getActiveConversation, saveMessage, getMessages, clearAllChats, type ChatMessage } from '@/services/ai/chatHistory'
-import { getUsage, getResetInfo } from '@/services/ai/groqUsage'
+import { getActiveConversation, saveMessage, getMessages, type ChatMessage } from '@/services/ai/chatHistory'
 
-const PAGE_LABELS: Record<string, string> = {
-  '/': 'Inicio',
-  '/entrenar': 'Entrenamiento',
-  '/rutina': 'Rutinas',
-  '/rutinas': 'Rutinas',
-  '/nutricion': 'Nutrición',
-  '/recuperacion': 'Recuperación',
-  '/progresos': 'Progreso',
-  '/progreso': 'Progreso',
-  '/coach': 'Coach IA',
-  '/calendario': 'Calendario',
-  '/perfil': 'Perfil',
-  '/biblioteca': 'Biblioteca',
-  '/mas': 'Más',
+import { createThread } from '@/services/feedback/feedbackService'
+import { FEEDBACK_CATEGORIES, type FeedbackCategory } from '@/services/feedback/feedbackTypes'
+
+type FeedbackType = FeedbackCategory
+
+const initialFeedbackType: FeedbackType = FEEDBACK_CATEGORIES[0]?.value ?? 'otro'
+
+interface FeedbackFormState {
+  type: FeedbackType
+  subject: string
+  content: string
+  isSubmitting: boolean
+  submittingError: string | null
 }
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false)
-  const [input, setInput] = useState('')
+  const [form, setForm] = useState<FeedbackFormState>({
+    type: initialFeedbackType,
+    subject: '',
+    content: '',
+    isSubmitting: false,
+    submittingError: null,
+  })
+
+  const [openChat, setOpenChat] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [streaming, setStreaming] = useState(false)
-  const [streamText, setStreamText] = useState('')
-  const [conversationId, setConversationId] = useState('')
-  const [pageContext, setPageContext] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const location = useLocation()
-  const [usage, setUsage] = useState(() => getUsage())
-  const [resetInfo] = useState(() => getResetInfo())
-
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
-
-  useEffect(() => { scrollToBottom() }, [messages, streamText, scrollToBottom])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [conversationId, setConversationId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 100)
-      setUsage(getUsage())
+    if (openChat) {
+      loadMessages()
     }
-  }, [open])
+  }, [openChat])
 
-  // Puente con el header mobile: el botón "Abrir conversación del Coach"
-  // despacha este evento en vez de duplicar el FAB o navegar a /coach.
-  useEffect(() => {
-    const openChat = () => setOpen(true)
-    window.addEventListener('althea:open-chat', openChat)
-    return () => window.removeEventListener('althea:open-chat', openChat)
-  }, [])
-
-  // El acceso flotante al Coach (avatar + Link a /coach) se retiró: ese lugar
-  // ahora lo ocupa el botón F de Feedback (FeedbackFab, montado en App). El
-  // chat en sí no cambia: mismo FAB, mismo historial, mismos servicios.
-  //
-  // Se publica el estado "abierto" en <html data-chat-open> para que el FAB de
-  // Feedback pueda ocultarse y no superponerse al panel del chat.
-  useEffect(() => {
-    const el = document.documentElement
-    if (open) { el.setAttribute('data-chat-open', '1') } else { el.removeAttribute('data-chat-open') }
-    return () => { el.removeAttribute('data-chat-open') }
-  }, [open])
-
-  // Refresh usage every 10s while open
-  useEffect(() => {
-    if (!open) {return}
-    const id = setInterval(() => setUsage(getUsage()), 10_000)
-    return () => clearInterval(id)
-  }, [open])
-
-  useEffect(() => {
-    const label = PAGE_LABELS[location.pathname] || location.pathname
-    setPageContext(label)
-    const init = async () => {
-      const convId = await getActiveConversation('unified')
-      setConversationId(convId)
-      const hist = await getMessages(convId)
-      setMessages(hist)
-    }
-    init()
-  }, [location.pathname])
-
-  const runLocalReply = async (text: string) => {
+  const loadMessages = async () => {
     try {
-      const prep = await prepareUnifiedContext(text)
-      const reply = await composeUnifiedLocalReply(text, prep)
-      const assistantMsg = await saveMessage({
-        conversationId, role: 'assistant', content: reply.text, createdAt: new Date().toISOString(), source: reply.source,
-        sources: reply.sourcesUsed.map(s => s.id),
-      })
-      setMessages(prev => [...prev, assistantMsg])
+      const convId = await getActiveConversation('coach')
+      setConversationId(convId)
+      const msgs = await getMessages(convId)
+      setMessages(msgs)
     } catch {
-      const errMsg = await saveMessage({
-        conversationId, role: 'assistant', content: '⚠️ No pude procesar tu mensaje ahora. Revisá tu conexión y probá de nuevo.', createdAt: new Date().toISOString(),
-      })
-      setMessages(prev => [...prev, errMsg])
-    } finally {
-      setStreamText('')
-      setStreaming(false)
-      setUsage(getUsage())
+      setError('No se pudo cargar el historial')
     }
   }
 
-  const sendMessage = async () => {
+  const handleClearHistory = async () => {
+    try {
+      const convId = conversationId ?? await getActiveConversation('coach')
+      const { clearConversation } = await import('@/services/ai/chatHistory')
+      await clearConversation(convId)
+      setMessages([])
+      setConversationId(null)
+    } catch {
+      setError('No se pudo borrar el historial')
+    }
+  }
+
+  const handleSend = async () => {
     const text = input.trim()
-    if (!text || streaming || !conversationId) {return}
+    if (!text || loading) {return}
 
     setInput('')
-    const userMsg = await saveMessage({
-      conversationId, role: 'user', content: text, createdAt: new Date().toISOString()
-    })
-    setMessages(prev => [...prev, userMsg])
-
-    if (!available) { await runLocalReply(text); return }
-
-    const prep = await prepareUnifiedContext(text)
-    const history: ChatCompletionMessage[] = messages.slice(-10).map(m => ({
-      role: m.role as 'user' | 'assistant', content: m.content
-    }))
-
-    const apiMessages: ChatCompletionMessage[] = [
-      ...history,
-      { role: 'user', content: text },
-    ]
-
-    setStreaming(true)
-    setStreamText('')
+    setError(null)
+    setLoading(true)
 
     try {
-      await streamChat(apiMessages, {
-        onToken: (token) => setStreamText(prev => prev + token),
-        onDone: async (fullText) => {
-          setStreamText('')
-          setStreaming(false)
-          setUsage(getUsage())
-          const validated = validateUnifiedAnswer(fullText, prep.evidence)
-          const assistantMsg = await saveMessage({
-            conversationId, role: 'assistant', content: validated.text, createdAt: new Date().toISOString(), source: 'groq',
-            sources: validated.sourcesUsed.map(s => s.id),
-          })
-          setMessages(prev => [...prev, assistantMsg])
+      const convId = await getActiveConversation('coach')
+      await saveMessage({ conversationId: convId, role: 'user', content: text, createdAt: new Date().toISOString() })
+
+      const history: ChatCompletionMessage[] = [
+        ...messages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        { role: 'user', content: text },
+      ]
+
+      let assistantContent = ''
+      await streamChat(
+        history,
+        {
+          onToken: (token) => {
+            assistantContent += token
+            setMessages((prev) => {
+              const last = prev[prev.length - 1]
+              if (last?.role === 'assistant') {
+                return [...prev.slice(0, -1), { ...last, content: assistantContent }]
+              }
+              return [...prev, { id: 'streaming', conversationId: convId, role: 'assistant', content: assistantContent, createdAt: new Date().toISOString() }]
+            })
+          },
+          onDone: async (fullText) => {
+            await saveMessage({ conversationId: convId, role: 'assistant', content: fullText, createdAt: new Date().toISOString() })
+            setLoading(false)
+          },
+          onError: (err) => {
+            setError(err)
+            setLoading(false)
+          },
         },
-        onError: async () => {
-          await runLocalReply(text)
-        },
-      }, { systemPrompt: buildUnifiedSystemPrompt(prep) })
+      )
     } catch {
-      await runLocalReply(text)
+      setError('No se pudo enviar el mensaje')
+      setLoading(false)
     }
   }
 
-  const handleClear = async () => {
-    if (!confirm('¿Borrar todo el historial de chat?')) {return}
-    await clearAllChats()
-    setMessages([])
-    const newId = await getActiveConversation(pageContext)
-    setConversationId(newId)
+  const handleFeedbackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.subject.trim() || !form.content.trim()) {return}
+
+    setForm((prev) => ({ ...prev, isSubmitting: true, submittingError: null }))
+
+    try {
+      await createThread({
+        category: form.type,
+        subject: form.subject.trim(),
+        text: form.content.trim(),
+      })
+      setForm({ type: initialFeedbackType, subject: '', content: '', isSubmitting: false, submittingError: null })
+      setOpen(false)
+    } catch {
+      setForm((prev) => ({ ...prev, isSubmitting: false, submittingError: 'No se pudo enviar. Intentá de nuevo.' }))
+    }
   }
-
-  const available = isChatAvailable()
-
-  if (location.pathname === '/coach') {return null}
 
   return (
     <>
-      {/* Floating button */}
       <button
         onClick={() => setOpen(!open)}
         className={`fixed z-50 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 ${
           open
             ? 'bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 w-12 h-12 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-            : 'fab-chat-stack right-4 w-14 h-14 bg-primary text-on-primary hover:scale-105 md:right-4'
+            : 'fab-feedback right-4 w-14 h-14 bg-success text-on-success hover:scale-105 md:right-4'
         }`}
-        aria-label={open ? 'Cerrar chat' : 'Abrir chat'}
+        aria-label={open ? 'Cerrar feedback' : 'Abrir feedback'}
       >
-        {open ? <X size={20} /> : <IconChatBubble className="w-6 h-6" />}
+        {open ? <X size={20} /> : <Mail size={24} className="w-6 h-6" />}
       </button>
 
-      {/* Chat overlay */}
       {open && (
         <div className="fixed inset-0 z-40 flex items-end justify-end p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:p-8 md:pb-8 pointer-events-none">
-          <div className="pointer-events-auto w-full max-w-md h-[75vh] md:h-[70vh] flex flex-col bg-surface border border-outline-variant rounded-2xl shadow-al-lg overflow-hidden fade-in">
-            {/* Header */}
+          <div className="relative w-full max-w-lg mx-4 pt-8 pb-8 bg-surface rounded-3xl border border-outline-variant shadow-xl overflow-hidden">
+            <button onClick={() => setOpen(false)} className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface">
+              <X size={24} />
+            </button>
+
+            <form onSubmit={handleFeedbackSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="fb-type" className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1">
+                  Tipo
+                </label>
+                <select
+                  id="fb-type"
+                  value={form.type}
+                  onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value as FeedbackType }))}
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/50 disabled:opacity-50"
+                >
+                  {FEEDBACK_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="fb-subject" className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1">
+                  Asunto
+                </label>
+                <input
+                  id="fb-subject"
+                  value={form.subject}
+                  onChange={(e) => setForm((prev) => ({ ...prev, subject: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/50 disabled:opacity-50"
+                  placeholder="Asunto del reporte"
+                  maxLength={100}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="fb-content" className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  id="fb-content"
+                  value={form.content}
+                  onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-4 text-sm text-on-surface h-[120px] resize-none focus:outline-none focus:border-primary/50 disabled:opacity-50"
+                  placeholder="Describe tu reporte con el máximo de detalle"
+                />
+              </div>
+
+              {form.submittingError && (
+                <p className="text-xs text-error" role="alert">{form.submittingError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={form.isSubmitting}
+                className="w-full py-3 rounded-xl bg-success text-on-success font-medium uppercase tracking-widest transition-colors hover:bg-success/90 disabled:opacity-50"
+              >
+                {form.isSubmitting ? 'Enviando…' : 'Enviar reporte'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={() => setOpenChat(!openChat)}
+        className={`fixed z-50 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 ${
+          openChat
+            ? 'bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 w-12 h-12 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+            : 'fab-chat right-4 w-14 h-14 bg-primary text-on-primary hover:scale-105 md:right-4'
+        }`}
+        aria-label={openChat ? 'Cerrar chat' : 'Abrir chat'}
+      >
+        {openChat ? <X size={20} /> : <IconChatBubble className="w-6 h-6" />}
+      </button>
+
+      {openChat && (
+        <div className="fixed inset-0 z-40 flex items-end justify-end p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:p-8 md:pb-8 pointer-events-none">
+          <div className="relative w-full max-w-md mx-4 pt-8 pb-8 bg-surface rounded-3xl border border-outline-variant shadow-xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant bg-surface">
               <div className="flex items-center gap-2">
-                <span className="w-7 h-7 rounded-full overflow-hidden shrink-0"><BrandIcon name="coach" size={28} className="w-full h-full object-cover" /></span>
+                <span className="w-7 h-7 rounded-full overflow-hidden shrink-0">
+                  <BrandIcon name="coach" size={28} className="w-full h-full object-cover" />
+                </span>
                 <div>
-                  <div className="text-body font-medium text-sm">Althea</div>
-                  <div className="text-aux text-[10px] flex items-center gap-1.5">
-                    {pageContext}
-                    {available && (
-                      <span className="inline-flex items-center gap-1" title={`${usage.dayUsed}/${usage.dayTotal} mensajes hoy · Se renueva en ${resetInfo.nextDayReset}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${usage.dayPct >= 90 ? 'bg-error' : usage.dayPct >= 70 ? 'bg-tertiary' : 'bg-secondary'}`} />
-                        <span className="text-on-surface-variant">{usage.dayUsed}/{usage.dayTotal}</span>
-                      </span>
-                    )}
+                  <div className="text-body font-medium text-sm">Coach IA</div>
+                  <div className="text-aux text-[10px]">
+                    {isChatAvailable() ? 'En línea' : 'Sin conexión'}
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={handleClear} aria-label="Borrar historial" className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-on-surface-variant hover:bg-surface-container-low transition" title="Borrar historial">
-                  <Trash2 size={16} />
+                <button onClick={handleClearHistory} aria-label="Borrar historial" className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition">
+                  <Trash2 size={18} />
                 </button>
-                <button onClick={() => setOpen(false)} aria-label="Cerrar" className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-on-surface hover:bg-surface-container-low transition">
+                <button onClick={() => setOpenChat(false)} aria-label="Cerrar" className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-on-surface hover:bg-surface-container-low transition">
                   <X size={18} />
                 </button>
               </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-              {!available && (
-                <div className="rounded-xl bg-surface-container-low border border-outline-variant p-3 text-on-surface text-sm">
-                  Estás en modo local: respondo con tus datos guardados. Con conexión reactivás el Coach completo.
-                </div>
-              )}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[200px] max-h-[400px]">
               {messages.length === 0 && (
-                <div className="text-center py-8">
-                  <span className="inline-block mb-2"><AltheaAvatar context="empty-state" size={96} alt="Althea" /></span>
-                  <p className="text-on-surface text-sm">{available ? '¿En qué puedo ayudarte?' : 'Respondo con tus datos guardados.'}</p>
-                </div>
+                <p className="text-on-surface-variant text-sm text-center py-8">Preguntale algo al Coach</p>
               )}
-              {messages.map((msg) => (
-                <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {msg.role === 'assistant' && (
-                    <div className="w-7 h-7 rounded-full bg-secondary/20 flex items-center justify-center shrink-0 mt-1">
-                      <Bot size={14} className="text-secondary" />
-                    </div>
-                  )}
-                  <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm font-medium ${
-                    msg.role === 'user'
+              {messages.map((m) => (
+                <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
+                    m.role === 'user'
                       ? 'bg-primary text-on-primary'
-                      : 'bg-surface-container-low border border-outline-variant text-on-surface'
+                      : 'bg-surface-container-low text-on-surface'
                   }`}>
-                    {msg.role === 'assistant' && msg.source === 'local' && (
-                      <div className="flex items-center gap-1 mb-1">
-                        <SemanticIcon name="cloud_off" size={12} className="text-[12px] text-tertiary" />
-                        <span className="text-[10px] uppercase tracking-wide text-on-surface-variant">Modo local</span>
-                      </div>
-                    )}
-                    {msg.content.split('\n').map((line, i) => (
-                      <span key={i}>{line}{i < msg.content.split('\n').length - 1 && <br />}</span>
-                    ))}
+                    {m.content}
                   </div>
-                  {msg.role === 'user' && (
-                    <div className="w-7 h-7 rounded-full bg-surface border border-outline-variant flex items-center justify-center shrink-0 mt-1">
-                      <User size={14} className="text-on-surface-variant" />
-                    </div>
-                  )}
                 </div>
               ))}
-              {streaming && streamText && (
-                <div className="flex gap-2 justify-start">
-                  <div className="w-7 h-7 rounded-full bg-secondary/20 flex items-center justify-center shrink-0 mt-1">
-                    <Bot size={14} className="text-secondary" />
-                  </div>
-                  <div className="max-w-[80%] rounded-xl px-3 py-2 text-sm bg-surface-container-low border border-outline-variant text-on-surface">
-                    {streamText}
-                    <span className="inline-block w-1.5 h-4 bg-secondary/60 ml-0.5 animate-pulse rounded-sm" />
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-surface-container-low rounded-2xl px-4 py-2.5 text-sm text-on-surface-variant">
+                    Escribiendo…
                   </div>
                 </div>
               )}
-              <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
             <div className="px-3 py-3 border-t border-outline-variant bg-surface">
-              <form
-                onSubmit={(e) => { e.preventDefault(); sendMessage() }}
-                className="flex items-center gap-2"
-              >
+              {error && <p className="text-xs text-error mb-2" role="alert">{error}</p>}
+              <div className="flex gap-2">
                 <input
-                  ref={inputRef}
+                  type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={available ? 'Escribí tu mensaje…' : 'Modo local — respondo con tus datos'}
-                  disabled={streaming}
-                  maxLength={500}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { handleSend() } }}
+                  placeholder="Escribí tu mensaje…"
                   aria-label="Mensaje para el Coach"
                   className="flex-1 bg-surface-container-low border border-outline-variant rounded-xl px-3 py-3 min-h-[48px] text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary/50 disabled:opacity-50"
                 />
                 <button
-                  type="submit"
-                  disabled={!input.trim() || streaming}
-                  aria-label="Enviar mensaje"
+                  onClick={handleSend}
+                  disabled={loading || !input.trim()}
                   className="w-12 h-12 rounded-xl bg-primary text-on-primary flex items-center justify-center disabled:opacity-40 transition hover:brightness-110"
+                  aria-label="Enviar mensaje"
                 >
                   <Send size={18} />
                 </button>
-              </form>
+              </div>
             </div>
           </div>
         </div>

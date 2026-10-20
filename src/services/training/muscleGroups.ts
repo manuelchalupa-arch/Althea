@@ -3,6 +3,7 @@
 // ejecutado (kg x reps) con ponderación por rol muscular real. Sin datos
 // inventados: una semana sin series no genera cambio, se marca como sin base.
 import { muscleLoadOf, type MuscleLoad } from './metrics'
+import type { MuscleAttribution } from './muscleAttribution'
 import { cycleWeekRange, completedCycleWeeks, type CycleConfig } from '@/utils/cycle'
 import { todayKey } from '@/utils/dates'
 import { MUSCLE_CATALOG } from './muscleCatalog'
@@ -105,7 +106,7 @@ export interface GroupLoad {
 /** Trabajo ponderado por grupo a partir de volumen + atribución real. */
 export function groupLoadOf(
   items: Array<{ exerciseId: string; volume: number }>,
-  muscleOf: (exerciseId: string) => { primary: string; secondary: string[] } | null,
+  muscleOf: (exerciseId: string) => MuscleAttribution | null,
   weights = { primary: 1, secondary1: 0.5, secondary2: 0.25 },
 ): { groups: GroupLoad[]; byGroup: Record<string, number>; unmappedVolume: number; unmappedSets: number } {
   const res = muscleLoadOf(items, muscleOf, weights)
@@ -194,7 +195,7 @@ export interface CurrentWeekLoad {
 
 export function weeklyGroupComparison(
   itemsByDate: Array<{ date: string; exerciseId: string; volume: number }>,
-  muscleOf: (exerciseId: string) => { primary: string; secondary: string[] } | null,
+  muscleOf: (exerciseId: string) => MuscleAttribution | null,
   cycle: CycleConfig,
   today: string = todayKey(),
 ): { weeks: GroupWeekStat[]; current: CurrentWeekLoad | null } {

@@ -21,21 +21,21 @@ describe('buildMuscleResolver — fuentes reales', () => {
 
   it('seed local: usa muscles[] y groupMain del registro', async () => {
     const r = await buildMuscleResolver({})
-    expect(r.muscleOf('ex-row')).toEqual({ primary: 'dorsal', secondary: ['trapecio'] })
+    expect(r.muscleOf('ex-row')).toEqual({ primary: { name: 'dorsal' }, secondary: [{ name: 'trapecio' }] })
     expect(r.sourceOf('ex-row')).toBe('seed')
     expect(r.nameOf('ex-row')).toBe('Remo con barra')
   })
 
   it('ejercicio personalizado: usa su músculo declarado', async () => {
     const r = await buildMuscleResolver({})
-    expect(r.muscleOf('custom/tiron-mio')).toEqual({ primary: 'lats', secondary: ['traps'] })
+    expect(r.muscleOf('custom/tiron-mio')).toEqual({ primary: { name: 'lats', pct: 70 }, secondary: [{ name: 'traps', pct: 30 }] })
     expect(r.sourceOf('custom/tiron-mio')).toBe('custom')
     expect(r.nameOf('custom/tiron-mio')).toBe('Tirón mío')
   })
 
   it('biblioteca: deduce el primario del id "muscle/slug" sin depender del nombre', async () => {
     const r = await buildMuscleResolver({})
-    expect(r.muscleOf('lats/remo-con-barra')).toEqual({ primary: 'lats', secondary: [] })
+    expect(r.muscleOf('lats/remo-con-barra')).toEqual({ primary: { name: 'lats' }, secondary: [] })
     expect(r.sourceOf('lats/remo-con-barra')).toBe('library')
     expect(r.nameOf('lats/remo-con-barra')).toBe('remo con barra')
   })

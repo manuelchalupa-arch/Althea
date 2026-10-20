@@ -1,5 +1,5 @@
 // NUTRITION METHODS DATABASE — Conocimiento completo de cada estrategia nutricional
-import type { NutritionMethod, NutritionMethodId, NutritionCategory } from './nutritionMethods'
+import type { NutritionMethod, NutritionMethodId } from './nutritionMethods'
 
 export const NUTRITION_METHODS: NutritionMethod[] = [
   // ═══════════════════════════════════════════════════
@@ -681,19 +681,4 @@ export const NUTRITION_METHODS: NutritionMethod[] = [
 /** Buscar método nutricional por ID */
 export function getNutritionMethod(id: NutritionMethodId): NutritionMethod | undefined {
   return NUTRITION_METHODS.find(m => m.id === id)
-}
-
-/** Obtener métodos por categoría */
-export function getNutritionMethodsByCategory(category: NutritionCategory): NutritionMethod[] {
-  return NUTRITION_METHODS.filter(m => m.category === category)
-}
-
-/** Obtener patrones alimentarios */
-export function getPatternMethods(): NutritionMethod[] {
-  return NUTRITION_METHODS.filter(m => m.category === 'pattern')
-}
-
-/** Obtener estrategias de distribución */
-export function getDistributionMethods(): NutritionMethod[] {
-  return NUTRITION_METHODS.filter(m => m.category === 'distribution')
 }

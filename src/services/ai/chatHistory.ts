@@ -62,8 +62,14 @@ export async function getRecentConversations(limit = 10): Promise<ChatConversati
 }
 
 export async function clearConversation(conversationId: string): Promise<void> {
+  const msgs = await db.chatMessages.where('conversationId').equals(conversationId).toArray()
   await db.chatMessages.where('conversationId').equals(conversationId).delete()
   await db.chatConversations.delete(conversationId)
+  try {
+    const { recordDelete } = await import('@/services/firebase/sync')
+    await Promise.all(msgs.map((m) => recordDelete('chatMessages', m.id)))
+    await recordDelete('chatConversations', conversationId)
+  } catch { /* noop */ }
 }
 
 export async function clearAllChats(): Promise<void> {

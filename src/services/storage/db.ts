@@ -122,6 +122,7 @@ export class TrainDB extends Dexie {
     updatedAt: string
   }>
   customFoods!: Table<CustomFood>
+  syncDeletes!: Table<{ table: string; docId: string; deletedAt: string }, number>
   constructor() {
     super('trainPWA')
     this.version(1).stores({
@@ -284,6 +285,13 @@ export class TrainDB extends Dexie {
     // personalizado nunca reescribe comidas ya registradas.
     this.version(26).stores({
       customFoods: 'id, name, updatedAt, source',
+    })
+    // v27: Rastreo de borrados para sincronización. Cuando una fila sincronizable
+    // se elimina localmente, se anota aquí para que el envío a Firestore pueda
+    // borrar el documento remoto correspondiente y el dato no resucite en la
+    // siguiente descarga. Solo aditivo.
+    this.version(27).stores({
+      syncDeletes: '++id, table, docId',
     })
   }
 }

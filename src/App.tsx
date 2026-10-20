@@ -10,6 +10,7 @@ import { db } from '@/services/storage/db'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { weekdayOfKey } from '@/utils/dates'
 import { ErrorBoundary, EntrenarErrorBoundary, NutricionErrorBoundary, CoachErrorBoundary, ProgresoErrorBoundary } from '@/components/ErrorBoundary'
+import { SplashScreen, isMobileSplashConsumedThisDocument, MOBILE_SPLASH_BREAKPOINT } from '@/components/SplashScreen'
 
 // Lazy load all pages to reduce initial bundle size
 const Inicio = lazy(() => import('@/pages/Inicio'))
@@ -24,6 +25,7 @@ const Calendario = lazy(() => import('@/pages/Calendario'))
 const Nutricion = lazy(() => import('@/pages/Nutricion'))
 const Recuperacion = lazy(() => import('@/pages/Recuperacion'))
 const Perfil = lazy(() => import('@/pages/Perfil'))
+const Actividad = lazy(() => import('@/pages/Actividad'))
 const Login = lazy(() => import('@/pages/Login'))
 const Feedback = lazy(() => import('@/pages/Feedback'))
 const AdminFeedback = lazy(() => import('@/pages/AdminFeedback'))
@@ -230,6 +232,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
         <Route path="/nutricion" element={<LazyPage><NutricionErrorBoundary componentName="Nutricion"><Nutricion /></NutricionErrorBoundary></LazyPage>} />
         <Route path="/recuperacion" element={<LazyPage><Recuperacion /></LazyPage>} />
         <Route path="/perfil" element={<LazyPage><Perfil /></LazyPage>} />
+        <Route path="/actividad" element={<LazyPage><Actividad /></LazyPage>} />
       </Routes>
       </div>
       {!hideNav && <AppNav/>}
@@ -257,9 +260,21 @@ function OnlineBanner(){
 }
 
 import { applyAppearance } from '@/utils/appearance'
+import { useCallback } from 'react'
 
 export default function App(){
   const [ready,setReady]=useState(false)
+  // El splash se muestra una sola vez por documento: si esta carga ya lo
+  // consumió (remontaje del árbol sin recarga), no se vuelve a armar.
+  // Solo lectura aquí; la marca la escribe SplashScreen al iniciar.
+  const [splashVisible,setSplashVisible]=useState(() => {
+    if (typeof window === 'undefined') {return true}
+    if (window.innerWidth >= MOBILE_SPLASH_BREAKPOINT) {return false}
+    return !isMobileSplashConsumedThisDocument()
+  })
+  const handleSplashComplete = useCallback(() => {
+    setSplashVisible(false)
+  }, [])
   useEffect(()=>{
     applyAppearance()
     // Sesiones que cruzaron la medianoche: se cierran como "no realizadas"
@@ -273,5 +288,14 @@ export default function App(){
   if(!ready) {return <div className="p-8 text-center">Cargando…</div>}
   // Boundary global: evita pantalla blanca/negra ante un error de render en
   // cualquier parte del árbol (los boundaries por página están dentro de Routes).
-  return <ErrorBoundary componentName="App"><BrowserRouter><Layout/></BrowserRouter></ErrorBoundary>
+  // El splash es un overlay transitorio SOLO móvil: la app (router + Layout
+  // con sus rutas reales, incluida "/" = Inicio) siempre está montada
+  // debajo. Cuando el splash termina, desaparece y queda visible la
+  // pantalla que a Althea le corresponde (Inicio, login u onboarding).
+  return (
+    <ErrorBoundary componentName="App">
+      <BrowserRouter><Layout/></BrowserRouter>
+      {splashVisible && <SplashScreen onComplete={handleSplashComplete} />}
+    </ErrorBoundary>
+  )
 }

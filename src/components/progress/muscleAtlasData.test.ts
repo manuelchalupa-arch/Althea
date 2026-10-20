@@ -4,14 +4,20 @@ import { MUSCLE_REGIONS, ALL_REGION_IDS } from './muscleGeometry'
 import { MUSCLE_CATALOG } from '@/services/training/muscleCatalog'
 import type { ContributionResult, RegionContribution } from './muscleContributions'
 
-const NO_CONTRIB: ContributionResult = { byRegion: {}, maxVolume: 0, totalSets: 0, unattributedSets: 0 }
+const NO_CONTRIB: ContributionResult = { byRegion: {}, maxVolume: 0, totalSets: 0, unattributedSets: 0, bodyweightSets: 0, audit: [], diagnostics: { totalProcessed: 0, admitted: 0, excluded: {} as Record<import('./muscleContributions').ExclusionReason, number>, unattributed: 0, bodyweightCounted: 0, estimatedCounted: 0, sportActivities: 0, sportUnattributed: 0 } }
 
 const region = (volume: number, exercises: string[]): RegionContribution => ({
   volume,
   sets: Math.max(1, Math.round(volume / 10)),
   reps: Math.round(volume * 2),
   days: ['2026-03-10'],
-  exercises,
+  exercises: exercises.map((name) => ({ name, measuredKg: 0, estimatedKg: 0 })),
+  volumeMeasuredKg: volume,
+  volumeEstimatedKg: 0,
+  avgLoadMeasuredKg: null,
+  avgLoadEstimatedKg: null,
+  sportMinutes: 0,
+  precision: 'grupo' as const,
 })
 
 // Contribuciones de prueba para músculos de espalda
@@ -31,6 +37,9 @@ const BACK_CONTRIBUTIONS: ContributionResult = {
   maxVolume: 100,
   totalSets: 10,
   unattributedSets: 0,
+  bodyweightSets: 0,
+  audit: [],
+  diagnostics: { totalProcessed: 10, admitted: 10, excluded: {} as Record<import('./muscleContributions').ExclusionReason, number>, unattributed: 0, bodyweightCounted: 0, estimatedCounted: 0, sportActivities: 0, sportUnattributed: 0 },
 }
 
 // Ventana previa: mismo volumen salvo latissimus-dorsi, que baja.
@@ -44,6 +53,9 @@ const PREV_CONTRIBUTIONS: ContributionResult = {
   maxVolume: 80,
   totalSets: 4,
   unattributedSets: 0,
+  bodyweightSets: 0,
+  audit: [],
+  diagnostics: { totalProcessed: 4, admitted: 4, excluded: {} as Record<import('./muscleContributions').ExclusionReason, number>, unattributed: 0, bodyweightCounted: 0, estimatedCounted: 0, sportActivities: 0, sportUnattributed: 0 },
 }
 
 function sampleData(overrides: Partial<Parameters<typeof buildAtlasMuscleData>[0]> = {}) {
@@ -225,7 +237,7 @@ describe('buildAtlasMuscleData — escala de intensidad y estados vacíos', () =
   it('SIN series en el período: absence de actividad (no falta de atribución)', () => {
     const data = buildAtlasMuscleData({
       enabled: true,
-      current: { byRegion: {}, maxVolume: 0, totalSets: 0, unattributedSets: 0 },
+      current: { ...NO_CONTRIB, totalSets: 0, unattributedSets: 0 },
       previous: null,
       metric: 'volumen',
     })
@@ -239,7 +251,7 @@ describe('buildAtlasMuscleData — escala de intensidad y estados vacíos', () =
   it('CON series pero sin atribución: se distingue de "no entrenaste"', () => {
     const data = buildAtlasMuscleData({
       enabled: true,
-      current: { byRegion: {}, maxVolume: 0, totalSets: 12, unattributedSets: 12 },
+      current: { ...NO_CONTRIB, totalSets: 12, unattributedSets: 12 },
       previous: null,
       metric: 'volumen',
     })
