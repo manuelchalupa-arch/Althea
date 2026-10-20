@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { loadUnifiedConfigs, saveUnifiedConfig, saveUnifiedConfigs, type UnifiedNotifConfig } from '@/services/notifications/unifiedNotifications'
 
 const TYPES = ['comer', 'agua', 'recuperacion', 'entrenamiento'] as const
@@ -7,11 +7,20 @@ export function DailyRemindersConfig() {
   const [configs, setConfigs] = useState<UnifiedNotifConfig[]>([])
   const [editing, setEditing] = useState<Record<string, Partial<UnifiedNotifConfig>>>({})
 
+  const isMounted = useRef(false)
+
   const load = async () => {
     const all = await loadUnifiedConfigs()
+    // La carga es asíncrona: si el componente ya se desmontó (o el entorno se
+    // cerró) no se debe programar una actualización de estado.
+    if (!isMounted.current) { return }
     setConfigs(all.filter(c => (TYPES as readonly string[]).includes(c.type)))
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    isMounted.current = true
+    void load()
+    return () => { isMounted.current = false }
+  }, [])
 
   const toggleEnabled = async (c: UnifiedNotifConfig) => {
     await saveUnifiedConfig({ ...c, enabled: !c.enabled })

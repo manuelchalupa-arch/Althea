@@ -96,29 +96,23 @@ export function sortMuscleLibraryExercises<
       ? ALL_PRIORITY_NAMES
       : []
 
+  // Sin coincidencia: se ubica después de todos los prioritarios. findIndex
+  // devuelve -1, que ordenaba a los no prioritarios ANTES que los prioritarios.
+  const noMatchRank = terms.length
+
   const rank = (item: T) => {
     const name = normFold(String(item.name ?? ''))
-    return terms.findIndex(
+    const index = terms.findIndex(
       term => name.includes(normFold(term)) || normFold(term).includes(name)
     )
+    return index === -1 ? noMatchRank : index
   }
 
   return [...items].sort((a, b) => {
-    const priorityDifference = rank(a) - rank(b)
-    if (priorityDifference !== 0) {return priorityDifference}
-
     const difficultyDifference = difficultyRank(a) - difficultyRank(b)
     if (difficultyDifference !== 0) {return difficultyDifference}
 
-    // When priority and difficulty are equal, prioritized exercises come first
-    // by checking if either item has a valid priority rank ( < terms.length)
-    const rankA = rank(a)
-    const rankB = rank(b)
-    const aHasPriority = rankA < terms.length
-    const bHasPriority = rankB < terms.length
-    if (aHasPriority && !bHasPriority) {return -1}
-    if (!aHasPriority && bHasPriority) {return 1}
-    // Both have priority or both don't; fallback to alphabetical
+    // Misma prioridad y mismo nivel: orden alfabético estable
     return String(a.name ?? '').localeCompare(String(b.name ?? ''), 'es')
   })
 }

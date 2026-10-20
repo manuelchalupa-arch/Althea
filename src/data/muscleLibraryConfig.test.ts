@@ -22,7 +22,7 @@ describe('Muscle Library Config', () => {
     expect(uniqueIds.size).toBe(ids.length)
   })
 
-  test('sortMuscleLibraryExercises ordena prioritarios delante de no prioritarios mismsa dificultad', () => {
+  test('dentro de un mismo nivel no hay priorización: orden alfabético estable', () => {
     const exercises = [
       { name: 'sentadilla', exerciseDifficulty: 'principiante' },
       { name: 'press de pecho', exerciseDifficulty: 'principiante' },
@@ -32,30 +32,42 @@ describe('Muscle Library Config', () => {
       { name: 'curl de triceps', exerciseDifficulty: 'avanzado' },
     ]
 
-    // Priorizar piernas (sentadilla) sobre otros principiante
-    const sortedLegs = sortMuscleLibraryExercises(exercises, 'piernas')
-    expect(sortedLegs[0]?.name).toBe('sentadilla')
-
-    // Priorizar pecho (press) sobre otros principiante
-    const sortedChest = sortMuscleLibraryExercises(exercises, 'pecho')
-    expect(sortedChest[0]?.name).toBe('press de pecho')
+    // Dentro del mismo nivel se ordena alfabéticamente, no por prioridad del grupo.
+    const sorted = sortMuscleLibraryExercises(exercises, 'piernas')
+    expect(sorted.map(e => e.name)).toEqual([
+      'press de pecho',   // principiante (alfabético antes que sentadilla)
+      'sentadilla',       // principiante
+      'fondos',           // intermedio
+      'remo con mancuerna', // intermedio
+      'curl de triceps',  // avanzado
+      'press overhead',   // avanzado
+    ])
   })
 
-  test('niveles principiante, intermedio y avanzado', () => {
+  test('sin prioritarios, ordena por nivel: principiante, intermedio y avanzado', () => {
     const exercises = [
+      { name: 'ejercicioDifícil', exerciseDifficulty: 'avanzado' },
       { name: 'ejercicioFácil', exerciseDifficulty: 'principiante' },
       { name: 'ejercicioMedio', exerciseDifficulty: 'intermedio' },
-      { name: 'ejercicioDifícil', exerciseDifficulty: 'avanzado' },
     ]
 
-    const principio = sortMuscleLibraryExercises(exercises, 'core')
-    expect(principio[0]?.name).toBe('ejercicioFácil')
+    // El nivel ordena igual en todos los grupos: no depende del grupo elegido.
+    for (const group of MUSCLE_LIBRARY_GROUPS) {
+      const names = sortMuscleLibraryExercises(exercises, group.id).map(e => e.name)
+      expect(names).toEqual(['ejercicioFácil', 'ejercicioMedio', 'ejercicioDifícil'])
+    }
+  })
 
-    const intermedio = sortMuscleLibraryExercises(exercises, 'pecho')
-    expect(intermedio[0]?.name).toBe('ejercicioMedio')
+  test('acepta niveles en inglés y trata un nivel ausente como intermedio', () => {
+    // Nombres elegidos para que el orden alfabético NO coincida con el de nivel.
+    const exercises = [
+      { name: 'Ejercicio Alfa', level: 'advanced' },
+      { name: 'Ejercicio Mu' },
+      { name: 'Ejercicio Zeta', difficulty: 'beginner' },
+    ]
 
-    const advanced = sortMuscleLibraryExercises(exercises, 'hombros-y-brazos')
-    expect(advanced[0]?.name).toBe('ejercicioDifícil')
+    expect(sortMuscleLibraryExercises(exercises, 'core').map(e => e.name))
+      .toEqual(['Ejercicio Zeta', 'Ejercicio Mu', 'Ejercicio Alfa'])
   })
 
   test('agrupa ejercicios por categoría y mantiene orden alfabético de desempate', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { todayKey } from '@/utils/dates'
+import { todayKey, dayKeyOffset } from '@/utils/dates'
 import { db } from '@/services/storage/db'
 import { buildTrainingContext, buildPrompt } from './contextBuilder'
 import { DEFAULT_CYCLE } from '@/utils/cycle'
@@ -51,7 +51,9 @@ describe('ET17 — Coach final integrado', () => {
       instructions: [], variantIds: [], muscles: ['cuádriceps', 'glúteo'], restrictions: [], tags: [],
     } as never)
     for (let i = 0; i < 5; i++) {
-      const date = `2026-09-${String(2 + i * 3).padStart(2, '0')}`
+      // Relativas a hoy: el mapa muscular del coach usa una ventana móvil de
+      // 30 días, así que fechas fijas terminan quedando fuera con el tiempo.
+      const date = dayKeyOffset(todayKey(), -(1 + (4 - i) * 3))
       await db.setRecords.put({
         setRecordId: `s${i}:set:1`, sessionId: `s${i}`, sessionExerciseId: `se${i}`,
         exerciseId: 'ex-006', order: 1, setType: 'NORMAL',
