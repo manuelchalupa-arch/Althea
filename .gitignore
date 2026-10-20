@@ -22,3 +22,9 @@ worker/.wrangler/
 
 # artefactos de entrega/export: copias de archivos ya versionados en src/ y public/
 ALTHEA_VISUAL_SYSTEM_FINAL/
+
+# salidas de test/agentes (nunca versionar)
+final-test-results*.txt
+test-output.txt
+test-run-results.txt
+muscle-atlas-diagnostic.json
