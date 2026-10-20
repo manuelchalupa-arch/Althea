@@ -1,0 +1,18 @@
+# Netlify — configuración de build de ALTHEA
+#
+# Netlify clona el repo y NO tiene los archivos .env (están en .gitignore),
+# así que las variables de build de Vite se declaran ACÁ (todas PÚBLICAS:
+# van al bundle del navegador; ningún secreto vive en VITE_*).
+#   build: npm run build · publish: dist · SPA fallback: public/_redirects
+#
+# El secret de Groq vive sólo en el Cloudflare Worker (VITE_GROQ_PROXY_URL
+# apunta al proxy, nunca a Groq directamente).
+
+[build.environment]
+  VITE_FIREBASE_API_KEY = "AIzaSyCboMMOUuUhtqp96bVoN_WZaWhbv9ou-5I"
+  VITE_FIREBASE_AUTH_DOMAIN = "althea-4b1d0.firebaseapp.com"
+  VITE_FIREBASE_PROJECT_ID = "althea-4b1d0"
+  VITE_FIREBASE_STORAGE_BUCKET = "althea-4b1d0.firebasestorage.app"
+  VITE_FIREBASE_MESSAGING_SENDER_ID = "756631647991"
+  VITE_FIREBASE_APP_ID = "1:756631647991:web:919921eaee888115cbc5f2"
+  VITE_GROQ_PROXY_URL = "https://althea-proxy-production.manuelchalupa.workers.dev"
