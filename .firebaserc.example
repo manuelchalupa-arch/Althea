@@ -1,5 +1,5 @@
 {
-  "//": "PLANTILLA. Copiar a .firebaserc y reemplazar los project ids REALES. NO commitear si se prefers no exponer ids (aunque no son secretos). Ver docs/INFRAESTRUCTURA.md §5.",
+  "//": "PLANTILLA. Copiar a .firebaserc y reemplazar los project ids REALES. NO commitear si se prefiere no exponer ids (aunque no son secretos). Ver docs/INFRAESTRUCTURA.md §5.",
   "projects": {
     "default": "REEMPLAZAR_FIREBASE_STAGING_PROJECT_ID",
     "staging": "REEMPLAZAR_FIREBASE_STAGING_PROJECT_ID",

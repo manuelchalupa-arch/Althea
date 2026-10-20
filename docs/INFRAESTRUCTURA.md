@@ -76,9 +76,17 @@ contra el mismo Version ID `f38181b8…`. Resultado idéntico: **28 PASS / 0 FAI
 | `VITE_FIREBASE_VAPID_KEY` | sí | `src/services/firebase/messaging.ts` |
 | `VITE_GROQ_PROXY_URL` | sí | `src/services/ai/groqConfig.ts` |
 | `GROQ_API_KEY` | **NO** | sólo secret del Cloudflare Worker |
+| `FIREBASE_STAGING_PROJECT_ID` | no versionada | `verify:env:staging`, `staging:firestore:e2e`, `setup` |
+| `FIREBASE_PRODUCTION_PROJECT_ID` | no versionada | `verify:env:production`, cruce entre entornos |
+| `FIREBASE_STAGING_SITE_ID` / `FIREBASE_PRODUCTION_SITE_ID` | no versionada | targets de Hosting multi-site |
+| `FIREBASE_PROJECT_ID` | no versionada | `scripts/deploy-hosting.mjs` (identidad del deploy) |
 
-Ninguna privada está en `VITE_*`. `.env*` está en `.gitignore`
-(`.env`, `.env.local`, `.env.production`). Plantilla: `.env.example`.
+Ninguna privada está en `VITE_*`. Los `.env` reales están en `.gitignore`
+(`.env`, `.env.local`, `.env.development`, `.env.staging`, `.env.production`,
+`.env.*.local`); sólo se versionan las plantillas `*.example`. Para configurar un
+modo usá `npm run setup` (genera `.env.staging` / `.env.production` /
+`.firebaserc`) o copiá `.env.example`, `.env.staging.example` o
+`.env.production.example`.
 
 ---
 
@@ -238,9 +246,16 @@ Estado: **CODE-VERIFIED** (unit tests). E2E real requiere Worker desplegado.
 
 ### Firebase
 
-`.firebaserc` **no** está versionado porque necesita los project ids reales.
-Plantilla versionada: `.firebaserc.example` (alias `staging`, `production`, y
-targets de Hosting por site).
+`.firebaserc` **no** está versionado porque necesita los project ids reales
+(no son secretos, pero se mantienen fuera del repo por convención). Plantilla
+versionada: `.firebaserc.example` (alias `staging`, `production`, y targets de
+Hosting por site).
+
+La forma canónica de generarlo —junto con `.env.staging` y `.env.production`—
+es `npm run setup` (asistente interactivo, no pide claves privadas). Antes de
+deployar, `npm run verify:env:staging` valida la coherencia. La prueba E2E de
+aislamiento (`npm run staging:firestore:e2e`) exige además
+`FIREBASE_STAGING_PROJECT_ID` y aborta si el destino coincide con producción.
 
 Los deploys pasan por un guard fail-closed (`scripts/deploy-hosting.mjs`):
 exige `FIREBASE_PROJECT_ID` explícito, rechaza placeholders, imprime
