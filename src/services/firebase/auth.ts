@@ -5,18 +5,10 @@ import {
   signOut as fbSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
-  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   type User,
 } from 'firebase/auth'
-
-export function isIOS(): boolean {
-  if (typeof navigator === 'undefined') { return false }
-  const ua = navigator.userAgent || ''
-  return /iPad|iPhone|iPod/.test(ua) ||
-    (navigator.platform === 'MacIntel' && (navigator as { maxTouchPoints?: number }).maxTouchPoints !== undefined && (navigator as { maxTouchPoints?: number }).maxTouchPoints! > 1)
-}
 
 let googleRedirectResult: Promise<User | null> | null = null
 
@@ -39,13 +31,11 @@ export async function signInWithGoogle(): Promise<User | null> {
   const provider = new GoogleAuthProvider()
   provider.setCustomParameters({ prompt: 'select_account' })
   try {
-    if (isIOS()) {
-      await signInWithRedirect(firebaseAuth(), provider)
-      return null
-    }
-    const cred = await signInWithPopup(firebaseAuth(), provider)
-    setOfflineMode(false)
-    return cred.user
+    // Redirect funciona también cuando el navegador bloquea ventanas emergentes.
+    // El authDomain comparte origen con Firebase Hosting para evitar bloqueos
+    // de almacenamiento de terceros en Safari y navegadores móviles.
+    await signInWithRedirect(firebaseAuth(), provider)
+    return null
   } catch (e: any) {
     throw new Error(toMessage(e?.code || '', 'No se pudo iniciar sesión con Google.'))
   }
