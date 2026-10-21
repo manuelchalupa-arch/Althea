@@ -15,7 +15,6 @@
 
 .althea-panel--flush { padding: 0; }
 .althea-panel--compact { padding: var(--althea-space-3); }
-
 .althea-panel--interactive {
   cursor: pointer;
   transition: border-color var(--althea-duration-base) var(--althea-ease-standard),
@@ -54,7 +53,7 @@
 
 .althea-section__heading { display: flex; align-items: center; gap: var(--althea-space-2); min-width: 0; }
 .althea-section__icon { color: var(--althea-primary); display: inline-flex; }
-.althea-section__subtitle { margin: 1px 0 0; font-family: var(--althea-font-ui); font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted); }
+.althea-section__subtitle { margin: 0; font-family: var(--althea-font-ui); font-size: var(--althea-fs-body-md); color: var(--althea-on-surface); font-weight: 600; }
 .althea-section__slot { flex-shrink: 0; }
 .althea-section__action {
   font-family: var(--althea-font-ui);
@@ -123,8 +122,8 @@
 .althea-metric__label {
   font-family: var(--althea-font-ui);
   font-size: var(--althea-fs-body-md);
-  color: var(--althea-on-surface-muted);
-  font-weight: 600;
+  color: var(--althea-on-surface);
+  font-weight: 700;
 }
 
 .althea-metric__delta {
@@ -176,8 +175,8 @@
 .althea-stat__label {
   font-family: var(--althea-font-ui);
   font-size: var(--althea-fs-body-md);
-  color: var(--althea-on-surface-muted);
-  font-weight: 600;
+  color: var(--althea-on-surface);
+  font-weight: 700;
 }
 
 /* ============ TOOLBAR (selector de fecha/rango, tabs compactos) ============ */
@@ -193,19 +192,19 @@
 
 .althea-toolbar__item {
   font-family: var(--althea-font-ui);
-  font-size: var(--althea-fs-body-sm);
-  font-weight: 600;
-  color: var(--althea-on-surface-muted);
+  font-size: var(--althea-fs-body-md);
+  font-weight: 700;
+  color: var(--althea-on-surface);
   background: none;
   border: none;
   border-radius: var(--althea-radius-pill);
-  padding: 6px 14px;
+  padding: 8px 18px;
   cursor: pointer;
   transition: background-color var(--althea-duration-fast) var(--althea-ease-standard),
               color var(--althea-duration-fast) var(--althea-ease-standard);
 }
 @media (hover: hover) and (pointer: fine) {
-  .althea-toolbar__item:hover { color: var(--althea-on-surface); }
+  .althea-toolbar__item:hover { background: var(--althea-surface-container-high); color: var(--althea-on-surface); }
 }
 .althea-toolbar__item[aria-selected='true'] {
   background: var(--althea-primary);

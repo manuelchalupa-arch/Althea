@@ -255,10 +255,10 @@ export default function Calendario(){
             const highlight = isToday || override ? `ring-2 ${override ? 'ring-tertiary' : 'ring-on-surface'}` : ''
             const loadLabelCls = has ? 'text-on-primary/70' : (LOAD_LABEL_COLOR[load] ?? 'text-primary/60')
             return (
-              <button key={d} data-date={key} aria-label={key} onClick={()=>openDay(key)} className={`relative flex flex-col items-center justify-center gap-0.5 min-h-[48px] rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest border transition-colors ${highlight} ${has?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface'}`}>
+              <button key={d} data-date={key} aria-label={key} onClick={()=>openDay(key)} className={`relative flex flex-col items-center justify-center gap-0.5 min-h-[52px] rounded-xl font-label-md text-[11px] font-semibold uppercase tracking-widest border transition-colors ${highlight} ${has?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface'}`}>
                 <span>{d}</span>
-                <span className={`block text-[7px] font-label-caps uppercase tracking-wider leading-none ${loadLabelCls}`}>{LOAD_STATE_LABEL[load].slice(0,4)}</span>
-                {has ? <span className="block text-[8px] leading-none">✓{override?'↻':''}</span> : null}
+                <span className={`block text-[8px] font-label-caps uppercase tracking-wider leading-none ${loadLabelCls}`}>{LOAD_STATE_LABEL[load].slice(0,4)}</span>
+                {has ? <span className="block text-[9px] leading-none">✓${override?'↻':''}</span> : null}
               </button>
             )
           })}

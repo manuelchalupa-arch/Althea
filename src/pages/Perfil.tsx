@@ -401,7 +401,7 @@ export default function Perfil() {
   })
 
   return (
-    <div className="min-h-screen bg-transparent pb-24 max-w-[640px] w-full mx-auto px-0 pt-2 md:px-4 md:py-6 space-y-4">
+    <div className="min-h-screen bg-transparent pb-24 sm:px-5 lg:px-8 xl:px-10 2xl:px-12 w-full mx-auto pt-2 md:py-6 space-y-6">
 
       {/* ═══ HEADER ═══ */}
       <AltheaPanel className="relative overflow-hidden">
@@ -433,32 +433,32 @@ export default function Perfil() {
         {editing ? (
           <div className="space-y-3 pt-3">
             <div className="grid grid-cols-2 gap-2">
-              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Nombre
-                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Nombre
+                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface" />
               </label>
-              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Edad
-                <input value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} type="number" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Edad
+                <input value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} type="number" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface" />
               </label>
-              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Sexo
-                <select value={form.sex} onChange={e => setForm({ ...form, sex: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface">
+              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Sexo
+                <select value={form.sex} onChange={e => setForm({ ...form, sex: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface">
                   <option value="">—</option><option value="M">M</option><option value="F">F</option><option value="X">X</option>
                 </select>
               </label>
-              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Actividad
-                <select value={form.activityLevel} onChange={e => setForm({ ...form, activityLevel: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface">
+              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Actividad
+                <select value={form.activityLevel} onChange={e => setForm({ ...form, activityLevel: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface">
                   <option value="sedentario">Sedentario</option><option value="poco_activo">Poco activo</option><option value="moderado">Moderado</option><option value="muy_activo">Muy activo</option><option value="extremadamente_activo">Extremadamente activo</option>
                 </select>
               </label>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Peso kg
-                <input value={form.weightKg} onChange={e => setForm({ ...form, weightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Peso kg
+                <input value={form.weightKg} onChange={e => setForm({ ...form, weightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface" />
               </label>
-              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Altura cm
-                <input value={form.heightCm} onChange={e => setForm({ ...form, heightCm: e.target.value })} type="number" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Altura cm
+                <input value={form.heightCm} onChange={e => setForm({ ...form, heightCm: e.target.value })} type="number" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface" />
               </label>
-              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Peso obj.
-                <input value={form.targetWeightKg} onChange={e => setForm({ ...form, targetWeightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Peso obj.
+                <input value={form.targetWeightKg} onChange={e => setForm({ ...form, targetWeightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface" />
               </label>
             </div>
             <div className="grid grid-cols-2 gap-2">

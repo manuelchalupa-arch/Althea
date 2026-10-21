@@ -303,17 +303,17 @@ if (key === '__all__') {
       <div className="grid gap-3">
         {loading && exercises.length===0 && <AltheaLoading lines={4} />}
         {filtered.map(ex=>(
-          <div key={ex.id} onClick={()=>setDetail(ex)} className="  rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant overflow-hidden cursor-pointer active:bg-surface-container-low/90">
+          <div key={ex.id} onClick={()=>setDetail(ex)} className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 sm:p-4 shadow-al-sm min-w-0 cursor-pointer active:bg-surface-container-low/50 transition-colors">
             <div className="flex gap-3 p-3">
-              <div className="w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant flex items-center justify-center overflow-hidden">
-                {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="w-full h-full object-cover" /> : <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-[10px] text-center">GIF</span>}
+              <div className="w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-xl bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant flex items-center justify-center overflow-hidden">
+                {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="w-full h-full object-cover" /> : <span className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">GIF</span>}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-body-md text-sm text-on-surface font-medium text-sm flex items-center gap-2"><span className="truncate">{ex.name}</span>{ex.origin==='USER_CREATED' ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[10px]">Mío</AltheaBadge> : null}{String(ex.id).startsWith('wger-') ? <AltheaBadge variant="outline" className="text-secondary border-secondary shrink-0 text-[10px]">Wger</AltheaBadge> : null}</div>
-                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle} · {ex.equipment}</div>
-                <div className="flex flex-wrap gap-1 mt-1">
+                <div className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle} · {ex.equipment}</div>
+                <div className="flex flex-wrap gap-1 mt-2">
                   {musclePct(ex).slice(0,3).map(m=> (
-                    <span key={m.name} className={`px-1.5 py-0.5 rounded border text-[10px] ${m.role==='Principal'?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{m.name} {m.pct}%</span>
+                    <span key={m.name} className={`px-2 py-1 rounded border text-[10px] ${m.role==='Principal'?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{m.name} {m.pct}%</span>
                   ))}
                 </div>
               </div>

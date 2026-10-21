@@ -269,9 +269,17 @@ export default function RutinaPage(){
 
   if(!active){
     return (
-      <div className="min-h-screen bg-transparent px-0 pt-2 pb-24 md:px-6 md:pt-6 md:pb-6 lg:px-8 lg:pt-8 lg:pb-8 w-full mx-auto sm:px-5 xl:px-10 2xl:px-12">
-        <div className="flex items-center gap-2">
-          <h1 className="font-headline-lg text-lg font-semibold text-on-surface flex items-center gap-2"><Dumbbell size={20} className="text-primary"/> Rutina</h1>
+      <div className="min-h-screen bg-transparent pb-24 sm:px-5 lg:px-8 xl:px-10 2xl:px-12 w-full mx-auto pt-2 md:py-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-14 h-14 rounded-2xl bg-primary-container/30 border border-primary/30 flex items-center justify-center shrink-0">
+            <Dumbbell size={24} className="text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-headline-lg text-xl sm:text-2xl font-semibold text-on-surface tracking-tight flex items-center gap-2">
+              <Dumbbell size={20} className="text-primary"/> Rutina
+            </h1>
+            <p className="font-body-md text-[14px] text-on-surface-variant mt-1">Organizá tus días de entrenamiento y series por ejercicio.</p>
+          </div>
         </div>
         <AltheaEmpty
           icon="fitness_center"
@@ -307,12 +315,17 @@ export default function RutinaPage(){
   return (
     <div className="min-h-screen bg-transparent px-0 pt-2 pb-24 md:px-6 md:pt-6 md:pb-6 lg:px-8 lg:pt-8 lg:pb-8 sm:px-5 xl:px-10 2xl:px-12 w-full mx-auto space-y-4">
       {/* Selector superior */}
-      <AltheaCard className="p-3">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rutina:</div>
-        <button onClick={()=>setSelectorOpen(!selectorOpen)} aria-expanded={selectorOpen} className="mt-1 w-full flex items-center justify-between bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]">
-          <span className="font-medium">{active.name}</span>
-          <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">▼</span>
-        </button>
+      <AltheaCard className="p-4 rounded-2xl shadow-al-sm border border-outline-variant/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-label-caps text-[10px] uppercase text-on-surface-variant font-bold">Rutina activa</span>
+              <span className="font-body-md text-sm text-on-surface-variant">{active.rotationDays} días de rotación</span>
+            </div>
+          <button onClick={()=>setSelectorOpen(!selectorOpen)} aria-expanded={selectorOpen} className="mt-1 w-full flex items-center justify-between bg-surface/60 backdrop-blur-sm border border-outline-variant rounded-xl p-3 font-body-md text-sm text-on-surface min-h-[48px]">
+            <span className="font-medium">{active.name}</span>
+            <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">▼</span>
+          </button>
+        </div>
         {selectorOpen && (
           <div className="mt-2 rounded bg-surface/60 border border-outline-variant p-2 space-y-1">
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Seleccionar rutina</div>

@@ -694,7 +694,7 @@ export default function Progresos() {
   }
 
   return (
-    <div className="min-h-screen bg-transparent p-4 sm:px-5 lg:px-8 xl:px-10 2xl:px-12 w-full mx-auto space-y-5">
+    <div className="min-h-screen bg-transparent p-4 sm:px-5 lg:px-8 xl:px-10 2xl:px-12 w-full mx-auto space-y-6">
       {/* ─── Hero Sub-Header ─── */}
       <section className="flex flex-col md:flex-row md:items-end justify-between pb-3 border-b border-outline-variant/40 gap-4">
         <div>
@@ -702,36 +702,36 @@ export default function Progresos() {
             <span className="h-2 w-2 rounded-full bg-secondary" />
             <span className="font-label-caps text-[11px] text-secondary uppercase tracking-widest">Evolución de entrenamiento</span>
           </div>
-          <h1 className="font-headline-lg text-[36px] font-semibold text-on-surface tracking-tight">
+          <h1 className="font-headline-lg text-[40px] font-bold text-on-surface tracking-tight">
             {loading ? 'Cargando…' : 'Progreso'}
           </h1>
-          <p className="font-body-md text-[13px] text-on-surface-variant mt-0.5">
+          <p className="font-body-md text-[14px] text-on-surface-variant mt-1">
             Fuerza, volumen, peso y recuperación a partir de tus registros reales.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg flex items-center gap-2">
-            <span className="font-label-caps text-[10px] text-outline uppercase">Período:</span>
-            <span className="font-label-md text-[14px] text-primary font-semibold">{MODE_LABELS[mode]}</span>
+          <div className="px-4 py-2 bg-surface-container border border-outline-variant rounded-xl flex items-center gap-2">
+            <span className="font-label-caps text-[11px] text-outline uppercase font-bold">Período:</span>
+            <span className="font-label-md text-[15px] text-primary font-semibold">{MODE_LABELS[mode]}</span>
           </div>
-          <div className="px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg flex items-center gap-2">
-            <span className="font-label-caps text-[10px] text-outline uppercase">Registros:</span>
-            <span className="font-label-md text-[14px] text-primary font-semibold tabular-nums">{periodLogs.length}</span>
+          <div className="px-4 py-2 bg-surface-container border border-outline-variant rounded-xl flex items-center gap-2">
+            <span className="font-label-caps text-[11px] text-outline uppercase font-bold">Registros:</span>
+            <span className="font-label-md text-[15px] text-primary font-semibold tabular-nums">{periodLogs.length}</span>
           </div>
         </div>
-</section>
+      </section>
       {/* ─── Selector de modalidad del mapa ─── */}
       <AtlasModeChips
         mode={mode}
         onMode={setMode}
         wrapClass="flex gap-1.5 flex-wrap"
-        chipClass={(active) => `px-3 py-1.5 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
+        chipClass={(active) => `px-4 py-2 min-h-[48px] rounded-xl font-label-caps text-[11px] font-bold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
       />
       <AtlasMetricControl
         metric={metric}
         onMetric={setMetric}
         wrapClass="flex gap-1.5 flex-wrap items-center"
-        btnClass={(active) => `px-3 py-1.5 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
+        btnClass={(active) => `px-4 py-2 min-h-[48px] rounded-xl font-label-caps text-[11px] font-bold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
       />
       {mode === 'personalizada' && (
         <AtlasCustomRange

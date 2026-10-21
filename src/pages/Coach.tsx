@@ -115,23 +115,23 @@ function generatePostWorkoutTips(surveys: any[], lastSession: any): PostWorkoutT
 
 function TipItem({ title, detail }: RoutineTip) {
   return (
-    <AltheaPanel density="compact" className="p-3">
-      <div className="font-body-md text-sm font-medium text-on-surface">{title}</div>
-      <div className="font-body-md text-xs text-on-surface-variant mt-0.5">{detail}</div>
+    <AltheaPanel className="p-4 rounded-xl shadow-al-sm border border-outline-variant/50">
+      <div className="font-body-md text-sm font-semibold text-on-surface">{title}</div>
+      <div className="font-body-md text-sm text-on-surface-variant mt-1 leading-relaxed">{detail}</div>
     </AltheaPanel>
   )
 }
 
 function PostTipItem({ tip }: { tip: PostWorkoutTip }) {
   return (
-    <AltheaPanel density="compact" className="p-3">
+    <AltheaPanel className="p-4 rounded-xl shadow-al-sm border border-outline-variant/50">
       <div className="flex items-center justify-between gap-2">
         <div className="font-body-md text-sm font-medium text-on-surface">{tip.title}</div>
         <AltheaBadge variant={tip.priority === 'high' ? 'danger' : 'warning'} size="xs">
           {tip.priority === 'high' ? 'Importante' : 'Info'}
         </AltheaBadge>
       </div>
-      <div className="font-body-md text-xs text-on-surface-variant mt-0.5">{tip.detail}</div>
+      <div className="font-body-md text-sm text-on-surface-variant mt-1 leading-relaxed">{tip.detail}</div>
     </AltheaPanel>
   )
 }
@@ -147,7 +147,7 @@ function MessageSources({ ids }: { ids: string[] }) {
     <div className="mt-2 pt-2 border-t border-outline-variant/50 space-y-1" data-testid="message-sources">
       <div className="font-label-caps text-[9px] uppercase text-on-surface-variant">Fuentes usadas en esta respuesta</div>
       {sources.map((s, i) => (
-        <div key={s.id} className="font-body-sm text-[11px] leading-snug text-on-surface-variant" data-testid="message-source">
+        <div key={s.id} className="font-body-md text-sm leading-snug text-on-surface-variant" data-testid="message-source">
           <span className="font-mono text-on-surface font-medium">[{i + 1}]</span>{' '}
           {s.url ? (
             <a href={s.url} target="_blank" rel="noopener noreferrer" className="underline decoration-primary/50 hover:text-primary">

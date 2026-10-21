@@ -388,16 +388,16 @@ export default function Nutricion() {
             {remainingCalories > 0 ? `Faltan ${remainingCalories.toLocaleString('es-AR')} kcal` : 'Meta diaria alcanzada'}
             {!goalsPersonalized && ' · metas de referencia'}
           </p>
-          <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2">
             {[
               { label: 'Proteínas', value: totals.protein, goal: goals.protein, status: protStatus, tone: 'text-primary' },
               { label: 'Carbohidratos', value: totals.carbs, goal: goals.carbs, status: carbStatus, tone: 'text-tertiary' },
               { label: 'Grasas', value: totals.fat, goal: goals.fat, status: fatStatus, tone: 'text-secondary' },
             ].map(m => (
-              <div key={m.label} className="rounded-lg border border-outline-variant/30 bg-surface-container-low p-2 text-center">
-                <p className="font-label-caps text-[9px] uppercase tracking-widest text-on-surface-variant">{m.label}</p>
-                <p className={`font-metric-mobile text-base font-bold ${m.tone}`}>
-                  {Math.round(m.value)}<span className="text-[10px] text-on-surface-variant font-normal">/{m.goal}g</span>
+              <div key={m.label} className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-3 text-center shadow-al-sm">
+                <p className="font-label-caps text-[11px] uppercase tracking-widest text-on-surface-variant font-bold">{m.label}</p>
+                <p className={`font-headline-lg text-[20px] font-bold ${m.tone}`}>
+                  {Math.round(m.value)}<span className="text-[12px] text-on-surface-variant font-normal">/{m.goal}g</span>
                 </p>
                 <MacroStatusChip status={m.status} />
               </div>
@@ -406,13 +406,15 @@ export default function Nutricion() {
         </section>
 
         {/* Hidratación */}
-        <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3" aria-label="Hidratación del día">
-          <div className="flex items-center gap-2 mb-2">
-            <SemanticIcon name="water_drop" size={18} className="text-secondary" />
+        <section className="rounded-2xl border border-outline-variant/40 bg-surface-container p-5 sm:p-6 shadow-al-sm" aria-label="Hidratación del día">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 rounded-xl bg-secondary-container/40 border border-secondary/40 flex items-center justify-center shrink-0">
+              <SemanticIcon name="water_drop" size={24} className="text-secondary" />
+            </div>
             <h2 className="font-label-caps text-[11px] uppercase text-on-surface font-semibold">Hidratación de hoy</h2>
           </div>
           <div className="flex justify-center">
-            <HydrationBottle current={hydrationTotalMl} goal={hydrationGoalMl} width={110} />
+            <HydrationBottle current={hydrationTotalMl} goal={hydrationGoalMl} width={140} />
           </div>
           <div className="mt-3">
             <HydrationQuickAdd
