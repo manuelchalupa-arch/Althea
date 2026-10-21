@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { signIn, signUp, resetPassword, setOfflineMode, signInWithGoogle } from '@/services/firebase/auth'
+import { useEffect, useState } from 'react'
+import { signIn, signUp, resetPassword, setOfflineMode, signInWithGoogle, completeGoogleRedirect } from '@/services/firebase/auth'
 import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 
 type Mode = 'in' | 'up' | 'reset'
@@ -14,13 +14,25 @@ export default function Login({ onDone }: { onDone: () => void }) {
 
   const [googleBusy, setGoogleBusy] = useState(false)
 
+  useEffect(() => {
+    let active = true
+    completeGoogleRedirect()
+      .then((user) => {
+        if (active && user) { onDone() }
+      })
+      .catch((e: any) => {
+        if (active) { setError(e?.message || 'No se pudo iniciar sesión con Google.') }
+      })
+    return () => { active = false }
+  }, [onDone])
+
   const loginWithGoogle = async () => {
     setError('')
     setOk('')
     setGoogleBusy(true)
     try {
-      await signInWithGoogle()
-      onDone()
+      const user = await signInWithGoogle()
+      if (user) { onDone() }
     } catch (e: any) {
       setError(e?.message || 'No se pudo iniciar sesión con Google.')
     } finally {

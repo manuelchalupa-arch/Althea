@@ -18,18 +18,30 @@ export function isIOS(): boolean {
     (navigator.platform === 'MacIntel' && (navigator as { maxTouchPoints?: number }).maxTouchPoints !== undefined && (navigator as { maxTouchPoints?: number }).maxTouchPoints! > 1)
 }
 
-export async function signInWithGoogle(): Promise<User> {
+let googleRedirectResult: Promise<User | null> | null = null
+
+export function completeGoogleRedirect(): Promise<User | null> {
+  if (!googleRedirectResult) {
+    googleRedirectResult = getRedirectResult(firebaseAuth())
+      .then((cred) => {
+        if (!cred?.user) { return null }
+        setOfflineMode(false)
+        return cred.user
+      })
+      .catch((e: any) => {
+        throw new Error(toMessage(e?.code || '', 'No se pudo iniciar sesión con Google.'))
+      })
+  }
+  return googleRedirectResult
+}
+
+export async function signInWithGoogle(): Promise<User | null> {
   const provider = new GoogleAuthProvider()
   provider.setCustomParameters({ prompt: 'select_account' })
   try {
     if (isIOS()) {
       await signInWithRedirect(firebaseAuth(), provider)
-      const cred = await getRedirectResult(firebaseAuth())
-      if (!cred || !cred.user) {
-        throw new Error('No se pudo completar el inicio de sesión con Google.')
-      }
-      setOfflineMode(false)
-      return cred.user
+      return null
     }
     const cred = await signInWithPopup(firebaseAuth(), provider)
     setOfflineMode(false)
