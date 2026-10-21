@@ -61,7 +61,7 @@ export default function Feedback() {
 
   return (
     <div className="min-h-screen bg-surface">
-      <div className="max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-6 py-6">
+      <div className="mx-auto px-3 sm:px-5 lg:px-6 xl:px-8 2xl:px-10 py-6">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold text-on-surface">Feedback</h1>
           <p className="text-on-surface-variant">Comparte tu experiencia o reporte un problema</p>

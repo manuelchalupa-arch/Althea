@@ -1159,7 +1159,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   if(resumeBanner && !session){
     return (
       <div className="min-h-screen bg-transparent pb-24">
-        <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
+        <div className="w-full p-4 md:p-6 lg:p-8 sm:px-5 xl:px-10 space-y-4">
           <div className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">ENTRENAR · REANUDAR</div>
           <div className="rounded-xl bg-secondary-container/20 border border-secondary/30 p-4 space-y-2">
             <div className="font-body-md text-[15px] text-on-surface font-medium">Tenés un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
@@ -1175,10 +1175,10 @@ const exercises: SessionEx[] = seList.map((se) => {
     )
   }
 
-  if(exs.length===0) {return <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto"><p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios. Cambiá el día en Inicio.</p></div>}
+  if(exs.length===0) {return <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 w-full mx-auto sm:px-5 xl:px-10 2xl:px-12"><p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios. Cambiá el día en Inicio.</p></div>}
   if(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') {return (
     <div className="min-h-screen bg-transparent pb-24">
-      <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
+      <div className="w-full p-4 md:p-6 lg:p-8 sm:px-5 xl:px-10 space-y-4">
         <ResultPanel today={today} sessionStatus={sessionStatus} sessionId={sessionId} />
       </div>
     </div>
@@ -1527,7 +1527,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
   return (
     <div className="min-h-screen bg-transparent pb-24">
-      <div className="max-w-[1440px] w-full mx-auto p-4 md:p-6 lg:p-8 space-y-4">
+      <div className="w-full p-4 md:p-6 lg:p-8 sm:px-5 xl:px-10 space-y-4">
         {/* Resume Banner */}
         {resumeBanner && (
           <div className="rounded-xl bg-secondary-container/20 border border-secondary/30 p-4 space-y-2">
@@ -1984,3 +1984,4 @@ const exercises: SessionEx[] = seList.map((se) => {
     </div>
   )
 }
+

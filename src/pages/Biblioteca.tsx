@@ -186,7 +186,7 @@ if (key === '__all__') {
   }
 
   return (
-    <div className="min-h-screen bg-transparent px-0 pt-2 pb-24 md:px-6 md:pt-6 md:pb-6 lg:px-8 lg:pt-8 lg:pb-8 max-w-[1440px] w-full mx-auto space-y-3">
+    <div className="min-h-screen bg-transparent px-0 pt-2 pb-24 md:px-6 md:pt-6 md:pb-6 lg:px-8 lg:pt-8 lg:pb-8 sm:px-5 xl:px-10 2xl:px-12 w-full mx-auto space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Biblioteca</h1>
         <AltheaBadge variant="outline"><Globe size={12}/> {totalCount ?? `…`} ejercicios</AltheaBadge>

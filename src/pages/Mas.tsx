@@ -130,7 +130,7 @@ export default function Mas(){
   }, [])
 
   return (
-    <div className="min-h-screen bg-transparent pb-24 max-w-[720px] w-full mx-auto px-0 pt-2 md:px-4 md:py-6 space-y-5">
+    <div className="min-h-screen bg-transparent pb-24 sm:px-5 lg:px-8 xl:px-10 w-full mx-auto pt-2 md:py-6 space-y-5">
 
       {/* ═══ HEADER ═══ */}
       <header className="flex items-center gap-4">

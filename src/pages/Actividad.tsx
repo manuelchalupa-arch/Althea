@@ -6,7 +6,7 @@ export default function Actividad() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-transparent pb-24 max-w-[720px] w-full mx-auto px-0 pt-2 md:px-4 md:py-6 space-y-5">
+    <div className="min-h-screen bg-transparent pb-24 sm:px-5 lg:px-8 xl:px-10 2xl:px-12 w-full mx-auto pt-2 md:py-6 space-y-5">
       <header className="flex items-center gap-4">
         <button onClick={() => navigate('/')} className="tpress w-11 h-11 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary" aria-label="Volver">
           <SemanticIcon name="chevron_left" size={22} />

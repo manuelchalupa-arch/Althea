@@ -694,7 +694,7 @@ export default function Progresos() {
   }
 
   return (
-    <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 max-w-[1440px] w-full mx-auto space-y-5">
+    <div className="min-h-screen bg-transparent p-4 sm:px-5 lg:px-8 xl:px-10 2xl:px-12 w-full mx-auto space-y-5">
       {/* ─── Hero Sub-Header ─── */}
       <section className="flex flex-col md:flex-row md:items-end justify-between pb-3 border-b border-outline-variant/40 gap-4">
         <div>

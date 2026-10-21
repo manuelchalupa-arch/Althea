@@ -311,7 +311,7 @@ export default function Recuperacion() {
   }
 
   return (
-    <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 max-w-[1440px] w-full mx-auto space-y-4">
+    <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 sm:px-5 xl:px-10 2xl:px-12 pb-24 w-full mx-auto space-y-4">
       <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Recuperación</h1>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-8 space-y-4">
