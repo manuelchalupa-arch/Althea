@@ -73,4 +73,17 @@ export default [
       'eqeqeq': 'off',
     },
   },
+  {
+    files: ['tests/**/*.{ts,tsx}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      parser: await import('@typescript-eslint/parser'),
+    },
+    rules: {
+      'no-console': 'off',
+      'curly': 'off',
+      'eqeqeq': 'off',
+    },
+  },
 ]
