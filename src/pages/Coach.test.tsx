@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import userEvent from '@testing-library/user-event'
@@ -7,6 +7,13 @@ import Coach from './Coach'
 
 // Pantalla real del Coach: la respuesta del asistente queda registrada con las
 // fuentes que USÓ (sourcesUsed[]), no con el listado general de la app.
+
+// Sin red en tests: el proxy tiene fallback a producción, así que sin este mock
+// el Coach intentaría streaming real y estos tests colgarían hasta el timeout.
+vi.mock('@/services/ai/chatService', () => ({
+  isChatAvailable: () => false,
+  streamChat: vi.fn(),
+}))
 
 async function clearAll() {
   await Promise.all(db.tables.map(t => t.clear()))
