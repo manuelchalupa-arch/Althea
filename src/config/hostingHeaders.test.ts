@@ -1,6 +1,6 @@
 /**
- * Guard de coherencia entre la CSP de Firebase Hosting y los origins que la
- * app realmente contacta en runtime.
+ * Guard de coherencia entre la CSP publicada y los origins que la app
+ * realmente contacta en runtime.
  *
  * Por qué existe: una CSP es una lista de origins permitidos. Si la app
  * consulta un origin que no está en `connect-src`, el navegador lo bloquea en
@@ -12,6 +12,10 @@
  * Este test convierte esa rotura silenciosa en un fallo de CI. Es un guard de
  * coherencia, NO una prueba de que la CSP funcione en un navegador real: eso
  * requiere staging (STAGING-VALIDATED).
+ *
+ * La fuente viva es `public/_headers`: Netlify la sirve desde `dist/`. El
+ * `firebase.json` conserva la misma CSP por si se rehabilita Hosting, pero no
+ * es lo que rige en producción; si se toca una fuente, sincronizar la otra.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -19,28 +23,43 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const ROOT = resolve(__dirname, '..', '..')
-const FIREBASE_JSON = resolve(ROOT, 'firebase.json')
+const HEADERS_FILE = resolve(ROOT, 'public', '_headers')
 const INDEX_HTML = resolve(ROOT, 'index.html')
 
-interface FirebaseConfig {
-  hosting: {
-    headers?: Array<{ source: string; headers: Array<{ key: string; value: string }> }>
+interface HeaderBlock {
+  source: string
+  headers: Array<{ key: string; value: string }>
+}
+
+/** Formato `_headers` de Netlify: ruta sin sangría, cabeceras con sangría. */
+function readBlocks(): HeaderBlock[] {
+  const blocks: HeaderBlock[] = []
+  let current: HeaderBlock | null = null
+  for (const raw of readFileSync(HEADERS_FILE, 'utf8').split(/\r?\n/)) {
+    if (!raw.trim()) continue
+    if (/^\s/.test(raw)) {
+      const match = raw.match(/^\s+([A-Za-z0-9-]+):\s*(.*)$/)
+      if (current && match) current.headers.push({ key: match[1], value: match[2].trim() })
+    } else {
+      current = { source: raw.trim(), headers: [] }
+      blocks.push(current)
+    }
   }
+  return blocks
 }
 
 function readCsp(): string {
-  const config = JSON.parse(readFileSync(FIREBASE_JSON, 'utf8')) as FirebaseConfig
-  // La CSP debe estar en el bloque `**`, NO sólo en `/index.html`.
+  const blocks = readBlocks()
+  // La CSP debe estar en la ruta `/*`, NO sólo en `/index.html`.
   //
   // Motivo: una petición a `/` se sirve desde index.html, pero las cabeceras
-  // de Firebase Hosting se asocian a la RUTA pedida. Si la CSP viviera sólo
-  // en `/index.html`, la carga inicial de la app (que se pide como `/`) podría
-  // servirse sin CSP. Ponerla en `**` la garantiza en cualquier caso; el
-  // navegador ignora la CSP en respuestas que no son documentos, así que no
-  // afecta a los assets.
-  const global = config.hosting.headers?.find((h) => h.source === '**')
+  // se asocian a la RUTA pedida. Si la CSP viviera sólo en `/index.html`, la
+  // carga inicial de la app (que se pide como `/`) podría servirse sin CSP.
+  // Ponerla en `/*` la garantiza en cualquier caso; el navegador ignora la CSP
+  // en respuestas que no son documentos, así que no afecta a los assets.
+  const global = blocks.find((b) => b.source === '/*')
   const csp = global?.headers.find((h) => h.key === 'Content-Security-Policy')?.value
-  expect(csp, 'debe existir una CSP en el bloque ** de firebase.json').toBeTruthy()
+  expect(csp, 'debe existir una CSP en la ruta /* de public/_headers').toBeTruthy()
   return csp as string
 }
 
@@ -105,17 +124,16 @@ const RUNTIME_ORIGINS: Array<{ host: string; porque: string; enCodigo: boolean }
   { host: 'wger.de', porque: 'lectura pública WGER directa desde el navegador', enCodigo: true },
 ]
 
-describe('CSP de Firebase Hosting', () => {
+describe('CSP publicada', () => {
   const csp = readCsp()
 
-  it('la CSP está en el bloque ** para que aplique también a la carga inicial en /', () => {
-    const config = JSON.parse(readFileSync(FIREBASE_JSON, 'utf8')) as FirebaseConfig
-    const cspBlocks = (config.hosting.headers ?? [])
+  it('la CSP está en la ruta /* para que aplique también a la carga inicial en /', () => {
+    const cspBlocks = readBlocks()
       .filter((h) => h.headers.some((x) => x.key === 'Content-Security-Policy'))
       .map((h) => h.source)
     // Si además aparece en /index.html sería redundante, pero lo toleramos.
     // Lo que no se permite es que SÓLO esté en /index.html.
-    expect(cspBlocks).toContain('**')
+    expect(cspBlocks).toContain('/*')
   })
 
   it('nunca usa un wildcard en connect-src', () => {
@@ -169,9 +187,9 @@ describe('CSP de Firebase Hosting', () => {
   })
 })
 
-describe('headers de Hosting', () => {
-  const config = JSON.parse(readFileSync(FIREBASE_JSON, 'utf8')) as FirebaseConfig
-  const all = (config.hosting.headers ?? []).flatMap((h) => h.headers)
+describe('headers publicados (Netlify)', () => {
+  const blocks = readBlocks()
+  const all = blocks.flatMap((h) => h.headers)
   const valueOf = (key: string) => all.find((h) => h.key === key)?.value
 
   it('nosniff activo', () => expect(valueOf('X-Content-Type-Options')).toBe('nosniff'))
@@ -180,15 +198,17 @@ describe('headers de Hosting', () => {
   it('HSTS activo', () => expect(valueOf('Strict-Transport-Security')).toContain('max-age='))
   it('no permite framing externo', () => expect(valueOf('X-Frame-Options')).toBe('SAMEORIGIN'))
 
-  it('no cachea index.html, sw.js ni workbox (necesario para el update de la PWA)', () => {
+  it('no cachea index.html ni sw.js (necesario para el update de la PWA)', () => {
     for (const source of ['/index.html', '/sw.js']) {
-      const block = config.hosting.headers?.find((h) => h.source === source)
-      expect(block?.headers.find((h) => h.key === 'Cache-Control')?.value, source).toContain('no-store')
+      const block = blocks.find((h) => h.source === source)
+      expect(block?.headers.find((h) => h.key === 'Cache-Control')?.value, source).toContain(
+        'no-store',
+      )
     }
   })
 
   it('cachea los assets con hash de forma inmutable', () => {
-    const block = config.hosting.headers?.find((h) => h.source === '/assets/**')
+    const block = blocks.find((h) => h.source === '/assets/*')
     const cc = block?.headers.find((h) => h.key === 'Cache-Control')?.value ?? ''
     expect(cc).toContain('immutable')
     expect(cc).toContain('max-age=')
