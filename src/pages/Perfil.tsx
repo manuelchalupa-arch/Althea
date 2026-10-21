@@ -433,51 +433,51 @@ export default function Perfil() {
         {editing ? (
           <div className="space-y-3 pt-3">
             <div className="grid grid-cols-2 gap-2">
-              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Nombre
-                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface" />
+              <label className="font-label-caps text-[12px] uppercase text-outline tracking-widest font-bold text-on-surface">Nombre
+                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface" />
               </label>
-              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Edad
-                <input value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} type="number" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface" />
+              <label className="font-label-caps text-[12px] uppercase text-outline tracking-widest font-bold text-on-surface">Edad
+                <input value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} type="number" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface" />
               </label>
-              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Sexo
-                <select value={form.sex} onChange={e => setForm({ ...form, sex: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface">
+              <label className="font-label-caps text-[12px] uppercase text-outline tracking-widest font-bold text-on-surface">Sexo
+                <select value={form.sex} onChange={e => setForm({ ...form, sex: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface">
                   <option value="">—</option><option value="M">M</option><option value="F">F</option><option value="X">X</option>
                 </select>
               </label>
-              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Actividad
-                <select value={form.activityLevel} onChange={e => setForm({ ...form, activityLevel: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface">
+              <label className="font-label-caps text-[12px] uppercase text-outline tracking-widest font-bold text-on-surface">Actividad
+                <select value={form.activityLevel} onChange={e => setForm({ ...form, activityLevel: e.target.value })} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface">
                   <option value="sedentario">Sedentario</option><option value="poco_activo">Poco activo</option><option value="moderado">Moderado</option><option value="muy_activo">Muy activo</option><option value="extremadamente_activo">Extremadamente activo</option>
                 </select>
               </label>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Peso kg
-                <input value={form.weightKg} onChange={e => setForm({ ...form, weightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface" />
+              <label className="font-label-caps text-[12px] uppercase text-outline tracking-widest font-bold text-on-surface">Peso kg
+                <input value={form.weightKg} onChange={e => setForm({ ...form, weightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface" />
               </label>
-              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Altura cm
-                <input value={form.heightCm} onChange={e => setForm({ ...form, heightCm: e.target.value })} type="number" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface" />
+              <label className="font-label-caps text-[12px] uppercase text-outline tracking-widest font-bold text-on-surface">Altura cm
+                <input value={form.heightCm} onChange={e => setForm({ ...form, heightCm: e.target.value })} type="number" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface" />
               </label>
-              <label className="font-label-caps text-[11px] uppercase text-outline tracking-widest font-bold text-on-surface">Peso obj.
-                <input value={form.targetWeightKg} onChange={e => setForm({ ...form, targetWeightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface" />
+              <label className="font-label-caps text-[12px] uppercase text-outline tracking-widest font-bold text-on-surface">Peso obj.
+                <input value={form.targetWeightKg} onChange={e => setForm({ ...form, targetWeightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface" />
               </label>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Grasa %
-                <input value={form.bodyFatPct} onChange={e => setForm({ ...form, bodyFatPct: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              <label className="font-label-caps text-[12px] uppercase text-outline tracking-wider font-bold text-on-surface">Grasa %
+                <input value={form.bodyFatPct} onChange={e => setForm({ ...form, bodyFatPct: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-[15px] text-on-surface" />
               </label>
-              <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Músculo kg
-                <input value={form.muscleMassKg} onChange={e => setForm({ ...form, muscleMassKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+              <label className="font-label-caps text-[12px] uppercase text-outline tracking-wider font-bold text-on-surface">Músculo kg
+                <input value={form.muscleMassKg} onChange={e => setForm({ ...form, muscleMassKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-[15px] text-on-surface" />
               </label>
             </div>
-            <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Restricciones alimentarias
-              <input value={form.restrictions} onChange={e => setForm({ ...form, restrictions: e.target.value })} placeholder="Ej: vegetariano, sin lactosa" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+            <label className="font-label-caps text-[12px] uppercase text-outline tracking-wider font-bold text-on-surface">Restricciones alimentarias
+              <input value={form.restrictions} onChange={e => setForm({ ...form, restrictions: e.target.value })} placeholder="Ej: vegetariano, sin lactosa" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-[15px] text-on-surface" />
             </label>
-            <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Alergias
-              <input value={form.allergies} onChange={e => setForm({ ...form, allergies: e.target.value })} placeholder="Ej: frutos secos" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-2.5 font-body-md text-[15px] text-on-surface" />
+            <label className="font-label-caps text-[12px] uppercase text-outline tracking-wider font-bold text-on-surface">Alergias
+              <input value={form.allergies} onChange={e => setForm({ ...form, allergies: e.target.value })} placeholder="Ej: frutos secos" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-[15px] text-on-surface" />
             </label>
             <div className="flex gap-2">
-              <button onClick={() => setEditing(false)} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
-              <button onClick={saveProfile} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Guardar</button>
+              <button onClick={() => setEditing(false)} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[12px] uppercase text-on-surface-variant">Cancelar</button>
+              <button onClick={saveProfile} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[12px] uppercase font-bold">Guardar</button>
             </div>
           </div>
         ) : (

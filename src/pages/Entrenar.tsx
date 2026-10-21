@@ -1257,11 +1257,11 @@ const exercises: SessionEx[] = seList.map((se) => {
         {resumeBanner && (
           <div className="rounded-xl bg-secondary-container/20 border border-secondary/30 p-3 space-y-2">
             <div className="text-[13px] text-on-surface font-medium">Tenés un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
-            <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} — {resumeBanner.dayName} · {resumeBanner.exerciseCount} ejercicios</div>
+              <div className="font-label-caps text-[11px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} — {resumeBanner.dayName} · {resumeBanner.exerciseCount} ejercicios</div>
             <div className="flex gap-2">
-              <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 min-h-[44px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Continuar</button>
-              <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Finalizar</button>
-              <button onClick={localAbandonResume} className="flex-1 min-h-[44px] rounded bg-surface-container/60 border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Abandonar</button>
+              <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[11px] uppercase font-bold">Continuar</button>
+              <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[11px] uppercase text-on-surface-variant">Finalizar</button>
+              <button onClick={localAbandonResume} className="flex-1 min-h-[48px] rounded bg-surface-container/60 border border-outline-variant font-label-caps text-[11px] uppercase text-on-surface-variant">Abandonar</button>
             </div>
           </div>
         )}

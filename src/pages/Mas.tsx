@@ -160,11 +160,11 @@ export default function Mas(){
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <AltheaCard level={2} padding="sm">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <span className="text-aux">Rutina activa</span>
+                  <span className="text-aux text-[11px]">Rutina activa</span>
                   <AltheaBadge variant="primary">{stats.weekNumber ? `Semana ${stats.weekNumber}` : 'Sin ciclo'}</AltheaBadge>
                 </div>
                 <p className="font-headline-md text-lg text-on-surface font-semibold truncate">{stats.routineName ?? 'Sin rutina activa'}</p>
-                <p className="font-body-md text-xs text-on-surface-variant mt-0.5">
+                <p className="font-body-md text-sm text-on-surface-variant mt-0.5">
                   {stats.daysPerWeek !== undefined ? `${stats.daysPerWeek}× por semana` : 'Sin datos de frecuencia'}
                 </p>
               </AltheaCard>
@@ -174,7 +174,7 @@ export default function Mas(){
                 <p className="font-headline-md text-lg text-on-surface font-semibold truncate">
                   {stats.heightCm !== undefined && stats.weightKg !== undefined ? `${stats.heightCm} cm · ${stats.weightKg} kg` : 'Sin datos corporales'}
                 </p>
-                <p className="font-body-md text-xs text-on-surface-variant mt-0.5 capitalize">
+                <p className="font-body-md text-sm text-on-surface-variant mt-0.5 capitalize">
                   {stats.imc !== undefined ? `IMC ${stats.imc}` : ''}
                   {stats.weightDiff !== undefined ? ` · ${stats.weightDiff > 0 ? '+' : ''}${stats.weightDiff} kg` : ''}
                 </p>
@@ -185,7 +185,7 @@ export default function Mas(){
                 <p className="font-headline-md text-lg text-on-surface font-semibold truncate">
                   {stats.tdee !== undefined ? `${stats.tdee.toLocaleString('es-ES')} kcal` : 'Sin datos'}
                 </p>
-                <p className="font-body-md text-xs text-on-surface-variant mt-0.5">
+                <p className="font-body-md text-sm text-on-surface-variant mt-0.5">
                   {stats.protein !== undefined ? `Proteína ${stats.protein}g · Carbos ${stats.carbs ?? '—'}g · Lípidos ${stats.fat ?? '—'}g` : 'Calculá tu perfil para estimar macros'}
                 </p>
               </AltheaCard>
@@ -230,13 +230,13 @@ export default function Mas(){
                   <AltheaCard level={2} padding="sm" hover className="h-full">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
-                        <SemanticIcon name={l.icon} size={18} className="text-[18px] text-primary" />
+                        <SemanticIcon name={l.icon} size={20} className="text-[20px] text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-headline-md text-sm text-on-surface font-semibold truncate">{l.name}</p>
-                        <p className="font-body-md text-xs text-on-surface-variant truncate">{l.desc}</p>
+                        <p className="font-headline-md text-base text-on-surface font-semibold truncate">{l.name}</p>
+                        <p className="font-body-md text-sm text-on-surface-variant truncate">{l.desc}</p>
                       </div>
-                      <SemanticIcon name="chevron_right" size={18} className="text-[18px] text-on-surface-variant shrink-0" />
+                      <SemanticIcon name="chevron_right" size={20} className="text-[20px] text-on-surface-variant shrink-0" />
                     </div>
                   </AltheaCard>
                 </Link>

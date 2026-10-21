@@ -243,7 +243,7 @@ export default function Calendario(){
             </div>
           }
         />
-        <div className="grid grid-cols-7 gap-1 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">
+        <div className="grid grid-cols-7 gap-0.5 font-label-md text-[8px] font-medium uppercase tracking-wider text-on-surface-variant text-center">
           {['D','L','M','M','J','V','S'].map((d,i)=> <div key={'wd'+i} className="text-on-surface-variant py-1">{d}</div>)}
           {Array.from({length:first}).map((_,i)=> <div key={'e'+i}/>)}
           {Array.from({length:dim}).map((_,i)=>{
@@ -255,20 +255,20 @@ export default function Calendario(){
             const highlight = isToday || override ? `ring-2 ${override ? 'ring-tertiary' : 'ring-on-surface'}` : ''
             const loadLabelCls = has ? 'text-on-primary/70' : (LOAD_LABEL_COLOR[load] ?? 'text-primary/60')
             return (
-              <button key={d} data-date={key} aria-label={key} onClick={()=>openDay(key)} className={`relative flex flex-col items-center justify-center gap-0.5 min-h-[52px] rounded-xl font-label-md text-[11px] font-semibold uppercase tracking-widest border transition-colors ${highlight} ${has?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface'}`}>
+              <button key={d} data-date={key} aria-label={key} onClick={()=>openDay(key)} className={`relative flex flex-col items-center justify-center gap-0.5 min-h-[48px] rounded-lg font-label-md text-[10px] font-semibold tracking-widest border transition-colors ${highlight} ${has?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface'}`}>
                 <span>{d}</span>
-                <span className={`block text-[8px] font-label-caps uppercase tracking-wider leading-none ${loadLabelCls}`}>{LOAD_STATE_LABEL[load].slice(0,4)}</span>
-                {has ? <span className="block text-[9px] leading-none">✓${override?'↻':''}</span> : null}
+                <span className={`block text-[7px] font-label-caps uppercase tracking-wider leading-none ${loadLabelCls}`}>{LOAD_STATE_LABEL[load].slice(0,3)}</span>
+                {has ? <span className="block text-[8px] leading-none">✓${override?'↻':''}</span> : null}
               </button>
             )
           })}
         </div>
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1 mt-1">
-          <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-primary rounded-full inline-block"></span> completado</span>
-          <span className="flex items-center gap-1.5 ml-3"><span className="w-3 h-3 bg-tertiary rounded-full inline-block"></span> cambiado</span>
+        <div className="font-label-md text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1 mt-1">
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 bg-primary rounded-full inline-block"></span> completado</span>
+          <span className="flex items-center gap-1.5 ml-3"><span className="w-2 h-2 bg-tertiary rounded-full inline-block"></span> cambiado</span>
         </div>
         {monthSessions === 0 && (
-          <p className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant text-center py-2">Sin sesiones registradas este mes</p>
+          <p className="font-label-caps text-[9px] uppercase tracking-widest text-on-surface-variant text-center py-2">Sin sesiones registradas este mes</p>
         )}
     </AltheaCard>
   )

@@ -318,12 +318,12 @@ export default function RutinaPage(){
       <AltheaCard className="p-4 rounded-2xl shadow-al-sm border border-outline-variant/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="font-label-caps text-[10px] uppercase text-on-surface-variant font-bold">Rutina activa</span>
-              <span className="font-body-md text-sm text-on-surface-variant">{active.rotationDays} días de rotación</span>
+              <span className="font-label-caps text-[11px] uppercase text-on-surface-variant font-bold">Rutina activa</span>
+              <span className="font-body-md text-base text-on-surface-variant">{active.rotationDays} días de rotación</span>
             </div>
-          <button onClick={()=>setSelectorOpen(!selectorOpen)} aria-expanded={selectorOpen} className="mt-1 w-full flex items-center justify-between bg-surface/60 backdrop-blur-sm border border-outline-variant rounded-xl p-3 font-body-md text-sm text-on-surface min-h-[48px]">
+          <button onClick={()=>setSelectorOpen(!selectorOpen)} aria-expanded={selectorOpen} className="mt-1 w-full flex items-center justify-between bg-surface/60 backdrop-blur-sm border border-outline-variant rounded-xl p-3 font-body-md text-base text-on-surface min-h-[48px]">
             <span className="font-medium">{active.name}</span>
-            <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">▼</span>
+            <span className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">▼</span>
           </button>
         </div>
         {selectorOpen && (
@@ -428,7 +428,7 @@ export default function RutinaPage(){
                           updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [d.n]: (r.dayExercises[d.n]||[]).filter((_,i)=>i!==idx)}}))
                         }} aria-label={`Quitar ${ex?.name || it.name || it.exId}`} className="text-on-surface-variant min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 size={14}/></button>
                       </div>
-                      <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex?.groupMain || it.muscle || 'grupo'} · {ex?.equipment || ''} · objetivo {it.sets}×{it.reps} · {(it.weight ?? 0) > 0 ? `${it.weight}kg` : 'sin peso'}</div>
+                      <div className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex?.groupMain || it.muscle || 'grupo'} · {ex?.equipment || ''} · objetivo {it.sets}×{it.reps} · {(it.weight ?? 0) > 0 ? `${it.weight}kg` : 'sin peso'}</div>
                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 mt-2">
                         <input type="number" value={it.sets} onChange={e=>{
                           updateActive(r=>{

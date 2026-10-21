@@ -116,7 +116,7 @@ function generatePostWorkoutTips(surveys: any[], lastSession: any): PostWorkoutT
 function TipItem({ title, detail }: RoutineTip) {
   return (
     <AltheaPanel className="p-4 rounded-xl shadow-al-sm border border-outline-variant/50">
-      <div className="font-body-md text-sm font-semibold text-on-surface">{title}</div>
+      <div className="font-body-md text-base font-semibold text-on-surface">{title}</div>
       <div className="font-body-md text-sm text-on-surface-variant mt-1 leading-relaxed">{detail}</div>
     </AltheaPanel>
   )
@@ -126,12 +126,12 @@ function PostTipItem({ tip }: { tip: PostWorkoutTip }) {
   return (
     <AltheaPanel className="p-4 rounded-xl shadow-al-sm border border-outline-variant/50">
       <div className="flex items-center justify-between gap-2">
-        <div className="font-body-md text-sm font-medium text-on-surface">{tip.title}</div>
+        <div className="font-body-md text-base font-medium text-on-surface">{tip.title}</div>
         <AltheaBadge variant={tip.priority === 'high' ? 'danger' : 'warning'} size="xs">
           {tip.priority === 'high' ? 'Importante' : 'Info'}
         </AltheaBadge>
       </div>
-      <div className="font-body-md text-sm text-on-surface-variant mt-1 leading-relaxed">{tip.detail}</div>
+      <div className="font-body-md text-base text-on-surface-variant mt-1 leading-relaxed">{tip.detail}</div>
     </AltheaPanel>
   )
 }
