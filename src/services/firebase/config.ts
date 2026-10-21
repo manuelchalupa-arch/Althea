@@ -24,7 +24,17 @@ function readConfig() {
     messagingSenderId: env.messagingSenderId,
     appId: env.appId,
   }
-  return cfg.apiKey && cfg.projectId ? cfg : null
+  if (!cfg.apiKey || !cfg.projectId) { return null }
+
+  // En Firebase Hosting, usa el mismo dominio de la app para el helper OAuth.
+  // Esto evita que Safari y navegadores móviles bloqueen el iframe/almacenamiento
+  // cross-site durante el retorno de Google. En otros hosts conserva authDomain.
+  const hostingDomain = typeof window !== 'undefined' &&
+    window.location.hostname === `${cfg.projectId}.web.app`
+    ? window.location.hostname
+    : cfg.authDomain
+
+  return { ...cfg, authDomain: hostingDomain }
 }
 
 let app: FirebaseApp | null = null
