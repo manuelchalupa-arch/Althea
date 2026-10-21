@@ -133,6 +133,6 @@ describe('Inicio — revisión de la rutina (aviso NO bloqueante)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     // El acceso a entrenar sigue visible y operativo
     expect(await screen.findByText('Continuar', undefined, { timeout: 8000 })).toBeInTheDocument()
-    expect(screen.getByText('Cambiar día')).toBeInTheDocument()
+    expect(screen.getByTestId('inicio-change-day')).toBeInTheDocument()
   }, 30000)
 })

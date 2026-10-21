@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import SemanticIcon from '../components/ui/SemanticIcon';
 import { Link, useNavigate } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
-import { getCycleFromProfile, getTrainingDayForDate } from '@/utils/cycle'
+import { getCycleFromProfile, getTrainingDayForDate, formatAgendaDate } from '@/utils/cycle'
 import { getCanonicalCycle } from '@/services/planning/cycleVersions'
 
 import { getMethod } from '@/services/ai/trainingMethodsDB'
@@ -53,6 +53,7 @@ export default function Inicio(){
   const nav = useNavigate()
   const { hasActiveSession } = useActiveTrainingSession()
   const todayStr = todayKey()
+  const { dayName, dayNum, month } = formatAgendaDate(todayStr)
   const [cycle, setCycle] = useState(getCycleFromProfile(null))
   const [exNames, setExNames] = useState<{id:string; name:string; sets:number; reps:number; weight:number|null; restSec?:number; rpe?:number; muscle?:string}[]>([])
   const [addingWater, setAddingWater] = useState(false)
@@ -381,35 +382,104 @@ export default function Inicio(){
   return (
     <div className="min-h-screen bg-transparent">
       {routineReview && (
-        <section role="alert" data-testid="routine-review-warning" className="rounded-lg border border-error/45 bg-error/10 px-4 py-3 flex flex-wrap items-start gap-3">
-          <SemanticIcon name="warning" size={20} className="text-error" ariaHidden />
+        <section role="alert" data-testid="routine-review-warning" className="rounded-xl border border-error/45 bg-error/10 px-5 py-4 flex flex-wrap items-start gap-4 shadow-al-sm">
+          <SemanticIcon name="warning" size={20} className="text-error shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="font-label-caps text-[10px] uppercase tracking-widest text-error">Rutina a revisar</p>
-            <p className="font-body-md text-sm text-on-surface mt-0.5">
+            <p className="font-body-md text-sm text-on-surface mt-0.5 leading-relaxed">
               Tu rutina lleva <strong>{routineReview.days} días</strong> (límite {routineReview.limit})
               {routineReview.reviewKey ? <> · venció el <strong>{routineReview.reviewKey}</strong></> : null}: requiere revisión o modificación.
               {' '}Entrenar y el resto de la app siguen disponibles.
             </p>
           </div>
-          <Link to="/rutina" aria-label="Revisar la rutina" className="shrink-0 min-h-[44px] px-3 py-2 rounded-lg border border-error/45 text-error font-label-caps text-[10px] uppercase font-bold tracking-wider hover:bg-error/10 transition-colors flex items-center gap-1.5">
-            <SemanticIcon name="edit_square" size={15} ariaHidden />
+          <Link to="/rutina" aria-label="Revisar la rutina" className="shrink-0 min-h-[44px] px-4 py-2.5 rounded-xl border border-error/45 text-error font-label-caps text-[10px] uppercase font-bold tracking-wider hover:bg-error/10 transition-colors flex items-center gap-2">
+            <SemanticIcon name="edit_square" size={16} ariaHidden />
             Revisar rutina
           </Link>
         </section>
       )}
 
-      <main className="dashboard-main w-full min-w-0">
+      <main className="dashboard-main w-full min-w-0 space-y-6">
 
-        {/* ─── FILA 1 — MÁXIMA PRIORIDAD: hidratación, macros, gasto ─── */}
-        <section className="dashboard-top-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-          {/* Hidratación */}
-          <div className="border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-2.5 min-w-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 min-w-0">
-                <SemanticIcon name="water_drop" size={18} className="text-secondary" />
-                <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Hidratación</span>
+        {/* ─── HERO COMPACTO: saludo + estado del día + acciones ─── */}
+        <AltheaPanel className="p-5 sm:p-6 space-y-4 shadow-al-sm border border-outline-variant/50">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-3">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5 ${isRest ? 'bg-secondary/15 text-secondary border border-secondary/35' : 'bg-primary/10 text-primary border border-primary/35'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isRest ? 'bg-secondary' : 'bg-primary'}`}></span>
+                  {isRest ? 'Descanso' : `Día N.º ${agenda.n} · ${agenda.name}`}
+                </span>
               </div>
-              <Link to="/nutricion" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors">Nutrición →</Link>
+              <h1 className="font-headline-lg text-xl sm:text-2xl font-semibold text-on-surface tracking-tight">
+                {userName ? `¡Hola, ${userName}!` : '¡Hola!'}
+              </h1>
+              <p className="font-body-md text-[13px] text-on-surface-variant mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span>{isRest ? 'Recuperación y descanso activo' : `Entrenamiento: ${agenda.name}`}</span>
+                <span className="opacity-50">·</span>
+                <span>{dayName} {dayNum} de {month}</span>
+                <span className="opacity-50">·</span>
+                <span className="truncate">{cycle.methodId && activeMethodName ? activeMethodName : 'Microciclo de Arete & Hipertrofia Clásica'}</span>
+              </p>
+              {isOverridden && (
+                <p className="font-label-caps text-[10px] text-secondary mt-1">Cambiado: original N.º {rawAgenda.n} {rawAgenda.name}</p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button onClick={()=> setShowCalendarPopover(!showCalendarPopover)}
+                aria-label="Ver la semana"
+                className="flex items-center gap-2 px-3 py-1.5 min-h-[44px] rounded-xl bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
+                <SemanticIcon name="date_range" size={16} className="text-outline" />
+                <span className="font-medium text-body-sm">Semana {Math.max(1, Math.floor(daysBetween((cycle as CycleConfig).startDate || todayStr, todayStr) / 7) + 1)}</span>
+              </button>
+              <button onClick={()=> setShowChangeDay(true)}
+                data-testid="inicio-change-day-hero"
+                aria-label="Cambiar el entrenamiento de hoy"
+                className="flex items-center gap-2 px-3 py-1.5 min-h-[44px] min-w-[44px] rounded-xl bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
+                <SemanticIcon name="swap_horiz" size={16} className="text-outline" />
+                <span className="font-medium text-body-sm hidden sm:inline">Cambiar día</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivityOpen(true)}
+                aria-haspopup="dialog"
+                aria-label="Registrar actividad libre"
+                data-testid="inicio-activity-btn-desktop"
+                className="flex items-center px-4 py-1.5 min-h-[44px] rounded-xl bg-teal-700 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 transition-colors cursor-pointer">
+                <span className="font-semibold text-body-sm tracking-wide uppercase">Actividad libre</span>
+              </button>
+               {todayCompleted && (
+                <span data-testid="inicio-day-done" className="flex items-center gap-2 px-4 py-1.5 min-h-[44px] rounded-xl bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[11px] uppercase font-bold">
+                  <SemanticIcon name="check_circle" size={17} />
+                  Sesión completada
+                </span>
+              )}
+              {(!isRest || hasActiveSession) && !todayCompleted && <button onClick={()=>{ startOrContinueTraining() }}
+                data-testid="inicio-hero-cta"
+                aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
+                className="btn-primary px-4 py-1.5 min-h-[44px]">
+              <SemanticIcon name="electric_bolt" size={17} />
+              <span className="tracking-wide uppercase font-semibold text-[12px]">{hasActiveSession ? 'Continuar' : 'Comenzar'}</span>
+</button>
+          }
+            </div>
+          </div>
+        </AltheaPanel>
+
+        {/* ─── FILA 1 — MÁXIMA PRIORIDAD: hidratación, macros, gasto calórico ─── */}
+        <section className="dashboard-top-grid grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Hidratación — tarjeta grande y destacada */}
+          <div className="border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-secondary-container/40 border border-secondary/40 flex items-center justify-center shrink-0">
+                  <SemanticIcon name="water_drop" size={20} className="text-secondary" />
+                </div>
+                <div className="min-w-0">
+                  <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Hidratación de hoy</span>
+                  <Link to="/nutricion" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors mt-0.5">Nutrición →</Link>
+                </div>
+              </div>
             </div>
             <WaterBottle size="lg" allowQuickAdd refreshKey={waterVersion} />
             <BottleConfigEditor />
@@ -417,36 +487,40 @@ export default function Inicio(){
               onClick={()=> addWater(250)}
               disabled={addingWater}
               data-testid="inicio-add-water-250"
-              className="w-full py-1.5 min-h-[44px] rounded-lg bg-primary-container/30 border border-primary/40 text-primary font-label-caps text-[10px] uppercase font-bold hover:bg-primary-container/50 transition-colors active:scale-[0.98] disabled:opacity-50"
+              className="w-full py-2 min-h-[48px] rounded-xl bg-primary-container/30 border border-primary/40 text-primary font-label-caps text-[11px] uppercase font-bold hover:bg-primary-container/50 transition-colors active:scale-[0.98] disabled:opacity-50"
             >
               {addingWater ? 'Guardando…' : '+ 250 ml'}
             </button>
           </div>
 
-          {/* Macronutrientes */}
-          <MacroSummary />
-
-          {/* Mapa muscular no es requerido en Inicio: vive en /progreso. */}
+          {/* Macronutrientes — tarjeta grande y destacada */}
+          <div className="border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
+            <MacroSummary />
+          </div>
 
           {/* Gasto calórico */}
-          <div data-testid="inicio-gasto-calorico" className="border border-outline-variant/40 rounded-lg p-3.5 sm:p-4 space-y-2.5 min-w-0">
+          <div data-testid="inicio-gasto-calorico" className="border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <SemanticIcon name="local_fire_department" size={18} className="text-primary" />
-                <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Gasto calórico del ejercicio</span>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-primary-container/40 border border-primary/40 flex items-center justify-center shrink-0">
+                  <SemanticIcon name="local_fire_department" size={20} className="text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Gasto calórico del ejercicio</span>
+                  <Link to="/calendario" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors mt-0.5">Historial →</Link>
+                </div>
               </div>
-              <Link to="/calendario" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors">Historial →</Link>
             </div>
-            <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-2">
+            <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-3">
               Estimación MET sobre tus sesiones registradas (duración medida × peso corporal).
             </p>
             {gasto === null ? (
               <p className="text-[12px] text-on-surface-variant">Cargando…</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <GastoRow label="Hoy" res={gasto.hoy} testId="inicio-gasto-hoy" />
                 <GastoRow label="Semana (lun → hoy)" res={gasto.semana} testId="inicio-gasto-semana" hideEmptyNote={sinSesiones(gasto.hoy)} />
-                <div className="flex items-center justify-between py-1" data-testid="inicio-activas-hoy">
+                <div className="flex items-center justify-between py-2" data-testid="inicio-activas-hoy">
                   <span className="text-[12px] text-on-surface-variant">Calorías activas registradas hoy</span>
                   <span className="font-mono text-sm text-secondary font-semibold">
                     {activasHoy !== null ? `${Math.round(activasHoy)} kcal` : 'sin datos'}
@@ -457,15 +531,14 @@ export default function Inicio(){
           </div>
         </section>
 
-        {/* ─── FILA 2 — SECUNDARIA: entrenamiento, actividad libre, registros de virtud ─── */}
-        <section className="dashboard-secondary-grid mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* ─── FILA 2 — SECUNDARIA: entrenamiento, actividad, registros ─── */}
+        <section className="dashboard-secondary-grid grid grid-cols-1 gap-6 lg:grid-cols-3">
 
-          {/* Entrenamiento / sesión del día */}
-          <div className="border border-outline-variant/40 rounded-lg p-4 sm:p-5 space-y-3 min-w-0">
+          {/* Entrenamiento / sesión del día — ancho completo en lg */}
+          <div className="lg:col-span-2 border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">¡Hola!{userName ? ` ${userName}` : ''}</span>
                   <span className="px-2 py-0.5 rounded bg-primary-container/30 text-primary border border-primary/30 font-label-caps text-[10px]">Sesión principal</span>
                   {!isRest && <span className="text-[12px] text-on-surface-variant">{activeMethodName || agenda.name}</span>}
                 </div>
@@ -475,11 +548,11 @@ export default function Inicio(){
                 <p className="text-body-sm text-on-surface-variant">
                   {isRest ? 'Descanso activo — sauna, movilidad y reflexión' : `${exNames.length} ejercicios · ${exNames.reduce((a,e)=>a+e.sets,0)} series · ${activeMethodName || 'Enfoque hipertrofia clásica'}`}
                 </p>
-                {isOverridden && <p className="font-label-caps text-[10px] text-secondary mt-0.5">Cambiado: original N.º {rawAgenda.n} {rawAgenda.name}</p>}
+                {isOverridden && <p className="font-label-caps text-[10px] text-secondary mt-1">Cambiado: original N.º {rawAgenda.n} {rawAgenda.name}</p>}
               </div>
-              <div className="shrink-0">
+              <div className="shrink-0 flex flex-col gap-2">
                 {todayCompleted && (
-                  <span data-testid="inicio-start-done" className="flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded bg-primary-container/40 border border-primary/40 text-primary font-label-md text-label-md font-semibold">
+                  <span data-testid="inicio-start-done" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-container/40 border border-primary/40 text-primary font-label-md font-semibold">
                     <SemanticIcon name="check_circle" size={16} />
                     <span className="uppercase tracking-wider text-[12px] font-semibold">SESIÓN COMPLETADA</span>
                   </span>
@@ -489,13 +562,13 @@ export default function Inicio(){
                     <button onClick={()=>{ startOrContinueTraining() }}
                       data-testid="inicio-start-training"
                       aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded bg-primary-container hover:bg-tertiary-container text-on-primary-container border border-outline-variant/50 transition-all font-label-md text-label-md active:scale-[0.98]">
-                      <SemanticIcon name="play_arrow" size={16} className="text-secondary" />
+                      className="flex items-center gap-2 px-4 py-2 min-h-[48px] rounded-xl bg-primary-container hover:bg-tertiary-container text-on-primary-container border border-outline-variant/50 transition-all font-label-md active:scale-[0.98]">
+                      <SemanticIcon name="play_arrow" size={18} className="text-secondary" />
                       <span className="uppercase tracking-wider text-[12px] font-semibold">{hasActiveSession ? 'CONTINUAR ENTRENAMIENTO' : 'COMENZAR ENTRENAMIENTO'}</span>
                     </button>
-                    <span className="sr-only">Continuar</span>
                     <button onClick={()=> setShowChangeDay(true)}
-                      className="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface font-label-md text-[12px] hover:bg-surface-container-high transition-colors">
+                      data-testid="inicio-change-day"
+                      className="flex items-center gap-2 px-4 py-2 min-h-[48px] rounded-xl bg-surface-container border border-outline-variant text-on-surface font-label-md hover:bg-surface-container-high transition-colors">
                       Cambiar día
                     </button>
                   </>
@@ -504,7 +577,7 @@ export default function Inicio(){
             </div>
 
             {isRest ? (
-              <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-2.5">
+              <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-3 italic">
                 «La recuperación es donde se forja la verdadera fuerza. Descansa con propósito.»
               </p>
             ) : (
@@ -513,12 +586,12 @@ export default function Inicio(){
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b border-outline-variant/30 text-on-surface-variant font-label-caps text-[10px] uppercase">
-                        <th className="py-2 px-2.5">Ejercicio</th>
-                        <th className="py-2 px-2.5 text-center">Series</th>
-                        <th className="py-2 px-2.5 text-center">Reps</th>
-                        <th className="py-2 px-2.5 text-right">Peso</th>
-                        <th className="py-2 px-2.5 text-right">Descanso</th>
-                        <th className="py-2 px-2.5 w-20"></th>
+                        <th className="py-3 px-3">Ejercicio</th>
+                        <th className="py-3 px-3 text-center">Series</th>
+                        <th className="py-3 px-3 text-center">Reps</th>
+                        <th className="py-3 px-3 text-right">Peso</th>
+                        <th className="py-3 px-3 text-right">Descanso</th>
+                        <th className="py-3 px-3 w-20"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-surface-bright font-body-md text-body-sm">
@@ -526,7 +599,7 @@ export default function Inicio(){
                         const isEditing = editingIdx === i
                         return (
                           <tr key={ex.id} className={`hover:bg-surface-container/50 transition-colors group ${isEditing ? 'bg-surface-container/30' : ''}`}>
-                            <td className="py-2.5 px-2.5">
+                            <td className="py-3 px-3">
                               <div className="flex items-center gap-2.5">
                                 <span className="w-5 h-5 rounded bg-surface-container border border-secondary/30 flex items-center justify-center font-headline-sm text-[11px] text-secondary">{ROMAN[i] || i+1}</span>
                                 <div>
@@ -535,8 +608,8 @@ export default function Inicio(){
                                 </div>
                               </div>
                             </td>
-                            <td className="py-2.5 px-2.5 text-center font-semibold text-on-surface">{ex.sets}</td>
-                            <td className="py-2.5 px-2.5 text-center">
+                            <td className="py-3 px-3 text-center font-semibold text-on-surface">{ex.sets}</td>
+                            <td className="py-3 px-3 text-center">
                               {isEditing ? (
                                 <input type="number" value={editDraft.reps} onChange={e=>setEditDraft(d=>({...d, reps: Number(e.target.value)}))}
                                   className="w-14 bg-surface-container-high border border-primary/40 rounded px-1.5 py-0.5 text-center text-on-surface text-sm focus:outline-none focus:border-primary"/>
@@ -544,7 +617,7 @@ export default function Inicio(){
                                 <span className="text-on-surface">{ex.reps || '—'}</span>
                               )}
                             </td>
-                            <td className="py-2.5 px-2.5 text-right">
+                            <td className="py-3 px-3 text-right">
                               {isEditing ? (
                                 <div className="flex items-center justify-end gap-1">
                                   <input type="number" step="0.5" value={editDraft.weight ?? ''} onChange={e=>setEditDraft(d=>({...d, weight: e.target.value === '' ? null : Number(e.target.value)}))}
@@ -555,7 +628,7 @@ export default function Inicio(){
                                 <span className={`font-medium ${(ex.weight ?? 0) > 0 ? 'text-secondary' : 'text-on-surface-variant italic'}`}>{(ex.weight ?? 0) > 0 ? `${ex.weight} kg` : 'sin peso'}</span>
                               )}
                             </td>
-                            <td className="py-2.5 px-2.5 text-right">
+                            <td className="py-3 px-3 text-right">
                               {isEditing ? (
                                 <div className="flex items-center justify-end gap-1">
                                   <input type="number" step="5" value={editDraft.restSec} onChange={e=>setEditDraft(d=>({...d, restSec: Number(e.target.value)}))}
@@ -566,7 +639,7 @@ export default function Inicio(){
                                 <span className="text-on-surface-variant">{ex.restSec ? `${ex.restSec}s` : '90s'}</span>
                               )}
                             </td>
-                            <td className="py-2.5 px-2.5 text-right">
+                            <td className="py-3 px-3 text-right">
                               {isEditing ? (
                                 <div className="flex items-center justify-end gap-1">
                                   <button onClick={()=>saveExerciseEdit(i)} className="px-2.5 py-0.5 min-h-[44px] min-w-[44px] rounded bg-primary text-on-primary text-[10px] font-label-caps uppercase font-bold hover:bg-primary/80 transition-colors">Guardar</button>
@@ -583,13 +656,13 @@ export default function Inicio(){
                         )
                       })}
                       {exNames.length === 0 && (
-                        <tr><td colSpan={6} className="py-6 text-center text-on-surface-variant text-sm">Sin ejercicios programados. <Link to="/rutina" className="text-primary underline">Configurar rutina</Link></td></tr>
+                        <tr><td colSpan={6} className="py-8 text-center text-on-surface-variant text-sm">Sin ejercicios programados. <Link to="/rutina" className="text-primary underline">Configurar rutina</Link></td></tr>
                       )}
                     </tbody>
                   </table>
                 </div>
                 {exNames.length > 0 && (
-                  <AltheaStatRow className="pt-3 border-t border-surface-bright" items={[
+                  <AltheaStatRow className="pt-4 border-t border-surface-bright" items={[
                     { icon: 'entrenar', value: `${Math.round(exNames.reduce((a,e)=>a+e.sets*(e.reps||8)*(e.weight||0),0)).toLocaleString('es-ES')} kg`, label: 'Volumen proyectado' },
                     { icon: 'progreso', value: todayRPE !== null && todayRPE !== undefined && todayRPE > 0 ? `${todayRPE.toFixed(1)}/10` : '—', label: 'Intensidad media (plan)' },
                     { icon: 'nutricion', value: `${Math.max(20, Math.round(exNames.reduce((a,e)=>a+e.sets*(e.restSec||90),0)/60 + exNames.length*3))} min`, label: 'Duración est.' },
@@ -599,61 +672,66 @@ export default function Inicio(){
             )}
           </div>
 
-          {/* Actividad libre */}
-          <div className="border border-outline-variant/40 rounded-lg p-4 sm:p-5 space-y-3 min-w-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 min-w-0">
-                <SemanticIcon name="directions_run" size={18} className="text-teal-600" />
-                <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Actividad libre</span>
+          {/* Actividad libre y Registros de virtud — dos tarjetas en lg */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Actividad libre */}
+            <div className="border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-teal-700/20 border border-teal-700/30 flex items-center justify-center shrink-0">
+                    <SemanticIcon name="directions_run" size={20} className="text-teal-600" />
+                  </div>
+                  <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Actividad libre</span>
+                </div>
+                <span className="shrink-0 font-label-caps text-[10px] text-on-surface-variant uppercase">Registro rápido</span>
               </div>
-              <span className="shrink-0 font-label-caps text-[10px] text-on-surface-variant uppercase">Registro rápido</span>
-            </div>
-            <p className="text-[11px] text-on-surface-variant">
-              Registrá caminatas, deportes o cualquier movimiento fuera del entrenamiento de fuerza.
-            </p>
+              <p className="text-[11px] text-on-surface-variant">
+                Registrá caminatas, deportes o cualquier movimiento fuera del entrenamiento de fuerza.
+              </p>
               <button
-              type="button"
-              onClick={() => setActivityOpen(true)}
-              aria-haspopup="dialog"
-              aria-label="Registrar actividad libre"
-              data-testid="inicio-activity-btn"
-              className="w-full min-h-[44px] rounded-lg bg-teal-700 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 text-[12px] font-semibold tracking-wide uppercase flex items-center justify-center gap-2"
-            >
-              Actividad libre
-            </button>
-          </div>
+                type="button"
+                onClick={() => setActivityOpen(true)}
+                aria-haspopup="dialog"
+                aria-label="Registrar actividad libre"
+                data-testid="inicio-activity-btn"
+                className="w-full min-h-[48px] rounded-xl bg-teal-700 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 text-[12px] font-semibold tracking-wide uppercase flex items-center justify-center gap-2"
+              >
+                Actividad libre
+              </button>
+            </div>
 
-          {/* Registros de virtud */}
-          <AltheaPanel className="mt-4">
-            <div className="flex items-center justify-between border-b border-outline-variant/30 pb-2.5 mb-3">
-              <div className="flex items-center gap-2">
-                <SemanticIcon name="insights" size={18} className="text-secondary" />
-                <h3 className="font-headline-md text-title-md font-semibold text-on-surface tracking-wide">Registros de Virtud & Volumen Semanal</h3>
+            {/* Registros de virtud */}
+            <AltheaPanel className="p-5 shadow-al-sm border border-outline-variant/50">
+              <div className="flex items-center justify-between border-b border-outline-variant/30 pb-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <SemanticIcon name="insights" size={18} className="text-secondary" />
+                  <h3 className="font-headline-md text-title-md font-semibold text-on-surface tracking-wide">Registros de Virtud & Volumen Semanal</h3>
+                </div>
+                <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">CICLO OLÍMPICO</span>
               </div>
-              <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">CICLO OLÍMPICO</span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <AltheaMetric
-                value={briefV2?.progress?.rate !== undefined ? `${briefV2.progress.rate >= 0 ? '+' : ''}${briefV2.progress.rate.toFixed(1)}%` : 'Sin datos'}
-                label="Sobrecarga progresiva"
-                delta={briefV2?.progress?.rate}
-                deltaSuffix="%"
-              />
-              <AltheaMetric
-                value={completedCount > 0 ? completedCount : '—'}
-                unit="días"
-                label="Días completados"
-              />
-              <AltheaMetric
-                value={`${totalCount > 0 ? Math.round(completedCount/totalCount*100) : 0}%`}
-                label="Adherencia al plan"
-              />
-              <AltheaMetric
-                value={briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Áurea A+' : briefV2.recovery.lastScore >= 40 ? 'B+ Estable' : 'C Debe Descansar') : 'Sin datos'}
-                label="Calidad de recuperación"
-              />
-            </div>
-          </AltheaPanel>
+              <div className="grid grid-cols-2 gap-3">
+                <AltheaMetric
+                  value={briefV2?.progress?.rate !== undefined ? `${briefV2.progress.rate >= 0 ? '+' : ''}${briefV2.progress.rate.toFixed(1)}%` : 'Sin datos'}
+                  label="Sobrecarga progresiva"
+                  delta={briefV2?.progress?.rate}
+                  deltaSuffix="%"
+                />
+                <AltheaMetric
+                  value={completedCount > 0 ? completedCount : '—'}
+                  unit="días"
+                  label="Días completados"
+                />
+                <AltheaMetric
+                  value={`${totalCount > 0 ? Math.round(completedCount/totalCount*100) : 0}%`}
+                  label="Adherencia al plan"
+                />
+                <AltheaMetric
+                  value={briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Áurea A+' : briefV2.recovery.lastScore >= 40 ? 'B+ Estable' : 'C Debe Descansar') : 'Sin datos'}
+                  label="Calidad de recuperación"
+                />
+              </div>
+            </AltheaPanel>
+          </div>
 
         </section>
 
