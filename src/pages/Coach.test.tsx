@@ -14,6 +14,16 @@ vi.mock('@/services/ai/chatService', () => ({
   isChatAvailable: () => false,
   streamChat: vi.fn(),
 }))
+vi.mock('@/services/ai/aiService', () => ({
+  aiService: {
+    getChatCompletion: vi.fn().mockResolvedValue({ content: '' }),
+    generateRecommendation: vi.fn().mockResolvedValue({
+      reason: 'Respuesta de prueba',
+      suggested_weight: 70,
+      sources: [{ id: 'src-1', name: 'Fuente de prueba', evidence: 'Evidencia de prueba' }],
+    }),
+  },
+}))
 
 async function clearAll() {
   await Promise.all(db.tables.map(t => t.clear()))
