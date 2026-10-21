@@ -57,7 +57,7 @@ export default function Login({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-transparent p-4 max-w-lg md:max-w-3xl mx-auto flex flex-col justify-center gap-4">
+    <div className="min-h-screen bg-transparent p-4 sm:px-5 lg:px-8 mx-auto flex flex-col justify-center gap-4">
       {/* Ancla de marca: el busto es lo primero que ve quien entra.
           Tamano fluid 120px -> 200px en lg. Contexto 'hero' usa el asset de
           1000px optimizado, asi que no cargamos un PNG enorme. */}
@@ -149,11 +149,11 @@ export default function Login({ onDone }: { onDone: () => void }) {
         <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
           {mode === 'in' ? (
             <>
-              <button onClick={() => setMode('reset')} className="text-primary">Olvidé mi contraseña</button>
-              <button onClick={() => setMode('up')} className="text-primary">Crear cuenta</button>
+              <button onClick={() => setMode('reset')} className="min-w-[44px] min-h-[44px] px-3 py-1.5 text-primary">Olvidé mi contraseña</button>
+              <button onClick={() => setMode('up')} className="min-w-[44px] min-h-[44px] px-3 py-1.5 text-primary">Crear cuenta</button>
             </>
           ) : (
-            <button onClick={() => setMode('in')} className="text-primary">Ya tengo cuenta</button>
+            <button onClick={() => setMode('in')} className="min-w-[44px] min-h-[44px] px-3 py-1.5 text-primary">Ya tengo cuenta</button>
           )}
         </div>
       </div>

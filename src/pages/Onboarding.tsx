@@ -264,7 +264,7 @@ export default function Onboarding(){
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-transparent max-w-lg md:max-w-3xl mx-auto">
+    <div className="min-h-screen flex flex-col bg-transparent sm:px-5 lg:px-8 mx-auto">
       {/* El busto acompaña el progreso en todos los pasos: mas grande en el
           primero (donde la marca es el mensaje) y chico despues, para no
           competir con la pregunta. */}
@@ -307,14 +307,14 @@ export default function Onboarding(){
             <h1 className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">¿Cuál es tu objetivo principal?</h1>
             <div className="grid gap-1">
               {OBJETIVOS.map(o=>(
-                <button key={o} onClick={()=>setObjPrincipal(o)} className={`p-3 rounded-lg border text-left font-body-md text-sm text-on-surface ${objPrincipal===o?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{o} {objPrincipal===o&&'✓'}</button>
+                <button key={o} onClick={()=>setObjPrincipal(o)} className={`min-w-[44px] min-h-[44px] p-3 rounded-lg border text-left font-body-md text-sm text-on-surface ${objPrincipal===o?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{o} {objPrincipal===o&&'✓'}</button>
               ))}
             </div>
             {objPrincipal==='Otro' && <input value={objCustom} onChange={e=>setObjCustom(e.target.value)} placeholder="Especificá tu objetivo" className="w-full mt-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/>}
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-4">Objetivos secundarios</div>
             <div className="flex flex-wrap gap-1">
               {OBJETIVOS.filter(o=>o!==objPrincipal).map(o=>(
-                <button key={o} onClick={()=>setObjSec(s=> s.includes(o)? s.filter(x=>x!==o):[...s,o])} className={`px-3 py-1 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${objSec.includes(o)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{o}</button>
+                <button key={o} onClick={()=>setObjSec(s=> s.includes(o)? s.filter(x=>x!==o):[...s,o])} className={`min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${objSec.includes(o)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{o}</button>
               ))}
             </div>
           </div>
@@ -344,7 +344,7 @@ export default function Onboarding(){
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Seleccioná todos los que apliquen</p>
             <div className="grid grid-cols-4 gap-1">
               {DIAS_LABELS.map((d,i)=>(
-                <button key={d} onClick={()=>setDiasDisponibles(a=> a.includes(i)? a.filter(x=>x!==i):[...a,i])} className={`py-3 rounded-lg border font-body-md text-sm text-on-surface ${diasDisponibles.includes(i)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{d.slice(0,3)}</button>
+                <button key={d} onClick={()=>setDiasDisponibles(a=> a.includes(i)? a.filter(x=>x!==i):[...a,i])} className={`min-w-[44px] min-h-[44px] py-3 rounded-lg border font-body-md text-sm text-on-surface ${diasDisponibles.includes(i)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{d.slice(0,3)}</button>
               ))}
             </div>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{diasDisponibles.length} día{diasDisponibles.length!==1?'s':''} seleccionado{diasDisponibles.length!==1?'s':''}</p>
@@ -358,7 +358,7 @@ export default function Onboarding(){
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Seleccioná todos los que tengas acceso</p>
             <div className="flex flex-wrap gap-1">
               {EQUIPAMIENTO.map(e=>(
-                <button key={e} onClick={()=>setEquipamiento(a=> a.includes(e)? a.filter(x=>x!==e):[...a,e])} className={`px-3 py-2 rounded-lg border font-body-md text-sm text-on-surface ${equipamiento.includes(e)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{e}</button>
+                <button key={e} onClick={()=>setEquipamiento(a=> a.includes(e)? a.filter(x=>x!==e):[...a,e])} className={`min-w-[44px] min-h-[44px] px-3 py-2 rounded-lg border font-body-md text-sm text-on-surface ${equipamiento.includes(e)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{e}</button>
               ))}
             </div>
           </div>
@@ -408,7 +408,7 @@ export default function Onboarding(){
                 <div id="ob-sexo" className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sexo</div>
                 <div className="flex gap-1 mt-1" role="group" aria-labelledby="ob-sexo">
                   {(['M', 'F', 'X'] as const).map(s => (
-                    <button key={s} type="button" onClick={() => setSexo(s)} className={`flex-1 py-2.5 rounded-lg border font-body-sm text-xs capitalize ${sexo === s ? 'bg-primary border-primary text-on-primary font-bold' : 'bg-surface-container-low/90 border-outline-variant text-on-surface'}`}>{SEX_LABEL[s]}</button>
+                    <button key={s} type="button" onClick={() => setSexo(s)} className={`flex-1 min-w-[44px] min-h-[44px] py-2.5 rounded-lg border font-body-sm text-xs capitalize ${sexo === s ? 'bg-primary border-primary text-on-primary font-bold' : 'bg-surface-container-low/90 border-outline-variant text-on-surface'}`}>{SEX_LABEL[s]}</button>
                   ))}
                 </div>
               </div>
@@ -433,14 +433,14 @@ export default function Onboarding(){
             <div className="pt-3 border-t border-outline-variant/30">
               <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Tenés alguna dolencia o molestia?</div>
               <div className="flex gap-2">
-                {(['No','Sí'] as const).map(v=> <button key={v} onClick={()=>setHasPain(v)} className={`flex-1 py-3 rounded-lg border ${hasPain===v?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{v}</button>)}
+                {(['No','Sí'] as const).map(v=> <button key={v} onClick={()=>setHasPain(v)} className={`flex-1 min-w-[44px] min-h-[44px] py-3 rounded-lg border ${hasPain===v?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{v}</button>)}
               </div>
               {hasPain==='Sí' && (
                 <>
                   <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Dónde?</div>
                   <div className="flex flex-wrap gap-1">
                     {['hombros','espalda','cuello','codos','muñecas','cadera','rodillas','tobillos','otra'].map(z=>(
-                      <button key={z} onClick={()=>setPainAreas(a=> a.includes(z)? a.filter(x=>x!==z): [...a,z])} className={`px-3 py-1 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${painAreas.includes(z)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{z}</button>
+                      <button key={z} onClick={()=>setPainAreas(a=> a.includes(z)? a.filter(x=>x!==z): [...a,z])} className={`min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${painAreas.includes(z)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{z}</button>
                     ))}
                   </div>
                   <input value={limDesc} onChange={e=>setLimDesc(e.target.value)} placeholder="Contanos cuál / detalles" className="w-full mt-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/>
@@ -452,7 +452,7 @@ export default function Onboarding(){
               <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Tenés alguna restricción?</div>
               <div className="flex flex-wrap gap-1">
                 {['equipamiento','movimientos','ejercicios','tiempo','espacio'].map(r=>(
-                  <button key={r} onClick={()=>setRestrictions(a=> a.includes(r)? a.filter(x=>x!==r): [...a,r])} className={`px-3 py-1 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${restrictions.includes(r)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{r}</button>
+                  <button key={r} onClick={()=>setRestrictions(a=> a.includes(r)? a.filter(x=>x!==r): [...a,r])} className={`min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${restrictions.includes(r)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{r}</button>
                 ))}
               </div>
               <input value={restDesc} onChange={e=>setRestDesc(e.target.value)} placeholder="Otras restricciones" className="w-full mt-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/>

@@ -46,11 +46,10 @@ export interface StreamOptions {
 }
 
 function isAvailable(): boolean {
-  // Honesto: disponible solo si hay proxy configurado (nunca asumir red/modelo).
-  // La clave no puede vivir en frontend; sin proxy se usa el fallback local.
-  // Lectura por miembro: evita inlinear el objeto completo de variables VITE_*.
+  // El proxy de producción es la fuente de verdad: siempre hay una URL
+  // (fallback en groqConfig). El Coach queda activo en local y en Netlify.
   try {
-    return !!import.meta.env.VITE_GROQ_PROXY_URL
+    return getGroqUrl().trim().length > 0
   } catch { return false }
 }
 

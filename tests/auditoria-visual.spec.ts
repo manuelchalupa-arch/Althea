@@ -114,13 +114,20 @@ test.describe('AUDITORÍA VISUAL — Touch targets en móvil', () => {
         'button, a, input[type="button"], input[type="submit"]'
       )
       const count = await interactive.count()
+      const small: Array<{ index: number; tag: string; text: string; w: number; h: number }> = []
       for (let i = 0; i < count; i++) {
         const el = interactive.nth(i)
         const box = await el.boundingBox()
-        if (box) {
-          expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44)
+        const tag = await el.evaluate((e) => e.tagName)
+        const text = (await el.textContent() || '').trim().slice(0, 30)
+        if (box && Math.min(box.width, box.height) < 44) {
+          small.push({ index: i, tag, text, w: box.width, h: box.height })
         }
       }
+      if (small.length > 0) {
+        console.log('SMALL TOUCH TARGETS:', JSON.stringify(small, null, 2))
+      }
+      expect(small).toEqual([])
     }) // fin test touch targets
   } // fin for resoluciones
 }) // fin describe touch targets
