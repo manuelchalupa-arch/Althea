@@ -6,12 +6,15 @@ Procedimiento para desplegar Althea y volver atrás si algo falla.
 Firebase ni de Cloudflare, ni contraseñas. Los secretos se inyectan por
 `wrangler secret put` y por variables de entorno; nunca se registran aquí.
 
-> **Estado (2026-10-10, Prompt 5):** no hay release de producción que revertir.
-> El único artefacto desplegado en toda la infraestructura es el Worker de
-> **staging**: `althea-proxy-staging`, versión `f38181b8-0a9e-4f2a-9231-0dbd853d8ed6`
-> (KV `0f643e89b72743f197bd851c4dd9146e`). No existe Hosting desplegado en
-> ningún proyecto, ni `firestore.rules` aplicadas a un proyecto real, ni Worker
-> de producción. Ver `docs/RELEASE_REPORT.md`.
+> **Estado (2026-10-21):** producción vive en **Netlify → `https://altheafit.netlify.app`**
+> (frontend con deploy manual `netlify-cli deploy --prod --no-build`; backend Firebase
+> `althea-4b1d0`; Worker `althea-proxy-production`). El **Hosting de Firebase quedó
+> DISABLED** — `althea-4b1d0.web.app` devuelve 404 y no sirve nada; se reactiva con
+> `firebase deploy --only hosting --project althea-4b1d0`. Rollback actual del frontend:
+> volver a publicar el `dist` anterior desde Netlify CLI; del Worker:
+> `npx wrangler rollback -c worker/wrangler.production.toml`. Valores y detalle en
+> `docs/RELEASE_REPORT.md` §6. Lo que sigue debajo es el flujo histórico (2026-10-10,
+> era staging/Hosting) y aplica sólo si se rehabilita Hosting.
 
 ---
 
