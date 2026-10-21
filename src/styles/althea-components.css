@@ -10,11 +10,11 @@
   border: var(--althea-border-width) solid var(--althea-outline);
   border-radius: var(--althea-radius-lg);
   box-shadow: var(--althea-shadow-panel);
-  padding: var(--althea-space-5);
+  padding: var(--althea-space-4);
 }
 
 .althea-panel--flush { padding: 0; }
-.althea-panel--compact { padding: var(--althea-space-4); }
+.althea-panel--compact { padding: var(--althea-space-3); }
 
 .althea-panel--interactive {
   cursor: pointer;
@@ -32,18 +32,17 @@
   outline-offset: 2px;
 }
 
-/* ============ SECTION ============ */
 .althea-section {
   display: flex;
   flex-direction: column;
-  gap: var(--althea-space-4);
+  gap: var(--althea-space-3);
 }
 
 .althea-section__header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--althea-space-3);
+  gap: var(--althea-space-2);
 }
 
 .althea-section__title {
@@ -53,13 +52,13 @@
   margin: 0;
 }
 
-.althea-section__heading { display: flex; align-items: center; gap: var(--althea-space-3); min-width: 0; }
+.althea-section__heading { display: flex; align-items: center; gap: var(--althea-space-2); min-width: 0; }
 .althea-section__icon { color: var(--althea-primary); display: inline-flex; }
-.althea-section__subtitle { margin: 2px 0 0; font-family: var(--althea-font-ui); font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted); }
+.althea-section__subtitle { margin: 1px 0 0; font-family: var(--althea-font-ui); font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted); }
 .althea-section__slot { flex-shrink: 0; }
 .althea-section__action {
   font-family: var(--althea-font-ui);
-  font-size: var(--althea-fs-body-sm);
+  font-size: var(--althea-fs-body-md);
   color: var(--althea-primary);
   background: none;
   border: none;
@@ -89,7 +88,7 @@
   justify-content: center;
   margin-right: 4px;
   color: var(--althea-primary);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
   vertical-align: -2px;
 }
@@ -116,20 +115,21 @@
 
 .althea-metric__unit {
   font-family: var(--althea-font-ui);
-  font-size: var(--althea-fs-body-md);
+  font-size: var(--althea-fs-body-lg);
   color: var(--althea-on-surface-muted);
   margin-left: 2px;
 }
 
 .althea-metric__label {
   font-family: var(--althea-font-ui);
-  font-size: var(--althea-fs-body-sm);
+  font-size: var(--althea-fs-body-md);
   color: var(--althea-on-surface-muted);
+  font-weight: 600;
 }
 
 .althea-metric__delta {
   font-family: var(--althea-font-ui);
-  font-size: var(--althea-fs-body-sm);
+  font-size: var(--althea-fs-body-md);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -144,7 +144,7 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  gap: var(--althea-space-4);
+  gap: var(--althea-space-3);
 }
 
 .althea-stat {
@@ -155,8 +155,8 @@
 }
 
 .althea-stat__icon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--althea-radius-md);
   background: var(--althea-primary-soft);
   color: var(--althea-primary);
@@ -168,16 +168,16 @@
 
 .althea-stat__body { display: flex; flex-direction: column; }
 .althea-stat__value {
-  font-family: var(--althea-font-ui);
-  font-weight: 700;
-  font-size: var(--althea-fs-body-lg);
+  font-family: var(--althea-font-display);
+  font-size: var(--althea-fs-display-md);
   color: var(--althea-on-surface);
   font-variant-numeric: tabular-nums;
 }
 .althea-stat__label {
   font-family: var(--althea-font-ui);
-  font-size: var(--althea-fs-body-sm);
+  font-size: var(--althea-fs-body-md);
   color: var(--althea-on-surface-muted);
+  font-weight: 600;
 }
 
 /* ============ TOOLBAR (selector de fecha/rango, tabs compactos) ============ */

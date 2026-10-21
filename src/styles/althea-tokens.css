@@ -25,13 +25,13 @@
   --althea-font-display: 'Playfair Display', ui-serif, Georgia, serif;
   --althea-font-ui: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
 
-  --althea-fs-display-xl: 2.75rem;   /* números protagonistas, hero */
-  --althea-fs-display-lg: 2rem;      /* headlines de sección */
-  --althea-fs-display-md: 1.5rem;    /* títulos de tarjeta */
-  --althea-fs-body-lg: 1rem;
-  --althea-fs-body-md: 0.875rem;
-  --althea-fs-body-sm: 0.75rem;
-  --althea-fs-label: 0.6875rem;
+  --althea-fs-display-xl: 3rem;    /* números protagonistas, hero */
+  --althea-fs-display-lg: 2.5rem;  /* headlines de sección */
+  --althea-fs-display-md: 2rem;    /* títulos de tarjeta */
+  --althea-fs-body-lg: 1.25rem;
+  --althea-fs-body-md: 1.125rem;
+  --althea-fs-body-sm: 1rem;
+  --althea-fs-label: 0.875rem;
 
   --althea-lh-display: 1.15;
   --althea-lh-body: 1.5;

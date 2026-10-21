@@ -115,7 +115,7 @@ body {
   background: var(--c-background);
   color: var(--c-on-surface);
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: 1.125rem;
   line-height: var(--text-leading-normal);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -133,13 +133,13 @@ html[data-textscale="l"] { font-size: 112.5%; }
 :focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
 
 /* ============================ TIPOGRAFÍA ============================ */
-.text-title { font-family: var(--font-display); font-size: clamp(1.75rem, 3vw, 2.25rem); font-weight: 600; line-height: 1.1; letter-spacing: -0.015em; color: var(--c-on-surface); }
-.text-section { font-family: var(--font-display); font-size: 1.375rem; font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; color: var(--c-on-surface); }
-.text-subtitle { font-family: var(--font-display); font-size: 1.0625rem; font-weight: 600; letter-spacing: -0.005em; color: var(--c-on-surface); }
-.text-body { font-family: var(--font-body); font-size: 1rem; font-weight: 400; line-height: 1.55; color: var(--c-on-surface); }
-.text-muted { font-family: var(--font-body); font-size: 0.8125rem; color: var(--c-on-surface-variant); }
-.text-aux { font-family: var(--font-body); font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-on-surface-variant); }
-.label-olymp { font-family: var(--font-body); font-size: 0.625rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
+.text-title { font-family: var(--font-display); font-size: clamp(2rem, 4vw, 2.75rem); font-weight: 700; line-height: 1.05; letter-spacing: -0.02em; color: var(--c-on-surface); }
+.text-section { font-family: var(--font-display); font-size: 2rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.015em; color: var(--c-on-surface); }
+.text-subtitle { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: var(--c-on-surface); }
+.text-body { font-family: var(--font-body); font-size: 1.125rem; font-weight: 400; line-height: 1.5; color: var(--c-on-surface); }
+.text-muted { font-family: var(--font-body); font-size: 0.875rem; color: var(--c-on-surface-variant); }
+.text-aux { font-family: var(--font-body); font-size: 0.875rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-on-surface-variant); }
+.label-olymp { font-family: var(--font-body); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
 
 /* ============================ ELEVACIÓN — jerarquía 1-4 ============================ */
 /* Evita "todo es una card": el soporte de nivel define la superficie. */
