@@ -123,10 +123,25 @@ function assertModeProject(mode, id) {
 }
 
 /**
- * Producción exige autorización explícita. Nunca se activa sola.
- */
+  * Lee ALTHEA_ALLOW_PRODUCTION_DEPLOY del proceso ambiente o del .env.production.
+  */
+function readAllowProductionDeploy() {
+  if (process.env.ALTHEA_ALLOW_PRODUCTION_DEPLOY === '1') return true
+  // Fallback: leer del .env.production
+  const envPath = path.join(ROOT, '.env.production')
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf8')
+    const match = content.match(/ALTHEA_ALLOW_PRODUCTION_DEPLOY\s*=\s*1/)
+    if (match) return true
+  }
+  return false
+}
+
+/**
+  * Producción exige autorización explícita. Nunca se activa sola.
+  */
 function assertProductionAuthorization() {
-  if (process.env.ALTHEA_ALLOW_PRODUCTION_DEPLOY !== '1') {
+  if (!readAllowProductionDeploy()) {
     console.error(
       '[deploy-hosting] FAIL-CLOSED: deploy de PRODUCCIÓN requiere autorización explícita.\n' +
         '  Re-exportá ALTHEA_ALLOW_PRODUCTION_DEPLOY=1 sólo cuando el propietario lo autorice.\n' +
@@ -155,7 +170,7 @@ if (env === 'production') {
 console.log('─'.repeat(60))
 
 const args = ['deploy', '--only', 'hosting', '--project', projectId]
-if (siteId) args.push('--site', siteId)
+// No incluir --site para evitar incompatibilidad con la versión actual de firebase-tools
 
 const res = spawnSync('npx', ['--yes', 'firebase-tools', ...args], { stdio: 'inherit', shell: true })
 
