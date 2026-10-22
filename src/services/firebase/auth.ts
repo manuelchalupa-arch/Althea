@@ -5,6 +5,7 @@ import {
   signOut as fbSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
+  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   type User,
@@ -31,12 +32,17 @@ export async function signInWithGoogle(): Promise<User | null> {
   const provider = new GoogleAuthProvider()
   provider.setCustomParameters({ prompt: 'select_account' })
   try {
-    // Redirect funciona también cuando el navegador bloquea ventanas emergentes.
-    // El authDomain comparte origen con Firebase Hosting para evitar bloqueos
-    // de almacenamiento de terceros en Safari y navegadores móviles.
-    await signInWithRedirect(firebaseAuth(), provider)
-    return null
+    // Popup: no depende del iframe cross-origin de firebaseapp.com (Chrome
+    // M115+ bloquea su storage en sitios que no están en Firebase Hosting).
+    const cred = await signInWithPopup(firebaseAuth(), provider)
+    setOfflineMode(false)
+    return cred.user
   } catch (e: any) {
+    if (e?.code === 'auth/popup-blocked') {
+      // Si el navegador bloquea la ventana, caemos al redirect tradicional.
+      await signInWithRedirect(firebaseAuth(), provider)
+      return null
+    }
     throw new Error(toMessage(e?.code || '', 'No se pudo iniciar sesión con Google.'))
   }
 }
@@ -70,6 +76,8 @@ export function toMessage(code: string, fallback: string): string {
     'auth/invalid-credential': 'Correo o contraseña incorrectos.',
     'auth/too-many-requests': 'Demasiados intentos. Esperá unos minutos.',
     'auth/network-request-failed': 'Sin conexión. Revisá internet e intentá de nuevo.',
+    'auth/popup-closed-by-user': 'Se cerró la ventana de Google. Volvé a intentarlo.',
+    'auth/cancelled-popup-request': 'Se cerró la ventana de Google. Volvé a intentarlo.',
   }
   return map[code] || fallback
 }
