@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Send, Mail, Trash2 } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { IconChatBubble } from '@/components/brand/FitnessIcons'
@@ -40,6 +40,15 @@ export default function ChatWidget() {
   const [error, setError] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string | null>(null)
 
+  // La carga del historial es async: si el componente se desmonta (o el
+  // entorno de test termina) antes de que Dexie responda, hacer setState
+  // revienta con "window is not defined" (unhandled rejection en CI).
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
   useEffect(() => {
     if (openChat) {
       loadMessages()
@@ -49,11 +58,13 @@ export default function ChatWidget() {
   const loadMessages = async () => {
     try {
       const convId = await getActiveConversation('coach')
+      if (!mountedRef.current) { return }
       setConversationId(convId)
       const msgs = await getMessages(convId)
+      if (!mountedRef.current) { return }
       setMessages(msgs)
     } catch {
-      setError('No se pudo cargar el historial')
+      if (mountedRef.current) { setError('No se pudo cargar el historial') }
     }
   }
 
