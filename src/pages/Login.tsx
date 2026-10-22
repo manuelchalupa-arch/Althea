@@ -71,30 +71,21 @@ export default function Login({ onDone }: { onDone: () => void }) {
   return (
     <div className="min-h-screen bg-transparent p-4 sm:px-5 lg:px-8 mx-auto flex flex-col justify-center gap-4">
       {/* Ancla de marca: el busto es lo primero que ve quien entra.
-          Tamano fluid 120px -> 200px en lg. Contexto 'hero' usa el asset de
-          1000px optimizado, asi que no cargamos un PNG enorme. */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
-        <div className="shrink-0 flex justify-center lg:justify-start">
-          <AltheaAvatar
-            context="hero"
-            size={120}
-            alt="Busto clásico de Althea: figura de mármol con corona de laurel de bronce"
-            className="block lg:hidden"
-          />
-          <AltheaAvatar
-            context="hero"
-            size={200}
-            alt="Busto clásico de Althea: figura de mármol con corona de laurel de bronce"
-            className="hidden lg:block"
-          />
-        </div>
-        <div className="text-center lg:text-left">
-        <div className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">Althea</div>
-        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">
-          {mode === 'in' && 'Iniciá sesión para sincronizar tu entrenamiento'}
-          {mode === 'up' && 'Creá tu cuenta con correo electrónico'}
-          {mode === 'reset' && 'Recuperá tu contraseña'}
-        </p>
+          Un solo busto (el grande, 200px) centrado arriba; el CSS de marca
+          pisa las variantes responsive, por eso no se emparejan dos. */}
+      <div className="flex flex-col items-center gap-3 text-center">
+        <AltheaAvatar
+          context="hero"
+          size={200}
+          alt="Busto clásico de Althea: figura de mármol con corona de laurel de bronce"
+        />
+        <div>
+          <div className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">Althea</div>
+          <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">
+            {mode === 'in' && 'Iniciá sesión para sincronizar tu entrenamiento'}
+            {mode === 'up' && 'Creá tu cuenta con correo electrónico'}
+            {mode === 'reset' && 'Recuperá tu contraseña'}
+          </p>
         </div>
       </div>
 
