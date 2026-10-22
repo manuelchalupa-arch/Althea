@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, query, where, writeBatch } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, limit, query, where, writeBatch } from 'firebase/firestore'
 import { db } from '@/services/storage/db'
 import { firebaseDb, isFirebaseConfigured } from '@/services/firebase/config'
 import { currentUser } from '@/services/firebase/auth'
@@ -154,6 +154,8 @@ function validateSubject(subject: string): string {
 function buildThread(params: {
   id: string
   ownerId: string
+  ownerName: string
+  ownerEmail: string
   category: FeedbackCategory
   subject: string
   firstText: string
@@ -162,6 +164,8 @@ function buildThread(params: {
   return {
     id: params.id,
     ownerId: params.ownerId,
+    ownerName: params.ownerName,
+    ownerEmail: params.ownerEmail,
     category: params.category,
     subject: params.subject,
     status: 'pendiente',
@@ -248,29 +252,33 @@ let adminCache: { uid: string; value: boolean; at: number } | null = null
 const ADMIN_TTL_MS = 60_000
 
 /**
- * ¿Es este UID administrador? Se resuelve leyendo `admins/uids` en Firestore:
- * las reglas solo permiten leer ese documento a un UID ya listado, de modo que
- * una cuenta normal recibe permission-denied y esto devuelve false.
- * No existe ninguna variable de frontend, correo ni ruta que otorgue el rol.
+ * ¿Es este usuario administrador? El rol lo decide Firestore (005): este
+ * método solo hace una SONDA que las reglas permiten exclusivamente a la
+ * administración —listar feedbackThreads sin filtro— y traduce la respuesta:
+ * éxito ⇒ admin, permission-denied ⇒ no admin, red/caída ⇒ sin decidir.
+ * No existe ninguna variable de frontend ni ruta que otorgue el rol.
  */
 export async function fetchIsFeedbackAdmin(force = false): Promise<boolean> {
+  let uid = ''
   try {
-    const { uid } = requireSession()
-    if (!force && adminCache && adminCache.uid === uid && Date.now() - adminCache.at < ADMIN_TTL_MS) {
-      return adminCache.value
-    }
-    let value = false
-    try {
-      const snap = await getDoc(doc(firebaseDb(), 'admins', 'uids'))
-      const uids = (snap.data()?.uids as unknown) ?? []
-      value = Array.isArray(uids) && uids.includes(uid)
-    } catch {
-      // Documento inexistente o permiso denegado → nadie es admin.
-      value = false
-    }
-    adminCache = { uid, value, at: Date.now() }
-    return value
+    uid = requireSession().uid
   } catch {
+    return false
+  }
+  if (!force && adminCache && adminCache.uid === uid && Date.now() - adminCache.at < ADMIN_TTL_MS) {
+    return adminCache.value
+  }
+  try {
+    await withTimeout(getDocs(query(collection(firebaseDb(), 'feedbackThreads'), limit(1))))
+    adminCache = { uid, value: true, at: Date.now() }
+    return true
+  } catch (e) {
+    if (failureKind(e) === 'permission') {
+      adminCache = { uid, value: false, at: Date.now() }
+      return false
+    }
+    // Red/timeout: no es un "no" definitivo, no se cachea (reintenta al
+    // próximo montaje del hook).
     return false
   }
 }
@@ -447,7 +455,19 @@ export async function createThread(input: CreateThreadInput): Promise<FeedbackSe
   const subject = validateSubject(input.subject)
 
   const threadId = newId()
-  const thread = buildThread({ id: threadId, ownerId: uid, category: input.category, subject, firstText: text })
+  // Identidad denormalizada para la bandeja admin: el perfil local es la
+  // fuente, Auth el fallback. Si ambos fallan van vacíos (UID como último recurso).
+  const profile = await db.userProfile.get('me').catch(() => null)
+  const authUser = currentUser()
+  const thread = buildThread({
+    id: threadId,
+    ownerId: uid,
+    ownerName: profile?.displayName || authUser?.displayName || '',
+    ownerEmail: profile?.email || authUser?.email || '',
+    category: input.category,
+    subject,
+    firstText: text,
+  })
   const message = buildMessage({ threadId, ownerId: uid, authorId: uid, authorRole: 'user', text })
 
   await putLocalThread(thread)
@@ -570,6 +590,32 @@ export async function listMyThreads(): Promise<ThreadListResult> {
       throw new FeedbackError('permission', 'No podés leer estas conversaciones.')
     }
     return { threads: sortByActivity(local), source: 'local' }
+  }
+}
+
+/** Un hilo por id. Reglas: solo el dueño o la administración pueden leerlo. */
+export async function getThread(threadId: string): Promise<FeedbackThread> {
+  requireSession()
+  const local = await db.feedbackThreads.get(threadId).catch(() => null)
+  if (!isOnline()) {
+    if (local) { return local }
+    throw new FeedbackError('network', 'Sin conexión: no se pudo cargar la conversación.')
+  }
+  try {
+    const snap = await withTimeout(getDoc(doc(firebaseDb(), 'feedbackThreads', threadId)))
+    if (!snap.exists()) {
+      throw new FeedbackError('permission', 'No encontrás esta conversación.')
+    }
+    const thread = { ...(snap.data() as Omit<FeedbackThread, 'id'>), id: threadId }
+    await db.feedbackThreads.put(thread).catch(() => {})
+    return thread
+  } catch (e) {
+    if (e instanceof FeedbackError) { throw e }
+    if (failureKind(e) === 'permission') {
+      throw new FeedbackError('permission', 'No podés leer esta conversación.')
+    }
+    if (local) { return local }
+    throw new FeedbackError('network', 'No se pudo cargar la conversación.')
   }
 }
 

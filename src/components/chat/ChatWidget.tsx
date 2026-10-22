@@ -18,6 +18,8 @@ interface FeedbackFormState {
   content: string
   isSubmitting: boolean
   submittingError: string | null
+  /** Aviso de envío pendiente (sin conexión): el borrador se conserva. */
+  notice: string | null
 }
 
 export default function ChatWidget() {
@@ -28,6 +30,7 @@ export default function ChatWidget() {
     content: '',
     isSubmitting: false,
     submittingError: null,
+    notice: null,
   })
 
   const [openChat, setOpenChat] = useState(false)
@@ -117,15 +120,25 @@ export default function ChatWidget() {
     e.preventDefault()
     if (!form.subject.trim() || !form.content.trim()) {return}
 
-    setForm((prev) => ({ ...prev, isSubmitting: true, submittingError: null }))
+    setForm((prev) => ({ ...prev, isSubmitting: true, submittingError: null, notice: null }))
 
     try {
-      await createThread({
+      const res = await createThread({
         category: form.type,
         subject: form.subject.trim(),
         text: form.content.trim(),
       })
-      setForm({ type: initialFeedbackType, subject: '', content: '', isSubmitting: false, submittingError: null })
+      if (res.delivery === 'error') {
+        // Error real de Firestore: se informa y el borrador queda en pie.
+        setForm((prev) => ({ ...prev, isSubmitting: false, submittingError: res.error || 'No se pudo enviar. Intentá de nuevo.' }))
+        return
+      }
+      if (res.delivery === 'pending') {
+        // Sin conexión: NO es éxito. Borrador conservado, se reenvía solo.
+        setForm((prev) => ({ ...prev, isSubmitting: false, notice: res.reason || 'Sin conexión: se enviará al volver la conexión.' }))
+        return
+      }
+      setForm({ type: initialFeedbackType, subject: '', content: '', isSubmitting: false, submittingError: null, notice: null })
       setOpen(false)
     } catch {
       setForm((prev) => ({ ...prev, isSubmitting: false, submittingError: 'No se pudo enviar. Intentá de nuevo.' }))
@@ -199,6 +212,9 @@ export default function ChatWidget() {
 
               {form.submittingError && (
                 <p className="text-xs text-error" role="alert">{form.submittingError}</p>
+              )}
+              {form.notice && (
+                <p className="text-xs text-tertiary" role="status">{form.notice}</p>
               )}
 
               <button

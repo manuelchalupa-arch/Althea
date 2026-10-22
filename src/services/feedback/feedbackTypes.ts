@@ -17,6 +17,10 @@ export type FeedbackSyncStatus = 'synced' | 'pending' | 'error'
 export interface FeedbackThread {
   id: string
   ownerId: string
+  /** Denormalizados al crear el hilo: la bandeja identifica al usuario sin
+   *  leer su perfil (que las reglas de users/ no permiten al admin). */
+  ownerName?: string
+  ownerEmail?: string
   category: FeedbackCategory
   subject: string
   status: FeedbackStatus

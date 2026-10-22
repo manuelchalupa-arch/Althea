@@ -8,11 +8,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 //     permission-denied u otros errores de negocio NO se reencolan a ciegas.
 
 type CommitMode = 'ok' | 'reject-retryable' | 'reject-permission' | 'apply-then-timeout'
+type GetDocsMode = 'ok' | 'reject-permission' | 'reject-network'
 
 const fs = vi.hoisted(() => ({
   server: new Map<string, Record<string, unknown>>(),
   commitMode: 'ok' as CommitMode,
   batchSetCalls: 0,
+  getDocsMode: 'ok' as GetDocsMode,
+  getDocsCalls: 0,
 }))
 
 vi.mock('firebase/firestore', () => {
@@ -49,7 +52,17 @@ vi.mock('firebase/firestore', () => {
     collection: () => ({}),
     query: () => ({}),
     where: () => ({}),
-    getDocs: async () => ({ docs: [], empty: true, forEach: () => {} }),
+    limit: () => ({}),
+    getDocs: async () => {
+      fs.getDocsCalls += 1
+      if (fs.getDocsMode === 'reject-permission') {
+        throw { code: 'permission-denied', message: 'permiso' }
+      }
+      if (fs.getDocsMode === 'reject-network') {
+        throw { code: 'unavailable', message: 'red caída' }
+      }
+      return { docs: [], empty: true, forEach: () => {} }
+    },
   }
 })
 
@@ -63,7 +76,12 @@ vi.mock('@/services/firebase/auth', () => ({
 }))
 
 import { db } from '@/services/storage/db'
-import { createThread, flushOutbox } from './feedbackService'
+import {
+  createThread,
+  fetchIsFeedbackAdmin,
+  flushOutbox,
+  resetFeedbackAdminCache,
+} from './feedbackService'
 
 const onLineDescriptor = Object.getOwnPropertyDescriptor(window.navigator, 'onLine')
 
@@ -72,6 +90,9 @@ describe('feedbackService — reglas del outbox', () => {
     fs.server.clear()
     fs.commitMode = 'ok'
     fs.batchSetCalls = 0
+    fs.getDocsMode = 'ok'
+    fs.getDocsCalls = 0
+    resetFeedbackAdminCache()
     await db.delete()
     await db.open()
   })
@@ -173,5 +194,45 @@ describe('feedbackService — reglas del outbox', () => {
     const report = await flushOutbox()
     expect(report.sent).toBe(0)
     expect(fs.batchSetCalls).toBe(0)
+  })
+
+  it('sonda admin (005): listado sin filtro con éxito ⇒ admin, cacheado 60 s', async () => {
+    fs.getDocsMode = 'ok'
+    expect(await fetchIsFeedbackAdmin(true)).toBe(true)
+
+    const callsAfterProbe = fs.getDocsCalls
+    expect(await fetchIsFeedbackAdmin()).toBe(true)
+    expect(fs.getDocsCalls).toBe(callsAfterProbe)
+  })
+
+  it('sonda admin (005): permission-denied ⇒ false y cacheado (sin reintentos ciegos)', async () => {
+    fs.getDocsMode = 'reject-permission'
+    expect(await fetchIsFeedbackAdmin(true)).toBe(false)
+
+    const callsAfterProbe = fs.getDocsCalls
+    fs.getDocsMode = 'ok'
+    expect(await fetchIsFeedbackAdmin()).toBe(false)
+    expect(fs.getDocsCalls).toBe(callsAfterProbe)
+  })
+
+  it('sonda admin (005): error de red ⇒ false SIN cachear (el próximo montaje reintenta)', async () => {
+    fs.getDocsMode = 'reject-network'
+    expect(await fetchIsFeedbackAdmin(true)).toBe(false)
+
+    const callsAfterProbe = fs.getDocsCalls
+    fs.getDocsMode = 'ok'
+    expect(await fetchIsFeedbackAdmin()).toBe(true)
+    expect(fs.getDocsCalls).toBeGreaterThan(callsAfterProbe)
+  })
+
+  it('denormaliza ownerName/ownerEmail del perfil en el documento del hilo', async () => {
+    await db.userProfile.put({ id: 'me', displayName: 'Nico', email: 'nico@test.com' } as never)
+
+    const res = await createThread({ category: 'duda', subject: 'S', text: 'hola' })
+    expect(res.delivery).toBe('sent')
+
+    const threadDoc = fs.server.get(`feedbackThreads/${res.threadId}`)
+    expect(threadDoc?.ownerName).toBe('Nico')
+    expect(threadDoc?.ownerEmail).toBe('nico@test.com')
   })
 })

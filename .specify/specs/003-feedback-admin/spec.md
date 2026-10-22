@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-14
 
-**Status**: Draft
+**Status**: Implemented (2026-10-21; completada junto con `005-panel-feedback-creador`, que resuelve la bandeja del creador y deja fuera de alcance respuestas del admin y notas internas)
 
 **Input**: User description: "Reemplazar el botón flotante de Coach por un botón de Feedback con F grande, conservar el chat de Althea, y desarrollar conversaciones usuario↔administrador con bandeja admin privada en /admin/feedback, reglas Firestore con lista de UIDs admin y cola offline en Dexie."
 

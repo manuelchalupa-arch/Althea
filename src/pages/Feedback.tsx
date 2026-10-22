@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useFeedbackActor } from '@/hooks/useFeedbackActor'
 import { createThread, listMyThreads } from '@/services/feedback/feedbackService'
@@ -18,30 +18,50 @@ export default function Feedback() {
   const [category, setCategory] = useState<string>('')
   const [subject, setSubject] = useState<string>('')
   const [message, setMessage] = useState<string>('')
+  /** Aviso de envío NO confirmado (003 FR-008): nunca informar éxito antes de
+   *  la confirmación de Firestore. Vacío = nada que avisar. */
+  const [sendNotice, setSendNotice] = useState<{ kind: 'pending' | 'error'; text: string } | null>(null)
+
+  const loadThreads = useCallback(async () => {
+    const { threads } = await listMyThreads()
+    setThreads(threads.map((t: any) => ({
+      id: t.id,
+      subject: t.subject,
+      status: t.status,
+      unreadForOwner: t.unreadForOwner,
+      lastMessagePreview: t.lastMessagePreview,
+    })))
+  }, [])
 
   useEffect(() => {
     if (needsAccount || !actor?.uid) {
       return
     }
-    ;(async () => {
-      const { threads } = await listMyThreads()
-      setThreads(threads.map((t: any) => ({
-        id: t.id,
-        subject: t.subject,
-        status: t.status,
-        unreadForOwner: t.unreadForOwner,
-        lastMessagePreview: t.lastMessagePreview,
-      })))
-    })()
-  }, [needsAccount, actor])
+    loadThreads().catch(() => {})
+  }, [needsAccount, actor, loadThreads])
 
   const handleSend = () => {
     if (!category || !subject || !message || !actor?.uid) { return }
     const cat: FeedbackCategory = category as FeedbackCategory
-    createThread({ category: cat, subject, text: message }).then(() => {
-      setSubject('')
-      setMessage('')
-    })
+    setSendNotice(null)
+    createThread({ category: cat, subject, text: message })
+      .then(async (res) => {
+        if (res.delivery === 'error') {
+          setSendNotice({ kind: 'error', text: res.error || 'No se pudo enviar el mensaje.' })
+          return
+        }
+        if (res.delivery === 'pending') {
+          // Borrador conservado (offline): se reenvía solo al reconectar.
+          setSendNotice({ kind: 'pending', text: res.reason || 'Sin conexión: se enviará al volver la conexión.' })
+          return
+        }
+        setSubject('')
+        setMessage('')
+        await loadThreads().catch(() => {})
+      })
+      .catch((e) => {
+        setSendNotice({ kind: 'error', text: (e as { message?: string })?.message || 'No se pudo enviar el mensaje.' })
+      })
   }
 
   if (needsAccount) {
@@ -116,6 +136,14 @@ export default function Feedback() {
             >
               Enviar hilo
             </button>
+            {sendNotice && (
+              <p
+                role={sendNotice.kind === 'error' ? 'alert' : 'status'}
+                className={sendNotice.kind === 'error' ? 'text-error text-sm' : 'text-tertiary text-sm'}
+              >
+                {sendNotice.text}
+              </p>
+            )}
           </div>
         </section>
 

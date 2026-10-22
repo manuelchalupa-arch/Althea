@@ -27,8 +27,8 @@ const Recuperacion = lazy(() => import('@/pages/Recuperacion'))
 const Perfil = lazy(() => import('@/pages/Perfil'))
 const Actividad = lazy(() => import('@/pages/Actividad'))
 const Login = lazy(() => import('@/pages/Login'))
-const Feedback = lazy(() => import('@/pages/Feedback'))
-const AdminFeedback = lazy(() => import('@/pages/AdminFeedback'))
+const FeedbackEntry = lazy(() => import('@/pages/FeedbackEntry'))
+const FeedbackThreadPage = lazy(() => import('@/pages/FeedbackThreadPage'))
 // El chat es un FAB que está montado siempre, pero arrastra detrás todo el
 // subsistema de IA (chatService → unifiedPipeline → systemPrompt → contextBuilder
 // → *MethodsDB), que son ~150 KB de JS que el primer render no usa. Con import
@@ -161,6 +161,12 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
         const { checkAndFire } = await import('@/services/notifications/scheduler')
         await checkAndFire((kind) => { if (kind === 'comoEstas' || kind === 'cuestionario') { navigate('/recuperacion') } }, isTrainingDayLocal)
       } catch { /* noop */ }
+      // Cola de feedback (003 US2): reintento periódico de hilos/mensajes
+      // locales no confirmados. Vacía = no hace llamadas de red.
+      try {
+        const { flushOutbox } = await import('@/services/feedback/feedbackService')
+        await flushOutbox()
+      } catch { /* noop: lo pendiente se conserva en la cola */ }
     }
     run()
     // Push en primer plano: al tocar abre destino (cuestionario si viene marcado)
@@ -174,6 +180,8 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
     document.addEventListener('visibilitychange', onVis)
     // ET21: al recuperar conexión, subir operaciones pendientes (idempotente, sin duplicar).
     const onOnline = async () => {
+      // Feedback pendiente (003 US2): reenvío inmediato al volver la conexión.
+      import('@/services/feedback/feedbackService').then((m) => m.flushOutbox()).catch(() => {})
       try {
         const { isFirebaseConfigured } = await import('@/services/firebase/config')
         if (!isFirebaseConfigured()) { return }
@@ -216,8 +224,9 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
       <div className="shell-content relative z-10 mx-auto px-3 sm:px-5 lg:px-6 xl:px-8 2xl:px-10 pt-4 pb-24 md:pb-10 transition-[margin-left] duration-200">
       <Routes>
         <Route path="/login" element={<LazyPage><Login onDone={() => navigate('/', { replace: true })} /></LazyPage>} />
-        <Route path="/feedback" element={<LazyPage><Feedback /></LazyPage>} />
-        <Route path="/admin/feedback" element={<LazyPage><AdminFeedback /></LazyPage>} />
+        <Route path="/feedback" element={<LazyPage><FeedbackEntry /></LazyPage>} />
+        <Route path="/admin/feedback" element={<LazyPage><FeedbackEntry adminOnly /></LazyPage>} />
+        <Route path="/feedback/thread/:id" element={<LazyPage><FeedbackThreadPage /></LazyPage>} />
         <Route path="/" element={<LazyPage><Inicio /></LazyPage>} />
         <Route path="/entrenar" element={<LazyPage><EntrenarErrorBoundary componentName="Entrenar"><Entrenar /></EntrenarErrorBoundary></LazyPage>} />
         <Route path="/progresos" element={<LazyPage><ProgresoErrorBoundary componentName="Progreso"><Progresos /></ProgresoErrorBoundary></LazyPage>} />

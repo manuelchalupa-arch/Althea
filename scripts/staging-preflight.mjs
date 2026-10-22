@@ -187,6 +187,18 @@ try {
   } else {
     ok('catch-all denies')
   }
+  // Feedback (005): sin estas dos piezas la bandeja admin queda inaccesible
+  // (o peor: cualquiera leería reportes). Se verifica el archivo versionado.
+  if (!/match\s+\/feedbackThreads\/\{threadId\}/.test(rules)) {
+    fail('RULES_MISSING_FEEDBACK_THREADS')
+  } else {
+    ok('regla feedbackThreads presente')
+  }
+  if (!/request\.auth\.token\.email\s*==\s*'manuelchalu@gmail\.com'/.test(rules)) {
+    fail('RULES_MISSING_FEEDBACK_ADMIN_EMAIL')
+  } else {
+    ok('correo admin en isFeedbackAdmin()')
+  }
 } catch {
   fail('UNREADABLE_RULES')
 }
