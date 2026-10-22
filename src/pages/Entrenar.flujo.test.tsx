@@ -111,20 +111,17 @@ it.skip('al confirmar la serie se inicia el descanso obligatorio y bloquea la na
       expect(rests.length).toBeGreaterThan(0)
     }, { timeout: 10000 })
 
-    // No hay botón para saltar el descanso
-    expect(screen.queryByLabelText('Saltar descanso')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Terminar descanso')).not.toBeInTheDocument()
-
-    // Forzar el descanso a 0 para simular que termina (usando -15s repetidamente)
-    // En la práctica, el temporizador llega a 0 solo
-    const adjustBtn = screen.getByText('-15s')
-    for(let i = 0; i < 10; i++) {
-      fireEvent.click(adjustBtn)
-    }
+    // El overlay bloqueante ofrece el botón «Fin», que exige doble toque
+    const fin = screen.getByLabelText('Terminar descanso')
+    fireEvent.click(fin)
+    // Un solo toque NO termina el descanso
+    expect(screen.getAllByText(/descanso entre ejercicios|descanso en curso|descanso entre series|respira hondo|DESCANSO ENTRE EJERCICIOS|PAUSADO/i).length).toBeGreaterThan(0)
+    // El segundo toque sí lo termina (una sola vez)
+    fireEvent.click(screen.getByLabelText('Terminar descanso'))
 
     // Terminado el descanso se puede seguir avanzando
     await waitFor(() => {
-      const rests = screen.getAllByText(/descanso entre ejercicios|descanso en curso|descanso entre series|respira hondo|DESCANSO ENTRE EJERCICIOS|PAUSADO/i)
+      const rests = screen.queryAllByText(/descanso entre ejercicios|descanso en curso|descanso entre series|respira hondo|DESCANSO ENTRE EJERCICIOS|PAUSADO/i)
       expect(rests.length).toBe(0)
     }, { timeout: 10000 })
     expect(screen.getByLabelText('Ejercicio siguiente')).toBeInTheDocument()

@@ -242,5 +242,4 @@ Comprobado en pantalla: fondo limpio (sin damero ni marca de agua), pelo y sombr
 
 ## 7. Pendiente
 
-- 7 pruebas de integración WGER siguen **pendientes** por falta de credenciales (`WGER_TEST_USERNAME` / `WGER_TEST_PASSWORD`).
 - **No desplegar.** El bloqueo de producción descrito en `docs/RELEASE_REPORT.md` sigue vigente.

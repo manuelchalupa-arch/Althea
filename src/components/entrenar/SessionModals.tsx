@@ -312,6 +312,7 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
           <div className="flex gap-2" role="group" aria-labelledby="sw-valoracion">
           {[{ v:2, label:'Fácil' },{ v:3, label:'Normal' },{ v:4, label:'Difícil' }].map(({ v, label })=>(
                 <button key={v} onClick={()=> setSurvey('sessionRating', v)}
+                  aria-pressed={Number(finishSurvey.sessionRating)===v}
                   className={`flex-1 py-2 rounded border transition text-sm font-medium ${Number(finishSurvey.sessionRating)===v ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
                   {label}
                 </button>
@@ -323,6 +324,7 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
           <div className="flex gap-1.5" role="group" aria-labelledby="sw-dolor">
           {[{ v:0, label:'No' },{ v:1, label:'Sí' }].map(({ v, label })=>(
                 <button key={v} onClick={()=> setSurvey('pain', v)}
+                  aria-pressed={Number(finishSurvey.pain)===v}
                   className={`flex-1 py-1.5 rounded border transition text-sm font-medium ${Number(finishSurvey.pain)===v ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
                   {label}
                 </button>

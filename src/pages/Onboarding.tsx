@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db, saveOnboardingDraft, getOnboardingDraft, clearOnboardingDraft } from '@/services/storage/db'
 import { z } from 'zod'
 import * as Gym from '@/services/exerciseGym'
+import { traditionalItems, toggleGroupExcluded, TRADITIONAL_GROUPS, type TraditionalItem } from '@/data/traditionalCatalog'
 import { CoachIntensity, Goal } from '@/types'
 import { todayKey } from '@/utils/dates'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
 import { calcTDEE } from '@/utils/nutrition'
 import { normalizeSex, SEX_LABEL, type SexCode } from '@/utils/sex'
+import { prettyExId } from '@/utils/format'
 import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 
 const OBJETIVOS = ['Perder grasa / bajar de peso','Ganar masa muscular','Aumentar fuerza','Mejorar resistencia','Mejorar condición física','Mejorar movilidad','Mantenerme','Recomposición corporal','Otro']
@@ -20,6 +22,32 @@ const COACH_INTENSIDAD: { value: CoachIntensity; label: string; description: str
   { value: 'duro', label: 'Exigente', description: 'Directo y demandante, empuja al límite' },
   { value: 'extremo', label: 'Extremo', description: 'Máxima intensidad, sin excusas (con guardrails)' },
 ]
+
+const INPUT_CLS = 'w-full bg-surface border border-outline-variant rounded-lg p-3 min-h-[48px] font-body-md text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30'
+
+function StepSection({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+  return (
+    <section className="rounded-xl bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-4 space-y-3">
+      <div>
+        <h2 className="font-label-caps text-[11px] font-bold uppercase tracking-widest text-primary">{title}</h2>
+        {subtitle && <p className="font-body-sm text-xs text-on-surface-variant mt-0.5">{subtitle}</p>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="block font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant mb-1.5">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+const chipCls = (active: boolean) =>
+  `min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest transition-colors ${active ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`
 
 export default function Onboarding(){
   const nav = useNavigate()
@@ -68,8 +96,8 @@ export default function Onboarding(){
   const [restDesc,setRestDesc]=useState('')
   const [excluded,setExcluded]=useState<string[]>([])
   const [showBiblio,setShowBiblio]=useState(false)
-  const [biblioMuscle,setBiblioMuscle]=useState('pectorals')
-  const [biblioItems,setBiblioItems]=useState<Gym.Exercise[]>([])
+  const [biblioMuscle,setBiblioMuscle]=useState('__all__')
+  const [biblioItems,setBiblioItems]=useState<TraditionalItem[]>([])
 
   const edad = fechaNacimiento ? Math.floor((Date.now() - new Date(fechaNacimiento).getTime()) / (365.25 * 86400000)) : null
 
@@ -77,8 +105,14 @@ export default function Onboarding(){
   const imcCat = imc ? (Number(imc)<18.5?'Bajo peso': Number(imc)<25?'Normopeso': Number(imc)<30?'Sobrepeso':'Obesidad') : null
 
   useEffect(()=>{
-    if(showBiblio) {Gym.fetchByMuscle(biblioMuscle).then(r=>setBiblioItems(r.exercises.slice(0,30))).catch(()=>{})}
-  },[biblioMuscle, showBiblio])
+    if(showBiblio) {
+      // Síntesis: solo ejercicios tradicionales (sin variantes del catálogo).
+      // Se cargan todos una vez; el filtro por grupo se aplica al render.
+      Gym.fetchAll()
+        .then(r => setBiblioItems(traditionalItems(r.exercises || [])))
+        .catch(()=>{})
+    }
+  },[showBiblio])
 
   // Cargar borrador de Dexie al iniciar
   useEffect(() => {
@@ -300,7 +334,7 @@ export default function Onboarding(){
         </div>
       </div>
 
-      <div className="flex-1 p-4 space-y-4 overflow-auto">
+      <div className="flex-1 p-4 space-y-4 overflow-auto mx-auto w-full max-w-2xl">
         {/* PASO 0: OBJETIVO */}
         {step===0 && (
           <div className="space-y-3">
@@ -314,7 +348,7 @@ export default function Onboarding(){
             <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-4">Objetivos secundarios</div>
             <div className="flex flex-wrap gap-1">
               {OBJETIVOS.filter(o=>o!==objPrincipal).map(o=>(
-                <button key={o} onClick={()=>setObjSec(s=> s.includes(o)? s.filter(x=>x!==o):[...s,o])} className={`min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${objSec.includes(o)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{o}</button>
+                <button key={o} onClick={()=>setObjSec(s=> s.includes(o)? s.filter(x=>x!==o):[...s,o])} className={chipCls(objSec.includes(o))}>{o}</button>
               ))}
             </div>
           </div>
@@ -344,7 +378,7 @@ export default function Onboarding(){
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Seleccioná todos los que apliquen</p>
             <div className="grid grid-cols-4 gap-1">
               {DIAS_LABELS.map((d,i)=>(
-                <button key={d} onClick={()=>setDiasDisponibles(a=> a.includes(i)? a.filter(x=>x!==i):[...a,i])} className={`min-w-[44px] min-h-[44px] py-3 rounded-lg border font-body-md text-sm text-on-surface ${diasDisponibles.includes(i)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{d.slice(0,3)}</button>
+                <button key={d} onClick={()=>setDiasDisponibles(a=> a.includes(i)? a.filter(x=>x!==i):[...a,i])} className={`min-w-[44px] min-h-[44px] py-3 rounded-lg border font-body-md text-sm text-on-surface ${diasDisponibles.includes(i)?'bg-primary border-primary text-on-primary font-bold':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{d.slice(0,3)}</button>
               ))}
             </div>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{diasDisponibles.length} día{diasDisponibles.length!==1?'s':''} seleccionado{diasDisponibles.length!==1?'s':''}</p>
@@ -393,116 +427,159 @@ export default function Onboarding(){
 
         {/* PASO 6: NOTIFICACIONES + PERFIL COMPLETO */}
         {step===6 && (
-          <div className="space-y-3">
-            <h1 className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">Últimos datos para tu perfil</h1>
-            <div className="space-y-3 border-t border-outline-variant/30 pt-3">
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Notificaciones push</div>
-              <p className="font-body-md text-sm text-on-surface-variant">Se configurarán recordatorios básicos (entreno, hidratación, check-in). Podés ajustarlos después en Perfil.</p>
+          <div className="space-y-4">
+            <div>
+              <h1 className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">Últimos datos para tu perfil</h1>
+              <p className="font-body-sm text-sm text-on-surface-variant mt-1">Solo unos minutos: con esto personalizamos tu plan y tu coach.</p>
             </div>
-            <div className="grid grid-cols-2 gap-2 pt-3 border-t border-outline-variant/30">
-              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nombre (obligatorio)*<input value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Manuel" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
-              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Correo electrónico (obligatorio)*<input value={email} onChange={e=>setEmail(e.target.value)} placeholder="manuel@mail.com" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <div id="ob-sexo" className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sexo</div>
-                <div className="flex gap-1 mt-1" role="group" aria-labelledby="ob-sexo">
-                  {(['M', 'F', 'X'] as const).map(s => (
-                    <button key={s} type="button" onClick={() => setSexo(s)} className={`flex-1 min-w-[44px] min-h-[44px] py-2.5 rounded-lg border font-body-sm text-xs capitalize ${sexo === s ? 'bg-primary border-primary text-on-primary font-bold' : 'bg-surface-container-low/90 border-outline-variant text-on-surface'}`}>{SEX_LABEL[s]}</button>
-                  ))}
-                </div>
-              </div>
-              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
-                Fecha de nacimiento {edad !== null && `(${edad} años)`}
-                <input type="date" value={fechaNacimiento} onChange={e=>setFechaNacimiento(e.target.value)} className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-2.5 font-body-md text-sm text-on-surface"/>
-              </label>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Peso kg (opcional)<input value={peso} onChange={e=>setPeso(e.target.value)} type="number" step={0.1} placeholder="80" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
-              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Altura cm (opcional)<input value={altura} onChange={e=>setAltura(e.target.value)} type="number" placeholder="180" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
-            </div>
-            <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Peso objetivo kg (opcional)<input value={pesoObjetivo} onChange={e=>setPesoObjetivo(e.target.value)} type="number" step={0.1} placeholder="75" className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
-            <div className="rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Tu IMC (calculado automáticamente)</div>
-              {imc ? <><div className="font-headline-lg text-base font-semibold text-on-surface">{imc}</div><div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{imcCat}</div><p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">El IMC es un indicador orientativo calculado como peso / (altura en m)².</p></> : <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Opcional: completa peso y altura para calcular IMC = peso / altura²</span>}
-              {pesoObjetivo && peso && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">Objetivo: {peso} → {pesoObjetivo} kg ({(Number(pesoObjetivo)-Number(peso)).toFixed(1)} kg)</div>}
-            </div>
-            <textarea value={needs} onChange={e=>setNeeds(e.target.value)} placeholder="Quiero bajar grasa pero mantener músculo. Tengo poco tiempo..." rows={3} className="w-full bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/>
-            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Se guardará como contexto para el Coach, no solo como texto.</p>
 
-            <div className="pt-3 border-t border-outline-variant/30">
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Tenés alguna dolencia o molestia?</div>
-              <div className="flex gap-2">
-                {(['No','Sí'] as const).map(v=> <button key={v} onClick={()=>setHasPain(v)} className={`flex-1 min-w-[44px] min-h-[44px] py-3 rounded-lg border ${hasPain===v?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{v}</button>)}
+            <StepSection title="Datos básicos" subtitle="Nombre y contacto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Nombre *">
+                  <input value={nombre} onChange={e=>setNombre(e.target.value)} placeholder="Manuel" autoComplete="name" className={INPUT_CLS}/>
+                </Field>
+                <Field label="Correo electrónico *">
+                  <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="manuel@mail.com" autoComplete="email" className={INPUT_CLS}/>
+                </Field>
               </div>
-              {hasPain==='Sí' && (
-                <>
-                  <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Dónde?</div>
-                  <div className="flex flex-wrap gap-1">
-                    {['hombros','espalda','cuello','codos','muñecas','cadera','rodillas','tobillos','otra'].map(z=>(
-                      <button key={z} onClick={()=>setPainAreas(a=> a.includes(z)? a.filter(x=>x!==z): [...a,z])} className={`min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${painAreas.includes(z)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{z}</button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <div id="ob-sexo" className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant mb-1.5">Sexo</div>
+                  <div className="flex gap-1.5" role="group" aria-labelledby="ob-sexo">
+                    {(['M', 'F', 'X'] as const).map(s => (
+                      <button key={s} type="button" onClick={() => setSexo(s)} aria-pressed={sexo === s} className={`flex-1 min-w-[44px] min-h-[44px] py-2.5 rounded-lg border font-body-md text-sm ${sexo === s ? 'bg-primary border-primary text-on-primary font-bold' : 'bg-surface-container-low/90 border-outline-variant text-on-surface'}`}>{SEX_LABEL[s]}</button>
                     ))}
                   </div>
-                  <input value={limDesc} onChange={e=>setLimDesc(e.target.value)} placeholder="Contanos cuál / detalles" className="w-full mt-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/>
-                </>
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-outline-variant/30">
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Tenés alguna restricción?</div>
-              <div className="flex flex-wrap gap-1">
-                {['equipamiento','movimientos','ejercicios','tiempo','espacio'].map(r=>(
-                  <button key={r} onClick={()=>setRestrictions(a=> a.includes(r)? a.filter(x=>x!==r): [...a,r])} className={`min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${restrictions.includes(r)?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{r}</button>
-                ))}
+                </div>
+                <Field label={edad !== null ? `Fecha de nacimiento · ${edad} años` : 'Fecha de nacimiento'}>
+                  <input type="date" value={fechaNacimiento} onChange={e=>setFechaNacimiento(e.target.value)} className={INPUT_CLS}/>
+                </Field>
               </div>
-              <input value={restDesc} onChange={e=>setRestDesc(e.target.value)} placeholder="Otras restricciones" className="w-full mt-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/>
-            </div>
+              <div className="rounded-lg bg-surface-container-highest/60 p-2.5 font-body-sm text-xs text-on-surface-variant">
+                Al finalizar configuraremos notificaciones push básicas (entreno, hidratación, check-in). Podés ajustarlas después en Perfil.
+              </div>
+            </StepSection>
 
-            <div className="pt-3 border-t border-outline-variant/30">
-              <h2 className="font-headline-lg text-base font-semibold text-on-surface">Ejercicios que no querés hacer</h2>
-              <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Seleccioná desde la biblioteca. Se excluyen de recomendaciones y sustituciones.</p>
-              <button onClick={()=>setShowBiblio(true)} className="w-full py-3 rounded-lg bg-primary text-on-surface">Seleccionar ejercicios</button>
+            <StepSection title="Medidas corporales" subtitle="Opcional — mejoran tus recomendaciones de nutrición y carga">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Peso kg">
+                  <input value={peso} onChange={e=>setPeso(e.target.value)} type="number" step={0.1} inputMode="decimal" placeholder="80" className={INPUT_CLS}/>
+                </Field>
+                <Field label="Altura cm">
+                  <input value={altura} onChange={e=>setAltura(e.target.value)} type="number" inputMode="numeric" placeholder="180" className={INPUT_CLS}/>
+                </Field>
+              </div>
+              <Field label="Peso objetivo kg">
+                <input value={pesoObjetivo} onChange={e=>setPesoObjetivo(e.target.value)} type="number" step={0.1} inputMode="decimal" placeholder="75" className={INPUT_CLS}/>
+              </Field>
+              <div className="rounded-lg bg-surface-container-highest/60 p-3 space-y-1">
+                <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Tu IMC (calculado automáticamente)</div>
+                {imc ? (
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-headline-lg text-xl font-semibold text-on-surface">{imc}</span>
+                      <span className="font-label-caps text-[10px] font-bold uppercase tracking-widest text-primary">{imcCat}</span>
+                    </div>
+                    <p className="font-body-sm text-xs text-on-surface-variant">El IMC es un indicador orientativo calculado como peso / (altura en m)².</p>
+                  </>
+                ) : (
+                  <p className="font-body-sm text-xs text-on-surface-variant">Opcional: completa peso y altura para calcular IMC = peso / altura²</p>
+                )}
+                {pesoObjetivo && peso && <p className="font-body-sm text-xs text-on-surface-variant">Objetivo: {peso} → {pesoObjetivo} kg ({(Number(pesoObjetivo)-Number(peso)).toFixed(1)} kg)</p>}
+              </div>
+            </StepSection>
+
+            <StepSection title="Contexto para el Coach" subtitle="Contale a tu entrenador virtual qué buscás">
+              <textarea value={needs} onChange={e=>setNeeds(e.target.value)} placeholder="Quiero bajar grasa pero mantener músculo. Tengo poco tiempo..." rows={3} className={INPUT_CLS}/>
+              <p className="font-body-sm text-xs text-on-surface-variant">Se guardará como contexto para el Coach, no solo como texto.</p>
+            </StepSection>
+
+            <StepSection title="Salud y limitaciones" subtitle="Para adaptar ejercicios, carga y sesiones">
+              <div>
+                <div id="ob-dolencia" className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant mb-1.5">¿Tenés alguna dolencia o molestia?</div>
+                <div className="flex gap-1.5" role="group" aria-labelledby="ob-dolencia">
+                  {(['No','Sí'] as const).map(v=> (
+                    <button key={v} type="button" onClick={()=>setHasPain(v)} aria-pressed={hasPain===v} className={`flex-1 min-w-[44px] min-h-[44px] py-3 rounded-lg border font-body-md text-sm ${hasPain===v?'bg-primary text-on-primary border-primary font-bold':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface'}`}>{v}</button>
+                  ))}
+                </div>
+                {hasPain==='Sí' && (
+                  <div className="mt-3 space-y-2">
+                    <div className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">¿Dónde?</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {['hombros','espalda','cuello','codos','muñecas','cadera','rodillas','tobillos','otra'].map(z=>(
+                        <button key={z} type="button" onClick={()=>setPainAreas(a=> a.includes(z)? a.filter(x=>x!==z): [...a,z])} aria-pressed={painAreas.includes(z)} className={chipCls(painAreas.includes(z))}>{z}</button>
+                      ))}
+                    </div>
+                    <input value={limDesc} onChange={e=>setLimDesc(e.target.value)} placeholder="Contanos cuál / detalles" className={INPUT_CLS}/>
+                  </div>
+                )}
+              </div>
+              <div className="pt-3 border-t border-outline-variant/30">
+                <div className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant mb-1.5">¿Tenés alguna restricción?</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {['equipamiento','movimientos','ejercicios','tiempo','espacio'].map(r=>(
+                    <button key={r} type="button" onClick={()=>setRestrictions(a=> a.includes(r)? a.filter(x=>x!==r): [...a,r])} aria-pressed={restrictions.includes(r)} className={chipCls(restrictions.includes(r))}>{r}</button>
+                  ))}
+                </div>
+                <input value={restDesc} onChange={e=>setRestDesc(e.target.value)} placeholder="Otras restricciones" className={`mt-2 ${INPUT_CLS}`}/>
+              </div>
+            </StepSection>
+
+            <StepSection title="Ejercicios que no querés hacer" subtitle="Se excluyen de recomendaciones y sustituciones">
+              <button type="button" onClick={()=>setShowBiblio(true)} className="w-full min-h-[48px] py-3 rounded-lg bg-primary text-on-primary font-body-md text-sm font-semibold">Seleccionar ejercicios</button>
               {excluded.length>0 && (
-                <div className="rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-2">
+                <div className="space-y-2">
                   <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Ejercicios excluidos ({excluded.length})</div>
                   {excluded.map(id=>(
-                    <div key={id} className="flex items-center gap-2 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded-lg p-2">
-                      <span className="flex-1 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant truncate">{id}</span>
-                      <button onClick={()=>setExcluded(e=> e.filter(x=>x!==id))} className="px-3 py-1 rounded-full bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Quitar</button>
+                    <div key={id} className="flex items-center gap-2 bg-surface-container-highest/60 border border-outline-variant rounded-lg p-2">
+                      <span className="flex-1 font-body-sm text-xs text-on-surface truncate capitalize">{prettyExId(id)}</span>
+                      <button type="button" onClick={()=>setExcluded(e=> e.filter(x=>x!==id))} className="px-3 py-1 rounded-full bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Quitar</button>
                     </div>
                   ))}
                 </div>
               )}
-              {showBiblio && (
-                <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50 althea-modal" onClick={()=>setShowBiblio(false)}>
-                  <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[75vh] overflow-auto p-4 space-y-2">
-                    <h3 className="font-headline-lg text-base font-semibold text-on-surface">Biblioteca</h3>
-                    <select value={biblioMuscle} onChange={e=>setBiblioMuscle(e.target.value)} className="w-full bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface">
-                      <option value="pectorals">Pecho</option><option value="biceps">Bíceps</option><option value="triceps">Tríceps</option><option value="abs">Abs</option><option value="quads">Piernas</option><option value="back">Espalda</option><option value="shoulders">Hombros</option>
-                    </select>
-                    <div className="space-y-1 max-h-[50vh] overflow-auto">
-                      {biblioItems.map(ex=>(
-                        <div key={ex.id} className="rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-2 flex gap-2 items-center">
-                          <img src={ex.gifUrl} alt={ex.name} className="w-16 h-16 rounded-lg object-cover bg-surface/60" loading="lazy" onError={e=> (e.target as HTMLImageElement).style.display='none'} />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-body-md text-sm text-on-surface truncate">{ex.name}</div>
-                            <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle} · {ex.equipment}</div>
-                          </div>
-                          <label className="flex items-center gap-1 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
-                            <input type="checkbox" checked={excluded.includes(ex.id)} onChange={e=>{
-                              if(e.target.checked) {setExcluded(a=> [...a, ex.id])}
-                              else {setExcluded(a=> a.filter(x=>x!==ex.id))}
-                            }} />
-                            No quiero
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                    <button onClick={()=>setShowBiblio(false)} className="w-full py-3 rounded-lg bg-primary text-on-surface">Listo</button>
+            </StepSection>
+
+            {showBiblio && (
+              <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50 althea-modal" onClick={()=>setShowBiblio(false)}>
+                <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[75vh] overflow-auto p-4 space-y-2">
+                  <h3 className="font-headline-lg text-base font-semibold text-on-surface">Biblioteca</h3>
+                  <select value={biblioMuscle} onChange={e=>setBiblioMuscle(e.target.value)} className="w-full bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface">
+                    <option value="__all__">Todos los grupos</option>
+                    {TRADITIONAL_GROUPS.map(g=> <option key={g.id} value={g.id}>{g.label}</option>)}
+                  </select>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TRADITIONAL_GROUPS.map(g=>{
+                      const items = biblioItems.filter(e=> e.group===g.id)
+                      const n = items.filter(e=> excluded.includes(e.id)).length
+                      const all = items.length>0 && n===items.length
+                      return (
+                        <button key={g.id} type="button" onClick={()=>setExcluded(toggleGroupExcluded(biblioItems, g.id, excluded))} aria-pressed={all} className={chipCls(all)}>{g.label} {n}/{items.length}</button>
+                      )
+                    })}
                   </div>
+                  <div className="space-y-1 max-h-[50vh] overflow-auto">
+                    {biblioItems.filter(e=> biblioMuscle==='__all__' || e.group===biblioMuscle).map(ex=>(
+                      <div key={ex.id} className="rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-2 flex gap-2 items-center">
+                        <img src={ex.gifUrl} alt={ex.name} className="w-16 h-16 rounded-lg object-cover bg-surface/60" loading="lazy" onError={e=> (e.target as HTMLImageElement).style.display='none'} />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-body-md text-sm text-on-surface truncate flex items-center gap-1.5">{ex.name} <span className="font-label-md text-[9px] uppercase tracking-widest text-primary border border-primary/40 rounded px-1 py-0.5 shrink-0">Tradicional</span></div>
+                          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle} · {ex.equipment}</div>
+                        </div>
+                        <label className="flex items-center gap-1 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+                          <input type="checkbox" checked={excluded.includes(ex.id)} onChange={e=>{
+                            if(e.target.checked) {setExcluded(a=> [...a, ex.id])}
+                            else {setExcluded(a=> a.filter(x=>x!==ex.id))}
+                          }} />
+                          No quiero
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  <button type="button" onClick={()=>setShowBiblio(false)} className="w-full min-h-[48px] py-3 rounded-lg bg-primary text-on-primary font-semibold">Listo</button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>

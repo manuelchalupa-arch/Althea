@@ -154,6 +154,7 @@ export function PainToggle({ exerciseId, exerciseName, initialLevel = 'none', on
                     setShowZonePicker(false)
                     setShowZoneList(false)
                   }}
+                  aria-pressed={zone === z}
                   className={`px-3 py-2 min-h-[44px] rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest ${zone === z ? 'bg-primary border-primary text-primary' : 'bg-surface-container-high/50 border-outline-variant text-on-surface-variant hover:border-primary/50'}`}
                 >
                   {z}

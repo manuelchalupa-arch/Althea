@@ -305,6 +305,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
                 <button
                   key={id}
                   onClick={() => handleMethodSelect(id as TrainingMethodId)}
+                  aria-pressed={cycle?.methodId === id}
                   className={`p-3 rounded-lg text-center transition-all ${cycle?.methodId === id 
                     ? 'bg-primary/10 border border-primary text-primary' 
                     : 'bg-surface-container-highest/50 border border-outline-variant/60 hover:border-primary/30'}`}
@@ -406,6 +407,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
               <button
                 key={id}
                 onClick={() => handleMethodSelect(id as TrainingMethodId)}
+                aria-pressed={cycle?.methodId === id}
                 className={`p-4 rounded-xl text-center transition-all border-2 ${cycle?.methodId === id 
                   ? 'bg-primary/10 border-primary' 
                   : 'bg-surface-container-highest/50 border-outline-variant/60 hover:border-primary/30'}`}
@@ -413,7 +415,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
                 <p className="font-body-sm font-medium text-on-surface mb-1">{name}</p>
                 <p className="font-label-caps text-[10px] text-on-surface-variant capitalize">{id.replace('_', ' ')}</p>
                 {cycle?.methodId === id && (
-                  <span className="inline-block mt-2 px-2 py-0.5 bg-primary/20 text-primary text-[9px] font-label-caps rounded">
+                  <span className="inline-block mt-2 px-2 py-0.5 bg-primary/20 text-[#F1F0EA] text-[9px] font-label-caps rounded">
                     Activo
                   </span>
                 )}

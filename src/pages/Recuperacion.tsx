@@ -3,8 +3,6 @@ import { RefreshCw } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { db } from '@/services/storage/db'
 import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaLoading, AltheaEmpty, AltheaMetric, AltheaStatRow } from '@/components/althea'
-import { WaterBottle } from '@/components/recovery/WaterBottle'
-import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
 import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'
 import { RecommendationCard, type Recommendation } from '@/components/recovery/RecommendationCard'
 import { getRecoveryHistory } from '@/services/recovery/recoveryService'
@@ -176,14 +174,6 @@ export default function Recuperacion() {
             ) : undefined}
           />
           <RecoveryCheckForm onSaved={handleCheckSaved} />
-        </AltheaCard>
-
-        <AltheaCard level={2} padding="md">
-          <AltheaCardHeader title="Hidratación" subtitle="Consumo real contra objetivo calculado" icon="water_drop" />
-          <WaterBottle />
-          <div className="mt-3 pt-3 border-t border-outline-variant/30">
-            <BottleConfigEditor />
-          </div>
         </AltheaCard>
 
         <AltheaCard level={2}>
@@ -431,14 +421,6 @@ export default function Recuperacion() {
         </div>
 
         <div className="lg:col-span-4 space-y-4">
-          <AltheaCard level={2} padding="md">
-            <AltheaCardHeader title="Hidratación" subtitle="Consumo real contra objetivo calculado" icon="water_drop" />
-            <WaterBottle />
-            <div className="mt-3 pt-3 border-t border-outline-variant/30">
-              <BottleConfigEditor />
-            </div>
-          </AltheaCard>
-
           <AltheaCard level={2}>
             <AltheaCardHeader title="Últimos días" icon="history" />
             {history.length > 0 ? (

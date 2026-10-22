@@ -7,7 +7,7 @@
  *   - .firebaserc                      (alias default/staging/production)
  *   - una entrada `.firebaserc` en .gitignore
  *
- * NUNCA pide ni escribe claves privadas (Groq/WGER): esas viven como secret
+ * NUNCA pide ni escribe claves privadas (Groq): esas viven como secret
  * del Cloudflare Worker (`npm run worker:secret:*`). Sólo trata variables
  * VITE_* públicas y los ids de proyecto/site de Firebase.
  *

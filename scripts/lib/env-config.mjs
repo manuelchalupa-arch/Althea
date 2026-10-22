@@ -11,7 +11,7 @@
  *   - tests en src/ (importando este .mjs vía env-config.d.mts)
  *
  * Regla dura: NUNCA imprime ni devuelve como "resumen" el valor de un secreto.
- * Los secretos privados (GROQ_API_KEY, WGER, etc.) no viven en `.env.*`: viven
+ * Los secretos privados (GROQ_API_KEY, etc.) no viven en `.env.*`: viven
  * como secret del Worker. Este módulo sólo trata variables VITE_* públicas y
  * los ids de proyecto/site de Firebase.
  */
@@ -277,7 +277,7 @@ function envHeader(mode) {
     '# Generado por `npm run setup`. Este archivo está en .gitignore.',
     '#',
     '# Las variables VITE_* son PÚBLICAS (terminan en el bundle del navegador).',
-    '# NUNCA poner acá una clave privada (Groq, WGER, etc.): la única clave',
+    '# NUNCA poner acá una clave privada (Groq, etc.): la única clave',
     '# privada vive como secret del Cloudflare Worker (`npm run worker:secret:*`).',
     '',
   ].join('\n')

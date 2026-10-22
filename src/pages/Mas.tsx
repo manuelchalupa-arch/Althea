@@ -10,6 +10,7 @@ import { prettyExId } from '@/utils/format'
 import { calcTMB, calcTDEE, calorieGoal, proteinRange, calcIMC } from '@/utils/nutrition'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
 import { AltheaCard, AltheaCardHeader, AltheaKPICard, AltheaBadge, AltheaLoading } from '@/components/althea'
+import InstallAppButton from '@/components/install/InstallAppButton'
 import { todayKey, dayKeyOffset, toDateKey, parseLocalDateKey } from '@/utils/dates'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 
@@ -141,6 +142,7 @@ export default function Mas(){
           <h1 className="font-headline-lg text-lg text-on-surface font-semibold">Más</h1>
           <p className="font-body-md text-xs text-on-surface-variant truncate">Centro de acceso y resumen de tu actividad.</p>
         </div>
+        <InstallAppButton />
       </header>
 
       {!stats ? (
@@ -220,9 +222,7 @@ export default function Mas(){
                 { to: '/rutina', icon: 'fitness_center', name: 'Rutinas', desc: `${routineCount} rutinas registradas` },
                 { to: '/calendario', icon: 'calendar_month', name: 'Calendario', desc: `${stats.sessions90d} sesiones en 90 días` },
                 { to: '/biblioteca', icon: 'menu_book', name: 'Biblioteca', desc: `${stats.exerciseCount} ejercicios disponibles` },
-                { to: '/nutricion', icon: 'restaurant', name: 'Nutrición', desc: stats.tdee !== undefined ? `Meta ~${stats.tdee.toLocaleString('es-ES')} kcal` : 'Metas y macros' },
                 { to: '/recuperacion', icon: 'bedtime', name: 'Recuperación', desc: 'Sueño, energía y fatiga' },
-                { to: '/progreso', icon: 'monitoring', name: 'Progreso', desc: stats.top.length > 0 ? `${stats.top[0].name}: ${stats.top[0].orm} kg 1RM` : 'Récords y tendencias' },
                 { to: '/coach', icon: 'forum', name: 'Coach', desc: stats.chatCount > 0 ? `${stats.chatCount} consultas realizadas` : 'Asistente de entrenamiento' },
                 { to: '/perfil', icon: 'badge', name: 'Perfil', desc: 'Datos, preferencias y cuenta' },
               ].map(l => (

@@ -130,7 +130,9 @@ export function BottleConfigEditor() {
           aria-modal="true"
           aria-label="Configuración de botellas"
         >
-          <div onClick={(e) => e.stopPropagation()} className="w-full bg-surface-container p-4">
+          {/* max-h + overflow: en pantallas chicas con el teclado abierto,
+              "Guardar" quedaba fuera de vista y no se podía tocar. */}
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-h-[85vh] overflow-y-auto bg-surface-container p-4 rounded-t-2xl border-t border-outline-variant">
             {panel}
           </div>
         </div>

@@ -17,7 +17,7 @@ Cierre documentado en `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md`
 
 - [x] T004 Implementar `src/services/storage/db.ts` Dexie v1 con 13 tablas + liveQuery helpers — real: Dexie v20 con las tablas del dominio y migraciones versionadas
 - [x] T005 [P] Implementar `src/types/index.ts` + Zod validators + utils `volume`, `recoveryScore`, `format` — real: `src/types/index.ts`, validadores Zod y utilidades en `src/services/training/metrics.ts` / `src/services/recovery/recoveryService.ts`
-- [x] T006 [P] Crear `src/data/exercises.json` seed 80+ ejercicios + `src/services/storage/seeds.ts` — real: 10 ejercicios locales en `src/data/exercises.json` + `src/services/storage/seeder.ts`; catálogo completo remoto (`ExerciseGymGifsDB` y Wger)
+- [x] T006 [P] Crear `src/data/exercises.json` seed 80+ ejercicios + `src/services/storage/seeds.ts` — real: 10 ejercicios locales en `src/data/exercises.json` + `src/services/storage/seeder.ts`; catálogo completo remoto (`ExerciseGymGifsDB`)
 - [x] T007 Crear stores Zustand base: `useProfileStore`, `useUIStore` con persist prefs — real: persistencia en Dexie/localStorage sin Zustand
 - [x] T008 Configurar `src/App.tsx` router + `components/layout/BottomNav.tsx` (Inicio|Entrenar|Progreso|Coach|Más) + ServiceWorker register — real: navegación en `src/components/layout/AppNav.tsx`
 - [x] T009 [P] Configurar `vite-plugin-pwa` Workbox precache + prompt actualización + tests unitarios volume/recoveryScore
@@ -32,11 +32,11 @@ Cierre documentado en `docs/history/althea/ALTHEA_CIERRE_COMPLETO_FASE_A_B_C.md`
 - [x] T013 [US1] Crear `pages/Progreso.tsx` con Recharts (volumen por sesión, evolución por ejercicio) + `pages/Calendario.tsx` mensual — real: Progreso simplificado (mapa corporal + resumen + informe PDF); la evolución diaria vive en el PDF como `serieDiaria` (decisión documentada en el cierre)
 - [x] T014 [US1] Implementar `utils/progression.ts` sugerencia determinística (última sesión vs promedio vs PR) + tests — real: `progressVsLast` en `src/services/training/metrics.ts` + sugerencias en `ExerciseSeriesTable`/`useExerciseState`
 
-**Checkpoint US1**: En modo avión, registrar sesión completa, verificar persistencia tras reload y gráficos. — VERIFICADO (tests offline en `wgerOffline.test.ts`, `sessionStore.test.ts`)
+**Checkpoint US1**: En modo avión, registrar sesión completa, verificar persistencia tras reload y gráficos. — VERIFICADO (tests offline en `sessionStore.test.ts`)
 
 ## Phase 4: US2 – Rutinas y biblioteca con variantes (P1)
 
-- [x] T015 [P] [US2] Crear `pages/Biblioteca.tsx` + `features/training/components/ExerciseCard.tsx` con búsqueda/filtros (grupo, equipo, nivel) — real: ficha en `src/components/entrenar/ExerciseHeader.tsx` y tarjetas de la propia Biblioteca (con `ExerciseGymGifsDB`, Wger y ejercicios propios)
+- [x] T015 [P] [US2] Crear `pages/Biblioteca.tsx` + `features/training/components/ExerciseCard.tsx` con búsqueda/filtros (grupo, equipo, nivel) — real: ficha en `src/components/entrenar/ExerciseHeader.tsx` y tarjetas de la propia Biblioteca (con `ExerciseGymGifsDB` y ejercicios propios)
 - [x] T016 [US2] Crear `pages/Rutinas.tsx` + `features/training/components/RoutineBuilder.tsx` con @dnd-kit/sortable + fallback ↑/↓ — real: `src/pages/Rutina.tsx`, reorden con ↑/↓ (dnd-kit no instalado, igual que el fallback previsto)
 - [x] T017 [US2] Implementar `services/ai/variantService.ts` (mismo patrón/grupo/equipo) + `features/training/components/VariantPicker.tsx`
 - [x] T018 [US2] Implementar `features/training/components/PainToggle.tsx` + PainLog + advertencia si dolor severo

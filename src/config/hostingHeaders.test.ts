@@ -5,8 +5,8 @@
  * Por qué existe: una CSP es una lista de origins permitidos. Si la app
  * consulta un origin que no está en `connect-src`, el navegador lo bloquea en
  * silencio — sin error de compilación, sin aviso de Vite, sin fallo de tests.
- * La rotura sólo aparece en el entorno desplegado, y en el caso de WGER o de
- * la nutrición se manifiesta como "no me sincroniza" / "no me busca
+ * La rotura sólo aparece en el entorno desplegado, y en el caso de la
+ * nutrición se manifiesta como "no me busca
  * alimentos", que es difícil de atribuir a la CSP.
  *
  * Este test convierte esa rotura silenciosa en un fallo de CI. Es un guard de
@@ -121,7 +121,6 @@ const RUNTIME_ORIGINS: Array<{ host: string; porque: string; enCodigo: boolean }
   // CSP usa `*.firebaseio.com` y aquí se comprueba la forma real.
   { host: 'althea-staging-default-rtdb.firebaseio.com', porque: 'Firestore (SDK)', enCodigo: false },
   { host: 'cdn.jsdelivr.net', porque: 'GIFs de ejercicios', enCodigo: true },
-  { host: 'wger.de', porque: 'lectura pública WGER directa desde el navegador', enCodigo: true },
 ]
 
 describe('CSP publicada', () => {

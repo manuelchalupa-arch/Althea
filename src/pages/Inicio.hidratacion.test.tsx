@@ -1,70 +1,55 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter } from 'react-router-dom'
 import { db } from '@/services/storage/db'
-import { getBottleDailySummary, getBottleConfigs } from '@/services/recovery/hydrationBottles'
+import { getBottleDailySummary } from '@/services/recovery/hydrationBottles'
 import Inicio from './Inicio'
 
 vi.mock('@/services/ai/aiService', () => ({
   aiService: { getChatCompletion: vi.fn().mockResolvedValue({ content: '' }) },
 }))
 
-describe('Inicio — ingreso manual de ml en hidratación', () => {
+describe('Inicio — hidratación es solo visual (registro y config en Nutrición)', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
-    // Limpiar tablas sin cerrar Dexie para evitar DatabaseClosedError en background
     await Promise.all(db.tables.map((t) => t.clear()))
     localStorage.clear()
   })
 
-  it('el botón +250 ml registra hidratación manual y refresca la botella', async () => {
+  it('muestra la botella chica sin botones de registro ni editor de config', async () => {
     render(<MemoryRouter><Inicio /></MemoryRouter>)
 
     await waitFor(() => {
       expect(screen.getByText(/¡Hola!/)).toBeInTheDocument()
     }, { timeout: 8000 })
 
-    const btn = await screen.findByTestId('inicio-add-water-250', undefined, { timeout: 10000 })
-    expect(btn).toBeInTheDocument()
-    expect(btn).not.toBeDisabled()
+    const svg = await screen.findByTestId('water-bottle-svg', undefined, { timeout: 10000 })
+    expect(svg).toBeInTheDocument()
 
-    // Estado inicial: sin agua registrada
-    const inicial = await getBottleDailySummary()
-    expect(inicial.totalMl).toBe(0)
+    // Nada de edición desde Inicio: solo gráfico de un vistazo.
+    expect(screen.queryByTestId('inicio-add-water-250')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('water-bottle-actions')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('water-bottle-manual')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('bottle-config-editor')).not.toBeInTheDocument()
 
-    fireEvent.click(btn)
+    // El detalle/registro queda referenciado desde la tarjeta de hidratación.
+    const link = screen.getAllByRole('link', { name: /Nutrición →/ })
+    expect(link.length).toBeGreaterThanOrEqual(1)
+  }, 40000)
 
-    await waitFor(() => {
-      expect(btn).not.toBeDisabled()
-    }, { timeout: 10000 })
+  it('la botella de Inicio refleja el consumo registrado en Nutrición', async () => {
+    const { addHydrationMl } = await import('@/services/recovery/hydrationBottles')
+    await addHydrationMl(250)
 
-    // Persistencia: ml manuales sumados al total del día
-    await waitFor(async () => {
-      const s = await getBottleDailySummary()
-      expect(s.totalMl).toBe(250)
-    }, { timeout: 10000 })
+    render(<MemoryRouter><Inicio /></MemoryRouter>)
 
-    // La botella se relectura con el nuevo total (refreshKey)
     await waitFor(() => {
       const svg = screen.getByTestId('water-bottle-svg')
       expect(svg.getAttribute('data-consumed-ml')).toBe('250')
     }, { timeout: 10000 })
-  }, 40000)
 
-  it('las botellas configuradas siguen disponibles para registrar desde Inicio', async () => {
-    render(<MemoryRouter><Inicio /></MemoryRouter>)
-    await waitFor(() => {
-      expect(screen.getByText(/¡Hola!/)).toBeInTheDocument()
-    }, { timeout: 8000 })
-
-    const cfgs = await getBottleConfigs()
-    expect(cfgs.filter((c) => c.active).length).toBeGreaterThanOrEqual(2)
-    const b = await screen.findByLabelText(`Registrar ${cfgs[0].name} (${cfgs[0].capacityMl} ml)`, undefined, { timeout: 10000 })
-    fireEvent.click(b)
-    await waitFor(async () => {
-      const s = await getBottleDailySummary()
-      expect(s.totalMl).toBe(cfgs[0].capacityMl)
-    }, { timeout: 10000 })
+    const resumen = await getBottleDailySummary()
+    expect(resumen.totalMl).toBe(250)
   }, 40000)
 })

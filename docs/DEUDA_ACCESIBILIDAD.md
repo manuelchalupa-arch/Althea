@@ -51,7 +51,6 @@ Elementos interactivos sin semántica de control (recuento por elemento, no por 
 | `src/pages/Biblioteca.tsx` | 3 |
 | `src/components/recovery/BottleConfigEditor.tsx` | 2 |
 | `src/components/report/ReportModal.tsx` | 2 |
-| `src/components/sync/WgerSyncPanel.tsx` | 2 |
 | `src/pages/BibliotecaCustomForm.tsx` | 2 |
 | `src/pages/Onboarding.tsx` | 2 |
 | `src/components/althea/AltheaCard.tsx` | 1 |

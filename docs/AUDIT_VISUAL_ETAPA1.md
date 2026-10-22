@@ -215,7 +215,7 @@ fragmenta widgets interactivos y queda **fuera del alcance de esta etapa**.
 
 - `tsc --noEmit`: **0 errores**
 - `eslint . --max-warnings 0`: **0**
-- `vitest run`: **134 archivos · 1289 pass · 12 skip** (WGER sin credenciales)
+- `vitest run`: **134 archivos · 1289 pass · 12 skip**
 - `npm run build`: OK · `npm run check:release`: OK (sin claves en `dist/`)
 
 ### Abiertos / acciones del owner

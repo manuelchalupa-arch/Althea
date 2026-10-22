@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import SemanticIcon from '../ui/SemanticIcon'
 import { MacroPlate } from './MacroPlate'
 
@@ -17,7 +18,7 @@ const MACRO_ITEMS: Array<{ key: 'protein' | 'carbs' | 'fat'; label: string; icon
   { key: 'fat', label: 'Grasas', icon: 'local_fire_department', tone: 'text-secondary' },
 ]
 
-export function MacroSummary() {
+export function MacroSummary({ size = 260 }: { size?: number }) {
   const [totals, setTotals] = useState<MacroTotals | null>(null)
   const [goals, setGoals] = useState<MacroGoals | null>(null)
   const [loading, setLoading] = useState(true)
@@ -54,13 +55,14 @@ export function MacroSummary() {
             <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Consumo de macronutrientes</span>
             <span className="shrink-0 font-label-caps text-[10px] text-on-surface-variant uppercase block mt-0.5">{todayKey()}</span>
           </div>
+          <Link to="/nutricion" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors">Nutrición →</Link>
         </div>
       </div>
 
       {/* ─── GRÁFICO CIRCULAR — elemento visual principal ─── */}
       <div className="flex flex-col lg:flex-row lg:items-center gap-6">
         <div className="flex-1 max-w-[320px]">
-          <MacroPlate totals={totals} goals={goals} size={260} showLegend={false} />
+          <MacroPlate totals={totals} goals={goals} size={size} showLegend={false} />
         </div>
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {MACRO_ITEMS.map(({ key, label, icon, tone }) => {

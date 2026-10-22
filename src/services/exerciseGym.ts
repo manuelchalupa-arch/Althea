@@ -1,7 +1,7 @@
 // ExerciseGymGifsDB — API estática en español via jsDelivr
 // Base: https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0
 // Repo: https://github.com/JahelCuadrado/ExerciseGymGifsDB
-// Unica fuente a usar según instrucción del usuario — wger y seeds locales deprecados
+// Unica fuente a usar según instrucción del usuario — seeds locales deprecados
 
 import { fetchWithRetry } from './apiUtils'
 import { EXERCISE_GYM_BASE } from './exerciseGymBase'
@@ -43,22 +43,11 @@ export type Exercise = {
   contraindications?: string[]
 }
 
-export type MuscleEntry = { muscle:string; count:number; endpoint:string }
-export type EquipmentEntry = { equipment:string; count:number; endpoint:string }
-export type BodyPartEntry = { bodyPart:string; count:number; endpoint:string }
-export type CategoryEntry = { category:string; count:number; endpoint:string }
-
 async function getJSON<T>(url:string):Promise<T>{
   const res = await fetchWithRetry(url, { headers:{ Accept:'application/json' } })
   if(!res.ok) {throw new Error(`ExerciseGym ${res.status} ${url}`)}
-  return res.json() as Promise<T>
+  return res.json() as T
 }
-
-// Listados
-export const fetchMuscles = ()=> getJSON<MuscleEntry[]>(`${BASE}/api/${LANG}/muscles.json`)
-export const fetchEquipment = ()=> getJSON<EquipmentEntry[]>(`${BASE}/api/${LANG}/equipment.json`)
-export const fetchBodyParts = ()=> getJSON<BodyPartEntry[]>(`${BASE}/api/${LANG}/bodyparts.json`)
-export const fetchCategories = ()=> getJSON<CategoryEntry[]>(`${BASE}/api/${LANG}/categories.json`)
 
 // Colecciones filtradas
 export const fetchByMuscle = (muscle:string)=> getJSON<{ muscle:string; count:number; exercises:Exercise[] }>(`${BASE}/api/${LANG}/muscles/${muscle}.json`)

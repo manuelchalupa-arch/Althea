@@ -11,11 +11,11 @@ import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import { getCanonicalMethodId } from '@/services/planning/cycleVersions'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { SyncStatusCard } from '@/components/sync/SyncStatusCard'
-import { WgerSyncPanel } from '@/components/sync/WgerSyncPanel'
 import { DataOwnership } from '@/components/profile/DataOwnership'
 import { IconDumbbell, IconFire, IconBody, IconHeart, IconWater, IconUtensils, IconSleep, IconClipboard, IconLightning, IconTarget, IconUser, IconShield } from '@/components/brand/FitnessIcons'
 import { AltheaButton, AltheaBadge, AltheaSelect, AltheaEmpty, AltheaPanel, AltheaMetric } from '@/components/althea'
 import * as Gym from '@/services/exerciseGym'
+import { traditionalItems, toggleGroupExcluded, TRADITIONAL_GROUPS, type TraditionalGroupId, type TraditionalItem } from '@/data/traditionalCatalog'
 import { resolveCoachTone } from '@/services/ai/coachPersonality'
 import { todayKey } from '@/utils/dates'
 
@@ -52,8 +52,8 @@ const COACH_TONES: { id: string; label: string; desc: string }[] = [
 const COACH_LEVELS = [1, 2, 3, 4, 5]
 
 const BIBLIO_MUSCLES = [
-  { value: 'pectorals', label: 'Pecho' }, { value: 'biceps', label: 'Bíceps' }, { value: 'triceps', label: 'Tríceps' },
-  { value: 'abs', label: 'Abdominales' }, { value: 'quads', label: 'Piernas' }, { value: 'back', label: 'Espalda' }, { value: 'shoulders', label: 'Hombros' },
+  { value: '__all__', label: 'Todos los grupos' },
+  ...TRADITIONAL_GROUPS.map(g => ({ value: g.id, label: g.label })),
 ]
 
 function imcCalc(weight: number, height: number) {
@@ -148,7 +148,7 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
         <h3 className="font-headline-lg text-base font-semibold text-on-surface">Nueva notificación</h3>
         <div className="space-y-2">
           {NOTIF_TYPES.map(t => (
-            <button key={t.kind} onClick={() => setKind(t.kind)}
+            <button key={t.kind} onClick={() => setKind(t.kind)} aria-pressed={kind === t.kind}
               className={`w-full flex items-center gap-3 p-3 rounded-xl border transition ${kind === t.kind ? 'bg-surface-container-high border-primary/50' : 'bg-surface-container/50 border-outline-variant/50 hover:border-outline-variant'}`}>
               <span className="text-primary">{t.icon}</span>
               <span className="font-body-md text-[15px] text-on-surface">{t.label}</span>
@@ -194,8 +194,8 @@ export default function Perfil() {
   const [coachLevel, setCoachLevel] = useState(3)
   const [excluded, setExcluded] = useState<string[]>([])
   const [showBiblio, setShowBiblio] = useState(false)
-  const [biblioMuscle, setBiblioMuscle] = useState('back')
-  const [biblioItems, setBiblioItems] = useState<Gym.Exercise[]>([])
+  const [biblioMuscle, setBiblioMuscle] = useState('__all__')
+  const [biblioItems, setBiblioItems] = useState<TraditionalItem[]>([])
   const [biblioLoading, setBiblioLoading] = useState(false)
 
   useEffect(() => {
@@ -243,21 +243,24 @@ export default function Perfil() {
   useEffect(() => {
     if (!showBiblio) {return}
     setBiblioLoading(true)
-    const cached = Gym.cacheGet(`muscles/${biblioMuscle}`) as Gym.Exercise[] | null
+    // Síntesis: solo ejercicios tradicionales (sin variantes del catálogo).
+    // Todos los grupos de una vez; el filtro se aplica al render.
+    const cacheKey = 'trad:all'
+    const cached = Gym.cacheGet(cacheKey) as TraditionalItem[] | null
     if (cached) {
       setBiblioItems(cached)
       setBiblioLoading(false)
       return
     }
-    Gym.fetchByMuscle(biblioMuscle)
+    Gym.fetchAll()
       .then(r => {
-        const list = r.exercises.slice(0, 30)
+        const list = traditionalItems(r.exercises || [])
         setBiblioItems(list)
-        Gym.cacheSet(`muscles/${biblioMuscle}`, list)
+        Gym.cacheSet(cacheKey, list)
         setBiblioLoading(false)
       })
       .catch(() => { setBiblioItems([]); setBiblioLoading(false) })
-  }, [biblioMuscle, showBiblio])
+  }, [showBiblio])
 
   const saveProfile = async () => {
     const data: any = {
@@ -314,13 +317,18 @@ export default function Perfil() {
     setCoachLevel(level)
   }
 
-  const toggleExcluded = async (id: string) => {
+  const persistExcluded = async (nx: string[]) => {
     if (!profile) {return}
-    const nx = excluded.includes(id) ? excluded.filter(x => x !== id) : [...excluded, id]
     await db.userProfile.put({ ...profile, excludedExercises: nx, updatedAt: new Date().toISOString() })
     setProfile({ ...profile, excludedExercises: nx })
     setExcluded(nx)
   }
+
+  const toggleExcluded = (id: string) =>
+    persistExcluded(excluded.includes(id) ? excluded.filter(x => x !== id) : [...excluded, id])
+
+  const toggleExcludedGroup = (g: TraditionalGroupId) =>
+    persistExcluded(toggleGroupExcluded(biblioItems, g, excluded))
 
   const persistNotifs = (nx: NotifConfig[]) => {
     setNotifCfgs(nx)
@@ -514,9 +522,9 @@ export default function Perfil() {
         <div className="pt-3 space-y-2">
           <div className="grid grid-cols-1 gap-2">
             {Object.entries(GOAL_MAP).map(([key, g]) => (
-              <button key={key} onClick={() => updateGoal(key)}
-                className={`flex items-center gap-3 p-3 rounded-xl border transition ${profile?.trainingGoal === key ? `${g.color} border-current` : 'bg-surface-container/50 border-outline-variant/50 hover:border-outline-variant'}`}>
-                <span className="text-primary">{g.icon}</span>
+              <button key={key} onClick={() => updateGoal(key)} aria-pressed={profile?.trainingGoal === key}
+                className="flex items-center gap-3 p-3 rounded-xl border bg-surface-container/50 border-outline-variant/50 hover:border-outline-variant transition">
+                <span aria-hidden="true">{g.icon}</span>
                 <span className="font-body-md text-[15px]">{g.label}</span>
               </button>
             ))}
@@ -540,8 +548,8 @@ export default function Perfil() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               {COACH_TONES.map(t => (
-                <button key={t.id} onClick={() => saveCoachTone(t.id)}
-                  className={`min-h-[56px] p-3 rounded-lg border text-left transition ${coachTone === t.id ? 'bg-primary/15 border-primary/50' : 'bg-surface-container/50 border-outline-variant/50 hover:border-outline-variant'}`}>
+                <button key={t.id} onClick={() => saveCoachTone(t.id)} aria-pressed={coachTone === t.id}
+                  className="min-h-[56px] p-3 rounded-lg border bg-surface-container/50 border-outline-variant/50 hover:border-outline-variant transition text-left">
                   <div className="font-body-md text-sm text-on-surface font-medium">{t.label}</div>
                   <div className="font-body-md text-[11px] text-on-surface-variant mt-0.5">{t.desc}</div>
                 </button>
@@ -557,8 +565,8 @@ export default function Perfil() {
             </div>
             <div className="grid grid-cols-5 gap-2">
               {COACH_LEVELS.map(n => (
-                <button key={n} onClick={() => saveCoachLevel(n)} aria-label={`Exigencia ${n} de 5`}
-                  className={`h-12 rounded-lg border font-headline-md font-bold transition ${coachLevel === n ? 'bg-primary/15 border-primary/50 text-primary' : 'bg-surface-container/50 border-outline-variant/50 text-on-surface-variant'}`}>
+                <button key={n} onClick={() => saveCoachLevel(n)} aria-label={`Exigencia ${n} de 5`} aria-pressed={coachLevel === n}
+                  className="h-12 rounded-lg border font-headline-md font-bold bg-surface-container/50 border-outline-variant/50 transition">
                   {n}
                 </button>
               ))}
@@ -607,7 +615,7 @@ export default function Perfil() {
         <div className="pt-3 space-y-3">
           {notifPerm !== 'granted' && (
             <button onClick={async () => { const p = await requestPermission(); setNotifPerm(p) }}
-              className="w-full py-2.5 min-h-[48px] rounded-lg bg-primary/20 border border-primary/30 text-primary font-label-caps text-[10px] uppercase font-bold">
+              className="btn-primary w-full min-h-[48px]">
               Permitir notificaciones
             </button>
           )}
@@ -689,7 +697,8 @@ export default function Perfil() {
                     const nx = notifCfgs.map(x => x.id === c.id ? { ...x, days } : x)
                     persistNotifs(nx)
                   }}
-                    className={`flex-1 py-1 rounded text-[10px] font-bold ${c.days[i] ? 'bg-primary/20 text-primary' : 'bg-surface-container-high text-on-surface-variant/40'}`}>
+                    aria-pressed={c.days[i]}
+                    className="no-check flex-1 py-1 rounded bg-surface-container-high text-[10px] font-bold">
                     {d}
                   </button>
                 ))}
@@ -712,7 +721,8 @@ export default function Perfil() {
             <div className="grid grid-cols-2 gap-2">
               {(['dark', 'light'] as const).map(t => (
                 <button key={t} onClick={() => { setTheme(t); saveAppearance(t, textScale); applyAppearance() }}
-                  className={`py-2.5 rounded-lg border font-body-md text-[15px] text-on-surface transition ${theme === t ? 'bg-surface-container-high border-primary/50' : 'bg-surface-container/50 border-outline-variant/50'}`}>
+                  aria-pressed={theme === t}
+                  className="py-2.5 rounded-lg border font-body-md text-[15px] text-on-surface bg-surface-container/50 border-outline-variant/50 transition">
                   {t === 'dark' ? '🌙 Oscuro' : '☀️ Claro'}
                 </button>
               ))}
@@ -723,7 +733,8 @@ export default function Perfil() {
             <div className="grid grid-cols-3 gap-2">
               {([['s', 'Chico'], ['m', 'Mediano'], ['l', 'Grande']] as const).map(([v, label]) => (
                 <button key={v} onClick={() => { setTextScale(v); saveAppearance(theme, v); applyAppearance() }}
-                  className={`py-2.5 rounded-lg border font-body-md text-[15px] text-on-surface transition ${textScale === v ? 'bg-surface-container-high border-primary/50' : 'bg-surface-container/50 border-outline-variant/50'}`}>
+                  aria-pressed={textScale === v}
+                  className="py-2.5 rounded-lg border font-body-md text-[15px] text-on-surface bg-surface-container/50 border-outline-variant/50 transition">
                   {label}
                 </button>
               ))}
@@ -734,9 +745,6 @@ export default function Perfil() {
 
       {/* ═══ SINCRONIZACIÓN ═══ */}
       <SyncStatusCard />
-
-      {/* ═══ WGER ═══ */}
-      <WgerSyncPanel />
 
       {/* ═══ PROPIEDAD DE LOS DATOS (DEAD-001) ═══ */}
       <Section title="Tus datos" icon={<IconUser className="w-5 h-5" />}>
@@ -753,12 +761,12 @@ export default function Perfil() {
         )}
 
         <button onClick={() => setShowLogout(true)}
-          className="w-full py-3.5 min-h-[48px] rounded-xl bg-surface-container-low/80 border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/50 hover:text-secondary transition-colors">
+          className="btn-secondary w-full min-h-[48px]">
           Cerrar sesión
         </button>
 
         <button onClick={() => setShowDelete(true)}
-          className="w-full py-3.5 min-h-[48px] rounded-xl bg-error/10 border border-error/30 font-label-caps text-[10px] uppercase text-error hover:bg-error/10 transition-colors">
+          className="btn-danger w-full min-h-[48px]">
           Eliminar cuenta
         </button>
       </div>
@@ -776,6 +784,26 @@ export default function Perfil() {
               </button>
             </div>
             <AltheaSelect label="Grupo muscular" value={biblioMuscle} options={BIBLIO_MUSCLES} onChange={e => setBiblioMuscle(e.target.value)} />
+            {biblioItems.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {TRADITIONAL_GROUPS.map(g => {
+                  const items = biblioItems.filter(e => e.group === g.id)
+                  const n = items.filter(e => excluded.includes(e.id)).length
+                  const all = items.length > 0 && n === items.length
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => toggleExcludedGroup(g.id)}
+                      aria-pressed={all}
+                      className={`inline-flex items-center min-h-[36px] px-3 py-1.5 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest transition-colors ${all ? 'bg-error-container/60 border-error/50 text-error' : 'bg-surface-container-high border-outline-variant text-on-surface-variant hover:border-error/40'}`}
+                    >
+                      {g.label} {n}/{items.length}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             {biblioLoading ? (
               <div className="space-y-2 py-2" aria-hidden="true">
                 {[1, 2, 3].map(i => <div key={i} className="h-12 rounded-xl bg-surface-container-high animate-pulse" />)}
@@ -784,7 +812,7 @@ export default function Perfil() {
               <p className="font-body-md text-sm text-on-surface-variant py-4 text-center">No se pudieron cargar los ejercicios de la biblioteca.</p>
             ) : (
               <div className="space-y-1.5 max-h-[50vh] overflow-auto">
-                {biblioItems.map(ex => (
+                {biblioItems.filter(e => biblioMuscle === '__all__' || e.group === biblioMuscle).map(ex => (
                   <label key={ex.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-surface-container/60 border border-outline-variant/40 cursor-pointer transition hover:border-primary/40">
                     <input
                       type="checkbox"
@@ -794,7 +822,7 @@ export default function Perfil() {
                       onChange={() => toggleExcluded(ex.id)}
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="font-body-md text-sm text-on-surface truncate">{ex.name}</div>
+                      <div className="font-body-md text-sm text-on-surface truncate flex items-center gap-1.5">{ex.name} <span className="font-label-md text-[9px] uppercase tracking-widest text-primary border border-primary/40 rounded px-1 py-0.5 shrink-0">Tradicional</span></div>
                       <div className="font-label-md text-[10px] uppercase tracking-widest text-on-surface-variant capitalize">{ex.muscle} · {ex.equipment}</div>
                     </div>
                   </label>
@@ -823,8 +851,8 @@ export default function Perfil() {
             <h3 className="font-headline-lg text-base font-semibold text-on-surface text-center">¿Cerrar sesión?</h3>
             <p className="text-sm text-on-surface-variant text-center">Tus datos locales se conservan.</p>
             <div className="flex gap-2">
-              <button onClick={() => setShowLogout(false)} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
-              <button onClick={handleLogout} className="flex-1 py-2.5 rounded-lg bg-secondary text-on-secondary font-label-caps text-[10px] uppercase font-bold">Cerrar sesión</button>
+              <button onClick={() => setShowLogout(false)} className="btn-secondary flex-1 min-h-[48px]">Cancelar</button>
+              <button onClick={handleLogout} className="btn-primary flex-1 min-h-[48px]">Cerrar sesión</button>
             </div>
           </div>
         </div>
@@ -838,8 +866,8 @@ export default function Perfil() {
             <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder='Escribí "ELIMINAR"'
               className="w-full bg-surface-container-high/50 border border-error/40 rounded-xl p-3 font-body-md text-[15px] text-on-surface text-center" />
             <div className="flex gap-2">
-              <button onClick={() => { setShowDelete(false); setDeleteConfirm('') }} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
-              <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'ELIMINAR'} className="flex-1 py-2.5 rounded-lg bg-error text-on-error font-label-caps text-[10px] uppercase font-bold disabled:opacity-30">Eliminar</button>
+              <button onClick={() => { setShowDelete(false); setDeleteConfirm('') }} className="btn-secondary flex-1 min-h-[48px]">Cancelar</button>
+              <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'ELIMINAR'} className="btn-danger flex-1 min-h-[48px]">Eliminar</button>
             </div>
           </div>
         </div>

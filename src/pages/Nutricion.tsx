@@ -62,6 +62,7 @@ export default function Nutricion() {
   const [hydrationGoalMl, setHydrationGoalMl] = useState(0)
   const [bottleConfigs, setBottleConfigs] = useState<BottleConfig[]>([])
   const [hydrationBusy, setHydrationBusy] = useState(false)
+  const [hydrationError, setHydrationError] = useState<string | null>(null)
 
   // Flujo de comida
   const [draft, setDraft] = useState<DishDraft | null>(null)
@@ -173,11 +174,12 @@ export default function Nutricion() {
 
   const handleAddBottle = async (bottle: { id: string; name?: string; capacityMl: number }) => {
     setHydrationBusy(true)
+    setHydrationError(null)
     try {
       await completeBottle(bottle.id, activeDate)
       await loadHydration(activeDate)
-    } catch {
-      // noop
+    } catch (e) {
+      setHydrationError(e instanceof Error ? e.message : 'No se pudo registrar el agua')
     } finally {
       setHydrationBusy(false)
     }
@@ -185,11 +187,12 @@ export default function Nutricion() {
 
   const handleAddMl = async (ml: number) => {
     setHydrationBusy(true)
+    setHydrationError(null)
     try {
       await addHydrationMl(ml, activeDate)
       await loadHydration(activeDate)
-    } catch {
-      // noop
+    } catch (e) {
+      setHydrationError(e instanceof Error ? e.message : 'No se pudieron guardar los ml')
     } finally {
       setHydrationBusy(false)
     }
@@ -423,6 +426,7 @@ export default function Nutricion() {
               onAddMl={handleAddMl}
               disabled={hydrationBusy}
             />
+            {hydrationError && <p role="alert" className="font-body-sm text-xs text-error mt-1">{hydrationError}</p>}
           </div>
           <div className="mt-3">
             <BottleConfigEditor />
@@ -862,6 +866,7 @@ export default function Nutricion() {
               onAddMl={handleAddMl}
               disabled={hydrationBusy}
             />
+            {hydrationError && <p role="alert" className="font-body-sm text-xs text-error mt-1">{hydrationError}</p>}
           </div>
           {/* (G) Las botellas se configuran acá mismo: nombre, capacidad y activa */}
           <div className="mt-3">

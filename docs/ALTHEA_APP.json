@@ -54,7 +54,7 @@
       "stateManagement": "Hooks + contextos de React; sin Redux/Zustand",
       "localPersistence": "Dexie 4 (IndexedDB)",
       "cloudPersistence": "Firebase 12 (Firestore + Auth + FCM)",
-      "edge": "Cloudflare Workers (proxy Groq + proxy WGER)",
+      "edge": "Cloudflare Workers (proxy Groq)",
       "validation": "Zod 3.23",
       "icons": "lucide-react",
       "ids": "uuid 11",
@@ -368,7 +368,7 @@
     "Biblioteca": {
       "file": "src/pages/Biblioteca.tsx",
       "lines": 380,
-      "purpose": "Catalogo de ejercicios: filtros, busqueda tolerante, detalle, favoritos, ejercicios custom, importacion de muestras WGER."
+      "purpose": "Catalogo de ejercicios: filtros, busqueda tolerante, detalle, favoritos, ejercicios custom."
     },
     "Rutina": {
       "file": "src/pages/Rutina.tsx",
@@ -393,7 +393,7 @@
     "Perfil": {
       "file": "src/pages/Perfil.tsx",
       "lines": 797,
-      "purpose": "Perfil y ajustes: identidad, metricas corporales, objetivo, Coach, ejercicios excluidos, notificaciones, preferencias, sync, panel WGER."
+      "purpose": "Perfil y ajustes: identidad, metricas corporales, objetivo, Coach, ejercicios excluidos, notificaciones, preferencias, sync."
     },
     "LibraryCustomForm": {
       "file": "src/pages/BibliotecaCustomForm.tsx",
@@ -1242,20 +1242,8 @@
         "/api/es/categories/{category}.json",
         "/api/es/exercises/{muscle}/{slug}.json"
       ],
-      "deprecatedSources": ["wger como catalogo primario", "semilla local como catalogo primario"],
+      "deprecatedSources": ["semilla local como catalogo primario"],
       "cache": "db.exerciseGymCache"
-    },
-    "wger": {
-      "role": "Enriquecimiento externo opcional: rutinas, ejercicios, sesiones, measurements. NUNCA reemplaza la biblioteca local.",
-      "files": "src/services/integrations/wger/",
-      "subdirs": ["training", "nutrition", "measurements", "stats"],
-      "client": "wgerClient.ts (HTTP /api/v2/ con timeout)",
-      "auth": "wgerServerAuth.ts via Cloudflare Worker (el frontend nunca ve credenciales; cookies HttpOnly)",
-      "mapper": "wgerMapper.ts (WgerExerciseInfo -> Exercise; mantiene altheaId separado de wgerId)",
-      "adapter": "wgerAdapter.ts importa muestras WGER (20-50 ejercicios)",
-      "sync": "wgerSyncEngine.ts bidireccional con conflictos, inbox/outbox, reintentos, rate limit",
-      "license": "wgerLicense.ts (licencia/atribucion CC-BY-SA)",
-      "cspAllowed": true
     },
     "groq": {
       "role": "IA remota del Coach, siempre via proxy Worker",
@@ -1300,32 +1288,7 @@
         },
         {
           "method": "POST",
-          "path": "/api/wger/token",
-          "behavior": "Proxy a POST https://wger.de/api/v2/auth/token/ con user/pass; cookie wger_token Max-Age=86400"
-        },
-        {
-          "method": "DELETE",
-          "path": "/api/wger/token",
-          "behavior": "Limpia cookie (Max-Age=0)"
-        },
-        {
-          "method": "POST",
-          "path": "/api/wger/refresh",
-          "behavior": "Usa cookie wger_refresh; POST .../auth/token/refresh/; renueva wger_token"
-        },
-        {
-          "method": "GET",
-          "path": "/api/wger/user",
-          "behavior": "Requiere wger_token; GET https://wger.de/api/v2/user/; re-emite solo JSON parseado"
-        },
-        {
-          "method": "GET",
-          "path": "/api/wger/proxy/{path}",
-          "behavior": "Requiere cookie; {path} validado contra regex WGER_ALLOWED_PATH si no 403 path_not_allowed"
-        },
-        {
-          "method": "POST",
-          "path": "any non-WGER path",
+          "path": "any",
           "behavior": "handleGroq(): proxy a GROQ_URL"
         }
       ],
@@ -1346,12 +1309,10 @@
           ]
         },
         "methodAllowlist": {
-          "nonWger": "POST + OPTIONS; otro -> 405 con Allow",
-          "wger": "405 por ruta sin match, Allow: GET, POST, DELETE, OPTIONS"
+          "allowed": "POST + OPTIONS; otro -> 405 con Allow"
         },
         "bodyLimit": {
           "groqMaxBytes": 65536,
-          "wgerMaxBytes": 8192,
           "twoBarriers": [
             "Content-Length header check",
             "streaming reader con cancelacion al superar el limite"
@@ -1380,7 +1341,6 @@
         },
         "timeouts": {
           "groqMs": 60000,
-          "wgerMs": 15000,
           "mechanism": "AbortController + setTimeout + clearTimeout en finally",
           "onTimeout": "504 upstream_timeout",
           "onOtherFetchError": "502 upstream_error"
@@ -1392,7 +1352,6 @@
           "noStackTraces": true,
           "noHtmlEscapingOfMessageContent": true
         },
-        "cookieHardening": "wger_token; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age",
         "authHeaderServerControlled": true
       },
       "rateLimiting": {
@@ -1404,11 +1363,6 @@
             "max": 20,
             "windowSeconds": 60,
             "keyPrefix": "rl:groq"
-          },
-          "wger": {
-            "max": 60,
-            "windowSeconds": 60,
-            "keyPrefix": "rl:wger"
           }
         },
         "durableObject": {
@@ -1473,10 +1427,6 @@
           "kind": "var opcional",
           "default": 60000
         },
-        "WGER_TIMEOUT_MS": {
-          "kind": "var opcional",
-          "default": 15000
-        },
         "RATE_LIMITER": {
           "kind": "DO binding",
           "ifMissing": "degrada a KV"
@@ -1491,7 +1441,6 @@
         "GROQ_MAX_TOKENS": 512,
         "GROQ_TEMPERATURE": 0.7,
         "GROQ_TOP_P": 0.9,
-        "WGER_BASE": "https://wger.de/api/v2",
         "stream": true
       }
     },
@@ -1513,11 +1462,10 @@
         "Permissions-Policy": "accelerometer=(self), camera=(), geolocation=(self), gyroscope=(), magnetometer=(), microphone=(self), payment=(), usb=()",
         "X-Frame-Options": "SAMEORIGIN",
         "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://cdn.jsdelivr.net https://*.workers.dev https://wger.de; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://cdn.jsdelivr.net https://*.workers.dev; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
       },
       "cspNotable": {
         "styleSrcUnsafeInline": "requerido por Tailwind/emotion inline styles",
-        "wgerDe": "CONSERVADO (WGER sigue en uso)",
         "nutricionApiArgFlyDev": "ELIMINADO de connect-src",
         "connectSrcWorkersDev": "requerido por el proxy Groq"
       },
@@ -1590,8 +1538,7 @@
         "residualRisk": "Borrar el archivo NO revoca las claves: siguen siendo validas en los consoles de Groq y CalorieNinjas. La revocacion es una accion externa pendiente.",
         "remainingAction": "Revocar en console.groq.com (clave gsk_) y en la consola de CalorieNinjas."
       },
-      "declaredButUnread": ["VITE_CALORIE_NINJAS_KEY", "VITE_GROQ_SECRET", "VITE_CLOUDFLARE_TOKEN"],
-      "forbiddenByPolicy": ["VITE_WGER_* (nunca creados; credenciales WGER solo via Worker)"]
+      "declaredButUnread": ["VITE_CALORIE_NINJAS_KEY", "VITE_GROQ_SECRET", "VITE_CLOUDFLARE_TOKEN"]
     },
     "releaseGate": {
       "script": "scripts/check-release.mjs",
@@ -2080,20 +2027,6 @@
         "name": "STAGING_ALLOWED_ORIGIN",
         "readAt": "scripts/staging/http-smoke.mjs:37",
         "purpose": "header Origin para smoke tests"
-      },
-      {
-        "name": "WGER_TEST_USERNAME / WGER_TEST_PASSWORD",
-        "readAt": [
-          "scripts/staging-preflight.mjs:317-318",
-          "src/services/integrations/wger/wgerIntegration.test.ts:17-18"
-        ],
-        "purpose": "credenciales para E2E real de WGER",
-        "secret": true
-      },
-      {
-        "name": "WGER_TEST_BASE_URL",
-        "readAt": "src/services/integrations/wger/wgerIntegration.test.ts:16",
-        "default": "https://wger.de/api/v2"
       }
     ],
     "envFiles": {
@@ -2138,12 +2071,6 @@
         "nunca borra una op antes de confirmar exito"
       ],
       "entry": "processQueue(uid, remote) desde src/App.tsx:207-209"
-    },
-    "wgerSync": {
-      "engine": "wgerSyncEngine.ts",
-      "queue": "wgerSyncQueue.ts (outbox/inbox offline-safe)",
-      "conflicts": "wgerConflictResolver.ts (nunca auto-elimina una fuente)",
-      "log": "wgerSyncLog.ts"
     }
   },
   "firebase": {
@@ -2179,8 +2106,7 @@
       "runDate": "2026-10-04",
       "testFiles": 135,
       "testsPassing": 1303,
-      "testsSkipped": 12,
-      "skipReason": "tests E2E de WGER requieren WGER_TEST_USERNAME/PASSWORD"
+      "testsSkipped": 12
     },
     "staticInventory": {
       "note": "Conteo de bloques it() por analisis de archivos (no es el conteo de vitest).",
@@ -2227,7 +2153,6 @@
       "Aislamiento de datos y no-invencion (muchos tests verifican que la app NO inventa numeros)",
       "Migraciones localStorage -> Dexie (incluye casos de dia local)",
       "Dominio nutricional completo (TMB/TDEE/objetivos/macros/composicion de alimentos)",
-      "Integracion WGER (69 tests de integracion + offline + comparacion de fuentes)",
       "Seguridad del Worker (70 tests: CORS, rate limit, body limit, payload, fail-closed)",
       "Accesibilidad (tests a11y dedicated en componentes Althea)",
       "CSP y host headers (regression guard)",
@@ -2392,18 +2317,6 @@
       "file": "src/main.tsx:13-17"
     },
     {
-      "id": "cors-allow-methods-inconsistent",
-      "severity": "bug",
-      "detail": "worker/src/index.js:141 emite Access-Control-Allow-Methods 'POST, OPTIONS' mientras el 405 de WGER (L659) emite Allow 'GET, POST, DELETE, OPTIONS'. Los dos strings no coinciden.",
-      "file": "worker/src/index.js:141,659"
-    },
-    {
-      "id": "wger-429-missing-mode-header",
-      "severity": "cosmetico",
-      "detail": "El 429 de WGER no incluye X-RateLimit-Mode (el de Groq si).",
-      "file": "worker/src/index.js:404-410"
-    },
-    {
       "id": "duplicate-token-root-blocks",
       "severity": "deuda-tecnica",
       "detail": "src/index.css declara --c-* en un :root temprano (L16-183) y los redeclara en otro posterior (L623-744) que gana por cascada. Tokens muertos y confusion de mantenimiento.",
@@ -2465,10 +2378,6 @@
       {
         "id": "CLOUDFLARE_ACCOUNT_ID",
         "blocks": "preflight del Worker"
-      },
-      {
-        "id": "WGER_TEST_USERNAME / WGER_TEST_PASSWORD",
-        "blocks": "12 tests E2E de WGER + smoke http-smoke"
       },
       {
         "id": "PRODUCTION_KV_ID",

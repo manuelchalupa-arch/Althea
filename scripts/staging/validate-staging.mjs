@@ -110,7 +110,7 @@ try {
   } else {
     pass('csp', 'declarada en **')
     const connect = (csp.match(/connect-src\s+([^;]+)/) || [, ''])[1]
-    for (const host of ['wger.de', '*.firebaseio.com', '*.workers.dev']) {
+    for (const host of ['*.firebaseio.com', '*.workers.dev']) {
       connect.includes(host)
         ? pass(`csp-origin:${host}`)
         : fail(`csp-origin:${host}`, 'ausente de connect-src')
@@ -281,12 +281,6 @@ stagingWorker ? pass('staging-worker-url', stagingWorker) : blocked('staging-wor
 
 if (stagingProject && productionProject && stagingProject === productionProject) {
   fail('staging-vs-production', 'son el mismo proyecto Firebase')
-}
-
-if (process.env.WGER_TEST_USERNAME && process.env.WGER_TEST_PASSWORD) {
-  pass('wger-credentials', 'configured')
-} else {
-  blocked('wger-credentials', '12 tests reales de WGER siguen omitidos')
 }
 
 console.log(`  (informativo) GROQ_API_KEY en este entorno = ${secretStatus(process.env.GROQ_API_KEY)}`)

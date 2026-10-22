@@ -1,7 +1,7 @@
 # ALTHEA — CIERRE COMPLETO (FASE A · B · C)
 
 **Fecha:** 2026-09-28
-**Alcance:** orden de cierre total: cadena de datos, lógica de series, todas las fases Wger, requisitos visuales y documentación final.
+**Alcance:** orden de cierre total: cadena de datos, lógica de series, requisitos visuales y documentación final.
 **Resultado:** **CERRADO EN CÓDIGO.** Gates en verde. Las dos acciones externas de credenciales de `ALTHEA_FINAL_CLOSURE.md` §11 siguen pendientes y no dependen de este trabajo.
 
 ---
@@ -11,7 +11,7 @@
 1. Sin preguntas ni confirmaciones intermedias.
 2. Sin auditoría general repetitiva: investigación dirigida sólo donde hizo falta.
 3. No se cierra una fase con código incompleto, muerto, duplicado, hardcodeado, mocks como funcionalidad, doble fuente de verdad ni tests rotos.
-4. Arquitectura respetada: `Dexie = verdad local`, `Wger = enriquecimiento`, ninguna fuente eliminada antes de validar sustitución y documentar la decisión.
+4. Arquitectura respetada: `Dexie = verdad local`, ninguna fuente eliminada antes de validar sustitución y documentar la decisión.
 5. Sin push, sin PR, sin deploy.
 
 ---
@@ -32,27 +32,6 @@ Cada ejercicio de la rutina llega a la sesión con sus propios datos, y cada ser
 | `ExerciseSeriesTable.tsx` | toggle KG/LB con `aria-pressed`, guardado siempre en kg canónico, número solo interpretado como libras, «2 placas» no inventa kg (hint sin equivalencia), 0 = sin peso |
 
 **Tests nuevos:** `sessionChain.test.ts` (9) y `loadUnits.test.tsx` (4). Cobertura del ciclo completo: `saveRoutine → setActiveRoutineId → getDayExercises → createSession → confirmSetRecord`.
-
----
-
-## 3. FASE B — Wger: integración completada y decisiones documentadas
-
-- **Biblioteca** (`Biblioteca.tsx`): `syncWger()` con import automático de primer arranque (flag `wger:autoImport:v1`, sólo con 0 registros y online), refresh con `load('muscle','__all__')`, card «Catálogo Wger» en desktop y barra compacta con «Sincronizar» en mobile.
-- **Comparación de fuentes:** `wgerComparison.ts` exportado desde `wger/index.ts`. Wger `912` vs `ExerciseGymGifsDB` `1323` → **`DECISION = MANTENER_AMBAS`**: ninguna fuente se elimina; la biblioteca actual, las APIs de ejercicios/nutrición, `customExercises`, rutinas, historial, PR/1RM, periodización, Recovery, Coach, Firebase y Dexie siguen intactos.
-
-### 3.1 Decisión: fetchers eliminados (sin pérdida de datos)
-
-Se eliminaron funciones que nadie llamaba y que duplicaban trabajo ya cubierto:
-
-| Eliminado | Por qué no hace falta |
-|---|---|
-| `fetchWgerTaxonomy` (`wgerAdapter`) | La taxonomía y las traducciones viajan dentro de `exerciseinfo` y ya las resuelve `wgerMapper` |
-| `fetchMuscles`, `fetchEquipment`, `fetchCategories`, `fetchExerciseTranslations` (`wgerClient`) | Mismo motivo: endpoints redundantes respecto de `exerciseinfo` |
-| `fetchIngredients` (`wgerClient`) | Ingredientes pertenecen al módulo propio de nutrición, no al catálogo de ejercicios |
-
-Consecuencias verificadas: `wgerClient → wgerMapper → wgerAdapter → Dexie → Althea` sigue siendo la única puerta de entrada; `altheaId = wger-{id}` y `wgerProvenance` no cambian; las fábricas `vi.mock('./wgerClient')` de los 4 tests Wger se limpiaron y la suite queda verde.
-
-**Tests Wger:** `wgerIntegration.test.ts` (14), `wgerOffline.test.ts` (4), `wgerDuplicates.test.ts`, `wgerAdapter.test.ts`.
 
 ---
 
@@ -85,7 +64,7 @@ Tests: `Progreso.blocks.test.tsx` (estructura y ausencia de bloques profundos) y
 
 ### 4.2 Código muerto eliminado en este cierre
 
-`avgRPE` (Inicio), `weightData`, `bucketTotal`, `measures`, `numOrNull`, `metricValueOf`/`DayAgg`/`METRICS`/`METRIC_HELP`, `partSel`/`metric`/`customNames`/`unmapped`, query `db.sessions` que se descartaba en el destructuring, import de `projectProgress` sin uso, y los fetchers Wger de la sección 3.1.
+`avgRPE` (Inicio), `weightData`, `bucketTotal`, `measures`, `numOrNull`, `metricValueOf`/`DayAgg`/`METRICS`/`METRIC_HELP`, `partSel`/`metric`/`customNames`/`unmapped`, query `db.sessions` que se descartaba en el destructuring, e import de `projectProgress` sin uso.
 
 ### 4.3 Test hecho hermético
 
@@ -102,7 +81,7 @@ Tests: `Progreso.blocks.test.tsx` (estructura y ausencia de bloques profundos) y
 | `npm run build` | PASS, PWA emitido (69 entradas de precache) |
 | `npm run lint` | 0 errores / 166 warnings (= baseline) |
 
-Crecimiento sobre el cierre Wger anterior (118 archivos / 995 tests): **+3 archivos, +17 tests**.
+Crecimiento sobre el cierre anterior (118 archivos / 995 tests): **+3 archivos, +17 tests**.
 
 ---
 

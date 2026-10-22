@@ -123,14 +123,6 @@ describe('§3.1 CORS fail-closed', () => {
     expect(bad.status).toBe(403)
   })
 
-  it('WGER exige Origin explícito (sin Origin => 403)', async () => {
-    const res = await worker.fetch(
-      new Request('https://worker.example/api/wger/user', { method: 'GET' }),
-      env(),
-    )
-    expect(res.status).toBe(403)
-  })
-
   it('parseAllowedOrigins filtra entradas inválidas', () => {
     expect(parseAllowedOrigins('')).toEqual([])
     expect(parseAllowedOrigins(undefined)).toEqual([])
@@ -572,42 +564,5 @@ describe('§11 Groq secret server-side', () => {
     expect(JSON.stringify(init.headers)).toContain('gsk_supersecret')
     expect(String(init.body)).not.toContain('gsk_supersecret')
     vi.unstubAllGlobals()
-  })
-})
-
-// ─── WGER: no relay genérico ───────────────────────────────────────────────
-
-describe('WGER path allowlist', () => {
-  it('rechaza con 403 una ruta WGER fuera de la allowlist', async () => {
-    const res = await worker.fetch(
-      new Request('https://worker.example/api/wger/proxy/user/config', {
-        method: 'GET',
-        headers: { Origin: ORIGIN_STAGING, Cookie: 'wger_token=abc' },
-      }),
-      env(),
-    )
-    expect(res.status).toBe(403)
-    expect(await res.json()).toEqual({ error: 'path_not_allowed' })
-  })
-
-  it('exige cookie de sesión para /api/wger/user', async () => {
-    const res = await worker.fetch(
-      new Request('https://worker.example/api/wger/user', { method: 'GET', headers: { Origin: ORIGIN_STAGING } }),
-      env(),
-    )
-    expect(res.status).toBe(401)
-    expect(await res.json()).toEqual({ error: 'not_authenticated' })
-  })
-
-  it('valida Content-Type en el link de cuenta', async () => {
-    const res = await worker.fetch(
-      new Request('https://worker.example/api/wger/token', {
-        method: 'POST',
-        headers: { Origin: ORIGIN_STAGING, 'Content-Type': 'text/plain' },
-        body: 'user=pass',
-      }),
-      env(),
-    )
-    expect(res.status).toBe(415)
   })
 })

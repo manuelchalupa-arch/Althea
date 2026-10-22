@@ -140,7 +140,7 @@ if (firebase) {
     const connect = (csp.match(/connect-src\s+([^;]+)/) || [, ''])[1]
     // Orgs que la app contacta en runtime. Si alguno falta, el CSP lo
     // bloquea en silencio en el navegador.
-    for (const host of ['wger.de', '*.firebaseio.com', '*.workers.dev']) {
+    for (const host of ['*.firebaseio.com', '*.workers.dev']) {
       if (!connect.includes(host)) fail('CSP_MISSING_ORIGIN', host)
     }
     if (connect.trim() === '*') fail('CSP_WILDCARD_CONNECT_SRC')
@@ -326,14 +326,10 @@ console.log('[8] Identidad de staging (sólo el propietario puede aportarla)')
 const stagingProjectId = envOrFile('FIREBASE_STAGING_PROJECT_ID', '.env.staging')
 const stagingWorkerUrl = envOrFile('VITE_GROQ_PROXY_URL', '.env.staging')
 const productionProjectId = envOrFile('FIREBASE_PRODUCTION_PROJECT_ID', '.env.production')
-const wgerUser = process.env.WGER_TEST_USERNAME || ''
-const wgerPass = process.env.WGER_TEST_PASSWORD || ''
 
 console.log(`  FIREBASE_STAGING_PROJECT_ID = ${stagingProjectId || 'missing'}`)
 console.log(`  FIREBASE_PRODUCTION_PROJECT_ID = ${productionProjectId ? 'configured' : 'missing'}`)
 console.log(`  VITE_GROQ_PROXY_URL (staging) = ${stagingWorkerUrl || 'missing'}`)
-console.log(`  WGER_TEST_USERNAME = ${secretStatus(wgerUser)}`)
-console.log(`  WGER_TEST_PASSWORD = ${secretStatus(wgerPass)}`)
 
 if (!stagingProjectId) block('MISSING_FIREBASE_STAGING_PROJECT_ID')
 else if (stagingProjectId.includes('REEMPLAZAR')) block('FIREBASE_STAGING_PROJECT_ID_IS_PLACEHOLDER')
@@ -361,8 +357,6 @@ if (stagingWorkerUrl && productionProjectId) {
     fail('STAGING_POINTS_AT_PRODUCTION_WORKER', stagingWorkerUrl)
   }
 }
-
-if (!wgerUser || !wgerPass) block('MISSING_WGER_TEST_CREDENTIALS', '12 tests reales de WGER quedan omitidos')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 9. Datos ficticios en runtime

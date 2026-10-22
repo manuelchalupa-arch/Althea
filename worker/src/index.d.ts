@@ -15,8 +15,6 @@ export interface WorkerEnv {
   GROQ_URL?: string
   /** Timeout de la llamada a Groq en ms. Default 60000. */
   GROQ_TIMEOUT_MS?: string
-  /** Timeout de las llamadas WGER en ms. Default 15000. */
-  WGER_TIMEOUT_MS?: string
   /** Capa 1 del rate limit: namespace de Durable Objects (strongly consistent). */
   RATE_LIMITER?: {
     getByName(name: string): { fetch(input: string, init?: RequestInit): Promise<Response> }

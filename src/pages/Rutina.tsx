@@ -353,8 +353,8 @@ export default function RutinaPage(){
 
       {/* Rutina actual */}
       <AltheaCard className="space-y-2">
-        <div className="flex gap-2 items-center">
-          <input value={active.name} onChange={e=> updateActive(r=> ({...r, name: e.target.value}))} aria-label="Nombre de la rutina" className="flex-1 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface font-medium min-h-[48px]" />
+        <div className="flex gap-2 items-center flex-wrap">
+          <input value={active.name} onChange={e=> updateActive(r=> ({...r, name: e.target.value}))} aria-label="Nombre de la rutina" className="flex-1 min-w-[140px] bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface font-medium min-h-[48px]" />
           <AltheaButton variant="danger" onClick={()=>deleteRoutine(active.id)}><Trash2 size={14}/> Eliminar</AltheaButton>
           <AltheaButton variant="secondary" onClick={()=>duplicateRoutine(active.id)}>Duplicar</AltheaButton>
         </div>
@@ -947,7 +947,7 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
             return (
             <div key={ex.id} className={`rounded  bg-surface-container-low/90 backdrop-blur-sm border ${isSelected?'border-primary':'border-outline-variant'} overflow-hidden ${isExisting?'opacity-60':''}`}>
               <div className="flex items-start">
-                <button onClick={()=>toggleSelect(ex)} disabled={isExisting} className={`shrink-0 m-3 w-6 h-6 rounded-full border flex items-center justify-center ${isExisting?'border-outline-variant':isSelected?'bg-primary border-primary text-on-surface':'border-outline-variant text-on-surface-variant'}`} aria-label={isExisting?`${ex.name} ya está en el día`:`Seleccionar ${ex.name}`} aria-pressed={isSelected}>
+                <button onClick={()=>toggleSelect(ex)} disabled={isExisting} className={`no-check shrink-0 m-3 w-6 h-6 rounded-full border flex items-center justify-center ${isExisting?'border-outline-variant':isSelected?'bg-primary border-primary text-on-surface':'border-outline-variant text-on-surface-variant'}`} aria-label={isExisting?`${ex.name} ya está en el día`:`Seleccionar ${ex.name}`} aria-pressed={isSelected}>
                   {isExisting ? <History size={12}/> : isSelected ? <Check size={12}/> : null}
                 </button>
                 <div className="flex flex-col sm:flex-row flex-1 min-w-0">
@@ -1208,13 +1208,12 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
             <h3 className="font-body-md text-sm text-on-surface font-medium">¿Qué buscás con esta rutina?</h3>
             <div className="space-y-2">
               {goals.map(g=>(
-                <button key={g.id} onClick={()=>setGoal(g.id)} className={`w-full text-left rounded border p-3 flex items-center gap-3 transition-all ${goal===g.id ? 'bg-primary/20 border-primary' : 'bg-surface border-outline-variant hover:border-outline-variant'}`}>
-                  <span className="text-primary">{g.icon}</span>
+                <button key={g.id} onClick={()=>setGoal(g.id)} aria-pressed={goal===g.id} className={`w-full text-left rounded border p-3 flex items-center gap-3 transition-all ${goal===g.id ? 'bg-primary/20 border-primary' : 'bg-surface border-outline-variant hover:border-outline-variant'}`}>
+                  <span aria-hidden>{g.icon}</span>
                   <div>
                     <div className="font-body-md text-sm text-on-surface font-medium">{g.label}</div>
                     <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{g.desc}</div>
                   </div>
-                  {goal===g.id && <Check size={16} className="ml-auto text-primary"/>}
                 </button>
               ))}
             </div>
@@ -1227,7 +1226,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
             <h3 className="font-body-md text-sm text-on-surface font-medium">¿Cuántos días por semana entrenás?</h3>
             <div className="grid grid-cols-5 gap-2">
               {[2,3,4,5,6].map(d=>(
-                <button key={d} onClick={()=>setDays(d)} className={`py-4 rounded border text-center font-bold text-lg transition-all ${days===d ? 'bg-primary text-on-surface border-primary' : 'bg-surface border-outline-variant font-body-md text-sm text-on-surface'}`}>
+                <button key={d} onClick={()=>setDays(d)} aria-pressed={days===d} className={`py-4 rounded border text-center font-bold text-lg transition-all ${days===d ? 'bg-primary text-on-surface border-primary' : 'bg-surface border-outline-variant font-body-md text-sm text-on-surface'}`}>
                   {d}
                 </button>
               ))}
@@ -1242,10 +1241,9 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
             <h3 className="font-body-md text-sm text-on-surface font-medium">¿Qué enfoque preferís?</h3>
             <div className="space-y-2">
               {focuses.map(f=>(
-                <button key={f.id} onClick={()=>setFocus(f.id)} className={`w-full text-left rounded border p-3 transition-all ${focus===f.id ? 'bg-primary/20 border-primary' : 'bg-surface border-outline-variant'}`}>
+                <button key={f.id} onClick={()=>setFocus(f.id)} aria-pressed={focus===f.id} className={`w-full text-left rounded border p-3 transition-all ${focus===f.id ? 'bg-primary/20 border-primary' : 'bg-surface border-outline-variant'}`}>
                   <div className="font-body-md text-sm text-on-surface font-medium">{f.label}</div>
                   <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{f.desc}</div>
-                  {focus===f.id && <Check size={14} className="mt-1 text-primary"/>}
                 </button>
               ))}
             </div>
@@ -1259,10 +1257,10 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">La IA evitará ejercicios que puedan empeorar tu condición.</p>
             <textarea value={injury} onChange={e=>setInjury(e.target.value)} placeholder="Ej: dolor en hombro derecho, rodilla sensible, nada..." className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface h-24 resize-none"/>
             <div className="flex gap-2">
-              <button onClick={()=>setInjury('')} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${!injury ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Ninguna</button>
-              <button onClick={()=>setInjury('hombro')} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${injury==='hombro' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Hombro</button>
-              <button onClick={()=>setInjury('rodilla')} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${injury==='rodilla' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Rodilla</button>
-              <button onClick={()=>setInjury('espalda baja')} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${injury==='espalda baja' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Espalda</button>
+              <button onClick={()=>setInjury('')} aria-pressed={!injury} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${!injury ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Ninguna</button>
+              <button onClick={()=>setInjury('hombro')} aria-pressed={injury==='hombro'} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${injury==='hombro' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Hombro</button>
+              <button onClick={()=>setInjury('rodilla')} aria-pressed={injury==='rodilla'} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${injury==='rodilla' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Rodilla</button>
+              <button onClick={()=>setInjury('espalda baja')} aria-pressed={injury==='espalda baja'} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${injury==='espalda baja' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Espalda</button>
             </div>
           </div>
         )}

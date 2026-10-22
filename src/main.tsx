@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import '@/services/pwa/installPrompt'
 import './index.css'
 import './styles/althea-tokens.css'
 import './styles/althea-brand.css'

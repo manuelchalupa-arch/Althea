@@ -70,6 +70,21 @@
 
   /* ---- Botón principal: verde oscuro fijo, idéntico en claro y oscuro ---- */
 
+  /* ---- Botón secundario/neutro: SIEMPRE oscuro (grafito obsidiana) con texto
+         claro, en modo claro y en oscuro. Nada de botones blancos ni amarillos.
+         Mismos valores en ambos temas a propósito. ---- */
+  --althea-btn-dark: #20241F;
+  --althea-btn-dark-hover: #2A2D27;
+  --althea-btn-dark-text: #F1F0EA;
+  --althea-btn-dark-border: #3A3F38;
+
+  /* ---- Botón de peligro: rojo de la paleta (el error del tema claro) fijo
+         en ambos temas, con texto claro. AA: #F7F5F0 sobre #A13F3F ≈ 5.7:1.
+         En oscuro el rojo del tema (#C25B5B) quedaría en 3.8:1, por eso el
+         botón de peligro usa su propio token, igual que btn-dark. ---- */
+  --althea-btn-danger: #A13F3F;
+  --althea-btn-danger-text: #F7F5F0;
+
   /* ---- Mármol / granito: vetas muy sutiles, generadas con gradientes ---- */
   --althea-marble-sheen: rgba(255, 255, 255, 0.72);
 
@@ -252,18 +267,106 @@ html[data-chat-open] .fab-feedback { display: none; }
 }
 .btn-primary:hover { background: var(--althea-btn-primary-hover); }
 .btn-secondary {
-  background: var(--c-surface); color: var(--c-on-surface);
-  border-color: var(--c-outline-variant); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  background: var(--althea-btn-dark); color: var(--althea-btn-dark-text);
+  border-color: var(--althea-btn-dark-border);
 }
-.btn-secondary:hover { background: var(--c-surface-container-low); border-color: var(--c-outline); }
-.btn-ghost { background: transparent; color: var(--c-on-surface-variant); }
-.btn-ghost:hover { background: var(--c-surface-container); color: var(--c-on-surface); }
+.btn-secondary:hover { background: var(--althea-btn-dark-hover); border-color: var(--althea-btn-dark-hover); }
+.btn-ghost { background: var(--althea-btn-dark); color: var(--althea-btn-dark-text); }
+.btn-ghost:hover { background: var(--althea-btn-dark-hover); }
 .btn-danger {
-  background: var(--c-error-container); color: var(--c-on-error-container); border-color: color-mix(in srgb, var(--c-error) 35%, transparent);
+  background: var(--althea-btn-danger); color: var(--althea-btn-danger-text);
+  border-color: color-mix(in srgb, var(--althea-btn-danger) 65%, black);
 }
-.btn-danger:hover { background: color-mix(in srgb, var(--c-error-container) 88%, var(--c-error)); }
+.btn-danger:hover { background: color-mix(in srgb, var(--althea-btn-danger) 88%, black); }
 .btn-primary:active, .btn-secondary:active, .btn-ghost:active, .btn-danger:active { transform: scale(0.985); }
 .btn-primary:disabled, .btn-secondary:disabled, .btn-ghost:disabled, .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ============================================================
+   BOTONES SIEMPRE OSCUROS — regla de producto
+   Todo <button> (y label-action de archivo) con fondo claro o
+   amarillo de la paleta pasa a grafito obsidiana con texto
+   claro, en modo claro y en oscuro. Atrapa también las
+   variantes con opacidad (bg-primary-container/30, etc.) y las
+   clases hover:*, sin tocar tarjetas, chips de estado ni
+   badges (no son <button>). Los botones primary (verde) y
+   danger (rojo) ya son oscuros y quedan fuera de estas reglas.
+   ============================================================ */
+button[class*="bg-surface"],
+button[class*="bg-white"],
+button[class*="bg-card"],
+button[class*="bg-primary-container"],
+button[class*="bg-secondary-container"],
+button[class*="bg-tertiary"],
+button[class*="bg-stone-"],
+button[class*="bg-amber-"],
+button[class*="bg-yellow-"],
+label[class*="bg-surface"],
+label[class*="bg-primary-container"],
+label[class*="bg-secondary-container"],
+label[class*="bg-tertiary"] {
+  background: var(--althea-btn-dark) !important;
+  color: var(--althea-btn-dark-text) !important;
+  border-color: var(--althea-btn-dark-border) !important;
+}
+/* Texto de botones con fondo sólido primario/secundario: siempre claro
+   (nunca texto oscuro sobre fondo verde). Los tintes (bg-primary/20, etc.)
+   quedan fuera: conservan su text-primary/text-secondary del JSX, que sí
+   contrasta con el fondo translúcido en ambos temas. */
+button[class*="bg-primary"]:not([class*="bg-primary-container"]):not([class*="bg-primary/"]) { color: var(--c-on-primary) !important; }
+button[class*="bg-secondary"]:not([class*="bg-secondary-container"]):not([class*="bg-secondary/"]) { color: var(--c-on-secondary) !important; }
+@media (hover: hover) and (pointer: fine) {
+  button[class*="bg-surface"]:hover:not(:disabled),
+  button[class*="bg-white"]:hover:not(:disabled),
+  button[class*="bg-card"]:hover:not(:disabled),
+  button[class*="bg-primary-container"]:hover:not(:disabled),
+  button[class*="bg-secondary-container"]:hover:not(:disabled),
+  button[class*="bg-tertiary"]:hover:not(:disabled),
+  button[class*="bg-stone-"]:hover:not(:disabled),
+  button[class*="bg-amber-"]:hover:not(:disabled),
+  button[class*="bg-yellow-"]:hover:not(:disabled),
+  label[class*="bg-surface"]:hover,
+  label[class*="bg-primary-container"]:hover,
+  label[class*="bg-secondary-container"]:hover,
+  label[class*="bg-tertiary"]:hover {
+    filter: brightness(1.25);
+  }
+}
+
+/* ============================================================
+   SELECCIÓN = SOLO REBORDE BRILLANTE + TILDE
+   El botón seleccionado NO cambia fondo, color de texto ni
+   tamaño: se le añade un outline de color primario con un halo
+   suave (brillo) y, cuando aplica, una tilde ✓ al final.
+   Atrapa los toggles/filtros por aria-pressed, aria-checked,
+   .is-active y
+   .althea-chip.is-active. Excluye tabs, seg, toolbar y nav
+   (tienen su propia regla de reborde más abajo/en su archivo).
+   Las clases de relleno que queden en el JSX (bg-primary, etc.)
+   se neutralizan aquí para que la selección no altere el color.
+   ============================================================ */
+button[aria-pressed="true"]:not(:disabled):not(.althea-tab):not(.althea-toolbar__item):not(.althea-nav-item):not(.althea-seg button),
+button[aria-checked="true"]:not(:disabled):not(.althea-tab):not(.althea-toolbar__item):not(.althea-nav-item):not(.althea-seg button),
+button.is-active:not(:disabled):not(.althea-seg button),
+.althea-chip.is-active {
+  background: var(--althea-btn-dark) !important;
+  color: var(--althea-btn-dark-text) !important;
+  border-color: var(--althea-btn-dark-border) !important;
+  outline: 2px solid var(--c-primary) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 14px 2px color-mix(in srgb, var(--c-primary) 40%, transparent) !important;
+}
+/* Tilde de selección. Los botones que ya comunican el estado con un
+   icono propio se marcan con .no-check para no duplicar la tilde. */
+button[aria-pressed="true"]:not(:disabled):not(.no-check)::after,
+button[aria-checked="true"]:not(:disabled):not(.no-check)::after,
+button.is-active:not(:disabled):not(.althea-seg button):not(.no-check)::after,
+.althea-chip.is-active::after {
+  content: '\2713';
+  margin-left: 6px;
+  font-weight: 700;
+  font-size: 0.95em;
+  line-height: 1;
+}
 
 /* ============================ CAMPOS ============================ */
 .input {
@@ -313,14 +416,14 @@ html[data-chat-open] .fab-feedback { display: none; }
 .althea-chip {
   display: inline-flex; align-items: center; gap: 6px;
   border-radius: var(--althea-radius-pill);
-  border: 1px solid var(--c-outline-variant);
-  background: var(--c-surface);
-  color: var(--c-on-surface-variant);
+  border: 1px solid var(--althea-btn-dark-border);
+  background: var(--althea-btn-dark);
+  color: var(--althea-btn-dark-text);
   padding: 7px 13px; font-size: 0.8125rem; font-weight: 500;
   cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.althea-chip:hover { border-color: var(--c-outline); color: var(--c-on-surface); }
-.althea-chip.is-active { background: color-mix(in srgb, var(--c-primary) 9%, var(--c-surface)); border-color: var(--c-primary); color: var(--c-primary); font-weight: 600; }
+.althea-chip:hover { background: var(--althea-btn-dark-hover); border-color: var(--althea-btn-dark-hover); }
+.althea-chip.is-active { font-weight: 600; }
 
 .althea-seg {
   display: inline-flex; gap: 2px; padding: 3px;
@@ -335,8 +438,11 @@ html[data-chat-open] .fab-feedback { display: none; }
 }
 .althea-seg button:hover { color: var(--c-on-surface); }
 .althea-seg button[aria-selected="true"], .althea-seg button.is-active {
-  background: var(--c-surface); color: var(--c-on-surface);
-  box-shadow: var(--althea-shadow-sm); font-weight: 600;
+  background: transparent; color: var(--c-on-surface);
+  font-weight: 600;
+  outline: 2px solid var(--c-primary);
+  outline-offset: 1px;
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--c-primary) 35%, transparent);
 }
 
 .althea-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--c-outline-variant); overflow-x: auto; scrollbar-width: none; }
@@ -457,12 +563,12 @@ html[data-chat-open] .fab-feedback { display: none; }
 .theme-toggle-btn {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 10px; border-radius: var(--althea-radius-pill);
-  border: 1px solid var(--c-outline-variant);
-  background: var(--c-surface-container-low);
-  color: var(--c-on-surface-variant);
+  border: 1px solid var(--althea-btn-dark-border);
+  background: var(--althea-btn-dark);
+  color: var(--althea-btn-dark-text);
   transition: all 0.2s ease; cursor: pointer;
 }
-.theme-toggle-btn:hover { background: var(--c-surface-container); color: var(--c-on-surface); }
+.theme-toggle-btn:hover { background: var(--althea-btn-dark-hover); color: var(--althea-btn-dark-text); }
 .theme-toggle-btn .icon-sun, .theme-toggle-btn .icon-moon { font-size: 17px; transition: transform 0.2s ease; }
 .theme-toggle-btn:hover .icon-sun { transform: rotate(12deg); }
 .theme-toggle-btn:hover .icon-moon { transform: rotate(-12deg); }

@@ -3,7 +3,6 @@
  *
  * Arranque:
  *   - POST /                      -> proxy Groq (chat completion, SSE)
- *   - /api/wger/*                 -> auth + proxy WGER (opcional)
  *
  * Principio de diseño (§3-§10 del prompt de cierre):
  *   El Worker es un proxy CONTROLADO, no un relay HTTP genérico.
@@ -42,14 +41,8 @@ import { checkRateLimit } from './rate-limiter.js'
  *  sigue siendo pequeño frente a un payload abusivo. */
 const MAX_BODY_BYTES = 64 * 1024 // 65536
 
-/** Body máx de los endpoints WGER (JSON pequeño). */
-const MAX_WGER_BODY_BYTES = 8 * 1024 // 8192
-
 /** Timeout por defecto de la llamada a Groq (ms). Configurable por entorno. */
 const DEFAULT_GROQ_TIMEOUT_MS = 60_000
-
-/** Timeout por defecto de las llamadas a WGER (ms). */
-const DEFAULT_WGER_TIMEOUT_MS = 15_000
 
 /** Modelo fijado por servidor. El cliente NUNCA lo elige. */
 const GROQ_MODEL = 'openai/gpt-oss-20b'
@@ -78,15 +71,6 @@ const RATE_LIMIT = {
   windowSeconds: 60, // por minuto
   keyPrefix: 'rl:groq',
 }
-
-/** Rate limit WGER (capa DO/KV) — más holgado, es tráfico de sincronización. */
-const WGER_RATE_LIMIT = {
-  max: 60,
-  windowSeconds: 60,
-  keyPrefix: 'rl:wger',
-}
-
-const WGER_BASE = 'https://wger.de/api/v2'
 
 // ───────────────────────────────────────────────────────────────────────────
 // Utilidades de respuesta
@@ -327,196 +311,6 @@ export async function fetchWithTimeout(url, init, timeoutMs) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// WGER (opcional) — mismo contrato de CORS/timeout, sin relay genérico
-// ───────────────────────────────────────────────────────────────────────────
-
-async function wgerTokenRequest(username, password, timeoutMs) {
-  const res = await fetchWithTimeout(
-    `${WGER_BASE}/auth/token/`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ username, password }),
-    },
-    timeoutMs,
-  )
-  if (res.timeout || res.error) return { kind: res.timeout ? 'timeout' : 'error' }
-  if (!res.ok) return null
-  return res.json()
-}
-
-async function wgerRefreshRequest(refresh, timeoutMs) {
-  const res = await fetchWithTimeout(
-    `${WGER_BASE}/auth/token/refresh/`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ refresh }),
-    },
-    timeoutMs,
-  )
-  if (res.timeout || res.error) return { kind: res.timeout ? 'timeout' : 'error' }
-  if (!res.ok) return null
-  return res.json()
-}
-
-function extractToken(request) {
-  const cookie = request.headers.get('Cookie') || ''
-  const match = cookie.match(/(?:^|;\s*)wger_token=([^;]+)/)
-  return match ? decodeURIComponent(match[1]) : null
-}
-
-function setCookieHeader(token, maxAge) {
-  return `wger_token=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${maxAge}`
-}
-
-function clearCookieHeader() {
-  return 'wger_token=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0'
-}
-
-/**
- * Proxy WGER **de allowlist**: sólo GET sobre un conjunto de rutas WGER
- * permitidas. No es un relay: el path destino no lo elige libremente el
- * cliente, se filtra contra la allowlist.
- */
-const WGER_ALLOWED_PATH = /^\/(exerciseinfo|exerciseimage|muscle|equipment|exercisebase|workout|workoutlog|day|session)\/?(\d+\/?)*$/
-
-async function proxyToWger(request, path, token, timeoutMs) {
-  const url = `${WGER_BASE}${path}`
-  const headers = new Headers()
-  headers.set('Accept', 'application/json')
-  headers.set('Authorization', `Bearer ${token}`)
-
-  const upstream = await fetchWithTimeout(
-    url,
-    { method: 'GET', headers, redirect: 'follow' },
-    timeoutMs,
-  )
-  if (upstream.timeout) return { kind: 'timeout' }
-  if (upstream.error) return { kind: 'error' }
-  return { kind: 'response', res: upstream }
-}
-
-async function handleWger(request, path, env, cors, timeoutMs) {
-  // Rate limit separado para WGER (no comparte cuota con el Coach).
-  const rl = await checkRateLimit(env, clientKey(request), WGER_RATE_LIMIT, Date.now())
-  if (!rl.ok) {
-    return errorResponse(429, 'rate_limited', {
-      ...cors,
-      'Retry-After': String(rl.resetSeconds),
-      'X-RateLimit-Limit': String(rl.limit),
-      'X-RateLimit-Remaining': '0',
-      'X-RateLimit-Reset': String(rl.resetSeconds),
-    })
-  }
-
-  // ── POST /api/wger/token (link account) ────────────────────────────────
-  if (path === '/api/wger/token' && request.method === 'POST') {
-    if (!isJsonContentType(request.headers.get('Content-Type'))) {
-      return errorResponse(415, 'unsupported_media_type', cors)
-    }
-    const body = await readBodyWithLimit(request, MAX_WGER_BODY_BYTES)
-    if (!body.ok) {
-      return body.code === 'payload_too_large'
-        ? errorResponse(413, 'payload_too_large', cors)
-        : errorResponse(400, 'invalid_request', cors)
-    }
-    let parsed
-    try {
-      parsed = JSON.parse(body.text)
-    } catch {
-      return errorResponse(400, 'invalid_json', cors)
-    }
-    const username = parsed?.username
-    const password = parsed?.password
-    if (typeof username !== 'string' || typeof password !== 'string') {
-      return errorResponse(400, 'missing_credentials', cors)
-    }
-    if (username.length > 255 || password.length > 512) {
-      return errorResponse(400, 'credentials_too_long', cors)
-    }
-
-    const tokenData = await wgerTokenRequest(username, password, timeoutMs)
-    if (tokenData?.kind === 'timeout') return errorResponse(504, 'upstream_timeout', cors)
-    if (tokenData?.kind === 'error') return errorResponse(502, 'upstream_error', cors)
-    if (!tokenData?.access) return errorResponse(401, 'invalid_credentials', cors)
-
-    const headers = { ...cors, 'Set-Cookie': setCookieHeader(tokenData.access, 86400) }
-    return jsonResponse({ success: true }, 200, headers)
-  }
-
-  // ── DELETE /api/wger/token (unlink) ───────────────────────────────────
-  if (path === '/api/wger/token' && request.method === 'DELETE') {
-    const headers = { ...cors, 'Set-Cookie': clearCookieHeader() }
-    return jsonResponse({ success: true }, 200, headers)
-  }
-
-  // ── POST /api/wger/refresh ─────────────────────────────────────────────
-  if (path === '/api/wger/refresh' && request.method === 'POST') {
-    const cookie = request.headers.get('Cookie') || ''
-    const refreshMatch = cookie.match(/(?:^|;\s*)wger_refresh=([^;]+)/)
-    const refresh = refreshMatch ? decodeURIComponent(refreshMatch[1]) : null
-    if (!refresh) return errorResponse(401, 'no_refresh_token', cors)
-
-    const tokenData = await wgerRefreshRequest(refresh, timeoutMs)
-    if (tokenData?.kind === 'timeout') return errorResponse(504, 'upstream_timeout', cors)
-    if (tokenData?.kind === 'error') return errorResponse(502, 'upstream_error', cors)
-    if (!tokenData?.access) return errorResponse(401, 'refresh_failed', cors)
-
-    const headers = { ...cors, 'Set-Cookie': setCookieHeader(tokenData.access, 86400) }
-    return jsonResponse({ success: true }, 200, headers)
-  }
-
-  // ── GET /api/wger/user ────────────────────────────────────────────────
-  if (path === '/api/wger/user' && request.method === 'GET') {
-    const token = extractToken(request)
-    if (!token) return errorResponse(401, 'not_authenticated', cors)
-
-    const upstream = await fetchWithTimeout(
-      `${WGER_BASE}/user/`,
-      { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } },
-      timeoutMs,
-    )
-    if (upstream.timeout) return errorResponse(504, 'upstream_timeout', cors)
-    if (upstream.error) return errorResponse(502, 'upstream_error', cors)
-    if (!upstream.ok) return errorResponse(502, 'upstream_error', cors)
-
-    // Se reenvía sólo el JSON parseado, nunca headers upstream.
-    try {
-      const data = await upstream.json()
-      return jsonResponse(data, 200, cors)
-    } catch {
-      return errorResponse(502, 'invalid_upstream_response', cors)
-    }
-  }
-
-  // ── GET /api/wger/proxy/<allowlisted-path> ────────────────────────────
-  if (path.startsWith('/api/wger/proxy/') && request.method === 'GET') {
-    const token = extractToken(request)
-    if (!token) return errorResponse(401, 'not_authenticated', cors)
-
-    const wgerPath = path.replace('/api/wger/proxy', '')
-    if (!WGER_ALLOWED_PATH.test(wgerPath)) {
-      return errorResponse(403, 'path_not_allowed', cors)
-    }
-
-    const result = await proxyToWger(request, wgerPath, token, timeoutMs)
-    if (result.kind === 'timeout') return errorResponse(504, 'upstream_timeout', cors)
-    if (result.kind === 'error') return errorResponse(502, 'upstream_error', cors)
-
-    const { res } = result
-    try {
-      const data = await res.json()
-      return jsonResponse(data, res.status, cors)
-    } catch {
-      return errorResponse(502, 'invalid_upstream_response', cors)
-    }
-  }
-
-  return null
-}
-
-// ───────────────────────────────────────────────────────────────────────────
 // Groq endpoint
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -636,10 +430,6 @@ export default {
     const origin = resolveAllowedOrigin(requestOrigin, allowedOrigins)
     if (origin === null) {
       // Origin ausente (same-origin/no-browser) o no permitido.
-      // Para WGER (que usa cookies) exigimos Origin explícito; para el proxy
-      // Groq (sin cookies, bearer server-side) se permite same-origin.
-      const isWger = path.startsWith('/api/wger/')
-      if (isWger) return errorResponse(403, 'forbidden_origin')
       if (requestOrigin) return errorResponse(403, 'forbidden_origin')
     }
 
@@ -651,15 +441,7 @@ export default {
       return new Response(null, { status: 204, headers: { ...cors, Allow: 'POST, OPTIONS' } })
     }
 
-    // ── 3. WGER ───────────────────────────────────────────────────────
-    if (path.startsWith('/api/wger/')) {
-      const timeoutMs = Number(env.WGER_TIMEOUT_MS) || DEFAULT_WGER_TIMEOUT_MS
-      const result = await handleWger(request, path, env, cors, timeoutMs)
-      if (result) return result
-      return errorResponse(405, 'method_not_allowed', { ...cors, Allow: 'GET, POST, DELETE, OPTIONS' })
-    }
-
-    // ── 4. Groq (POST /) ─────────────────────────────────────────────
+    // ── 3. Groq (POST /) ─────────────────────────────────────────────
     if (request.method !== 'POST') {
       return errorResponse(405, 'method_not_allowed', { ...cors, Allow: 'POST, OPTIONS' })
     }

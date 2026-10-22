@@ -207,8 +207,11 @@
   .althea-toolbar__item:hover { background: var(--althea-surface-container-high); color: var(--althea-on-surface); }
 }
 .althea-toolbar__item[aria-selected='true'] {
-  background: var(--althea-primary);
-  color: var(--althea-on-primary);
+  background: none;
+  color: var(--althea-on-surface);
+  outline: 2px solid var(--althea-primary);
+  outline-offset: 1px;
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--althea-primary) 35%, transparent);
 }
 .althea-toolbar__item:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -234,9 +237,12 @@
   .althea-btn-primary:hover { background: var(--althea-primary-hover); }
   }
 .althea-btn-secondary {
-  background: transparent;
-  border-color: var(--althea-outline);
-  color: var(--althea-on-surface);
+  background: var(--althea-btn-dark);
+  border-color: var(--althea-btn-dark-border);
+  color: var(--althea-btn-dark-text);
+}
+@media (hover: hover) and (pointer: fine) {
+  .althea-btn-secondary:hover { background: var(--althea-btn-dark-hover); border-color: var(--althea-btn-dark-hover); }
 }
 
 /* ============ NAVEGACIÓN ============ */
@@ -259,9 +265,12 @@
 }
 .althea-nav-item:active { transform: scale(0.98); transition: transform var(--althea-duration-press) var(--althea-ease-out); }
 .althea-nav-item[aria-current='page'] {
-  background: var(--althea-primary);
-  color: var(--althea-on-primary);
+  background: none;
+  color: var(--althea-on-surface);
   font-weight: 600;
+  outline: 2px solid var(--althea-primary);
+  outline-offset: 1px;
+  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--althea-primary) 35%, transparent);
 }
 .althea-nav-item[data-disabled='true'] { opacity: 0.4; pointer-events: none; }
 
@@ -371,7 +380,10 @@
 .atlas-legend__sw.is-low { background: var(--althea-muscle-low); }
 .atlas-legend__sw.is-idle { background: var(--althea-muscle-idle); }
 .atlas-legend__note { flex-basis: 100%; margin: 0; font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted); }
-.atlas-stats { margin: 12px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* Móvil (360–430): dos tarjetas por fila para que cada dato se lea completo.
+   Desktop (≥768): la grilla de 3 columnas tradicional. */
+.atlas-stats { margin: 12px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 768px) { .atlas-stats { grid-template-columns: repeat(3, 1fr); } }
 .atlas-stats__item { background: var(--althea-surface-2); border: var(--althea-border-width) solid var(--althea-outline); border-radius: var(--althea-radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
 .atlas-stats__item dt { font-size: var(--althea-fs-label); text-transform: uppercase; letter-spacing: 0.06em; color: var(--althea-on-surface-muted); }
 .atlas-stats__item dd { margin: 0; font-weight: 600; color: var(--althea-on-surface); font-variant-numeric: tabular-nums; }

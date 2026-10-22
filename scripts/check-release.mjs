@@ -14,7 +14,6 @@ const PATTERNS = [
   { name: 'VITE_NINJA_API_KEY', re: /VITE_NINJA_API_KEY/ },
   { name: 'VITE_CALORIE_NINJAS_KEY', re: /VITE_CALORIE_NINJAS_KEY/ },
   { name: 'Variable privada VITE_*_SECRET embebida', re: /VITE_[A-Z0-9_]*SECRET/ },
-  { name: 'Credencial WGER embebida', re: /WGER_(PASSWORD|API_KEY|SECRET|TOKEN)[^_A-Z]/ },
   { name: 'Clave privada PEM (service account) embebida', re: /-----BEGIN [A-Z ]*PRIVATE KEY-----/ },
 ]
 

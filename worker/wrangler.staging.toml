@@ -14,14 +14,12 @@ compatibility_date = "2025-09-01"
 
 [vars]
 # Fail-closed: si CORS_ORIGIN falta, el Worker responde 500 (no hay fallback a *).
-# Origen de staging: dominio por defecto de Firebase Hosting para un proyecto
-# llamado `althea-staging`. Si tu project id de staging es otro, cambiá esta
-# línea por https://<STAGING_PROJECT_ID>.web.app antes de usar el Coach.
-# Debe seguir siendo DISTINTO del de producción.
-CORS_ORIGIN = "https://althea-staging.web.app"
+# Origen de staging: dominio por defecto de Firebase Hosting para el proyecto
+# `althea-stg` (creado 2026-10-21; el ID `althea-staging` ya existía ajeno).
+# Debe seguir siendo DISTINTO al de producción.
+CORS_ORIGIN = "https://althea-stg.web.app"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_TIMEOUT_MS = "60000"
-WGER_TIMEOUT_MS = "15000"
 
 # Rate limit. Capa 1 (preferida): Durable Object, contador strongly consistent.
 # Es la unica que es boundary de seguridad real en el edge distribuido.

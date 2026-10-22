@@ -61,7 +61,7 @@ Cada flujo se marca con uno de estos estados:
 
 1. **No se ejecutó la aplicación.** Todo lo verificado es por lectura de código y de tests; no hubo validación en ejecución ni en dispositivo real.
 2. **Componentes no leídos íntegramente.** `ChatWidget`, `ExerciseSeriesTable`, `SessionModals`, `MuscleAtlas`, `ReportModal`, `DishComposer`, `BottleConfigEditor`, `WaterBottle`, `PainToggle`, `VariantPicker` y `PeriodizationEditor` se identificaron y se citan por su comportamiento observable desde la página que los monta, pero no se auditó línea por línea. Los flujos internos de estos componentes están marcados como **Pendiente**.
-3. **Servicios externos no verificables.** El catálogo de ejercicios (ExerciseGym), Wger, Groq (Coach) y Firebase dependen de red y de credenciales; su respuesta real no se comprobó.
+3. **Servicios externos no verificables.** El catálogo de ejercicios (ExerciseGym), Groq (Coach) y Firebase dependen de red y de credenciales; su respuesta real no se comprobó.
 4. **Servidor y Worker.** El Worker de `worker/` no participa de los flujos de usuario de la PWA y quedó fuera de alcance.
 5. **Comportamiento PWA offline** (service worker, `controllerchange`) se documenta por código, sin prueba de despliegue.
 
@@ -91,7 +91,7 @@ Cada flujo se marca con uno de estos estados:
 | **Onboarding** | Configuración inicial del perfil (7 pasos) | Automático: si el perfil no tiene `onboardingDone` o no tiene `email` | 2.1 Cuestionario guiado completo |
 | **Inicio** | Panel diario: qué entrenar hoy,CTV de la semana, hidratación, recuperación, gasto calórico | Raíz `/`; enlace «Revisar rutina» del aviso de revisión | 3.1 Comenzar/continuar entrenamiento · 3.2 Cambiar el día de entrenamiento · 3.3 Registrar hidratación rápida · 3.4 Navegar la semana · 3.5 Editar un ejercicio del día |
 | **Entrenar** | Ejecución de la sesión: series, descansos, sustitución, Pain Toggle, cierre | CTA de Inicio; o acceso directo en navegación con sesión activa | 4.1 Reanudar sesión de otra fecha · 4.2 Registrar series · 4.3 Gestionar descansos · 4.4 Sustituir ejercicio · 4.5 Registrar dolor y elegir variante · 4.6 Modificar el plan del ejercicio · 4.7 Saltar ejercicio · 4.8 Agregar serie o ejercicio extra · 4.9 Finalizar la sesión · 4.10 Cancelar / Abandonar · 4.11 Pausar / Reanudar |
-| **Biblioteca** | Consulta técnica del catálogo, favoritos, ejercicios propios, catálogo Wger | Navegación lateral / Más | 5.1 Explorar y filtrar · 5.2 Marcar favorito · 5.3 Ver detalle · 5.4 Crear ejercicio propio · 5.5 Editar / eliminar ejercicio propio · 5.6 Sincronizar Wger |
+| **Biblioteca** | Consulta técnica del catálogo, favoritos, ejercicios propios | Navegación lateral / Más | 5.1 Explorar y filtrar · 5.2 Marcar favorito · 5.3 Ver detalle · 5.4 Crear ejercicio propio · 5.5 Editar / eliminar ejercicio propio |
 | **Nutrición** | Diario alimentario, macros, hidratación, adherencia, sugerencias | Navegación primaria | 6.1 Registrar comida (por texto) · 6.2 Editar comida · 6.3 Eliminar comida · 6.4 Registrar hidratación · 6.5 Configurar botellas · 6.6 Puntuar adherencia · 6.7 Reutilizar alimento frecuente |
 | **Coach IA** | Chat con asistente; contexto de rutina, sesión y consejos | Navegación lateral / Más; tarjeta «Coach IA» de Inicio | 7.1 Enviar consulta · 7.2 Usar acción rápida · 7.3 Cambiar método de coaching · 7.4 Borrar conversación |
 | **Calendario** | Vista mensual de sesiones, check-ins y detalle diario | Navegación lateral / Más; enlace «Historial» de Inicio | 8.1 Navegar meses · 8.2 Abrir detalle de un día · 8.3 Registrar recuperación desde el calendario |
@@ -608,7 +608,7 @@ Los saltos no permitidos se **encadenan automáticamente** en lugar de fallar: c
 
 ### 5. Biblioteca de ejercicios
 
-**Propósito:** consultar el catálogo de ejercicios con detalle técnico, gestionar favoritos y ejercicios propios, e importar el catálogo externo Wger.
+**Propósito:** consultar el catálogo de ejercicios con detalle técnico, gestionar favoritos y ejercicios propios.
 
 **Condiciones iniciales:** ninguna. La pantalla funciona sin sesión activa.
 
@@ -646,7 +646,7 @@ Los saltos no permitidos se **encadenan automáticamente** en lugar de fallar: c
 #### 5.3 Flujo — Ver detalle
 
 1. **Acción:** seleccionar cualquier ejercicio de la lista.
-   **Respuesta del sistema:** se abre una hoja con la animación, el nombre, los atributos (músculo, parte del cuerpo, equipamiento, categoría), la **desglose de músculos trabajados con porcentajes**, las **instrucciones de ejecución numeradas**, y — si es importado de Wger — su identificador y licencia.
+   **Respuesta del sistema:** se abre una hoja con la animación, el nombre, los atributos (músculo, parte del cuerpo, equipamiento, categoría), la **desglose de músculos trabajados con porcentajes**, las **instrucciones de ejecución numeradas**.
 2. **Acción:** seleccionar **«Cerrar»** o cerrar la hoja tocando fuera.
    **Respuesta del sistema:** la hoja se cierra.
 
@@ -669,15 +669,6 @@ Los saltos no permitidos se **encadenan automáticamente** en lugar de fallar: c
    - Sin historial: **«¿Eliminar este ejercicio? No se puede deshacer.»**
    Al confirmar, se muestra un aviso final: **«Archivado: fuera de listas, historial intacto.»** o **«Ejercicio eliminado.»**
    **Resultado esperado:** el ejercicio desaparece de los listados; en el caso con historial, las sesiones y series previas se conservan y siguen siendo legibles.
-
-#### 5.6 Flujo — Sincronizar el catálogo Wger
-
-1. **Acción:** observar el panel «Wger · Catálogo externo de enriquecimiento» con el estado **«sin importar»**.
-   **Respuesta del sistema:** en el **primer arranque con conexión y sin catálogo previo**, la aplicación importa automáticamente una muestra de 30 ejercicios y marca el dispositivo con `localStorage['wger:autoImport:v1']` para no repetirlo. Si la importación automática falla, queda disponible el botón manual.
-2. **Acción:** seleccionar **«Descargar catálogo Wger»** o **«Sincronizar de nuevo»**.
-   **Respuesta del sistema:** durante el proceso se muestra «Importando N/30…»; al terminar, el panel indica **«N ejercicios importados»** y la lista se recarga. La importación es **idempotente**: no duplica ejercicios ya importados.
-   **Resultado esperado:** los ejercicios importados aparecen en el listado con la insignia **«Wger»**.
-   *Si falla:* el panel muestra **«Sin conexión con Wger»** y el botón queda disponible para reintentar.
 
 **Variantes y excepciones:**
 
@@ -1388,7 +1379,7 @@ Cada recomendación muestra su **razonamiento** y la **evidencia** concreta que 
    **Respuesta del sistema:** se elimina la cuenta del proveedor de identidad; **después se borran todos los datos locales** aunque la eliminación remota falle; finalmente se recarga la aplicación en `/login`.
    **Resultado esperado:** la cuenta y los datos asociados quedan eliminados.
 
-**Otros bloques — Verificado:** la pantalla incluye un panel de **estado de sincronización** y un panel de **sincronización con Wger**. *🔶 Pendiente:* su contenido y comportamiento no se auditaron.
+**Otros bloques — Verificado:** la pantalla incluye un panel de **estado de sincronización**. *🔶 Pendiente:* su contenido y comportamiento no se auditaron.
 
 **Resultado final del flujo:** la persona controla sus datos, preferencias y acceso a la cuenta.
 
@@ -1485,9 +1476,9 @@ Estos comportamientos se repiten en varias pantallas. Se documentan una sola vez
 | **Cambios de día** | `sessionOverrides` (con la marca de usuario que lo originó). | Verificado |
 | **Notificaciones** | `notifConfigs` + `notifLog` (sistema 1) y `unifiedNotifConfigs` + `requiredActionStates` (sistema 2). | Verificado |
 | **Borrador de onboarding** | `onboardingDrafts`, guardado en cada cambio de paso. | Verificado |
-| **localStorage (legado)** | `althea:lastUid`, `althea:nav-collapsed`, `wger:autoImport:v1`, `session:active:<fecha>`, `exstate:<fecha>:<ejercicio>`. Todos con migración a Dexie y con operaciones envueltas en `try/catch` que nunca interrumpen la app. | Verificado |
+| **localStorage (legado)** | `althea:lastUid`, `althea:nav-collapsed`, `session:active:<fecha>`, `exstate:<fecha>:<ejercicio>`. Todos con migración a Dexie y con operaciones envueltas en `try/catch` que nunca interrumpen la app. | Verificado |
 
-**Idempotencia — Verificado:** el registro de series es idempotente por identificador; recargar o repetir la confirmación no duplica. La importación de Wger es idempotente por identificador de origen.
+**Idempotencia — Verificado:** el registro de series es idempotente por identificador; recargar o repetir la confirmación no duplica.
 
 ### D.3 Manejo de errores y recuperación
 
@@ -1690,7 +1681,7 @@ Los siguientes flujos se observan desde la página que los monta, pero su compor
 | `MuscleAtlas` | 9.2 | Detalle exacto de las contribuciones por región. |
 | `PainToggle` / `VariantPicker` | 4.5 | Niveles de dolor ofrecidos y algoritmo de selección de variantes. |
 | `ChatWidget` (FAB) | transversal | Cuándo aparece, siRequires sesión y cómo se relaciona con el chat de Coach. |
-| `SyncStatusCard` / `WgerSyncPanel` | 12 | Contenido y comportamiento de la sincronización. |
+| `SyncStatusCard` | 12 | Contenido y comportamiento de la sincronización. |
 | `SyncStatusCard` → `PageLoader` → `RequiredActionGate` | transversal | Textos y comportamientos en estados de carga y de acción pendiente. |
 
 ### E.16 — Aspectos no verificables sin ejecución
@@ -1700,7 +1691,6 @@ Los siguientes flujos se observan desde la página que los monta, pero su compor
 | Portales de autenticación de Firebase | Requiere credenciales y un proyecto configurado. |
 | Traducción real de los errores de Firebase | La interfaz muestra `e.message` crudo. |
 | Streaming real del Coach (Groq) | Requiere clave de API y conexión. |
-| Importación de Wger | Requiere red; la muestra es de 30 ejercicios y el contenido real no se comprobó. |
 | Comportamiento PWA instalable y service worker | Requiere despliegue. |
 | Sincronizacion en segundo plano | Requiere despliegue y plataforma de notificaciones. |
 | Notificaciones en segundo plano | La propia interfaz advierte que dependen de la plataforma. |
@@ -1715,7 +1705,7 @@ Los siguientes flujos se observan desde la página que los monta, pero su compor
 | Onboarding | 2 (cuestionario + selección de excluidos) | Verificado, con 2 inconsistencias |
 | Inicio | 5 + 5 bloques de lectura | Verificado |
 | Entrenar | 11 | Verificado, con 3 inconsistencias |
-| Biblioteca | 6 | Verificado, con 1 inconsistencia |
+| Biblioteca | 5 | Verificado, con 1 inconsistencia |
 | Nutrición | 7 + 4 bloques de lectura | Verificado |
 | Coach | 4 + 4 paneles de lectura | Verificado |
 | Calendario | 3 + 4 paneles de lectura | Verificado |

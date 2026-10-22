@@ -27,7 +27,6 @@ npm run check:release  # verifica que dist/ no contenga claves
 - **Ejecución canónica**: `trainingSessions` + `sessionExercises` + `setRecords` (una sola sesión activa; se readopta si queda huérfana). `sessions`/`setLogs` son capa legacy de solo lectura.
 - **Historial honesto**: sin registros reales no se inventa nada (`null`/`[]`/estados vacíos). Los generadores `seeder`/`demoData` son fixtures exclusivos de tests.
 - **Coach**: contexto real → Groq mediante proxy (`VITE_GROQ_PROXY_URL`, Cloudflare Worker con `GROQ_API_KEY` server-side) → fallback determinístico local. Sin modelos descargables, sin secretos en el cliente.
-- **WGER**: integración externa cerrada (pull público + sync con auth vía Worker); Dexie sigue siendo la fuente de verdad.
 - localStorage solo para preferencias UI, cachés y `althea:lastUid`; nunca dominio.
 - Cambio de cuenta Firebase en el mismo navegador limpia los datos locales del usuario anterior (multi-dispositivo por `users/{uid}` en Firestore con rules por uid).
 
@@ -43,5 +42,4 @@ Copiar `.env.example` a `.env`. Públicas (`VITE_*`, van al bundle): `VITE_GROQ_
 
 - Clave histórica de Groq expuesta: revocar en consola de Groq (y rotar secret del Worker si se genera una nueva).
 - Clave de CalorieNinjas: rotar en la consola de la cuenta.
-- Validación WGER contra instancia real: requiere cuenta de prueba en wger.de (tests `REQUIRES_CREDENCIALES`).
 - Umbrales T032 (Performance ≥85, JS inicial <150 KB gzip): bloqueados por arquitectura (Firebase + Dexie + React en el arranque); ver `docs/PENDIENTES_OTRO_AGENTE.md`.

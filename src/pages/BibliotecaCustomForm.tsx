@@ -144,7 +144,7 @@ export default function BibliotecaCustomForm({
               <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Músculos secundarios (tocá para agregar/quitar)</div>
               <div className="flex gap-1 flex-wrap max-h-28 overflow-auto">
                 {muscles.filter((m) => m !== muscle).map((m) => (
-                  <button key={m} onClick={() => toggleSec(m)} className={`px-2 py-1 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${secondaryMuscles.includes(m) ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface border-outline-variant text-on-surface-variant'}`}>{m}</button>
+                  <button key={m} onClick={() => toggleSec(m)} aria-pressed={secondaryMuscles.includes(m)} className={`px-2 py-1 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${secondaryMuscles.includes(m) ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface border-outline-variant text-on-surface-variant'}`}>{m}</button>
                 ))}
               </div>
               {secondaryMuscles.map((m, i) => (

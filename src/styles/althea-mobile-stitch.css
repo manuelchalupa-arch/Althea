@@ -242,4 +242,24 @@
     border-radius: 9999px;
     background: var(--c-outline-variant);
   }
+
+  /* ============ BOTONES SIEMPRE OSCUROS (regla de producto) ============
+     El acento ámbar de Stitch es solo para texto y telemetría.
+     Todo botón es verde oscuro o grafito con texto claro: nada de
+     botones amarillos, blancos ni claros. La SELECCIÓN no se pinta:
+     se indica con el reborde/tilde de index.css (los toggles con
+     aria-pressed/.is-active quedan excluidos de este relleno). */
+  .althea-btn-primary {
+    background: #15803d;
+    color: #ffffff;
+    border-color: #15803d;
+  }
+  .althea-btn-primary:hover { background: #166534; }
+
+  button[class*="bg-primary"]:not([class*="bg-primary-container"]):not([aria-pressed="true"]):not(.is-active),
+  button[class*="bg-secondary"]:not([class*="bg-secondary-container"]):not([aria-pressed="true"]):not(.is-active) {
+    background: #15803d !important;
+    color: #ffffff !important;
+    border-color: #15803d !important;
+  }
 }

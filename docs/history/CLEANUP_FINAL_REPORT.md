@@ -18,17 +18,13 @@ El barrido de mantenimiento queda **completo y verificado** con 7 commits nuevos
 | `git diff --check` | 0 |
 | Push `origin/main` | OK (`5b0a5ba..7b14c7b`) |
 
-Los 12 tests `skipped` son los E2E de WGER, que requieren credenciales (`WGER_TEST_USERNAME` / `WGER_TEST_PASSWORD`) no disponibles localmente.
-
 ## Commits de esta tanda (7)
 
 1. `f82c8b4` fix(entrenamiento): el cierre por medianoche cuenta como día parcial
 2. `30ebdd2` refactor: eliminar código muerto — 167 bindings + 11 archivos huérfanos
 3. `000df94` fix: cuatro defects latentes detectados por el análisis de código muerto
 4. `9bf7f37` fix: elimina hardcodeo de colores y números mágicos en la UI
-5. `d2458fc` fix: unifica el prefijo de claves WGER de planes de nutrición
-6. `8063ce8` fix: respeta el aborto externo en wgerClient y elimina código muerto
-7. `7b14c7b` refactor: consolida `prettyExId` compartido en `utils/format`
+5. `7b14c7b` refactor: consolida `prettyExId` compartido en `utils/format`
 
 ## Detalle por fase
 
@@ -47,10 +43,8 @@ Los 12 tests `skipped` son los E2E de WGER, que requieren credenciales (`WGER_TE
 - Params intencionalmente sin uso renombrados con convención `_` (exención oficial de TS): `_trend`, `_methodId`, `_wants`, `_localEntityId`, `_lastUpdateGte`, `_profile`, `_config`, `_recentVolume`, `_type`, `_cycle`, `_existingProvenance`.
 
 ### F4 · Defects latentes corregidos (en `000df94` y `8063ce8`)
-1. **Abort de requests WGER ignorado**: `wgerClient.request` no enlazaba `options.signal` del llamador al `AbortController` interno; ahora sí, y las 12 mutadoras le pasan su `signal`. El timeout de 15 s se mantiene.
-2. **Prefijo de claves WGER inconsistente** para planes de nutrición (`nutritionplan/` vs `NUTRITION#`).
-3. Hardcodeos de color y números mágicos sustituidos por tokens/constantes nombradas.
-4. Cierre de sesión que cruza la medianoche: la porción previa contaba como día completo en vez de parcial.
+1. Hardcodeos de color y números mágicos sustituidos por tokens/constantes nombradas.
+2. Cierre de sesión que cruza la medianoche: la porción previa contaba como día completo en vez de parcial.
 
 ### F5 · Deduplicación
 - **`prettyExId` consolidado** en `src/utils/format.ts`: 5 copias exactas en Calendario, Mas, Perfil, reportPdf y reportService ahora usan el mismo helper (firma `string | number`).
@@ -68,8 +62,6 @@ Los 12 tests `skipped` son los E2E de WGER, que requieren credenciales (`WGER_TE
 
 | Área | Motivo |
 | --- | --- |
-| Subárbol WGER (`wgerSyncEngine` + `WgerSyncPanel`) | Los subclientes (`measurements/` `nutrition/` `stats/` `training/`) se dejan como están: consolidarlos en `wgerClient` es un refactor amplio con credenciales y endpoints ligeramente distintos; se recomienda hacerlo en un milestone aparte. |
-| ~~`getJSON` duplicado en wger (5 copias)~~ | **RESUELTO (Prompt 3, §5a)**. Las 4 copias byte-a-byte idénticas de los subclientes se unificaron en `src/services/integrations/wger/wgerHttp.ts` (`WGER_API_BASE` + `getJSON`). `wgerClient.ts` **NO** se fusionó: su `request` tiene contrato distinto (timeout 15 s, merge de headers, Bearer, `.status`, body truncado). 6 tests unitarios sin red en `wgerHttp.test.ts` fijan ese contrato. |
 | Notificaciones / `exportImport` / `export` / `demoData` / seeder | Se revisaron; al no tener consumidores funcionales pero ser reutilizables/exportables, se conservan. `exportImport.ts` aún importa `sessionExercises` en la línea 9 que se documentó para futura revisión. |
 | ~~`stripAccents` inline (≈15 sitios)~~ | **RESUELTO (Prompt 3, §3)**. La migración ya estaba completa: la única implementación vive en `src/utils/format.ts:10` y los **16 consumidores** importan de allí. Lo que faltaba era cobertura: ahora hay `src/utils/format.test.ts` (24 tests) que fija el orden de operaciones (`toLowerCase` → NFD → quita diacríticos), la no-idempotencia del trim y el matching real de ejercicios/músculos. Sin cambios de comportamiento. |
 | `SESSION_TRANSITIONS` | Constante de dominio; intacta. |
@@ -81,6 +73,4 @@ Los 12 tests `skipped` son los E2E de WGER, que requieren credenciales (`WGER_TE
 1. ~~Extraer `stripAccents` en `utils/format` y migrar los ~15 sitios inline~~ → hecho; ahora cubierto por `format.test.ts`.
 2. Consolidar la doble capa de tokens CSS (validación visual). **Requiere revisión humana de PNG.**
 3. ~~Migrar `Entrenar.tsx` a mapeo por id estable en vez de nombre~~ → hecho (`exerciseIdentity.ts`).
-4. Revisar los subclientes WGER sobrantes para unificarlos en `wgerClient` (con tests E2E reales, requiere credenciales). `getJSON` ya está unificado; queda el resto del cliente.
-5. Ejecutar con credenciales las suites WGER: `wgerPublicContract.test.ts` (sin cuenta, `WGER_PUBLIC_INTEGRATION=1`) y `wgerIntegration.test.ts` (requiere `WGER_TEST_USERNAME`/`WGER_TEST_PASSWORD`).
-6. Considerar unificar `routine.cycle` con `db.cycleVersions` (`scope = routineId`) en un milestone con migración de datos.
+4. Considerar unificar `routine.cycle` con `db.cycleVersions` (`scope = routineId`) en un milestone con migración de datos.

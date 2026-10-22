@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react'
+import { useNavigate } from 'react-router-dom'
 import SemanticIcon from '../components/ui/SemanticIcon';
 import { db } from '@/services/storage/db'
 import { fetchPartMap } from '@/services/exerciseGym'
@@ -214,6 +215,7 @@ function InlineEmpty({ icon, text, sub }: { icon: string; text: string; sub?: st
 }
 
 export default function Progresos() {
+  const navigate = useNavigate()
   const [allLogs, setAllLogs] = useState<UnifiedLog[]>([])
   const [trainingSessions, setTrainingSessions] = useState<SessionRow[]>([])
   const [bodies, setBodies] = useState<Array<{ localDate: string; weightKg?: number; bodyFatPct?: number; muscleMassKg?: number; chestCm?: number; waistCm?: number; hipCm?: number }>>([])
@@ -593,6 +595,15 @@ export default function Progresos() {
           </p>
         </div>
 
+        <button
+          type="button"
+          onClick={() => navigate('/calendario')}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] rounded-xl bg-tertiary text-on-tertiary font-label-caps text-[10px] font-bold uppercase tracking-widest transition-all active:scale-[0.98]"
+        >
+          <SemanticIcon name="calendar_month" size={16} className="text-[16px]" ariaHidden />
+          Calendario y recuperación
+        </button>
+
         <AtlasModeChips
           mode={mode}
           onMode={setMode}
@@ -710,6 +721,14 @@ export default function Progresos() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/calendario')}
+            className="flex items-center gap-2 px-4 py-2 min-h-[48px] rounded-xl bg-tertiary text-on-tertiary font-label-caps text-[11px] font-bold uppercase tracking-widest transition-all hover:opacity-90 active:scale-[0.98]"
+          >
+            <SemanticIcon name="calendar_month" size={16} className="text-[16px]" ariaHidden />
+            Calendario y recuperación
+          </button>
           <div className="px-4 py-2 bg-surface-container border border-outline-variant rounded-xl flex items-center gap-2">
             <span className="font-label-caps text-[11px] text-outline uppercase font-bold">Período:</span>
             <span className="font-label-md text-[15px] text-primary font-semibold">{MODE_LABELS[mode]}</span>
@@ -998,6 +1017,33 @@ function AtlasSection(props: {
     : mode === 'rutina' && routine
       ? `${routine.name} · ${win.start.slice(5)} – ${win.end.slice(5)} (semana del ciclo)`
       : win.label
+  const statsBlock = (
+    <>
+      <AtlasSummary totals={totals} volumeDeltaPct={volumeDeltaPct} hasPrior={hasPrior} windowLabel={win ? win.label : ''} />
+      {mode === 'rutina' && compliance && (
+        <div className="atlas-compliance" data-testid="atlas-compliance">
+          <h3 className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">Cumplimiento de la rutina</h3>
+          {!compliance.hasPlan ? (
+            <p className="font-body-sm text-[12px] text-on-surface-variant">La rutina no tiene ejercicios planificados.</p>
+          ) : (
+            <dl className="atlas-stats">
+              <div className="atlas-stats__item"><dt>Series</dt><dd>{pctText(compliance.seriesDone, compliance.seriesPlanned, compliance.seriesPct)}</dd><dd className="atlas-stats__sub">completadas / planificadas</dd></div>
+              <div className="atlas-stats__item"><dt>Ejercicios</dt><dd>{pctText(compliance.exDone, compliance.exPlanned, compliance.exPct)}</dd><dd className="atlas-stats__sub">completados / planificados</dd></div>
+              <div className="atlas-stats__item"><dt>Días</dt><dd>{pctText(compliance.daysDone, compliance.daysPlanned, compliance.daysPct)}</dd><dd className="atlas-stats__sub">realizados / programados</dd></div>
+              <div className="atlas-stats__item"><dt>Sesiones</dt><dd>{compliance.sessionsDone} hechas</dd><dd className="atlas-stats__sub">{compliance.sessionsPending} día(s) sin cobertura</dd></div>
+              <div className="atlas-stats__item"><dt>Carga ejecutada</dt><dd>{Math.round(totals.volume).toLocaleString('es-AR')} kg</dd><dd className="atlas-stats__sub">{totals.sets} series · {totals.reps.toLocaleString('es-AR')} reps</dd></div>
+              <div className="atlas-stats__item"><dt>Duración registrada</dt><dd>{fmtMin(compliance.durationSec)}</dd><dd className="atlas-stats__sub">suma de sesiones con inicio y fin</dd></div>
+            </dl>
+          )}
+          {compliance.untrackedSets > 0 && (
+            <p className="font-body-sm text-[12px] text-on-surface-variant">
+              {compliance.untrackedSets} serie(s) del intervalo no pertenecen a esta rutina (otra rutina o sin trazabilidad) y no cuentan para el cumplimiento.
+            </p>
+          )}
+        </div>
+      )}
+    </>
+  )
   return (
     <section className={wide ? 'rounded-2xl border border-outline-variant/40 bg-surface-container-low p-4 md:p-5' : 'rounded-xl border border-outline-variant/40 bg-surface-container p-3'} data-testid="muscle-atlas">
       <h2 className={wide ? 'font-headline-lg text-xl font-semibold text-on-surface tracking-tight' : 'font-headline-lg text-lg font-semibold text-on-surface tracking-tight'}>Mapa muscular</h2>
@@ -1030,43 +1076,30 @@ function AtlasSection(props: {
 
       {winError && <p className="atlas-error" role="alert">{winError}</p>}
 
-      {win && !winError && (
-        <>
-          {totals.sets === 0 && (
-            <AltheaEmpty
-              icon="fitness_center"
-              title="Sin trabajo en este intervalo"
-              description="No hay series completadas en el rango elegido. Cambiá de modalidad o ampliá el rango."
-            />
-          )}
-          <AtlasSummary totals={totals} volumeDeltaPct={volumeDeltaPct} hasPrior={hasPrior} windowLabel={win.label} />
-          {mode === 'rutina' && compliance && (
-            <div className="atlas-compliance" data-testid="atlas-compliance">
-              <h3 className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">Cumplimiento de la rutina</h3>
-              {!compliance.hasPlan ? (
-                <p className="font-body-sm text-[12px] text-on-surface-variant">La rutina no tiene ejercicios planificados.</p>
-              ) : (
-                <dl className="atlas-stats">
-                  <div className="atlas-stats__item"><dt>Series</dt><dd>{pctText(compliance.seriesDone, compliance.seriesPlanned, compliance.seriesPct)}</dd><dd className="atlas-stats__sub">completadas / planificadas</dd></div>
-                  <div className="atlas-stats__item"><dt>Ejercicios</dt><dd>{pctText(compliance.exDone, compliance.exPlanned, compliance.exPct)}</dd><dd className="atlas-stats__sub">completados / planificados</dd></div>
-                  <div className="atlas-stats__item"><dt>Días</dt><dd>{pctText(compliance.daysDone, compliance.daysPlanned, compliance.daysPct)}</dd><dd className="atlas-stats__sub">realizados / programados</dd></div>
-                  <div className="atlas-stats__item"><dt>Sesiones</dt><dd>{compliance.sessionsDone} hechas</dd><dd className="atlas-stats__sub">{compliance.sessionsPending} día(s) sin cobertura</dd></div>
-                  <div className="atlas-stats__item"><dt>Carga ejecutada</dt><dd>{Math.round(totals.volume).toLocaleString('es-AR')} kg</dd><dd className="atlas-stats__sub">{totals.sets} series · {totals.reps.toLocaleString('es-AR')} reps</dd></div>
-                  <div className="atlas-stats__item"><dt>Duración registrada</dt><dd>{fmtMin(compliance.durationSec)}</dd><dd className="atlas-stats__sub">suma de sesiones con inicio y fin</dd></div>
-                </dl>
-              )}
-              {compliance.untrackedSets > 0 && (
-                <p className="font-body-sm text-[12px] text-on-surface-variant">
-                  {compliance.untrackedSets} serie(s) del intervalo no pertenecen a esta rutina (otra rutina o sin trazabilidad) y no cuentan para el cumplimiento.
-                </p>
-              )}
-            </div>
-          )}
-        </>
+      {win && !winError && totals.sets === 0 && (
+        <AltheaEmpty
+          icon="fitness_center"
+          title="Sin trabajo en este intervalo"
+          description="No hay series completadas en el rango elegido. Cambiá de modalidad o ampliá el rango."
+        />
       )}
 
-      <MuscleAtlas view={vista} onViewChange={onVista} data={muscleData} width={wide ? 280 : 260} detail="below" sex={atlasSex} />
+      {/* Desktop: resumen arriba, figura al costado (query de contenedor). */}
+      {wide && win && !winError && statsBlock}
+
+      {/* Móvil: el cuerpo es la imagen predominante y va primero;
+          los datos se apilan prolijos debajo, uno por tarjeta. */}
+      <MuscleAtlas
+        view={vista}
+        onViewChange={onVista}
+        data={muscleData}
+        width={wide ? 280 : 340}
+        detail="below"
+        sex={atlasSex}
+      />
       <AtlasLegend metricLabel={metricMeta.label} />
+
+      {!wide && win && !winError && statsBlock}
     </section>
   )
 }

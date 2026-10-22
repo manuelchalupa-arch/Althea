@@ -5,20 +5,15 @@ import { MemoryRouter } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 
 vi.mock('@/services/exerciseGym', () => ({
-  fetchMuscles: async () => [],
-  fetchEquipment: async () => [],
-  fetchBodyParts: async () => [],
-  fetchCategories: async () => [],
   fetchAll: async () => ({
     exercises: [
       {
-        id: 'press-x', name: 'Press X', muscle: 'pectorals', bodyPart: 'chest',
+        id: 'pectorals/barbell-bench-press', name: 'Press de banca con barra', muscle: 'pectorals', bodyPart: 'chest',
         equipment: 'barbell', category: 'strength', secondaryMuscles: [],
-        instructions: ['Empujá'], file: '', gifUrl: '',
+        instructions: ['Bajá la barra al pecho'], file: '', gifUrl: 'https://example.com/bench.gif',
       },
     ],
   }),
-  fetchByMuscle: async () => ({ exercises: [] }),
   cacheSet: () => {},
   cacheGet: () => null,
 }))
@@ -46,23 +41,25 @@ describe('ET19 — Favoritos de Biblioteca en perfil Dexie', () => {
       </MemoryRouter>
     )
     await waitFor(() => {
-      expect(screen.getByText('Press X')).toBeInTheDocument()
+      expect(screen.getByText('Press de banca con barra')).toBeInTheDocument()
     })
+    // Badge de síntesis visible
+    expect(screen.getAllByText('Tradicional').length).toBeGreaterThan(0)
     // Abrir detalle y marcar favorito
-    fireEvent.click(screen.getByText('Press X'))
+    fireEvent.click(screen.getByText('Press de banca con barra'))
     await waitFor(() => {
       expect(screen.getByLabelText('Marcar favorito')).toBeInTheDocument()
     })
     fireEvent.click(screen.getByLabelText('Marcar favorito'))
     await waitFor(async () => {
       const p = await db.userProfile.get('me') as { favoriteExercises?: string[] } | undefined
-      expect(p?.favoriteExercises).toContain('press-x')
+      expect(p?.favoriteExercises).toContain('pectorals/barbell-bench-press')
     })
     // Cerrar y filtrar por favoritos
     fireEvent.click(screen.getByText('Cerrar'))
     fireEvent.click(screen.getByText(/Favoritos/))
     await waitFor(() => {
-      expect(screen.getByText('Press X')).toBeInTheDocument()
+      expect(screen.getByText('Press de banca con barra')).toBeInTheDocument()
     })
     // Sin favoritos en otro perfil/estado → lista vacía honesta
     await db.userProfile.update('me', { favoriteExercises: [] } as never)

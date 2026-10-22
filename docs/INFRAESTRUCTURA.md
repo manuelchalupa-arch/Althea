@@ -59,7 +59,6 @@ Navegador
                               │  validation, timeout, rate limit
                               ▼
                           Groq API           (GROQ_API_KEY = secret server-side)
-  └── /api/wger/* ───────► Cloudflare Worker ──► wger.de (token HttpOnly)
 ```
 
 Regla dura: el frontend **nunca** habla con `api.groq.com`. La única clave
@@ -132,15 +131,13 @@ Ahora:
 - Origin no permitido → **403** sin header CORS.
 - Preflight `OPTIONS` → 204 sólo para origin permitido; si no, 403.
 - `Allow: POST, OPTIONS` en las respuestas 405.
-- Endpoints WGER exigen `Origin` explícito (usan cookies).
 
 Requests sin `Origin` (same-origin, health checks, curl) no son un bypass de
-CORS: el navegador siempre envía `Origin` en cross-origin, y el control real de
-credenciales lo dan `SameSite=Strict` + `Secure` en la cookie de WGER.
+CORS: el navegador siempre envía `Origin` en cross-origin.
 
 ### 3.2 Métodos
 
-Sólo `POST` (Groq) y `GET/POST/DELETE` (WGER). `GET/PUT/PATCH/DELETE` en `/`
+Sólo `POST` (Groq). `GET/PUT/PATCH/DELETE` en `/`
 → 405 con `Allow: POST, OPTIONS`. Un 405 no ejecuta ninguna llamada saliente.
 
 ### 3.3 Content-Type
@@ -153,7 +150,6 @@ Sólo `POST` (Groq) y `GET/POST/DELETE` (WGER). `GET/PUT/PATCH/DELETE` en `/`
 | Endpoint | Límite | Código |
 |---|---|---|
 | `/` (Groq) | **65536 B (64 KiB)** | `413` + header `X-Max-Body-Bytes` |
-| `/api/wger/*` | **8192 B (8 KiB)** | `413` |
 
 Doble barrera: se mira `Content-Length` antes de leer, y además se corta el
 stream por bytes reales (`Content-Length` es falsificable).
@@ -181,13 +177,10 @@ El payload real del Coach ronda 2-8 KB (system prompt + contexto de usuario,
 - Sólo se reenvían `Content-Type` y `Authorization` hacia Groq. Ningún header
   del cliente se propaga.
 
-El proxy WGER también dejó de ser relay: `WGER_ALLOWED_PATH` limita las rutas
-a una allowlist (`exerciseinfo`, `muscle`, `equipment`, `workout`, …).
-
 ### 3.6 Timeout
 
 `fetchWithTimeout()` con `AbortController` en **toda** llamada saliente.
-Groq: `GROQ_TIMEOUT_MS` (default 60000). WGER: `WGER_TIMEOUT_MS` (default 15000).
+Groq: `GROQ_TIMEOUT_MS` (default 60000).
 Excedido → **504** `upstream_timeout`, sin detalle interno.
 
 ### 3.7 Error sanitization
@@ -212,7 +205,6 @@ cuál se usó (`X-RateLimit-Mode`). Ninguna degrada en silencio.
 | 3 | Memoria del isolate | `Map` en el módulo | **Ninguna** en un edge multi-isolate. Solo para desarrollo sin bindings. | `memory-degraded` |
 
 - Groq: **20 req / 60 s** por IP (`CF-Connecting-IP`).
-- WGER: **60 req / 60 s** por IP (tráfico de sincronización, más holgado).
 - Al exceder → **429** + `Retry-After`, `X-RateLimit-Limit`,
   `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
 - Si la capa 1 falla → degrada a la 2, marcada `degraded: true` y
@@ -242,17 +234,6 @@ contra un storage falso y la cadena DO → KV → memoria.
 
 Configuración extra recomendada en Cloudflare (fuera del repo, requiere
 cuenta): WAF Rate Limiting Rule sobre la ruta del Worker, y Alerts de coste.
-
-### 3.9 Cookies WGER
-
-`wger_token` = `HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=86400`.
-
-`SameSite=Strict` + `Secure` cubren CSRF para este flujo: el navegador no
-adjunta la cookie en peticiones cross-site, y el Worker además exige `Origin`
-de la allowlist antes de leer la cookie. `Path=/` es amplio a propósito (el
-frontend llama a rutas WGER distintas); si se quisería reducir, habría que
-mover todos los endpoints a un prefijo común. **CSRF no está pendiente**, pero
-cualquier cambio de `SameSite` a `None` exigiría revisar esto de nuevo.
 
 ---
 
@@ -347,19 +328,14 @@ verificados en el código y no supuestos:
 | `*.googleapis.com`, `identitytoolkit.googleapis.com`, `securetoken.googleapis.com` | Firebase Auth + FCM push | `src/services/firebase/` |
 | `*.firebaseio.com`, `*.firebaseapp.com` | Firestore | `src/services/firebase/sync.ts` |
 | `cdn.jsdelivr.net` | GIFs de ejercicios (ExerciseGymGifsDB) | `src/services/exerciseGym.ts:8` |
-| `*.workers.dev` | Proxy Groq + proxy WGER | `src/services/ai/groqConfig.ts`, `src/services/integrations/wger/wgerServerAuth.ts` |
-| `wger.de` | **Lectura pública WGER directa desde el navegador** | `src/services/integrations/wger/wgerClient.ts:41` y clientes `stats/`, `nutrition/`, `training/`, `measurements/` |
+| `*.workers.dev` | Proxy Groq | `src/services/ai/groqConfig.ts` |
 | `nutricion-api-arg.fly.dev` | API Codulia (nutrición) | `src/services/codulia.ts:12` |
 
-> **Trampa evitada:** `wger.de` y `nutricion-api-arg.fly.dev` son fáciles de
-> olvidar porque la mayor parte del tráfico WGER pasa por el Worker, pero los
-> clientes de **lectura pública** (`wgerClient`, `stats`, `nutrition`,
-> `training`, `measurements`) hacen `fetch` directo a `wger.de` desde el
-> navegador. Sin esas dos entradas en `connect-src` el CSP rompería en silencio
-> la sincronización WGER y la búsqueda nutricional en el entorno desplegado,
-> sin que ninguna alerta de compilación lo indique. Añadir un origin a
-> `connect-src` cuesta una línea; quitar uno que la app usa es una rotura
-> silenciosa en producción.
+> **Trampa evitada:** `nutricion-api-arg.fly.dev` es fácil de olvidar porque no
+> genera ninguna alerta de compilación. Sin esa entrada en `connect-src` el CSP
+> rompería en silencio la búsqueda nutricional en el entorno desplegado.
+> Añadir un origin a `connect-src` cuesta una línea; quitar uno que la app usa
+> es una rotura silenciosa en producción.
 
 **Worker en `connect-src` (SEC-001):** antes era `https://*.workers.dev`, que
 dejaba que la PWA pudiera hablar con **cualquier** Worker de terceros. Ahora es
@@ -429,9 +405,9 @@ comprueba en los dos sentidos:
 - `index.html`, `sw.js` y `workbox-*.js` sin caché (necesario para el update
   de la PWA) y `/assets/**` inmutable.
 
-Comprobado que **falla** si se quita un origin en uso: al eliminar `wger.de`
-de `connect-src` el test reporta el origin ausente. Sin este guard, esa rotura
-sólo aparecería en el entorno desplegado.
+Comprobado que **falla** si se quita un origin en uso: el test reporta el
+origin ausente. Sin este guard, esa rotura sólo aparecería en el entorno
+desplegado.
 
 > Añadir un cliente externo nuevo obliga a tocar dos sitios: la CSP y la lista
 > `RUNTIME_ORIGINS` del test. Eso es intencionado.
@@ -519,7 +495,7 @@ riesgo real: Firebase Hosting asocia las cabeceras a la **ruta pedida**, y la
 carga inicial de la app se pide como `/`, no como `/index.html`. Con la CSP
 sólo en `/index.html`, la visita inicial a `https://<proyecto>.web.app/`
 podía servirse **sin CSP**, y en ese caso toda la allowlist de `connect-src`
-—incluida la corrección de WGER y Codulia— no se aplicaba.
+—incluida la corrección de Codulia— no se aplicaba.
 
 Movida al bloque `**`. El navegador ignora la CSP en respuestas que no son
 documentos, así que no afecta a los assets, y a cambio la política queda

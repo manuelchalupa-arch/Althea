@@ -1,25 +1,19 @@
 import { useEffect, useState } from 'react'
 import { db } from '@/services/storage/db'
-import { MUSCLE_LIBRARY_GROUPS, sortMuscleLibraryExercises } from '@/data/muscleLibraryConfig'
+import { MUSCLE_LIBRARY_GROUPS } from '@/data/muscleLibraryConfig'
 import * as Gym from '@/services/exerciseGym'
 import { effectiveBreakdown, listCustomExercises } from '@/services/training/customExercises'
 import { exerciseMatches } from '@/services/training/exerciseSearch'
-import { listWgerExercises, importWgerSample, toExercise as wgerToExercise } from '@/services/integrations/wger'
+import { traditionalForGroup, CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT, CUSTOM_FORM_CATEGORIES, type TraditionalGroupId } from '@/data/traditionalCatalog'
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import type { CustomExercise } from '@/services/training/customExercises'
-import { Search, Dumbbell, Layers, Box, Heart, Globe, WifiOff } from 'lucide-react'
-import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading, AltheaToolbar } from '@/components/althea'
-
-type Tab = 'muscle'|'equipment'|'bodypart'|'category'
+import { Search, Heart, Globe, WifiOff } from 'lucide-react'
+import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading } from '@/components/althea'
 
 export default function Biblioteca(){
-  const [tab,setTab]=useState<Tab>('muscle')
-  const [muscles,setMuscles]=useState<Gym.MuscleEntry[]>([])
-  const [equipment,setEquipment]=useState<Gym.EquipmentEntry[]>([])
-  const [bodyparts,setBodyparts]=useState<Gym.BodyPartEntry[]>([])
-  const [categories,setCategories]=useState<Gym.CategoryEntry[]>([])
   const [selectedKey,setSelectedKey]=useState<string>('__all__')
   const [exercises,setExercises]=useState<Gym.Exercise[]>([])
+  const [tradIds,setTradIds]=useState<Set<string>>(new Set())
   const [q,setQ]=useState('')
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState<string|null>(null)
@@ -28,11 +22,6 @@ export default function Biblioteca(){
   const [editing,setEditing]=useState<CustomExercise|null>(null)
   const [favs,setFavs]=useState<string[]>([])
   const [onlyFavs,setOnlyFavs]=useState(false)
-  const [totalCount,setTotalCount]=useState<number|null>(null)
-  const [movement,setMovement]=useState('')
-  const [difficulty,setDifficulty]=useState('')
-  // Sincronización del catálogo Wger (importación real a Dexie, idempotente).
-  const [wgerSync,setWgerSync]=useState<{running:boolean; imported:number; total:number; count:number; error:string|null}>({running:false, imported:0, total:0, count:0, error:null})
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true
 
   useEffect(()=>{
@@ -52,77 +41,18 @@ export default function Biblioteca(){
 
   const musclePct = (ex: Gym.Exercise)=> effectiveBreakdown(ex)
 
-  useEffect(()=>{
-    // carga índices iniciales (cacheados por SW)
-    Gym.fetchMuscles().then(setMuscles).catch(()=>{})
-    Gym.fetchEquipment().then(setEquipment).catch(()=>{})
-    Gym.fetchBodyParts().then(setBodyparts).catch(()=>{})
-    Gym.fetchCategories().then(setCategories).catch(()=>{})
-  },[])
-
-  const load = async (t:Tab, key:string)=>{
-    setSelectedKey(key); setLoading(true); setError(null)
-    const cacheKey = `${t}:${key}`
+  // Síntesis: solo ejercicios tradicionales (lista curada) + los propios del usuario.
+  const load = async (group: string)=>{
+    setSelectedKey(group); setLoading(true); setError(null)
+    const cacheKey = `trad:${group}`
     try{
-      let res:any
-      if(key==='__all__'){
-        const all = await Gym.fetchAll()
-        const seen = new Set<string>()
-        res = { exercises: (all.exercises || []).filter((e:any)=>{ if(!e || seen.has(e.id)) {return false;} seen.add(e.id); return true }) }
-      }
-      else if(t==='muscle') {
-        // Grupo Piernas = familia completa (quads, hamstrings, glutes, calves, abductors, adductors) — usar filter no find
-        const { GROUP_MUSCLES } = await import('@/services/training/exerciseFilter')
-        const fam = GROUP_MUSCLES[key.toLowerCase()]
-        if(fam){
-          const results = await Promise.all(fam.map(m=> Gym.fetchByMuscle(m).catch(()=>({ exercises: [] as Gym.Exercise[] }))))
-          const seen = new Set<string>()
-          const mergedGym: Gym.Exercise[] = []
-          results.forEach(r=> r.exercises?.forEach((ex:Gym.Exercise)=>{ if(!seen.has(ex.id)){ seen.add(ex.id); mergedGym.push(ex) } }))
-          res = { exercises: mergedGym }
-        } else {res = await Gym.fetchByMuscle(key)}
-      }
-      else if(t==='equipment') {res = await Gym.fetchByEquipment(key)}
-      else if(t==='bodypart') {res = await Gym.fetchByBodyPart(key)}
-      else if(t==='category') {res = await Gym.fetchByCategory(key)}
-      // Ejercicios personalizados: incluir todos los de la familia si es grupo
-      let customs: import('@/services/training/customExercises').CustomExercise[] = []
-      if(key==='__all__') {customs = await listCustomExercises(undefined, undefined).catch(()=>[])}
-      else if(t==='muscle'){
-        const { GROUP_MUSCLES } = await import('@/services/training/exerciseFilter')
-        const fam = GROUP_MUSCLES[key.toLowerCase()]
-        if(fam){
-          const allCustom = await listCustomExercises().catch(()=>[])
-          const { filterExercises } = await import('@/services/training/exerciseFilter')
-          customs = filterExercises(allCustom as unknown as import('@/services/exerciseGym').Exercise[], { group: key }) as unknown as typeof customs
-        } else {customs = await listCustomExercises(t, key).catch(()=>[])}
-      } else {customs = await listCustomExercises(key==='__all__' ? undefined : t, key==='__all__' ? undefined : key).catch(()=>[])}
-      // Ejercicios Wger importados (solo lectura desde Dexie)
-      const wgerExercises = await listWgerExercises().catch(()=>[])
-      const wgerAsExercise = wgerExercises.map(wgerToExercise)
-const merged: Gym.Exercise[] = [
-  ...(res.exercises || []),
-  ...wgerAsExercise,
-  ...customs,
-]
-
-const seen = new Set<string>()
-
-const unique = merged.filter(ex => {
-  const id = String(ex.id ?? '').trim()
-  if (!id || seen.has(id)) {return false}
-  seen.add(id)
-  return true
-})
-
-const ordered = sortMuscleLibraryExercises(unique, key)
-
-setExercises(ordered)
-
-if (key === '__all__') {
-  setTotalCount(ordered.length)
-}
-      Gym.cacheSet(cacheKey, res.exercises)
+      const all = await Gym.fetchAll()
+      const trad = traditionalForGroup(all.exercises || [], (group as TraditionalGroupId | '__all__'))
+      const tradEx = trad.map(t => t.exercise)
+      const customs = await listCustomExercises(undefined, undefined).catch(()=>[])
+      setTradIds(new Set(tradEx.map(e => e.id)))
+      setExercises([...tradEx, ...customs])
+      Gym.cacheSet(cacheKey, [...tradEx, ...customs])
     }catch(e:any){
       const cached = Gym.cacheGet(cacheKey)
       if(cached){ setExercises(cached); setError('Mostrando caché offline (sin conexión).') }
@@ -130,47 +60,13 @@ if (key === '__all__') {
     }finally{ setLoading(false) }
   }
 
-  useEffect(()=>{ load('muscle','__all__') },[])
-
-  // Importa el catálogo Wger a Dexie (idempotente, no duplica por sourceId).
-  const syncWger = async ()=>{
-    if(wgerSync.running) {return}
-    setWgerSync(prev=>({...prev, running:true, error:null, imported:0, total:0}))
-    try{
-      const imported = await importWgerSample(30, (importedCount, total)=> setWgerSync(prev=>({...prev, imported:importedCount, total})))
-      const all = await listWgerExercises().catch(()=>[])
-      setWgerSync({running:false, imported:imported.length, total:all.length, count:all.length, error:null})
-      load('muscle','__all__')
-    }catch(e:any){
-      setWgerSync(prev=>({...prev, running:false, error: e?.message || 'Sin conexión con Wger'}))
-    }
-  }
-
-  // Primer arranque sin catálogo Wger y con red: importación automática (una sola
-  // vez por dispositivo; si falla se reintenta con el botón manual).
-  useEffect(()=>{
-    (async ()=>{
-      const existing = await listWgerExercises().catch(()=>[])
-      if(existing.length > 0) { setWgerSync(prev=>({...prev, count: existing.length})); return }
-      const attempted = localStorage.getItem('wger:autoImport:v1')
-      if(attempted || !navigator.onLine) {return}
-      localStorage.setItem('wger:autoImport:v1', '1')
-      await syncWger()
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[])
+  useEffect(()=>{ load('__all__') },[])
 
   const filtered = exercises.filter(ex=>{
     if(onlyFavs && !favs.includes(ex.id)) {return false}
-    if(movement && !String(ex.movementPattern||'').toLowerCase().includes(movement.toLowerCase())) {return false}
-    if(difficulty && String(ex.exerciseDifficulty||'').toLowerCase() !== difficulty.toLowerCase()) {return false}
     if(!q) {return true;}
     return exerciseMatches(ex, q)
   })
-
-  const Chip = ({active, children, onClick}:{active:boolean; children:string; onClick:()=>void})=>(
-    <button onClick={onClick} className={`px-3 py-2 rounded-full font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant whitespace-nowrap border min-h-[48px] ${active?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{children}</button>
-  )
 
   const handleDeleteCustom = async (ex: Gym.Exercise)=>{
     const mod = await import('@/services/training/customExercises')
@@ -182,14 +78,14 @@ if (key === '__all__') {
     const res = await mod.deleteCustomExercise(ex.id)
     alert(res==='archived' ? 'Archivado: fuera de listas, historial intacto.' : 'Ejercicio eliminado.')
     setDetail(null)
-    load(tab, selectedKey)
+    load(selectedKey)
   }
 
   return (
     <div className="min-h-screen bg-transparent px-0 pt-2 pb-24 md:px-6 md:pt-6 md:pb-6 lg:px-8 lg:pt-8 lg:pb-8 sm:px-5 xl:px-10 2xl:px-12 w-full mx-auto space-y-3">
       <div className="flex items-center justify-between">
         <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Biblioteca</h1>
-        <AltheaBadge variant="outline"><Globe size={12}/> {totalCount ?? `…`} ejercicios</AltheaBadge>
+        <AltheaBadge variant="outline"><Globe size={12}/> {exercises.length || '…'} ejercicios</AltheaBadge>
       </div>
       <section aria-label="Grupos musculares" className="space-y-3">
         <h2 className="text-sm font-semibold text-on-surface">
@@ -201,10 +97,7 @@ if (key === '__all__') {
               key={group.id}
               type="button"
               aria-pressed={selectedKey === group.id}
-              onClick={() => {
-                setTab('muscle')
-                void load('muscle', group.id)
-              }}
+              onClick={() => void load(group.id)}
               className={[
                 'min-h-24 rounded-xl border p-3 text-left',
                 'transition-colors',
@@ -220,45 +113,21 @@ if (key === '__all__') {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          aria-pressed={selectedKey === '__all__'}
+          onClick={() => void load('__all__')}
+          className={`w-full py-3 min-h-[48px] rounded-xl border font-label-md text-[10px] font-semibold uppercase tracking-widest transition-colors ${selectedKey === '__all__' ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}
+        >
+          Todos los grupos
+        </button>
       </section>
-      <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Consulta técnica y % muscular — sin copiar.</p>
+      <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Síntesis de ejercicios tradicionales · sin variantes.</p>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-8 space-y-3">
       {!online && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-secondary bg-secondary/10 border border-secondary/40 rounded-lg p-2 flex items-center gap-2"><WifiOff size={14}/> Sin conexión — se muestra caché.</div>}
       {error && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-error bg-error/10 border border-error/40 rounded-lg p-2">{error}</div>}
-
-      {/* Tabs (al entrar a cada filtro: selectedFilter = Todos) */}
-      <AltheaToolbar
-        value={tab}
-        onChange={(v) => { setTab(v as Tab); load(v as Tab, '__all__') }}
-        options={[
-          { value: 'muscle', label: 'Músculo', icon: <Dumbbell size={14} aria-hidden="true" /> },
-          { value: 'equipment', label: 'Equipo', icon: <Layers size={14} aria-hidden="true" /> },
-          { value: 'bodypart', label: 'Parte', icon: <Box size={14} aria-hidden="true" /> },
-          { value: 'category', label: 'Categoría', icon: <Heart size={14} aria-hidden="true" /> },
-        ]}
-        aria-label="Tipo de filtro"
-      />
-
-      {/* Listado índices */}
-      <AltheaCard className="p-3">
-        <div className="flex items-center gap-1.5 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mb-2">
-          <Search size={13} aria-hidden="true" className="shrink-0" />
-          {tab==='muscle' && '19 músculos · ej: pectorals 158, biceps 151, abs 169'}
-          {tab==='equipment' && '11 equipamientos · bodyweight 458, dumbbell 287 · /api/es/equipment/<equipment>.json'}
-          {tab==='bodypart' && '7 partes · arms/legs/chest/back/core/shoulders/cardio'}
-          {tab==='category' && 'strength/stretching/cardio/plyometrics'}
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          <Chip active={selectedKey==='__all__'} onClick={()=>load(tab, '__all__')}>{`Todos (${exercises.length || '…'})`}</Chip>
-          {tab==='muscle' && muscles.map(m=> <Chip key={m.muscle} active={selectedKey===m.muscle} onClick={()=>load('muscle', m.muscle)}>{`${m.muscle} (${m.count})`}</Chip>)}
-          {tab==='equipment' && equipment.map(e=> <Chip key={e.equipment} active={selectedKey===e.equipment} onClick={()=>load('equipment', e.equipment)}>{`${e.equipment} (${e.count})`}</Chip>)}
-          {tab==='bodypart' && bodyparts.map(b=> <Chip key={b.bodyPart} active={selectedKey===b.bodyPart} onClick={()=>load('bodypart', b.bodyPart)}>{`${b.bodyPart} (${b.count})`}</Chip>)}
-          {tab==='category' && categories.map(c=> <Chip key={c.category} active={selectedKey===c.category} onClick={()=>load('category', c.category)}>{`${c.category} (${c.count})`}</Chip>)}
-          {(muscles.length===0 && tab==='muscle') && <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cargando...</span>}
-        </div>
-      </AltheaCard>
 
       {/* Favoritos */}
       <div className="flex gap-2">
@@ -267,34 +136,10 @@ if (key === '__all__') {
         </button>
       </div>
 
-      {/* Buscador + filtros avanzados */}
+      {/* Buscador */}
       <div className="relative">
         <Search size={16} className="absolute left-3 top-3.5 text-on-surface-variant"/>
         <AltheaInput placeholder={`Filtrar en ${selectedKey==='__all__' ? 'todos' : selectedKey}...`} value={q} onChange={e=>setQ(e.target.value)} className="w-full bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded pl-9 p-3 font-body-md text-sm text-on-surface" />
-      </div>
-      <AltheaCard className="p-3">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Filtros avanzados · dificultad / patrón movimiento</div>
-        <div className="flex gap-2 mt-2">
-          <select value={movement} onChange={e=>setMovement(e.target.value)} aria-label="Patrón de movimiento" className="flex-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded p-3 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
-            <option value="">Patrón: todos</option><option value="push">push</option><option value="pull">pull</option><option value="squat">squat</option><option value="hinge">hinge</option><option value="core">core</option>
-          </select>
-          <select value={difficulty} onChange={e=>setDifficulty(e.target.value)} aria-label="Dificultad" className="flex-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded p-3 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
-            <option value="">Dificultad: todos</option><option value="principiante">principiante</option><option value="intermedio">intermedio</option><option value="avanzado">avanzado</option>
-          </select>
-        </div>
-        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">Usa ExerciseGym + filtro local. Variantes: al ver detalle, sugiere mismo músculo/equipo.</p>
-      </AltheaCard>
-
-      {/* Sincronización Wger — visible en mobile (el panel lateral es solo desktop) */}
-      <div className="lg:hidden flex items-center justify-between gap-3 rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3">
-        <div className="min-w-0">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Wger · {wgerSync.count > 0 ? `${wgerSync.count} importados` : 'sin importar'}</div>
-          <div className="font-label-md text-[10px] uppercase tracking-widest text-outline truncate">{wgerSync.running ? `Importando ${wgerSync.imported}/${wgerSync.total || 30}…` : (wgerSync.error || 'Catálogo externo de enriquecimiento')}</div>
-        </div>
-        <button onClick={syncWger} disabled={wgerSync.running}
-          className="shrink-0 px-3 py-2 min-h-[44px] rounded border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface disabled:opacity-60">
-          {wgerSync.running ? '…' : 'Sincronizar'}
-        </button>
       </div>
 
       {/* Resultados — solo consulta */}
@@ -309,7 +154,11 @@ if (key === '__all__') {
                 {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="w-full h-full object-cover" /> : <span className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">GIF</span>}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-body-md text-base text-on-surface font-medium flex items-center gap-2"><span className="truncate">{ex.name}</span>{ex.origin==='USER_CREATED' ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[11px]">Mío</AltheaBadge> : null}{String(ex.id).startsWith('wger-') ? <AltheaBadge variant="outline" className="text-secondary border-secondary shrink-0 text-[11px]">Wger</AltheaBadge> : null}</div>
+                <div className="font-body-md text-base text-on-surface font-medium flex items-center gap-2 flex-wrap">
+                  <span className="truncate">{ex.name}</span>
+                  {tradIds.has(ex.id) ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[11px]">Tradicional</AltheaBadge> : null}
+                  {ex.origin==='USER_CREATED' ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[11px]">Mío</AltheaBadge> : null}
+                </div>
                 <div className="font-label-md text-[12px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle} · {ex.equipment}</div>
                 <div className="flex flex-wrap gap-1 mt-2">
                   {musclePct(ex).slice(0,3).map(m=> (
@@ -320,44 +169,17 @@ if (key === '__all__') {
             </div>
           </div>
         ))}
-        {filtered.length===0 && !loading && <AltheaEmpty icon="search_off" title="Sin resultados" description="Probá otro músculo, equipamiento o término de búsqueda." />}
+        {filtered.length===0 && !loading && <AltheaEmpty icon="search_off" title="Sin resultados" description="Probá otro grupo muscular o término de búsqueda." />}
       </div>
       </div>
 
       <div className="lg:col-span-4 space-y-3 hidden lg:block">
       <button onClick={()=>{ setEditing(null); setShowForm(true) }} className="w-full py-3 rounded bg-primary text-on-surface font-medium min-h-[48px]">+ Agregar ejercicio</button>
       <AltheaCard className="p-3">
-        <div className="flex items-center gap-2">
-          <Globe size={14} className="text-secondary shrink-0"/>
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Catálogo Wger</div>
-        </div>
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">
-          {wgerSync.count > 0 ? `${wgerSync.count} ejercicios importados` : 'Sin importar'}
-        </div>
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-0.5">
-          {wgerSync.running
-            ? `Importando ${wgerSync.imported}/${wgerSync.total || 30}…`
-            : wgerSync.error ? wgerSync.error : 'Fuente externa de enriquecimiento'}
-        </div>
-        <button onClick={syncWger} disabled={wgerSync.running}
-          className="w-full mt-2 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface min-h-[48px] disabled:opacity-60">
-          {wgerSync.running ? 'Importando…' : wgerSync.count > 0 ? 'Sincronizar de nuevo' : 'Descargar catálogo Wger'}
-        </button>
-      </AltheaCard>
-      <AltheaCard className="p-3">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Filtros</div>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Síntesis</div>
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">{filtered.length} de {exercises.length} ejercicios</div>
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{tab}: {selectedKey==='__all__' ? 'Todos' : selectedKey}</div>
-      </AltheaCard>
-      <AltheaCard className="p-3">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Índice</div>
-        <div className="flex gap-2 overflow-x-auto pb-1 mt-2">
-          <Chip active={selectedKey==='__all__'} onClick={()=>load(tab, '__all__')}>{`Todos (${exercises.length || '…'})`}</Chip>
-          {tab==='muscle' && muscles.map(m=> <Chip key={m.muscle} active={selectedKey===m.muscle} onClick={()=>load('muscle', m.muscle)}>{`${m.muscle} (${m.count})`}</Chip>)}
-          {tab==='equipment' && equipment.map(e=> <Chip key={e.equipment} active={selectedKey===e.equipment} onClick={()=>load('equipment', e.equipment)}>{`${e.equipment} (${e.count})`}</Chip>)}
-          {tab==='bodypart' && bodyparts.map(b=> <Chip key={b.bodyPart} active={selectedKey===b.bodyPart} onClick={()=>load('bodypart', b.bodyPart)}>{`${b.bodyPart} (${b.count})`}</Chip>)}
-          {tab==='category' && categories.map(c=> <Chip key={c.category} active={selectedKey===c.category} onClick={()=>load('category', c.category)}>{`${c.category} (${c.count})`}</Chip>)}
-        </div>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-0.5">{selectedKey==='__all__' ? 'Todos los grupos' : selectedKey}</div>
+        <div className="font-body-md text-[12px] text-on-surface-variant mt-2">Solo ejercicios tradicionales por grupo. Las variantes no se listan.</div>
       </AltheaCard>
       </div>
 
@@ -374,7 +196,7 @@ if (key === '__all__') {
             <div className="p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <h2 className="font-headline-lg text-base font-semibold text-on-surface flex-1">{detail.name}</h2>
-                <button onClick={()=>toggleFav(detail.id)} aria-pressed={favs.includes(detail.id)} aria-label="Marcar favorito" className={`p-2.5 rounded-lg border min-w-[44px] min-h-[44px] flex items-center justify-center ${favs.includes(detail.id) ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant text-on-surface-variant'}`}>
+                <button onClick={()=>toggleFav(detail.id)} aria-pressed={favs.includes(detail.id)} aria-label="Marcar favorito" className={`no-check p-2.5 rounded-lg border min-w-[44px] min-h-[44px] flex items-center justify-center ${favs.includes(detail.id) ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant text-on-surface-variant'}`}>
                   <Heart size={18} fill={favs.includes(detail.id) ? 'currentColor' : 'none'} />
                 </button>
               </div>
@@ -396,13 +218,6 @@ if (key === '__all__') {
                 <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Cómo hacerlo</div>
                 <ol className="list-decimal list-inside font-body-md text-sm text-on-surface space-y-1 mt-1">{detail.instructions.map((s,i)=><li key={i}>{s}</li>)}</ol>
               </AltheaCard>
-              {String(detail.id).startsWith('wger-') && (
-                <AltheaCard className="p-3">
-                  <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fuente</div>
-                  <p className="font-body-md text-sm text-on-surface mt-1">Wger · ID {detail.id.replace('wger-', '')}</p>
-                  <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Licencia CC-BY-SA 4.0</p>
-                </AltheaCard>
-              )}
               {detail.origin==='USER_CREATED' ? (
                 <div className="flex gap-2">
                   <button onClick={()=>{ setEditing(detail as CustomExercise) }} className="flex-1 py-3 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Editar</button>
@@ -418,10 +233,10 @@ if (key === '__all__') {
       {showForm && (
         <BibliotecaCustomForm
           initial={editing}
-          muscles={muscles.map((m) => m.muscle)}
-          equipment={equipment.map((e) => e.equipment)}
-          categories={categories.map((c) => c.category)}
-          onSaved={()=>{ setShowForm(false); setEditing(null); setDetail(null); load(tab, selectedKey) }}
+          muscles={CUSTOM_FORM_MUSCLES}
+          equipment={CUSTOM_FORM_EQUIPMENT}
+          categories={CUSTOM_FORM_CATEGORIES}
+          onSaved={()=>{ setShowForm(false); setEditing(null); setDetail(null); load(selectedKey) }}
           onClose={()=>{ setShowForm(false); setEditing(null) }}
         />
       )}

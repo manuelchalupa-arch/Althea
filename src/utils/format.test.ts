@@ -1,7 +1,7 @@
 // Tests del contrato de normalización canónica de texto (stripAccents/normFold).
 //
 // IMPORTANTE: estas dos funciones son la ÚNICA fuente de verdad de normalización
-// de la app (16 consumidores: búsqueda de ejercicios, filtro, matcher WGER,
+// de la app (16 consumidores: búsqueda de ejercicios, filtro,
 // músculos, sinónimos IA, slug de ejercicios personalizados, etc.).
 //
 // El orden de operaciones es parte del contrato y NO se puede cambiar sin

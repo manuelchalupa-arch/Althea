@@ -10,7 +10,6 @@ import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import type { CycleConfig } from '@/utils/cycle'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { WaterBottle } from '@/components/recovery/WaterBottle'
-import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
 import { AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
 import ActivityModal from '@/components/activity/ActivityModal'
 import { MacroSummary } from '@/components/nutrition/MacroSummary'
@@ -56,8 +55,6 @@ export default function Inicio(){
   const { dayName, dayNum, month } = formatAgendaDate(todayStr)
   const [cycle, setCycle] = useState(getCycleFromProfile(null))
   const [exNames, setExNames] = useState<{id:string; name:string; sets:number; reps:number; weight:number|null; restSec?:number; rpe?:number; muscle?:string}[]>([])
-  const [addingWater, setAddingWater] = useState(false)
-  const [waterVersion, setWaterVersion] = useState(0)
   const [routineReview, setRoutineReview] = useState<{ days: number; limit: number; reviewKey?: string; daysLeft?: number } | null>(null)
   const [routineBlocked, setRoutineBlocked] = useState(false)
   const [snoozeOpen, setSnoozeOpen] = useState(false)
@@ -277,16 +274,6 @@ export default function Inicio(){
     }
   },[])
 
-  const addWater = async (ml: number) => {
-    setAddingWater(true)
-    try {
-      const { addHydrationMl } = await import('@/services/recovery/hydrationBottles')
-      await addHydrationMl(ml)
-      setWaterVersion(v => v + 1)
-    } catch { /* la botella muestra el error */ }
-    finally { setAddingWater(false) }
-  }
-
   const rawAgenda = getTrainingDayForDate(todayStr, cycle)
   const effectiveN = overrideDay ?? rawAgenda.n
   const effectiveInfo = effectiveN ? { n: effectiveN, name: cycle.trainingDays.find(d=>d.n===effectiveN)?.name || rawAgenda.name, isRest: false } : rawAgenda
@@ -481,21 +468,13 @@ export default function Inicio(){
                 </div>
               </div>
             </div>
-            <WaterBottle size="lg" allowQuickAdd refreshKey={waterVersion} />
-            <BottleConfigEditor />
-            <button
-              onClick={()=> addWater(250)}
-              disabled={addingWater}
-              data-testid="inicio-add-water-250"
-              className="w-full py-2 min-h-[48px] rounded-xl bg-primary-container/30 border border-primary/40 text-primary font-label-caps text-[11px] uppercase font-bold hover:bg-primary-container/50 transition-colors active:scale-[0.98] disabled:opacity-50"
-            >
-              {addingWater ? 'Guardando…' : '+ 250 ml'}
-            </button>
+            {/* Solo visual: el registro y la configuración viven en Nutrición. */}
+            <WaterBottle size="sm" allowQuickAdd={false} />
           </div>
 
-          {/* Macronutrientes — tarjeta grande y destacada */}
+          {/* Macronutrientes — vista indicativa; el detalle vive en Nutrición */}
           <div className="border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
-            <MacroSummary />
+            <MacroSummary size={170} />
           </div>
 
           {/* Gasto calórico */}
