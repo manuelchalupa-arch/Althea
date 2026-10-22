@@ -194,7 +194,8 @@ try {
   } else {
     ok('regla feedbackThreads presente')
   }
-  if (!/request\.auth\.token\.email\s*==\s*'manuelchalu@gmail\.com'/.test(rules)) {
+  const adminEmailBlock = (rules.match(/request\.auth\.token\.email in \[[\s\S]*?\]/) || [''])[0]
+  if (!adminEmailBlock.includes("'manuelchalu@gmail.com'") || !adminEmailBlock.includes("'manuelchalupa@gmail.com'")) {
     fail('RULES_MISSING_FEEDBACK_ADMIN_EMAIL')
   } else {
     ok('correo admin en isFeedbackAdmin()')

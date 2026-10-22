@@ -112,7 +112,8 @@ describe('firestore.rules — el modelo está replicado en servidor (005)', () =
   })
 
   it('el rol admin se decide en servidor (correo del token OR lista de UIDs)', () => {
-    expect(rules).toContain("request.auth.token.email == 'manuelchalu@gmail.com'")
+    expect(rules).toContain("'manuelchalupa@gmail.com'")
+    expect(rules).toContain("'manuelchalu@gmail.com'")
     expect(rules).toMatch(/request\.auth\.uid in get\(.*admins\/uids.*\)\.data\.uids/)
   })
 

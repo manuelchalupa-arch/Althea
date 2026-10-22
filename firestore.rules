@@ -21,12 +21,15 @@ service cloud.firestore {
     // Admin autorizado (005): correo exacto del token verificado O UID en la
     // lista. El correo va PRIMERO para cortocircuitar el get(): sin la lista
     // (documento inexistente) igual evalúa true para la cuenta creadora.
-    // shortcut: email compare sensible a mayúsculas y sin chequear
-    // email_verified — si el caso del correo del token no coincide, agregar el
-    // UID a admins/uids en Console.
+    // Atajo: comparación sensible a mayúsculas y sin chequear email_verified.
+    // La cuenta real con Google es manuelchalupa@gmail.com; manuelchalu es el
+    // correo estipulado en la spec 005. Si cambia, agregar el UID en Console.
     function isFeedbackAdmin() {
       return signedIn() && (
-        request.auth.token.email == 'manuelchalu@gmail.com'
+        request.auth.token.email in [
+          'manuelchalupa@gmail.com',
+          'manuelchalu@gmail.com'
+        ]
         || request.auth.uid in get(/databases/$(database)/documents/admins/uids).data.uids
       );
     }
