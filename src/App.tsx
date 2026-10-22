@@ -201,7 +201,14 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('controllerchange', () => setUpdateReady(true))
+      // AutoUpdate: cuando un SW nuevo toma el control de una app que ya
+      // estaba corriendo, recarga sola para servir el HTML nuevo (el HTML
+      // cacheado viejo traía la CSP vieja y rompía el retorno de Google).
+      const hadController = !!navigator.serviceWorker.controller
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        setUpdateReady(true)
+        if (hadController) { window.location.reload() }
+      })
     }
     db.userProfile.get('me').then(p => {
       const needsOnboarding = !p?.onboardingDone || !(p as any)?.email
