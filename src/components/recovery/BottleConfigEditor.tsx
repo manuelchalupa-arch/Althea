@@ -120,11 +120,11 @@ export function BottleConfigEditor() {
         </button>
       </div>
 
-      {/* En mobile se abre como bottom sheet (Stitch); en desktop sigue inline.
-          La lógica de guardado/validación es la misma en ambos casos. */}
+      {/* Modal siempre centrado (también en mobile). La lógica de
+          guardado/validación es la misma en ambos casos. */}
       {showConfig && (isMobile ? (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center althea-modal"
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 althea-modal"
           onClick={() => setShowConfig(false)}
           role="dialog"
           aria-modal="true"

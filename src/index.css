@@ -483,7 +483,7 @@ button.is-active:not(:disabled):not(.althea-seg button):not(.no-check)::after,
    NO es la caja: el wrapper ya usa `fixed inset-0` + flex y el panel trae su
    propio estilo (bg/border/rounded/shadow). Definir aquí left/top/transform/
    width/background rompía el overlay (sin dim y sin cierre al tocar fuera).
-   El comportamiento bottom-sheet en mobile vive en althea-mobile-stitch.css. */
+   Los modales se centran en todos los breakpoints (sin bottom-sheet). */
 .althea-modal {
   position: fixed; inset: 0;
   animation: fade-in 0.18s ease-out;
