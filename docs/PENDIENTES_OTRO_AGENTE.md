@@ -125,4 +125,30 @@ cifras reales para que se puedan atacar con conocimiento.
 Ver `DEUDA_ACCESIBILIDAD.md`: ~41 overlays `fixed inset-0` frente a 2 con
 semántica de diálogo. Es trabajo de refactor de UI, no una corrección puntual.
 
+## P6. Staging `althea-stg` — configurado 2026-10-21 (pasos de propietario)
+
+Proyecto Firebase nuevo **plan Spark, sin facturación ni tarjeta** (el ID
+`althea-staging` ya existía ajeno → se usó `althea-stg`). Configurado y verificado:
+Firestore `(default)` en `nam5` con las rules 005 desplegadas, Web app + Hosting
+site creados, APIs Firestore/Identity Toolkit habilitadas, `.env.staging` local
+(gitignored) con la URL real del worker staging, `verify:env:staging` OK y
+`staging:preflight` **PASS**.
+
+Límites gratuitos aplicables (Spark): Firestore 1 GiB almacenados, 50K lecturas /
+20K escrituras / 20K borrados por día, 10 GiB de egress/mes; Hosting 10 GB de
+almacenamiento y 360 MB/día de transferencia; Authentication incluido (los métodos
+básicos sin costo; Identity Platform 50K MAU si se activa).
+
+Acciones del propietario para dejarlo operativo (todas gratuitas):
+1. Consola Firebase → Authentication → Get started → habilitar **Email/Password**
+   en `althea-stg`. Hoy `staging:firestore:e2e` falla con `CONFIGURATION_NOT_FOUND`
+   (no habilitable vía API sin consola).
+2. `npm run worker:secret:staging` — secret `GROQ_API_KEY` del worker de staging
+   (`worker:staging:preflight` lo marca BLOCKED).
+3. Consolidar los cambios sin commitear de `worker/` (limpieza WGER de otra sesión
+   + `CORS_ORIGIN = https://althea-stg.web.app` ya escrito en
+   `wrangler.staging.toml`) y recién entonces `npm run worker:deploy:staging`.
+4. `npm run deploy:hosting:staging` cuando el WIP local (Entrenar/Biblioteca/estilos)
+   esté consolidado; recién ahí `staging:verify:all`.
+
 
