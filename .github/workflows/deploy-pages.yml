@@ -14,8 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Cuenta Candiote (owner: manuelchalupa-arch). El token va en el secret
-      # CLOUDFLARE_API_TOKEN (permiso "Cloudflare Pages — Edit").
+      # CLOUDFLARE_API_TOKEN (permiso "Cloudflare Pages — Edit"). Sin él, el
+      # paso de deploy se salta en vez de dejar el run en rojo.
       CLOUDFLARE_ACCOUNT_ID: 170d478ee67d5da8036859410f64be3a
+      HAS_CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
       # Mismas env públicas que netlify.toml (van al bundle del navegador).
       VITE_FIREBASE_API_KEY: AIzaSyCboMMOUuUhtqp96bVoN_WZaWhbv9ou-5I
       VITE_FIREBASE_AUTH_DOMAIN: althea-4b1d0.firebaseapp.com
@@ -33,6 +35,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Deploy to Cloudflare Pages
+        if: env.HAS_CLOUDFLARE_TOKEN == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import SemanticIcon from '../components/ui/SemanticIcon';
 import { Link, useNavigate } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
@@ -79,9 +79,20 @@ export default function Inicio(){
   const [showCalendarPopover, setShowCalendarPopover] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
 
+  // Igual que ChatWidget: los efectos de abajo hacen setState tras awaits
+  // (Dexie/imports dinámicos). Si el componente se desmonta antes de que
+  // respondan (unmount del test, navegación rápida), el setState tardío
+  // revienta con "window is not defined" (unhandled rejection en CI).
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
   const loadDay = async (cycleToUse:any, dayN:number | null)=>{
     const { getDayExercises } = await import('@/utils/routine')
     const list = await getDayExercises(dayN, cycleToUse)
+    if (!mountedRef.current) { return }
     setExNames(list.map(x=> ({id:x.exId, name:x.name, sets:x.sets, reps:x.reps, weight:x.weight, restSec:x.restSec, rpe:x.rpe, muscle:x.muscle})))
   }
 
@@ -151,6 +162,7 @@ export default function Inicio(){
           rating: ratingByDate[iso] ?? null,
         }
       }
+      if (!mountedRef.current) { return }
       setDayStatus(map)
     }
     loadWeek().catch(()=>{})
@@ -193,7 +205,7 @@ export default function Inicio(){
     const n = cycle.weekMap[dow] ?? null
     if(n === null || n === undefined){ setPreviewList([]); setPreviewName('Descanso'); return }
     setPreviewName(cycle.trainingDays.find((d:any)=>d.n===n)?.name || `Día N°${n}`)
-    import('@/utils/routine').then(({getDayExercises})=> getDayExercises(n, cycle).then(setPreviewList).catch(()=>setPreviewList([])))
+    import('@/utils/routine').then(({getDayExercises})=> getDayExercises(n, cycle).then(list=>{ if(mountedRef.current){ setPreviewList(list) } }).catch(()=>{ if(mountedRef.current){ setPreviewList([]) } }))
   },[selectedDate, cycle])
 
   useEffect(()=>{
@@ -202,6 +214,7 @@ export default function Inicio(){
       import('@/services/ai/recoveryAnalyzer').then(m=> m.analyzeRecovery()),
       import('@/services/ai/nutritionEngine').then(m=> db.userProfile.get('me').then(p=> m.analyzeNutrition(p||{}))),
     ]).then(([prog, rec, nut])=>{
+      if (!mountedRef.current) { return }
       setBriefV2({
         progress: { trend: prog.trend, rate: prog.rate },
         recovery: { lastScore: rec.lastScore ?? undefined, trend: rec.trend },
@@ -215,6 +228,7 @@ export default function Inicio(){
     migrateSessionOverridesFromLocalStorage().catch(()=>{})
     db.userProfile.get('me').then(async p=>{
       const c = await getCanonicalCycle(p!)
+      if (!mountedRef.current) { return }
       setCycle(c)
       const override = await getOverrideDay(todayStr)
       const n = override !== null && override !== undefined ? override : getTrainingDayForDate(todayStr, c).n
@@ -225,7 +239,7 @@ export default function Inicio(){
         if(m) {setActiveMethodName(m.nameEs)}
       }
     }).catch(()=>{})
-    db.userProfile.get('me').then((p: any)=>{ if(p?.name) {setUserName(p.name)} }).catch(()=>{})
+    db.userProfile.get('me').then((p: any)=>{ if(p?.name && mountedRef.current) {setUserName(p.name)} }).catch(()=>{})
   },[todayStr])
 
   useEffect(()=>{
