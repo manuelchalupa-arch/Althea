@@ -10,6 +10,7 @@ import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import type { CycleConfig } from '@/utils/cycle'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { WaterBottle } from '@/components/recovery/WaterBottle'
+import GymPaymentCard from '@/components/gym/GymPaymentCard'
 import { AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
 import ActivityModal from '@/components/activity/ActivityModal'
 import { MacroSummary } from '@/components/nutrition/MacroSummary'
@@ -466,6 +467,9 @@ export default function Inicio(){
             </div>
           </div>
         </AltheaPanel>
+
+        {/* Cuota del gimnasio — tira compacta: pago, vencimiento (+1 mes real) y aviso a 5 días */}
+        <GymPaymentCard />
 
         {/* ─── FILA 1 — MÁXIMA PRIORIDAD: hidratación, macros, gasto calórico ─── */}
         <section className="dashboard-top-grid grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
