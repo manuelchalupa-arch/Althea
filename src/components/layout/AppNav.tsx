@@ -4,6 +4,7 @@ import { NAV_ITEMS, MAS_GROUPS, type NavItem } from '@/components/brand/icons'
 import { AltheaNav, type AltheaNavEntry } from '@/components/navigation/AltheaNav'
 import { AltheaIcon, type AltheaIconName } from '@/components/brand/AltheaIconRegistry'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
+import { useVisibleSections } from '@/hooks/useVisibleSections'
 
 export const MOBILE_NAV_OFFSET = 'calc(env(safe-area-inset-bottom, 0px) + 74px)'
 
@@ -43,6 +44,7 @@ export default function AppNav() {
     } catch { return false }
   })
   const { hasActiveSession } = useActiveTrainingSession()
+  const { isVisible } = useVisibleSections()
   const { pathname } = useLocation()
 
   // Publica el offset de la barra móvil como variable CSS para que los FAB
@@ -52,6 +54,7 @@ export default function AppNav() {
   }, [])
 
   const primaryItems = NAV_ITEMS.filter(i => {
+    if (!isVisible(i.icon as string)) { return false }
     if (i.icon === 'training') {return hasActiveSession}
     return ['home', 'nutrition', 'progress'].includes(i.icon as string)
   })
@@ -62,6 +65,7 @@ export default function AppNav() {
   const modules = MAS_GROUPS
     .flatMap(g => g.items)
     .filter(item => item.to !== '/entrenar')
+    .filter(item => isVisible(item.icon as string))
     .filter(item => !primaryItems.some(n => n.icon === item.icon))
 
   const primaryEntries = primaryItems.map(toAltheaEntry)

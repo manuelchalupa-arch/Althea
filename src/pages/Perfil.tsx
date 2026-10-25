@@ -18,6 +18,7 @@ import * as Gym from '@/services/exerciseGym'
 import { traditionalItems, toggleGroupExcluded, TRADITIONAL_GROUPS, type TraditionalGroupId, type TraditionalItem } from '@/data/traditionalCatalog'
 import { resolveCoachTone } from '@/services/ai/coachPersonality'
 import { todayKey } from '@/utils/dates'
+import { useVisibleSections, TOGGLEABLE_SECTIONS } from '@/hooks/useVisibleSections'
 
 const GOAL_MAP: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   hypertrophy: { label: 'Hipertrofia', icon: <IconDumbbell className="w-5 h-5" />, color: 'bg-primary-container/30 border-primary/40 text-primary' },
@@ -193,6 +194,7 @@ export default function Perfil() {
   const [coachTone, setCoachTone] = useState('')
   const [coachLevel, setCoachLevel] = useState(3)
   const [excluded, setExcluded] = useState<string[]>([])
+  const { isVisible: isSectionVisible, toggle: toggleSection } = useVisibleSections()
   const [showBiblio, setShowBiblio] = useState(false)
   const [biblioMuscle, setBiblioMuscle] = useState('__all__')
   const [biblioItems, setBiblioItems] = useState<TraditionalItem[]>([])
@@ -585,6 +587,26 @@ export default function Perfil() {
       </Section>
 
       {/* ═══ EJERCICIOS EXCLUIDOS ═══ */}
+      <Section title="Secciones de la app" icon={<IconDumbbell className="w-5 h-5" />}>
+        <div className="pt-3 space-y-2">
+          <p className="font-body-md text-xs text-on-surface-variant">
+            Activa o desactiva las pestañas del menú para tener una vista más limpia. Inicio, Perfil y Menú siempre quedan activos.
+          </p>
+          {TOGGLEABLE_SECTIONS.map((s) => (
+            <div key={s.icon} className="flex items-center justify-between gap-2 py-1.5">
+              <span className="font-body-md text-[15px] text-on-surface font-medium">{s.label}</span>
+              <button
+                onClick={() => toggleSection(s.icon)}
+                className={`w-10 h-6 rounded-full transition-colors relative ${isSectionVisible(s.icon) ? 'bg-primary' : 'bg-surface-container-high'}`}
+                aria-pressed={isSectionVisible(s.icon)}
+              >
+                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-on-primary shadow transition-transform ${isSectionVisible(s.icon) ? 'left-[18px]' : 'left-0.5'}`} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </Section>
+
       <Section title="Ejercicios excluidos" icon={<IconDumbbell className="w-5 h-5" />}>
         <div className="pt-3 space-y-3">
           <p className="font-body-md text-xs text-on-surface-variant">
