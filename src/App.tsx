@@ -293,11 +293,9 @@ export default function App(){
   }, [])
   useEffect(()=>{
     applyAppearance()
-    // Sesiones que cruzaron la medianoche: se cierran como "no realizadas"
-    // ANTES del primer render, para que la pestaña Entrenar no aparezca
-    // nunca con una sesión vencida.
+    // Abrir Dexie antes del primer render. Las sesiones sin terminar de otro
+    // día NO se cierran solas: Entrenar ofrece el banner de reanudar.
     db.open()
-      .then(()=>import('@/services/training/sessionStore').then(m=>m.closeStaleSessions()))
       .catch(()=>{})
       .finally(()=>setReady(true))
   },[])

@@ -3,8 +3,9 @@ import { render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { db } from '@/services/storage/db'
-import { todayKey } from '@/utils/dates'
+import { todayKey, addDaysToKey } from '@/utils/dates'
 import { DEFAULT_CYCLE } from '@/utils/cycle'
+import { createSession, transitionSession } from '@/services/training/sessionStore'
 import { saveAllRoutines } from '@/services/storage/routineStore'
 
 vi.mock('@/services/exerciseGym', () => ({
@@ -101,4 +102,46 @@ describe('D — /entrenar solo muestra sesión activa (fuente de verdad)', () =>
     const s = await db.trainingSessions.toArray()
     expect((s[0] as { sessionStatus: string }).sessionStatus).toBe('READY')
   }, 40000)
+})
+
+describe('D — /entrenar ofrece reanudar una sesión sin terminar de otro día', () => {
+  const mounted: Array<() => void> = []
+  const renderIn = () => {
+    const view = render(
+      <MemoryRouter initialEntries={['/entrenar']}>
+        <Routes>
+          <Route path="/entrenar" element={<Entrenar />} />
+          <Route path="/" element={<div data-testid="inicio-screen">Inicio</div>} />
+          <Route path="*" element={<div data-testid="unknown-route">ruta desconocida</div>} />
+        </Routes>
+        <LocationSpy />
+      </MemoryRouter>,
+    )
+    mounted.push(view.unmount)
+    return view
+  }
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    await Promise.all(db.tables.map((t) => t.clear()))
+    localStorage.clear()
+  })
+  afterEach(() => { while (mounted.length) mounted.pop()!() })
+
+  it('sesión IN_PROGRESS de ayer muestra el banner de reanudar (no redirige)', async () => {
+    const ayer = addDaysToKey(todayKey(), -1)
+    const s = await createSession({
+      routineId: 'r1', calendarDate: ayer, plannedDay: 1, actualDay: 1,
+      plannedExercises: [{ id: 'e1', exId: 'press', name: 'Press', sets: 1, reps: 8, weight: 80 } as never],
+    })
+    await transitionSession(s.sessionId, 'IN_PROGRESS')
+
+    renderIn()
+    await waitFor(() => {
+      expect(screen.getByText(/Ten.*un entrenamiento en progreso/)).toBeInTheDocument()
+    }, { timeout: 15000 })
+    expect(screen.getByText(/Continuar/)).toBeInTheDocument()
+    // No redirigió a Inicio.
+    expect(screen.queryByTestId('inicio-screen')).not.toBeInTheDocument()
+  }, 30000)
 })
