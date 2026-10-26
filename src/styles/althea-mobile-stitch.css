@@ -10,19 +10,19 @@
 /* Desktop defaults for the typography tokens used by Tailwind.
    The mobile media query below overrides them with Stitch fonts. */
 :root {
-  --althea-font-display: 'Playfair Display', Georgia, serif;
+  --althea-font-display: 'Barlow Condensed', Impact, sans-serif;
   --althea-font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --althea-font-metric: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --althea-font-classic: 'Playfair Display', Georgia, serif;
+  --althea-font-classic: 'Barlow Condensed', Impact, sans-serif;
 }
 
 @media (max-width: 767px) {
   :root {
     /* ---------- STITCH TYPOGRAPHY ---------- */
     --althea-font-display: 'Barlow Condensed', system-ui, -apple-system, sans-serif;
-    --althea-font-ui: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+    --althea-font-ui: 'Inter', system-ui, -apple-system, sans-serif;
     --althea-font-metric: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    --althea-font-classic: 'Playfair Display', Georgia, serif;
+    --althea-font-classic: 'Barlow Condensed', Impact, sans-serif;
 
     /* ---------- STITCH DENSITY ---------- */
     --althea-mobile-gutter: 14px;
@@ -31,131 +31,14 @@
     --althea-mobile-header-height: 56px;
     --althea-mobile-nav-height: 64px;
 
-    /* ---------- OBSIDIAN SURFACES (rgb triplets for Tailwind) ---------- */
-    --c-background-rgb: 18 19 26;
-    --c-surface-rgb: 26 27 34;
-    --c-surface-dim-rgb: 18 19 26;
-    --c-surface-bright-rgb: 56 57 65;
-    --c-surface-container-lowest-rgb: 13 14 21;
-    --c-surface-container-low-rgb: 26 27 34;
-    --c-surface-container-rgb: 30 31 38;
-    --c-surface-container-high-rgb: 41 41 49;
-    --c-surface-container-highest-rgb: 51 52 60;
-    --c-surface-variant-rgb: 51 52 60;
-
-    /* ---------- TEXT ---------- */
-    --c-on-surface-rgb: 227 225 236;
-    --c-on-surface-variant-rgb: 216 195 173;
-    --c-on-background-rgb: 227 225 236;
-    --c-inverse-surface-rgb: 227 225 236;
-    --c-inverse-on-surface-rgb: 18 19 26;
-
-    /* ---------- AMBER (primary accent / telemetry) ---------- */
-    --c-primary-rgb: 255 193 116;
-    --c-primary-container-rgb: 245 158 11;
-    --c-primary-fixed-rgb: 255 193 116;
-    --c-primary-fixed-dim-rgb: 245 158 11;
-    --c-on-primary-rgb: 71 42 0;
-    --c-on-primary-container-rgb: 97 59 0;
-    --c-on-primary-fixed-rgb: 71 42 0;
-    --c-on-primary-fixed-variant-rgb: 97 59 0;
-    --c-inverse-primary-rgb: 255 193 116;
-
-    /* ---------- EMERALD (recovery / completed) ---------- */
-    --c-secondary-rgb: 78 222 163;
-    --c-secondary-container-rgb: 0 165 114;
-    --c-secondary-fixed-rgb: 78 222 163;
-    --c-secondary-fixed-dim-rgb: 0 165 114;
-    --c-on-secondary-rgb: 0 56 36;
-    --c-on-secondary-container-rgb: 0 56 36;
-    --c-on-secondary-fixed-rgb: 0 56 36;
-    --c-on-secondary-fixed-variant-rgb: 0 56 36;
-
-    /* ---------- CYAN (hydration) ---------- */
-    --c-tertiary-rgb: 84 221 252;
-    --c-tertiary-container-rgb: 41 193 223;
-    --c-tertiary-fixed-rgb: 84 221 252;
-    --c-tertiary-fixed-dim-rgb: 41 193 223;
-    --c-on-tertiary-rgb: 0 54 64;
-    --c-on-tertiary-container-rgb: 0 54 64;
-    --c-on-tertiary-fixed-rgb: 0 54 64;
-    --c-on-tertiary-fixed-variant-rgb: 0 54 64;
-
-    /* ---------- OUTLINES ---------- */
-    --c-outline-rgb: 160 142 122;
-    --c-outline-variant-rgb: 83 68 52;
-
-    /* ---------- HEX MIRROR (for var(--c-*) direct usages) ---------- */
-    --c-background: #12131a;
-    --c-surface: #1a1b22;
-    --c-surface-dim: #12131a;
-    --c-surface-bright: #383941;
-    --c-surface-container-lowest: #0d0e15;
-    --c-surface-container-low: #1a1b22;
-    --c-surface-container: #1e1f26;
-    --c-surface-container-high: #292931;
-    --c-surface-container-highest: #33343c;
-    --c-surface-variant: #33343c;
-    --c-on-surface: #e3e1ec;
-    --c-on-surface-variant: #d8c3ad;
-    --c-on-background: #e3e1ec;
-    --c-primary: #ffc174;
-    --c-primary-container: #f59e0b;
-    --c-on-primary: #472a00;
-    --c-on-primary-container: #613b00;
-    --c-secondary: #4edea3;
-    --c-secondary-container: #00a572;
-    --c-on-secondary: #003824;
-    --c-tertiary: #54ddfc;
-    --c-tertiary-container: #29c1df;
-    --c-on-tertiary: #003640;
-    --c-outline: #a08e7a;
-    --c-outline-variant: #534434;
-
-    /* ---------- CTA stays green in mobile ---------- */
-    --althea-btn-primary: #15803d;
-    --althea-btn-primary-hover: #166534;
-    --althea-btn-primary-border: #15803d;
-    --althea-btn-primary-text: #ffffff;
-
-    /* ---------- LEGACY ALIASES ---------- */
-    --card-bg: #1a1b22;
-    --card-border: #534434;
-    --veil-color: rgba(18, 19, 26, 0.86);
-    --althea-border: 1px solid #534434;
-    --althea-border-strong: 1px solid #534434;
-
-    /* ---------- DESIGN TOKENS (althea-*) used by althea-components.css ---------- */
-    --althea-primary: #ffc174;          /* amber — activo/acento mobile */
-    --althea-primary-hover: #f59e0b;
-    --althea-primary-soft: rgba(255, 193, 116, 0.14);
-    --althea-on-primary: #472a00;
-    --althea-surface: #12131a;          /* obsidiana */
-    --althea-surface-2: #1a1b22;        /* grafito */
-    --althea-surface-3: #292931;
-    --althea-on-surface: #e3e1ec;
-    --althea-on-surface-muted: #a9a7b4;
-    --althea-outline: #534434;          /* hairline bronce */
-    --althea-gold: #ffc174;
-    --althea-gold-soft: rgba(255, 193, 116, 0.14);
-    --althea-hydration: #54ddfc;        /* cyan hidratación */
-    --althea-carb: #f59e0b;
-    --althea-warning: #f59e0b;
-    --althea-success: #15803d;
-    /* Atlas: gris · verde oscuro · ámbar · azul marino (escala de intensidad).
-       Sin rojo: el fondo anatómico es rojizo y lo contaminaría. */
-    --althea-muscle-idle: #969DA7;
-    --althea-muscle-low: #2F7D3A;
-    --althea-muscle-mid: #ffc174;
-    --althea-muscle-high: #2B5E9E;
-    --althea-shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.3);
-    --althea-shadow-panel-hover: 0 4px 14px rgba(0, 0, 0, 0.5);
+    /* La paleta NO se overridea en mobile: móvil hereda los tokens Komi
+       (:root / .dark) igual que desktop. Solo viven aquí densidad y layout. */
   }
 
   html,
   body {
-    background: #12131a;
-    color: #e3e1ec;
+    background: var(--c-background);
+    color: var(--c-on-surface);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -166,7 +49,7 @@
 
   .shell-content {
     width: 100%;
-    max-width: 448px;
+    max-width: 480px;
     margin-left: auto;
     margin-right: auto;
     padding-left: var(--althea-mobile-gutter);
@@ -179,7 +62,7 @@
   .althea-level-2,
   .althea-level-3,
   .althea-level-4 {
-    border-radius: 8px;
+    border-radius: 0;
   }
 
   .althea-section {
@@ -197,18 +80,18 @@
     letter-spacing: -0.01em;
   }
 
-  /* Bottom nav: 64px, icono + label, activo en amber (Stitch) */
+  /* Bottom nav: 64px, icono + label, activo en rojo Komi */
   .althea-nav--bar {
     min-height: var(--althea-mobile-nav-height);
     align-items: center;
-    background: rgba(18, 19, 26, 0.88);
+    background: rgba(23, 21, 18, 0.94);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-top: 1px solid var(--althea-outline);
+    border-top: 3px solid var(--althea-outline);
   }
   .althea-nav--bar .althea-nav-item[aria-current='page'] {
     background: transparent;
-    color: var(--c-primary);
+    color: #D92735;
   }
 
   /* Modales: siempre centrados (también en mobile). Antes un override
@@ -216,23 +99,34 @@
      sheet y, con el teclado abierto, botones como "Eliminar" quedaban
      fuera de vista. El centrado y el padding viven en cada overlay. */
 
-  /* ============ BOTONES SIEMPRE OSCUROS (regla de producto) ============
-     El acento ámbar de Stitch es solo para texto y telemetría.
-     Todo botón es verde oscuro o grafito con texto claro: nada de
-     botones amarillos, blancos ni claros. La SELECCIÓN no se pinta:
-     se indica con el reborde/tilde de index.css (los toggles con
-     aria-pressed/.is-active quedan excluidos de este relleno). */
+  /* ============ BOTONES (Komi) ============
+      El acento de Stitch queda reemplazado por la paleta Komi:
+      rojo #D92735 para primarios, tinta para secundarios. */
   .althea-btn-primary {
-    background: #15803d;
-    color: #ffffff;
-    border-color: #15803d;
+    background: #D92735;
+    color: #FFFFFF;
+    border-color: #171512;
   }
-  .althea-btn-primary:hover { background: #166534; }
+  .althea-btn-primary:hover { background: #B91F2B; }
 
-  button[class*="bg-primary"]:not([class*="bg-primary-container"]):not([aria-pressed="true"]):not(.is-active),
-  button[class*="bg-secondary"]:not([class*="bg-secondary-container"]):not([aria-pressed="true"]):not(.is-active) {
-    background: #15803d !important;
-    color: #ffffff !important;
-    border-color: #15803d !important;
+  button[class*="bg-primary"]:not([class*="bg-primary-container"]):not([aria-pressed="true"]):not(.is-active) {
+    background: #D92735 !important;
+    color: #FFFFFF !important;
+    border-color: #171512 !important;
   }
+  button[class*="bg-secondary"]:not([class*="bg-secondary-container"]):not([aria-pressed="true"]):not(.is-active) {
+    background: #171512 !important;
+    color: #F2EFE3 !important;
+    border-color: #171512 !important;
+  }
+}
+
+/* Teléfonos chicos (≤360px): menos gutter para aprovechar el ancho sin
+   desbordar. Teléfonos grandes usan el cap de 480px de .shell-content. */
+@media (max-width: 360px) {
+  :root {
+    --althea-mobile-gutter: 10px;
+    --althea-mobile-card-pad: 8px;
+  }
+  .shell-content { max-width: 100%; }
 }

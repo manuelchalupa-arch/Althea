@@ -17,7 +17,7 @@ function VariantItem({ variant, onSelect }: VariantItemProps) {
           <img
             src={variant.gifUrl}
             alt={variant.name}
-            className="w-12 h-12 shrink-0 rounded-lg object-cover bg-surface/60"
+            className="w-12 h-12 shrink-0 rounded-lg object-contain bg-surface/60"
             loading="lazy"
           />
         )}

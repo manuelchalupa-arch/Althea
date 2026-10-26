@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import SemanticIcon from '@/components/ui/SemanticIcon'
 import { todayKey, isDateKey, parseLocalDateKey, toLocalDateKey, daysBetween } from '@/utils/dates'
 
 const STORAGE_KEY = 'althea:gymPaymentDate'
@@ -57,39 +56,44 @@ export default function GymPaymentCard() {
       : 'border-outline-variant/40 bg-surface-container text-on-surface'
 
   return (
-    <div data-testid="gym-card" data-status={exp?.status ?? 'none'} className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 shadow-al-sm ${tone}`}>
-      <SemanticIcon name="fitness_center" size={16} className="shrink-0 opacity-80" />
-      <span className="font-label-caps text-[9px] uppercase tracking-widest shrink-0">Gimnasio</span>
-      {!payment || editing ? (
-        <label className="flex items-center gap-2 min-w-0 text-[11px]">
-          <span className="opacity-80 hidden sm:inline">{payment ? 'Vence' : 'Fecha de pago'}</span>
-          <input
-            type="date"
-            data-testid="gym-card-input"
-            aria-label="Fecha de pago del gimnasio"
-            defaultValue={payment ?? ''}
-            autoFocus={!payment}
-            onChange={(e) => save(e.target.value)}
-            className="bg-transparent border border-outline-variant/60 rounded px-2 py-1 text-[11px] text-inherit focus:outline-none"
-          />
-        </label>
-      ) : (
-        <p className="min-w-0 flex-1 truncate text-[11px]">
-          <span data-testid="gym-card-due">
-            Pagado {fmt(payment)} · {exp!.status === 'expired' ? 'venció' : 'vence'} {fmt(exp!.due)}
-            {exp!.status === 'soon' && <> · en {exp!.daysLeft} {exp!.daysLeft === 1 ? 'día' : 'días'}</>}
-            {exp!.status === 'expired' && <> · renová la cuota</>}
-          </span>
-        </p>
-      )}
-      {payment && !editing && (
-        <button type="button" onClick={() => setEditing(true)} aria-label="Editar fecha de pago del gimnasio" className="shrink-0 opacity-60 hover:opacity-100 transition-opacity min-h-[24px]">
-          <SemanticIcon name="edit" size={14} />
-        </button>
-      )}
-      {editing && payment && (
-        <button type="button" onClick={() => setEditing(false)} aria-label="Cancelar" className="shrink-0 text-[10px] font-label-caps uppercase opacity-70">Cancelar</button>
-      )}
+    <div data-testid="gym-card" data-status={exp?.status ?? 'none'} className={`relative overflow-hidden rounded-2xl border px-5 py-4 shadow-al-md ${tone}`}>
+      <div className="absolute -right-6 -top-6 text-6xl opacity-20 select-none pointer-events-none" aria-hidden="true">🏋️</div>
+      <div className="relative z-10 flex items-start gap-3">
+        <div className="w-12 h-12 rounded-xl bg-primary-container/30 border border-primary/30 flex items-center justify-center shrink-0 text-2xl" aria-hidden="true">💪</div>
+        <div className="min-w-0 flex-1">
+          <div className="font-label-caps text-[10px] uppercase tracking-widest opacity-80">Tu cuota del gimnasio</div>
+          {!payment || editing ? (
+            <label className="flex flex-wrap items-center gap-2 mt-1.5 text-[13px]">
+              <span className="opacity-80 shrink-0">¿Cuándo pagaste?</span>
+              <input
+                type="date"
+                data-testid="gym-card-input"
+                aria-label="Fecha de pago del gimnasio"
+                defaultValue={payment ?? ''}
+                autoFocus={!payment}
+                onChange={(e) => save(e.target.value)}
+                className="min-w-0 bg-transparent border border-outline-variant/60 rounded-lg px-2 py-1.5 text-[14px] text-inherit focus:outline-none"
+              />
+            </label>
+          ) : (
+            <p className="min-w-0 mt-1 text-[14px] font-medium">
+              <span data-testid="gym-card-due">
+                Pagado {fmt(payment)} · {exp!.status === 'expired' ? 'venció' : 'vence'} {fmt(exp!.due)}
+                {exp!.status === 'soon' && <> · en {exp!.daysLeft} {exp!.daysLeft === 1 ? 'día' : 'días'}</>}
+                {exp!.status === 'expired' && <> · renová la cuota</>}
+              </span>
+            </p>
+          )}
+          {payment && !editing && (
+            <button type="button" onClick={() => setEditing(true)} aria-label="Editar fecha de pago del gimnasio" className="mt-1.5 shrink-0 text-[11px] font-label-caps uppercase opacity-70 hover:opacity-100 transition-opacity">
+              Editar fecha
+            </button>
+          )}
+          {editing && payment && (
+            <button type="button" onClick={() => setEditing(false)} aria-label="Cancelar" className="mt-1.5 shrink-0 text-[11px] font-label-caps uppercase opacity-70">Cancelar</button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

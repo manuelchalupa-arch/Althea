@@ -277,7 +277,7 @@ export function buildNutritionSuggestions(input: SuggestionInput): NutritionSugg
   if (dayTotals.calories < goals.calories * 0.4 && mealsLogged <= 1) {
     out.push({
       title: 'Completá tus comidas',
-      detail: `Registraste ${mealsLogged} comida(s) y ${Math.round(dayTotals.calories)} de ${goals.calories} kcal. Sumá la próxima comida del día.`,
+      detail: `${mealsLogged} comida(s) · ${Math.round(dayTotals.calories)}/${goals.calories} kcal. Sumá la próxima.`,
       kind: 'calories',
       origin: 'cálculo',
     })

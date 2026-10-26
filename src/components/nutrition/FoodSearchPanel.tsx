@@ -214,7 +214,7 @@ export function FoodSearchPanel({ onPick, suggestedName }: Props) {
 
       {meta && (
         <p className="font-body-sm text-[10px] text-on-surface-variant" data-testid="food-search-attribution">
-          {meta.count.toLocaleString('es')} alimentos USDA · dominio público (CC0) · {meta.sources.map(s => s.dataType).join(', ')}
+          {meta.count.toLocaleString('es')} alimentos USDA · CC0
         </p>
       )}
     </div>

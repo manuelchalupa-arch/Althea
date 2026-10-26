@@ -42,8 +42,8 @@ function buildRecommendations(ctx: RecoveryContext): Recommendation[] {
       id: 'rec-nodata',
       type: 'recovery',
       title: 'Sin datos suficientes',
-      description: 'Todavía no hay suficientes check-ins para generar una recomendación fiable.',
-      reasoning: 'Hipótesis, no hecho: sin historial de recuperación no se puede inferir tendencia.',
+      description: 'Faltan check-ins para recomendar algo fiable.',
+      reasoning: 'Hipótesis: falta historial.',
       evidence: ['Dato: 0 check-ins con score en historial'],
       severity: 'info',
       timestamp: ts,
@@ -52,9 +52,9 @@ function buildRecommendations(ctx: RecoveryContext): Recommendation[] {
     recs.push({
       id: 'rec-deload',
       type: 'recovery',
-      title: 'Considerar descarga o descanso activo',
-      description: 'Tu recuperación viene baja. Valorar bajar volumen hoy.',
-      reasoning: 'Cálculo a partir de tus registros: racha de scores bajos y tendencia reciente.',
+      title: 'Descarga o descanso activo',
+      description: 'Recuperación baja: bajá volumen hoy.',
+      reasoning: 'Según tus registros: racha baja y tendencia reciente.',
       evidence: [
         `Dato: último score ${ctx.lastScore}/100`,
         `Dato: ${ctx.consecutiveLow} día(s) consecutivos con score < 60`,
@@ -69,8 +69,8 @@ function buildRecommendations(ctx: RecoveryContext): Recommendation[] {
       id: 'rec-optimal',
       type: 'recovery',
       title: 'Recuperación óptima',
-      description: 'Indicadores en rango. Podés entrenar según lo planificado.',
-      reasoning: 'Cálculo a partir de tus registros recientes.',
+      description: 'Podés entrenar según lo planificado.',
+      reasoning: 'Según tus registros recientes.',
       evidence: [`Dato: último score ${ctx.lastScore}/100`, `Cálculo: tendencia ${ctx.trend}`],
       severity: 'info',
       timestamp: ts,
@@ -164,10 +164,10 @@ export default function Recuperacion() {
       <div className="space-y-2">
         <h1 className="font-headline-lg text-xl font-semibold text-on-surface">Recuperación</h1>
 
-        <AltheaCard level={2}>
+        <AltheaCard level={2} className="domain-recovery">
           <AltheaCardHeader
             title="Check-in de hoy"
-            subtitle="Se guarda en el dispositivo (Dexie) y alimenta IA y gráficos."
+            subtitle="Se guarda en el dispositivo."
             icon="monitor_heart"
             action={savedScore !== null ? (
               <AltheaBadge variant="success" dot>Guardado {savedScore}/100</AltheaBadge>
@@ -176,7 +176,7 @@ export default function Recuperacion() {
           <RecoveryCheckForm onSaved={handleCheckSaved} />
         </AltheaCard>
 
-        <AltheaCard level={2}>
+        <AltheaCard level={2} className="domain-recovery">
           <AltheaCardHeader title="Estado y evolución" subtitle="Datos reales de tus últimos check-ins." icon="trending_up" />
           {loading ? (
             <AltheaLoading lines={3} />
@@ -191,7 +191,7 @@ export default function Recuperacion() {
             <AltheaEmpty
               icon="spa"
               title="Sin datos de recuperación todavía"
-              description="Completá tu primer check-in para ver tu estado, evolución y factores."
+              description="Completá un check-in para ver tu estado y evolución."
             />
           ) : (
             <div className="space-y-5">
@@ -242,7 +242,7 @@ export default function Recuperacion() {
           )}
         </AltheaCard>
 
-        <AltheaCard level={2}>
+        <AltheaCard level={2} className="domain-recovery">
           <AltheaCardHeader title="Recomendaciones" subtitle="No modifican tu rutina automáticamente." icon="lightbulb" />
           {loading ? (
             <AltheaLoading lines={2} />
@@ -257,7 +257,7 @@ export default function Recuperacion() {
             <AltheaEmpty
               icon="task_alt"
               title="Sin recomendaciones activas"
-              description="No hay alertas pendientes. Tus indicadores están dentro de los rangos esperados."
+              description="Sin alertas: indicadores en rango."
             />
           ) : (
             <div className="space-y-3">
@@ -274,7 +274,7 @@ export default function Recuperacion() {
           )}
         </AltheaCard>
 
-        <AltheaCard level={2}>
+        <AltheaCard level={2} className="domain-recovery">
           <AltheaCardHeader title="Últimos días" icon="history" />
           {history.length > 0 ? (
             <div className="divide-y divide-outline-variant/30">
@@ -305,10 +305,10 @@ export default function Recuperacion() {
       <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Recuperación</h1>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-8 space-y-4">
-          <AltheaCard level={2}>
+          <AltheaCard level={2} className="domain-recovery">
             <AltheaCardHeader
               title="Check-in de hoy"
-              subtitle="Tu estado real queda guardado en el dispositivo (Dexie) y alimenta IA y gráficos."
+              subtitle="Se guarda en el dispositivo."
               icon="monitor_heart"
               action={savedScore !== null ? (
                 <AltheaBadge variant="success" dot>Guardado {savedScore}/100</AltheaBadge>
@@ -317,7 +317,7 @@ export default function Recuperacion() {
             <RecoveryCheckForm onSaved={handleCheckSaved} />
           </AltheaCard>
 
-          <AltheaCard level={2}>
+          <AltheaCard level={2} className="domain-recovery">
             <AltheaCardHeader title="Estado y evolución" subtitle="Datos reales de tus últimos check-ins." icon="trending_up" />
             {loading ? (
               <AltheaLoading lines={3} />
@@ -332,7 +332,7 @@ export default function Recuperacion() {
               <AltheaEmpty
                 icon="spa"
                 title="Sin datos de recuperación todavía"
-                description="Completá tu primer check-in para ver tu estado, evolución y factores."
+                description="Completá un check-in para ver tu estado y evolución."
               />
             ) : (
               <div className="space-y-5">
@@ -387,7 +387,7 @@ export default function Recuperacion() {
             )}
           </AltheaCard>
 
-          <AltheaCard level={2}>
+          <AltheaCard level={2} className="domain-recovery">
             <AltheaCardHeader title="Recomendaciones" subtitle="No modifican tu rutina automáticamente." icon="lightbulb" />
             {loading ? (
               <AltheaLoading lines={2} />
@@ -402,7 +402,7 @@ export default function Recuperacion() {
               <AltheaEmpty
                 icon="task_alt"
                 title="Sin recomendaciones activas"
-                description="No hay alertas pendientes. Tus indicadores están dentro de los rangos esperados."
+                description="Sin alertas: indicadores en rango."
               />
             ) : (
               <div className="space-y-3">
@@ -421,7 +421,7 @@ export default function Recuperacion() {
         </div>
 
         <div className="lg:col-span-4 space-y-4">
-          <AltheaCard level={2}>
+          <AltheaCard level={2} className="domain-recovery">
             <AltheaCardHeader title="Últimos días" icon="history" />
             {history.length > 0 ? (
               <div className="divide-y divide-outline-variant/30">

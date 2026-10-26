@@ -70,7 +70,7 @@ export function SwapModal({ show, onClose, muscleName, swapLoading, swapOptions,
           {!swapLoading && swapOptions.slice(0,1).map((r:any)=>(
             <div key={r.exercise.id} className="rounded bg-surface-container-high border border-primary/40 p-3">
               <button onClick={()=> onSwap(r.exercise)} className="w-full text-left flex items-center gap-3">
-                {r.exercise.gifUrl ? <img src={r.exercise.gifUrl} alt={r.exercise.name} className="w-12 h-12 rounded-lg object-cover"/> : null}
+                {r.exercise.gifUrl ? <img src={r.exercise.gifUrl} alt={r.exercise.name} className="w-12 h-12 rounded-lg object-contain"/> : null}
                 <div className="flex-1 min-w-0"><div className="font-body-md text-[15px] text-on-surface font-medium truncate">{r.exercise.name}</div><div className="font-label-caps text-[10px] uppercase text-on-surface-variant">{r.exercise.muscle} · {r.exercise.equipment}</div></div>
                 <span className="font-headline-sm text-[20px] font-semibold text-on-surface shrink-0">{r.score}%</span>
               </button>
@@ -82,7 +82,7 @@ export function SwapModal({ show, onClose, muscleName, swapLoading, swapOptions,
           {!swapLoading && swapOptions.slice(1).map((r:any)=>(
             <div key={r.exercise.id} className="rounded bg-surface-container border border-outline-variant p-3">
               <button onClick={()=> onSwap(r.exercise)} className="w-full text-left flex items-center gap-3">
-                {r.exercise.gifUrl ? <img src={r.exercise.gifUrl} alt={r.exercise.name} className="w-12 h-12 rounded-lg object-cover"/> : null}
+                {r.exercise.gifUrl ? <img src={r.exercise.gifUrl} alt={r.exercise.name} className="w-12 h-12 rounded-lg object-contain"/> : null}
                 <div className="flex-1 min-w-0"><div className="font-body-md text-[15px] text-on-surface font-medium truncate">{r.exercise.name}</div><div className="font-label-caps text-[10px] uppercase text-on-surface-variant">{r.exercise.muscle} · {r.exercise.equipment}</div></div>
                 <span className="font-headline-sm text-[20px] font-semibold text-on-surface shrink-0">{r.score}%</span>
               </button>
@@ -195,7 +195,7 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
         <div className="space-y-2 max-h-60 overflow-auto">
           {options.map((opt)=>(
             <button key={opt.id} onClick={()=>onAdd(opt)} className="w-full text-left p-3 rounded bg-surface-container border border-outline-variant flex items-center gap-3 hover:bg-surface-container-high/40 transition">
-              {opt.gifUrl ? <img src={opt.gifUrl} alt={opt.name} className="w-12 h-12 rounded-lg object-cover"/> : null}
+              {opt.gifUrl ? <img src={opt.gifUrl} alt={opt.name} className="w-12 h-12 rounded-lg object-contain"/> : null}
               <div>
                 <div className="font-body-md text-[15px] text-on-surface font-medium">{opt.name}</div>
                 <div className="font-label-caps text-[10px] uppercase text-on-surface-variant">{opt.muscle} · {opt.equipment}</div>

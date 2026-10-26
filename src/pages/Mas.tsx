@@ -36,6 +36,7 @@ interface MasStats {
 
 export default function Mas(){
   const [routineCount, setRoutineCount] = useState(0)
+  const [showNotifModal, setShowNotifModal] = useState(false)
   const [stats, setStats] = useState<MasStats | null>(null)
   // (D) Misma fuente de verdad que Inicio/AppNav: sesión activa no finalizada.
   const { hasActiveSession } = useActiveTrainingSession()
@@ -248,10 +249,44 @@ export default function Mas(){
           <section aria-label="Configuración general">
             <AltheaCardHeader title="Configuración" subtitle="Recordatorios y avisos" icon="notifications_active" />
             <AltheaCard level={2} padding="md">
-              <DailyRemindersConfig />
+              <button
+                onClick={() => setShowNotifModal(true)}
+                className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-surface-container-high border border-outline-variant hover:border-primary/50 transition-colors text-left"
+              >
+                <span className="flex items-center gap-2">
+                  <SemanticIcon name="notifications_active" size={20} className="text-primary" />
+                  <span className="font-body-md text-[15px] text-on-surface font-medium">Notificaciones y recordatorios</span>
+                </span>
+                <SemanticIcon name="chevron_right" size={20} className="text-on-surface-variant shrink-0" />
+              </button>
+              <p className="font-body-sm text-xs text-on-surface-variant mt-2">Configurá horarios, títulos y activación de recordatorios diarios.</p>
             </AltheaCard>
           </section>
         </>
+      )}
+
+      {showNotifModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setShowNotifModal(false)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[85vh] overflow-auto rounded-2xl bg-surface-container border border-outline-variant p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-headline-lg text-lg text-on-surface font-semibold">Notificaciones y recordatorios</h2>
+              <button
+                onClick={() => setShowNotifModal(false)}
+                aria-label="Cerrar"
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors"
+              >
+                <SemanticIcon name="close" size={18} />
+              </button>
+            </div>
+            <DailyRemindersConfig />
+          </div>
+        </div>
       )}
     </div>
   )

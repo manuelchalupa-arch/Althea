@@ -137,12 +137,12 @@ const save = async () => {
         <div className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface mt-1 flex items-center justify-center gap-2">{score}/100 <span aria-hidden className={`inline-block w-3 h-3 rounded-full ${color === 'green' ? 'bg-secondary' : color === 'yellow' ? 'bg-tertiary' : 'bg-error'}`}></span></div>
         <div className="font-body-md text-sm text-on-surface opacity-80 mt-1">{color === 'green' ? 'Normal' : color === 'yellow' ? 'Moderada' : 'Baja'} — {color === 'green' ? 'Listo para entrenar' : color === 'yellow' ? 'Considerá bajar volumen' : 'Priorizá descanso'}</div>
         {!hasRecord && (
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant opacity-70 mt-1">Sin check-in guardado — completá y guardá para registrar tu estado real</div>
+          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant opacity-70 mt-1">Sin check-in guardado — guardá tu estado real</div>
         )}
       </div>
 
       <div className="rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 space-y-3">
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Cuestionario diario (1–10) — completalo cuando quieras</div>
+        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Cuestionario diario (1–10)</div>
         {RECOVERY_FIELDS.map(([k, label]) => (
           <label key={k} className="block">
             <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>{label}</span><span>{vals[k as keyof RecoveryCheckValues]}/10</span></div>
@@ -167,7 +167,7 @@ const save = async () => {
           </label>
         </div>
         <button onClick={save} disabled={hydration !== 'hydrated'} className="w-full py-3 min-h-[48px] rounded-xl bg-primary text-on-primary font-medium disabled:opacity-50">{saving ? 'Guardando…' : 'Guardar recuperación'}</button>
-        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Se guarda al presionar · actualiza recuperación, gráfico e IA. Índice orientativo, no diagnóstico médico. No modifica tu rutina.</p>
+        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Índice orientativo, no diagnóstico. No modifica tu rutina.</p>
       </div>
     </div>
   )

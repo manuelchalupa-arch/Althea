@@ -40,9 +40,9 @@ export type AtlasMetric = 'volumen' | 'series' | 'reps'
 
 export const ATLAS_MODES: Array<{ id: AtlasModeId; label: string; testid: string; description: string }> = [
   { id: 'semana', label: 'Semana', testid: 'mode-semana', description: 'Lunes a domingo de la semana actual' },
-  { id: 'mes', label: 'Mes actual', testid: 'mode-mes', description: 'Del 1.º al último día del mes en curso' },
+  { id: 'mes', label: 'Mes', testid: 'mode-mes', description: 'Del 1.º al último día del mes en curso' },
   { id: 'rutina', label: 'Rutina', testid: 'mode-rutina', description: 'Semana del ciclo actual de la rutina' },
-  { id: 'personalizada', label: 'Personalizado', testid: 'mode-personalizada', description: 'Rango personalizado' },
+  { id: 'personalizada', label: 'Rango', testid: 'mode-personalizada', description: 'Rango personalizado' },
 ]
 
 /** Valor inicial seguro: el mes calendario en curso. */

@@ -264,9 +264,6 @@ export function DishComposer({ onSave, onCancel, initial, initialText, initialMe
             Interpretar
           </AltheaButton>
         </div>
-        <p className="font-body-sm text-[11px] text-on-surface-variant">
-          Escribí el plato en palabras. Althea estima los ingredientes y una porción estándar.
-        </p>
         {error && (
           <div
             role="alert"

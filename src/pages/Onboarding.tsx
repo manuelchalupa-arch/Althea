@@ -23,7 +23,7 @@ const COACH_INTENSIDAD: { value: CoachIntensity; label: string; description: str
   { value: 'extremo', label: 'Extremo', description: 'Máxima intensidad, sin excusas (con guardrails)' },
 ]
 
-const INPUT_CLS = 'w-full bg-surface border border-outline-variant rounded-lg p-3 min-h-[48px] font-body-md text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30'
+const INPUT_CLS = 'w-full bg-surface border-2 border-outline rounded-lg p-3 min-h-[52px] font-body-md text-base text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30'
 
 function StepSection({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
@@ -299,39 +299,22 @@ export default function Onboarding(){
 
   return (
     <div className="min-h-screen flex flex-col bg-transparent sm:px-5 lg:px-8 mx-auto">
-      {/* El busto acompaña el progreso en todos los pasos: mas grande en el
-          primero (donde la marca es el mensaje) y chico despues, para no
-          competir con la pregunta. */}
-      <div className="p-4">
-        <div className="flex items-center gap-3">
-          {step === 0 ? (
-            <>
-              <AltheaAvatar
-                context="hero"
-                size={56}
-                alt="Busto clásico de Althea: figura de mármol con corona de laurel"
-                className="shrink-0 object-contain lg:hidden"
-              />
-              <AltheaAvatar
-                context="hero"
-                size={80}
-                alt="Busto clásico de Althea: figura de mármol con corona de laurel"
-                className="shrink-0 object-contain hidden lg:block"
-              />
-            </>
-          ) : (
-            <AltheaAvatar
-              context="hero"
-              size={56}
-              alt="Busto clásico de Althea: figura de mármol con corona de laurel"
-              className="shrink-0 object-contain"
-            />
-          )}
-          <div className="flex-1 min-w-0">
+      {/* Un solo busto centrado arriba en todos los pasos (grande en el
+          primero, donde la marca es el mensaje). El par responsive anterior
+          se veia doble: althea-bust-img pisa hidden/lg:hidden de Tailwind. */}
+      <div className="p-4 space-y-3">
+        <div className="flex justify-center">
+          <AltheaAvatar
+            context="hero"
+            size={step === 0 ? 80 : 56}
+            alt="Busto clásico de Althea: figura de mármol con corona de laurel"
+            className="shrink-0 object-contain"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
             <div className="flex justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant"><span>PASO {step+1} DE {total}</span><span>{Math.round((step+1)/total*100)}%</span></div>
             <div className="h-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg overflow-hidden mt-1"><div className="h-full bg-primary" style={{width:`${(step+1)/total*100}%`}}/></div>
           </div>
-        </div>
       </div>
 
       <div className="flex-1 p-4 space-y-4 overflow-auto mx-auto w-full max-w-2xl">
@@ -402,9 +385,11 @@ export default function Onboarding(){
         {step===4 && (
           <div className="space-y-3">
             <h1 className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">¿Cuándo y cuánto entrenás?</h1>
-            <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Horario habitual<input type="time" value={horarioEntreno} onChange={e=>setHorarioEntreno(e.target.value)} className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/></label>
-            <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Duración de sesión (min)
-              <input type="number" value={duracionSesion} onChange={e=>setDuracionSesion(Number(e.target.value))} min={20} max={180} className="w-full mt-1 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-lg p-3 font-body-md text-sm text-on-surface"/>
+            <label className="block font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">Horario habitual
+              <input type="time" value={horarioEntreno} onChange={e=>setHorarioEntreno(e.target.value)} className={`mt-1.5 ${INPUT_CLS}`}/>
+            </label>
+            <label className="block font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">Duración de sesión (min)
+              <input type="number" value={duracionSesion} onChange={e=>setDuracionSesion(Number(e.target.value))} min={20} max={180} className={`mt-1.5 ${INPUT_CLS}`}/>
             </label>
           </div>
         )}
@@ -456,11 +441,11 @@ export default function Onboarding(){
                 </Field>
               </div>
               <div className="rounded-lg bg-surface-container-highest/60 p-2.5 font-body-sm text-xs text-on-surface-variant">
-                Al finalizar configuraremos notificaciones push básicas (entreno, hidratación, check-in). Podés ajustarlas después en Perfil.
+                Después configurás notificaciones (entreno, hidratación, check-in) en Perfil.
               </div>
             </StepSection>
 
-            <StepSection title="Medidas corporales" subtitle="Opcional — mejoran tus recomendaciones de nutrición y carga">
+            <StepSection title="Medidas corporales" subtitle="Opcional: mejora tus recomendaciones">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Peso kg">
                   <input value={peso} onChange={e=>setPeso(e.target.value)} type="number" step={0.1} inputMode="decimal" placeholder="80" className={INPUT_CLS}/>
@@ -480,7 +465,7 @@ export default function Onboarding(){
                       <span className="font-headline-lg text-xl font-semibold text-on-surface">{imc}</span>
                       <span className="font-label-caps text-[10px] font-bold uppercase tracking-widest text-primary">{imcCat}</span>
                     </div>
-                    <p className="font-body-sm text-xs text-on-surface-variant">El IMC es un indicador orientativo calculado como peso / (altura en m)².</p>
+                    <p className="font-body-sm text-xs text-on-surface-variant">Indicador orientativo: peso / altura².</p>
                   </>
                 ) : (
                   <p className="font-body-sm text-xs text-on-surface-variant">Opcional: completa peso y altura para calcular IMC = peso / altura²</p>
@@ -491,7 +476,7 @@ export default function Onboarding(){
 
             <StepSection title="Contexto para el Coach" subtitle="Contale a tu entrenador virtual qué buscás">
               <textarea value={needs} onChange={e=>setNeeds(e.target.value)} placeholder="Quiero bajar grasa pero mantener músculo. Tengo poco tiempo..." rows={3} className={INPUT_CLS}/>
-              <p className="font-body-sm text-xs text-on-surface-variant">Se guardará como contexto para el Coach, no solo como texto.</p>
+              <p className="font-body-sm text-xs text-on-surface-variant">Queda como contexto del Coach.</p>
             </StepSection>
 
             <StepSection title="Salud y limitaciones" subtitle="Para adaptar ejercicios, carga y sesiones">
@@ -561,7 +546,7 @@ export default function Onboarding(){
                   <div className="space-y-1 max-h-[50vh] overflow-auto">
                     {biblioItems.filter(e=> biblioMuscle==='__all__' || e.group===biblioMuscle).map(ex=>(
                       <div key={ex.id} className="rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-2 flex gap-2 items-center">
-                        <img src={ex.gifUrl} alt={ex.name} className="w-16 h-16 rounded-lg object-cover bg-surface/60" loading="lazy" onError={e=> (e.target as HTMLImageElement).style.display='none'} />
+                        <img src={ex.gifUrl} alt={ex.name} className="w-16 h-16 rounded-lg object-contain bg-surface/60" loading="lazy" onError={e=> (e.target as HTMLImageElement).style.display='none'} />
                         <div className="flex-1 min-w-0">
                           <div className="font-body-md text-sm text-on-surface truncate flex items-center gap-1.5">{ex.name} <span className="font-label-md text-[9px] uppercase tracking-widest text-primary border border-primary/40 rounded px-1 py-0.5 shrink-0">Tradicional</span></div>
                           <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle} · {ex.equipment}</div>

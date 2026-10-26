@@ -22,7 +22,6 @@ import type { MuscleDataPoint } from './MuscleAtlas'
 
 const components = readFileSync(resolve(__dirname, '../../styles/althea-components.css'), 'utf8')
 const tokens = readFileSync(resolve(__dirname, '../../styles/althea-tokens.css'), 'utf8')
-const mobile = readFileSync(resolve(__dirname, '../../styles/althea-mobile-stitch.css'), 'utf8')
 
 /** Estado visual (`is-*`) que el componente emite para esa intensidad. */
 function stateFor(intensity: number): string {
@@ -180,10 +179,10 @@ describe('escala cromática del atlas', () => {
     }
   })
 
-  it('el tema mobile oscuro también usa la escala sin rojo', () => {
+  it('el tema oscuro también usa la escala sin rojo', () => {
     for (const token of ['--althea-muscle-idle', '--althea-muscle-low', '--althea-muscle-mid', '--althea-muscle-high']) {
-      const hex = mobile.match(new RegExp(`${token}:\\s*(#[0-9A-Fa-f]{3,8})`))?.[1] ?? ''
-      expect(hex, `sin ${token} en mobile-stitch`).not.toBe('')
+      const hex = tokenValue(token, 'dark')
+      expect(hex, `sin ${token} en el tema oscuro`).not.toBe('')
       expect(RED(hex), `${token} = ${hex} no puede ser rojo`).toBe(false)
     }
   })

@@ -16,6 +16,7 @@ import ActivityModal from '@/components/activity/ActivityModal'
 import { MacroSummary } from '@/components/nutrition/MacroSummary'
 import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
+import { useVisibleSections } from '@/hooks/useVisibleSections'
 import { todayKey, daysBetween, parseLocalDateKey, toLocalDateKey, weekdayOfKey, addDaysToKey, toDateKey, isDateKey, weekStartKey } from '@/utils/dates'
 import type { ExpenditureResult } from '@/services/training/exerciseEnergy'
 
@@ -52,6 +53,7 @@ function GastoRow({ label, res, testId, hideEmptyNote = false }: { label: string
 export default function Inicio(){
   const nav = useNavigate()
   const { hasActiveSession } = useActiveTrainingSession()
+  const { isVisible } = useVisibleSections()
   const todayStr = todayKey()
   const { dayName, dayNum, month } = formatAgendaDate(todayStr)
   const [cycle, setCycle] = useState(getCycleFromProfile(null))
@@ -75,7 +77,7 @@ export default function Inicio(){
   const [, setPreviewList] = useState<{id:string;name:string;sets:number;reps:number;weight:number|null;restSec?:number;seriesType?:string;muscle?:string}[]>([])
   const [, setPreviewName] = useState('')
   const [editingIdx, setEditingIdx] = useState<number|null>(null)
-  const [editDraft, setEditDraft] = useState<{reps:number; weight:number|null; restSec:number}>({reps:0, weight:0, restSec:90})
+  const [editDraft, setEditDraft] = useState<{reps:number|''; weight:number|null; restSec:number|''}>({reps:0, weight:0, restSec:90})
   const [, setSavedIdx] = useState<number|null>(null)
   const [showCalendarPopover, setShowCalendarPopover] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
@@ -99,7 +101,7 @@ export default function Inicio(){
 
   const saveExerciseEdit = async (idx:number)=>{
     const updated = [...exNames]
-    updated[idx] = { ...updated[idx], reps: editDraft.reps, weight: editDraft.weight, restSec: editDraft.restSec }
+    updated[idx] = { ...updated[idx], reps: editDraft.reps === '' ? 0 : editDraft.reps, weight: editDraft.weight, restSec: editDraft.restSec === '' ? 90 : editDraft.restSec }
     setExNames(updated)
     try{
       const { getAllRoutines, getActiveRoutineId, saveAllRoutines } = await import('@/services/storage/routineStore')
@@ -114,8 +116,10 @@ export default function Inicio(){
           const exInDay = exArr.findIndex((e:any)=> (e.exId || e.id) === targetId)
           if(exInDay >= 0){
             const prevEx = exArr[exInDay]
-            exArr[exInDay] = { ...prevEx, reps: editDraft.reps, weight: editDraft.weight ?? null, restSec: editDraft.restSec,
-              series: Array.isArray(prevEx.series) ? prevEx.series.map(s=> ({ ...s, reps: editDraft.reps, weight: editDraft.weight ?? null })) : prevEx.series }
+            const repsN = editDraft.reps === '' ? 0 : editDraft.reps
+            const restN = editDraft.restSec === '' ? 90 : editDraft.restSec
+            exArr[exInDay] = { ...prevEx, reps: repsN, weight: editDraft.weight ?? null, restSec: restN,
+              series: Array.isArray(prevEx.series) ? prevEx.series.map(s=> ({ ...s, reps: repsN, weight: editDraft.weight ?? null })) : prevEx.series }
             rawList[activeIdx].dayExercises[dayN] = exArr
             await saveAllRoutines(rawList, activeId)
           }
@@ -420,8 +424,12 @@ export default function Inicio(){
                 <span>{isRest ? 'Recuperación y descanso activo' : `Entrenamiento: ${agenda.name}`}</span>
                 <span className="opacity-50">·</span>
                 <span>{dayName} {dayNum} de {month}</span>
-                <span className="opacity-50">·</span>
-                <span className="truncate">{cycle.methodId && activeMethodName ? activeMethodName : 'Microciclo de Arete & Hipertrofia Clásica'}</span>
+                {activeMethodName && (
+                  <>
+                    <span className="opacity-50">·</span>
+                    <span className="truncate">{activeMethodName}</span>
+                  </>
+                )}
               </p>
               {isOverridden && (
                 <p className="font-label-caps text-[10px] text-secondary mt-1">Cambiado: original N.º {rawAgenda.n} {rawAgenda.name}</p>
@@ -439,18 +447,9 @@ export default function Inicio(){
                 aria-label="Cambiar el entrenamiento de hoy"
                 className="flex items-center gap-2 px-3 py-1.5 min-h-[44px] min-w-[44px] rounded-xl bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
                 <SemanticIcon name="swap_horiz" size={16} className="text-outline" />
-                <span className="font-medium text-body-sm hidden sm:inline">Cambiar día</span>
+                <span className="font-medium text-body-sm">Cambiar</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setActivityOpen(true)}
-                aria-haspopup="dialog"
-                aria-label="Registrar actividad libre"
-                data-testid="inicio-activity-btn-desktop"
-                className="flex items-center px-4 py-1.5 min-h-[44px] rounded-xl bg-teal-700 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 transition-colors cursor-pointer">
-                <span className="font-semibold text-body-sm tracking-wide uppercase">Actividad libre</span>
-              </button>
-               {todayCompleted && (
+              {todayCompleted && (
                 <span data-testid="inicio-day-done" className="flex items-center gap-2 px-4 py-1.5 min-h-[44px] rounded-xl bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[11px] uppercase font-bold">
                   <SemanticIcon name="check_circle" size={17} />
                   Sesión completada
@@ -474,42 +473,39 @@ export default function Inicio(){
         {/* ─── FILA 1 — MÁXIMA PRIORIDAD: hidratación, macros, gasto calórico ─── */}
         <section className="dashboard-top-grid grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {/* Hidratación — tarjeta grande y destacada */}
-          <div className="border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 min-w-0">
+          <div className="domain-hydration border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-secondary-container/40 border border-secondary/40 flex items-center justify-center shrink-0">
                   <SemanticIcon name="water_drop" size={20} className="text-secondary" />
                 </div>
-                <div className="min-w-0">
-                  <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Hidratación de hoy</span>
-                  <Link to="/nutricion" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors mt-0.5">Nutrición →</Link>
-                </div>
+                <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold truncate">Hidratación</span>
               </div>
+              {isVisible('nutrition') && <Link to="/nutricion" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors">Nutrición →</Link>}
             </div>
             {/* Solo visual: el registro y la configuración viven en Nutrición. */}
             <WaterBottle size="sm" allowQuickAdd={false} />
           </div>
 
-          {/* Macronutrientes — vista indicativa; el detalle vive en Nutrición */}
-          <div className="border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
+          {isVisible('nutrition') && (
+          <div className="domain-nutrition border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
             <MacroSummary size={170} />
           </div>
+          )}
 
-          {/* Gasto calórico */}
-          <div data-testid="inicio-gasto-calorico" className="border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-3 min-w-0">
+          {isVisible('training') && (
+          <div data-testid="inicio-gasto-calorico" className="domain-training border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-primary-container/40 border border-primary/40 flex items-center justify-center shrink-0">
                   <SemanticIcon name="local_fire_department" size={20} className="text-primary" />
                 </div>
-                <div className="min-w-0">
-                  <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold">Gasto calórico del ejercicio</span>
-                  <Link to="/calendario" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors mt-0.5">Historial →</Link>
-                </div>
+                <span className="font-label-caps text-[10px] uppercase text-on-surface font-semibold truncate">Gasto calórico</span>
               </div>
+              {isVisible('calendar') && <Link to="/calendario" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors">Historial →</Link>}
             </div>
             <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-3">
-              Estimación MET sobre tus sesiones registradas (duración medida × peso corporal).
+              Estimación MET: duración × peso corporal.
             </p>
             {gasto === null ? (
               <p className="text-[12px] text-on-surface-variant">Cargando…</p>
@@ -526,13 +522,14 @@ export default function Inicio(){
               </div>
             )}
           </div>
+          )}
         </section>
 
         {/* ─── FILA 2 — SECUNDARIA: entrenamiento, actividad, registros ─── */}
-        <section className="dashboard-secondary-grid grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <section className="dashboard-secondary-grid grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">
 
           {/* Entrenamiento / sesión del día — ancho completo en lg */}
-          <div className="lg:col-span-2 border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
+          <div className="domain-training lg:col-span-2 border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -575,7 +572,7 @@ export default function Inicio(){
 
             {isRest ? (
               <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-3 italic">
-                «La recuperación es donde se forja la verdadera fuerza. Descansa con propósito.»
+                «Descansa con propósito.»
               </p>
             ) : (
               <>
@@ -608,7 +605,7 @@ export default function Inicio(){
                             <td className="py-3 px-3 text-center font-semibold text-on-surface">{ex.sets}</td>
                             <td className="py-3 px-3 text-center">
                               {isEditing ? (
-                                <input type="number" value={editDraft.reps} onChange={e=>setEditDraft(d=>({...d, reps: Number(e.target.value)}))}
+                                <input type="number" value={editDraft.reps} onChange={e=>setEditDraft(d=>({...d, reps: e.target.value === '' ? '' : Number(e.target.value)}))}
                                   className="w-14 bg-surface-container-high border border-primary/40 rounded px-1.5 py-0.5 text-center text-on-surface text-sm focus:outline-none focus:border-primary"/>
                               ) : (
                                 <span className="text-on-surface">{ex.reps || '—'}</span>
@@ -628,7 +625,7 @@ export default function Inicio(){
                             <td className="py-3 px-3 text-right">
                               {isEditing ? (
                                 <div className="flex items-center justify-end gap-1">
-                                  <input type="number" step="5" value={editDraft.restSec} onChange={e=>setEditDraft(d=>({...d, restSec: Number(e.target.value)}))}
+                                  <input type="number" step="5" value={editDraft.restSec} onChange={e=>setEditDraft(d=>({...d, restSec: e.target.value === '' ? '' : Number(e.target.value)}))}
                                     className="w-14 bg-surface-container-high border border-primary/40 rounded px-1.5 py-0.5 text-right text-on-surface-variant text-sm focus:outline-none focus:border-primary"/>
                                   <span className="text-[10px] text-on-surface-variant">s</span>
                                 </div>
@@ -672,7 +669,7 @@ export default function Inicio(){
           {/* Actividad libre y Registros de virtud — dos tarjetas en lg */}
           <div className="lg:col-span-1 space-y-6">
             {/* Actividad libre */}
-            <div className="border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
+            <div className="domain-training border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-teal-700/20 border border-teal-700/30 flex items-center justify-center shrink-0">
@@ -683,7 +680,7 @@ export default function Inicio(){
                 <span className="shrink-0 font-label-caps text-[10px] text-on-surface-variant uppercase">Registro rápido</span>
               </div>
               <p className="text-[11px] text-on-surface-variant">
-                Registrá caminatas, deportes o cualquier movimiento fuera del entrenamiento de fuerza.
+                Caminatas, deportes o movimiento fuera de la fuerza.
               </p>
               <button
                 type="button"
@@ -698,13 +695,12 @@ export default function Inicio(){
             </div>
 
             {/* Registros de virtud */}
-            <AltheaPanel className="p-5 shadow-al-sm border border-outline-variant/50">
+            <AltheaPanel className="domain-recovery p-5 shadow-al-sm border border-outline-variant/50">
               <div className="flex items-center justify-between border-b border-outline-variant/30 pb-3 mb-4">
                 <div className="flex items-center gap-2">
                   <SemanticIcon name="insights" size={18} className="text-secondary" />
-                  <h3 className="font-headline-md text-title-md font-semibold text-on-surface tracking-wide">Registros de Virtud & Volumen Semanal</h3>
+                  <h3 className="font-headline-md text-title-md font-semibold text-on-surface tracking-wide">Virtud y volumen</h3>
                 </div>
-                <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">CICLO OLÍMPICO</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <AltheaMetric
@@ -723,8 +719,8 @@ export default function Inicio(){
                   label="Adherencia al plan"
                 />
                 <AltheaMetric
-                  value={briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Áurea A+' : briefV2.recovery.lastScore >= 40 ? 'B+ Estable' : 'C Debe Descansar') : 'Sin datos'}
-                  label="Calidad de recuperación"
+                  value={briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Áurea A+' : briefV2.recovery.lastScore >= 40 ? 'B+ Estable' : 'C Debe Descansar') : '—'}
+                  label="Recuperación"
                 />
               </div>
             </AltheaPanel>
@@ -742,7 +738,7 @@ export default function Inicio(){
             {rawAgenda.isRest ? (
               <div className="rounded bg-secondary/10 border border-secondary/30 p-3">
                 <div className="font-label-caps text-[10px] text-secondary flex items-center gap-1"><BrandIcon name="alert" size={14}/> Este día estaba configurado como descanso.</div>
-                <p className="text-[11px] text-on-surface-variant mt-1">Estás intentando entrenar en un día no planificado. Esto puede reducir recuperación.</p>
+                <p className="text-[11px] text-on-surface-variant mt-1">Día no planificado: puede afectar la recuperación.</p>
               </div>
             ) : (
               <div className="rounded bg-secondary/10 border border-secondary/30 p-3">
@@ -819,7 +815,7 @@ export default function Inicio(){
       {/* Footer */}
       <footer className="pt-4 pb-6 text-center space-y-3 mt-4">
         <p className="font-label-caps text-[10px] tracking-widest text-on-surface-variant uppercase">
-          ALTHEA PLATFORM A� PALAESTRA DE ARETE
+          ALTHEA · PALAESTRA DE ARETE
         </p>
       </footer>
 
@@ -832,8 +828,7 @@ export default function Inicio(){
           <div className="w-full max-w-md rounded-2xl bg-surface border border-outline-variant p-5 space-y-4">
             <h2 id="routine-block-title" className="font-headline-md text-lg text-on-surface">Revisión de rutina requerida</h2>
             <p className="text-[12px] text-on-surface-variant">
-              Tu rutina lleva <strong>{routineReview.days} días</strong> (límite {routineReview.limit}); venció el <strong>{routineReview.reviewKey}</strong>.
-              Antes de entrenar debés ratificarla o posponer la revisión.
+              Rutina de <strong>{routineReview.days} días</strong> (límite {routineReview.limit}), vencida el <strong>{routineReview.reviewKey}</strong>.
             </p>
             <div className="flex flex-col gap-2">
               <button onClick={ratifyRoutine} className="min-h-[44px] rounded-lg bg-primary text-on-primary font-label-caps text-[12px] uppercase font-bold">Ratificar rutina</button>

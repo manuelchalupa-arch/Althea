@@ -364,7 +364,7 @@ export default function Nutricion() {
           </div>
           <div className="min-w-0">
             <h1 className="font-headline-lg text-xl font-semibold text-on-surface tracking-tight">Nutrición</h1>
-            <p className="font-body-sm text-[11px] text-on-surface-variant capitalize truncate">{dateText}</p>
+            <p className="font-body-sm text-[11px] text-on-surface-variant truncate">{dateText}</p>
           </div>
           <div className="ml-auto flex flex-col items-end gap-1">
             {todayTraining && <AltheaBadge variant="primary" dot>{todayTraining.name}</AltheaBadge>}
@@ -375,7 +375,7 @@ export default function Nutricion() {
         </div>
 
         {/* Hero calórico del día */}
-        <section className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2.5">
+        <section className="domain-nutrition rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2.5">
           <div className="flex items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">Consumido hoy</p>
@@ -394,11 +394,11 @@ export default function Nutricion() {
         <div className="grid grid-cols-3 gap-2">
             {[
               { label: 'Proteínas', value: totals.protein, goal: goals.protein, status: protStatus, tone: 'text-primary' },
-              { label: 'Carbohidratos', value: totals.carbs, goal: goals.carbs, status: carbStatus, tone: 'text-tertiary' },
+              { label: 'Carbos', value: totals.carbs, goal: goals.carbs, status: carbStatus, tone: 'text-tertiary' },
               { label: 'Grasas', value: totals.fat, goal: goals.fat, status: fatStatus, tone: 'text-secondary' },
             ].map(m => (
               <div key={m.label} className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-3 text-center shadow-al-sm">
-                <p className="font-label-caps text-[11px] uppercase tracking-widest text-on-surface-variant font-bold">{m.label}</p>
+                <p className="font-label-caps text-[9px] uppercase tracking-wide text-on-surface-variant font-bold">{m.label}</p>
                 <p className={`font-headline-lg text-[20px] font-bold ${m.tone}`}>
                   {Math.round(m.value)}<span className="text-[12px] text-on-surface-variant font-normal">/{m.goal}g</span>
                 </p>
@@ -409,7 +409,7 @@ export default function Nutricion() {
         </section>
 
         {/* Hidratación */}
-        <section className="rounded-2xl border border-outline-variant/40 bg-surface-container p-5 sm:p-6 shadow-al-sm" aria-label="Hidratación del día">
+        <section className="domain-hydration rounded-2xl border border-outline-variant/40 bg-surface-container p-5 sm:p-6 shadow-al-sm" aria-label="Hidratación del día">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-12 h-12 rounded-xl bg-secondary-container/40 border border-secondary/40 flex items-center justify-center shrink-0">
               <SemanticIcon name="water_drop" size={24} className="text-secondary" />
@@ -434,10 +434,10 @@ export default function Nutricion() {
         </section>
 
         {/* Registrar comida */}
-        <AltheaCard level={2} className="space-y-3">
+        <AltheaCard level={2} className="domain-nutrition space-y-3">
           <div>
             <h2 className="text-title-md text-on-surface font-semibold">{editing ? 'Editar comida' : 'Registrar una comida'}</h2>
-            <p className="font-body-sm text-[11px] text-on-surface-variant">Escribí el plato: Althea estima los ingredientes, las cantidades y los macros.</p>
+            <p className="font-body-sm text-[11px] text-on-surface-variant">Escribí el plato; estimamos ingredientes y macros.</p>
           </div>
           {composerNotice && (
             <p role="status" className="font-label-caps text-[10px] bg-secondary/10 border border-secondary/30 rounded p-2 text-on-surface">{composerNotice}</p>
@@ -456,15 +456,15 @@ export default function Nutricion() {
         {/* Comidas del día */}
         <AltheaSection
           title="Comidas del día"
-          subtitle="Tus registros reales de hoy"
+          subtitle="Registros de hoy"
           icon="restaurant_menu"
           action={<span className="font-mono text-[10px] text-on-surface-variant">{dayEntries.length} · {Math.round(totals.calories).toLocaleString('es-AR')} kcal</span>}
         >
           {dayEntries.length === 0 ? (
             <AltheaEmpty
               icon="lunch_dining"
-              title="Todavía no registraste comidas hoy"
-              description="Escribí arriba qué vas a comer y revisá la estimación antes de agregarla."
+              title="Sin comidas registradas"
+              description="Escribí arriba y revisá la estimación."
             />
           ) : (
             <div className="space-y-1.5" data-testid="day-meals">
@@ -520,12 +520,12 @@ export default function Nutricion() {
         </AltheaSection>
 
         {/* Plato de macros + contexto */}
-        <AltheaCard level={2} className="flex flex-col items-center py-5">
+        <AltheaCard level={2} className="domain-nutrition flex flex-col items-center py-5">
           <MacroPlate totals={totals} goals={goals} size={230} />
           <p className="font-body-sm text-[11px] text-on-surface-variant mt-3 text-center px-2">
             {goalsPersonalized
-              ? 'Cada segmento muestra tu progreso sobre tu objetivo real del día.'
-              : 'Metas de referencia — completá peso y altura en Perfil para usar tus objetivos reales.'}
+              ? 'Progreso sobre tu objetivo del día.'
+              : 'Metas de referencia: cargá peso y altura en Perfil.'}
           </p>
           <div className="grid grid-cols-2 gap-2 w-full mt-3" data-testid="nutricion-context">
             {[
@@ -537,17 +537,17 @@ export default function Nutricion() {
               <div key={k.label} className="rounded-lg border border-outline-variant/30 bg-surface-container-low px-3 py-2">
                 <span className="font-label-caps text-[9px] uppercase text-on-surface-variant block">{k.label}</span>
                 <span className="font-headline-sm text-on-surface font-semibold">{k.value}</span>
-                <span className="text-[10px] text-on-surface-variant block truncate">{k.sub}</span>
+                <span className="text-[10px] text-on-surface-variant block">{k.sub}</span>
               </div>
             ))}
           </div>
         </AltheaCard>
 
-        <AltheaSection title="Sugerencias del día" subtitle="Basadas solo en tus datos registrados" icon="lightbulb">
+        <AltheaSection title="Sugerencias del día" subtitle="Solo con tus datos" icon="lightbulb">
           {suggestions === null ? (
-            <AltheaEmpty icon="info" title="Sin datos suficientes" description="Completá peso, altura y objetivos en Perfil para recibir recomendaciones personalizadas." />
+            <AltheaEmpty icon="info" title="Sin datos suficientes" description="Cargá peso, altura y objetivos en Perfil." />
           ) : suggestions.length === 0 ? (
-            <p className="font-body-sm text-sm text-on-surface-variant">Vas bien: sin brechas importantes hoy. Mantené la constancia.</p>
+            <p className="font-body-sm text-sm text-on-surface-variant">Sin brechas importantes hoy.</p>
           ) : (
             <div className="space-y-2">
               {suggestions.map((s, i) => (
@@ -564,7 +564,7 @@ export default function Nutricion() {
         </AltheaSection>
 
         {perfil?.activeNutritionMethod && (
-          <AltheaCard level={2}>
+          <AltheaCard level={2} className="domain-nutrition">
             <div className="flex items-center gap-2 pb-2.5 border-b border-outline-variant/30 mb-3">
               <div className="w-8 h-8 rounded-full bg-secondary-container/50 border border-secondary/50 flex items-center justify-center text-secondary">
                 <SemanticIcon name="psychology_alt" size={16} />
@@ -639,7 +639,7 @@ export default function Nutricion() {
           </div>
           <div>
             <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">Nutrición</h1>
-            <p className="font-body-sm text-xs text-on-surface-variant capitalize">{dateText} · ¿qué vas a comer y cuánto representa?</p>
+            <p className="font-body-sm text-xs text-on-surface-variant">{dateText} · ¿Qué vas a comer y cuánto representa?</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -651,7 +651,7 @@ export default function Nutricion() {
       </div>
 
       {/* 2 — TABLA: objetivo diario vs consumo diario */}
-      <AltheaCard level={2} className="overflow-hidden">
+      <AltheaCard level={2} className="domain-nutrition overflow-hidden">
         <div className="overflow-x-auto" role="region" aria-label="Resumen de objetivo y consumo diario" tabIndex={0}>
           <table className="althea-table" data-testid="summary-table">
             <thead>
@@ -726,14 +726,14 @@ export default function Nutricion() {
       </AltheaCard>
 
       {/* 3 — ENTRADA DE COMIDA */}
-      <AltheaCard level={2} className="space-y-4">
+      <AltheaCard level={2} className="domain-nutrition space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-title-md text-on-surface font-semibold">
               {editing ? 'Editar comida' : 'Registrar una comida'}
             </h2>
             <p className="font-body-sm text-xs text-on-surface-variant">
-              Escribí el plato: Althea estima los ingredientes, las cantidades y los macros.
+              Escribí el plato; estimamos ingredientes y macros.
             </p>
           </div>
         </div>
@@ -767,7 +767,7 @@ export default function Nutricion() {
           <AltheaEmpty
             icon="lunch_dining"
             title="Todavía no registraste comidas hoy"
-            description="Escribí arriba qué vas a comer y revisá la estimación antes de agregarla."
+            description="Escribí arriba y revisá la estimación."
           />
         ) : (
           <div className="space-y-1.5" data-testid="day-meals">
@@ -828,12 +828,12 @@ export default function Nutricion() {
           BOTELLA DE HIDRATACIÓN a la derecha. En mobile quedan apiladas. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start" data-testid="nutricion-top-grid">
         {/* Columna izquierda: plato de macros + contexto */}
-        <AltheaCard level={2} className="flex flex-col items-center py-8" data-testid="macro-ring-card">
+        <AltheaCard level={2} className="domain-nutrition flex flex-col items-center py-8" data-testid="macro-ring-card">
           <MacroPlate totals={totals} goals={goals} size={340} />
           <p className="font-body-sm text-[11px] text-on-surface-variant mt-3 text-center">
             {goalsPersonalized
-              ? 'Cada segmento muestra tu progreso sobre tu objetivo real del día.'
-              : 'Metas de referencia — completá peso y altura en Perfil para usar tus objetivos reales.'}
+              ? 'Progreso sobre tu objetivo del día.'
+              : 'Metas de referencia: cargá peso y altura en Perfil.'}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full mt-4" data-testid="nutricion-context">
             {[
@@ -845,13 +845,13 @@ export default function Nutricion() {
               <div key={k.label} className="althea-level-3 px-3 py-2">
                 <span className="font-label-caps text-[9px] uppercase text-on-surface-variant block">{k.label}</span>
                 <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">{k.value}</span>
-                <span className="text-[10px] text-on-surface-variant block truncate">{k.sub}</span>
+                <span className="text-[10px] text-on-surface-variant block">{k.sub}</span>
               </div>
             ))}
           </div>
         </AltheaCard>
         {/* Columna derecha: botella de hidratación */}
-        <section className="marble-panel p-4" aria-label="Hidratación del día">
+        <section className="marble-panel domain-hydration p-4" aria-label="Hidratación del día">
           <div className="flex items-center gap-2 shrink-0 mb-2">
             <SemanticIcon name="water_drop" size={18} className="text-secondary text-[18px]" />
             <h2 className="font-label-caps text-[11px] uppercase text-on-surface font-semibold">Hidratación de hoy</h2>
@@ -877,9 +877,9 @@ export default function Nutricion() {
 
       <AltheaSection title="Sugerencias del día" subtitle="Basadas solo en tus datos registrados" icon="lightbulb">
         {suggestions === null ? (
-          <AltheaEmpty icon="info" title="Sin datos suficientes" description="Completá peso, altura y objetivos en Perfil para recibir recomendaciones personalizadas." />
+          <AltheaEmpty icon="info" title="Sin datos suficientes" description="Cargá peso, altura y objetivos en Perfil." />
         ) : suggestions.length === 0 ? (
-          <p className="font-body-sm text-sm text-on-surface-variant">Vas bien: sin brechas importantes hoy. Mantené la constancia.</p>
+          <p className="font-body-sm text-sm text-on-surface-variant">Sin brechas importantes hoy.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
             {suggestions.map((s, i) => (
@@ -896,7 +896,7 @@ export default function Nutricion() {
       </AltheaSection>
 
       {perfil?.activeNutritionMethod && (
-        <AltheaCard level={2}>
+        <AltheaCard level={2} className="domain-nutrition">
           <div className="flex items-center gap-2 pb-2.5 border-b border-outline-variant/30 mb-3">
             <div className="w-8 h-8 rounded-full bg-secondary-container/50 border border-secondary/50 flex items-center justify-center text-secondary">
               <SemanticIcon name="psychology_alt" size={16} className="text-[16px]" />

@@ -1,17 +1,16 @@
 /**
  * ALTHEA — DESIGN TOKENS (FINAL)
- * Sistema científico de entrenamiento premium.
- * Ciencia + Deporte + Estética Helénica + Tecnología moderna.
+ * Rediseño Komi — neo-brutalismo editorial.
+ * Papel crema, bordes negros duros, sombras offset sin blur,
+ * rojo #D92735 como CTA, radio 0.
  *
  * PALETA DEFINITIVA
- *   Claro : mármol blanco casi puro, vetas mínimas, texto carbono, VERDE oscuro
- *           como color principal, dorado solo ornamental.
- *   Oscuro: obsidiana/grafito casi negro, vetas blanco-grisáceas muy sutiles,
- *           texto claro, VERDE oscuro como color principal, dorado solo ornamental.
- *   El verde es el color de CTA, botones, navegación activa, selección y
- *   elementos principales. No hay marrón, oliva ni dorado dominante.
- * TIPOGRAFÍA DEFINITIVA: Playfair Display (marca, títulos, números
- *   protagonistas) + Inter (datos, UI). Sin tercera tipografía.
+ *   Claro : papel crema #F2EFE3, tinta #171512, rojo Komi #D92735.
+ *   Oscuro: tinta #171512 como base, contornos crema, rojo Komi.
+ *   El rojo es el color de CTA, botones, navegación activa, selección y
+ *   elementos principales.
+ * TIPOGRAFÍA DEFINITIVA: Barlow Condensed (display, títulos, labels,
+ *   botones, nav — uppercase, 800/900) + Inter (datos, body).
  *
  * Todo color, tipografía y espaciado usado por los componentes de Althea
  * debe salir de estas variables. No hardcodear hex dentro de componentes.
@@ -22,7 +21,7 @@
 
 :root {
   /* ============ TIPOGRAFÍA ============ */
-  --althea-font-display: 'Playfair Display', ui-serif, Georgia, serif;
+  --althea-font-display: 'Barlow Condensed', Impact, sans-serif;
   --althea-font-ui: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
 
   --althea-fs-display-xl: 3.5rem;   /* números protagonistas, hero */
@@ -47,15 +46,15 @@
   --althea-space-10: 40px;
 
   /* ============ RADIO / BORDE ============ */
-  --althea-radius-sm: 8px;
-  --althea-radius-md: 12px;
-  --althea-radius-lg: 18px;
+  --althea-radius-sm: 0px;
+  --althea-radius-md: 0px;
+  --althea-radius-lg: 0px;
   --althea-radius-pill: 999px;
-  --althea-border-width: 1px;
+  --althea-border-width: 3px;
 
-  /* ============ SOMBRA (mínima, editorial) ============ */
-  --althea-shadow-panel: 0 1px 3px rgba(18, 26, 20, 0.05), 0 1px 1px rgba(18, 26, 20, 0.04);
-  --althea-shadow-panel-hover: 0 2px 8px rgba(18, 26, 20, 0.08);
+  /* ============ SOMBRA (neo-brutalista: offset duro sin blur) ============ */
+  --althea-shadow-panel: 8px 8px 0 #171512;
+  --althea-shadow-panel-hover: 12px 12px 0 #171512;
 
   /* ============ MOTION ============ */
   /* Curvas y duraciones de Emil Kowalski (skill "animate"): ease-out fuerte
@@ -73,25 +72,25 @@
   --althea-grid-columns-desktop: 12;
   --althea-container-max: 1280px;
 
-  /* ============ COLOR — MODO CLARO (mármol) ============ */
-  --althea-primary: #1B4332;          /* verde oscuro elegante — CTA, activos, progreso */
-  --althea-primary-hover: #143526;
-  --althea-primary-soft: #E7EFE9;     /* fondo tenue del verde, chips/estados */
-  --althea-on-primary: #F7F5F0;
+  /* ============ COLOR — MODO CLARO (papel crema Komi) ============ */
+  --althea-primary: #D92735;          /* rojo Komi — CTA, activos, progreso */
+  --althea-primary-hover: #B91F2B;
+  --althea-primary-soft: rgba(217, 39, 53, 0.12); /* fondo tenue del rojo, chips/estados */
+  --althea-on-primary: #FFFFFF;
 
-  --althea-marble: #FBFAF7;           /* mármol blanco casi puro (base de superficie) */
-  --althea-surface: #FBFAF7;          /* mármol blanco casi puro */
-  --althea-surface-2: #F4F2EC;        /* superficie secundaria, ligera veta */
-  --althea-surface-3: #ECE9E1;        /* superficie terciaria / hover de panel */
-  --althea-on-surface: #1A1B17;       /* texto principal, negro cálido */
-  --althea-on-surface-muted: #63645C;
-  --althea-outline: #DEDACF;          /* bordes suaves sobre mármol */
+  --althea-marble: #F2EFE3;           /* papel crema (base de superficie) */
+  --althea-surface: #F2EFE3;          /* papel crema */
+  --althea-surface-2: #F8F5E9;        /* superficie secundaria */
+  --althea-surface-3: #EAE6D8;        /* superficie terciaria / hover de panel */
+  --althea-on-surface: #171512;       /* texto principal, tinta */
+  --althea-on-surface-muted: #625E55;
+  --althea-outline: #171512;          /* bordes negros duros (neo-brutalista) */
 
-  --althea-marble-vein: rgba(120, 116, 100, 0.10); /* vetas del mármol, muy sutiles */
-  --althea-marble-vein-strong: rgba(120, 116, 100, 0.18);
+  --althea-marble-vein: rgba(23, 21, 18, 0.08);
+  --althea-marble-vein-strong: rgba(23, 21, 18, 0.14);
 
-  --althea-gold: #B08D3F;             /* dorado — SOLO detalle ornamental */
-  --althea-gold-soft: rgba(176, 141, 63, 0.14);
+  --althea-gold: #171512;             /* ornamental → tinta en Komi */
+  --althea-gold-soft: rgba(23, 21, 18, 0.08);
 
   /* ============ COLOR SEMÁNTICO (nutrición / estado) ============ */
   --althea-carb: #C98A3E;     /* carbohidratos — ámbar cálido */
@@ -99,8 +98,15 @@
   --althea-fat: #C9A63E;      /* grasas — dorado suave */
   --althea-hydration: #4A9FBF; /* celeste agua */
   --althea-warning: #B8863B;
-  --althea-error: #A13F3F;
+  --althea-error: #B91F2B;
   --althea-success: #1B4332;
+
+  /* ============ COLOR DE DOMINIO (banda de tarjetas) ============
+     Cada tipo de dato tiene su color: lectura rápida por tarjeta. */
+  --althea-domain-nutrition: #C98A3E; /* nutrición — ámbar */
+  --althea-domain-hydration: #318CE7; /* hidratación — azul Francia */
+  --althea-domain-recovery: #1F6B4F;  /* recuperación — verde elegante */
+  --althea-domain-training: #D92735;  /* ejercicios — rojo Komi */
 
   /* ============ MAPA MUSCULAR ============ */
   /* Escala del atlas por INTENSIDAD RELATIVA de carga (no por tendencia).
@@ -117,41 +123,46 @@
   /* Fondos tenues para insignias de intensidad (mismos tonos, legibles). */
   --althea-success-soft: #E7EFE9;
   --althea-warning-soft: rgba(176, 141, 63, 0.16);
-  --althea-error-soft: rgba(176, 82, 75, 0.14);
+  --althea-error-soft: rgba(185, 31, 43, 0.14);
   --althea-muscle-low-soft: rgba(27, 94, 32, 0.12);
   --althea-muscle-high-soft: rgba(18, 52, 90, 0.14);
   --althea-muscle-idle-soft: rgba(120, 126, 136, 0.16);
 }
 
-/* ============ COLOR — MODO OSCURO (obsidiana) ============ */
+/* ============ COLOR — MODO OSCURO (tinta Komi) ============ */
 .dark,
 [data-theme='dark'] {
-  --althea-primary: #2F7A54;          /* verde oscuro, elevado para contraste sobre obsidiana */
-  --althea-primary-hover: #3C9367;
-  --althea-primary-soft: rgba(47, 122, 84, 0.16);
-  --althea-on-primary: #F7F5F0;
+  --althea-primary: #D92735;          /* rojo Komi — mismo tono en oscuro */
+  --althea-primary-hover: #E5424F;
+  --althea-primary-soft: rgba(217, 39, 53, 0.2);
+  --althea-on-primary: #FFFFFF;
 
-  --althea-marble: #101211;           /* obsidiana (base de superficie) */
-  --althea-surface: #101211;          /* obsidiana */
-  --althea-surface-2: #171A18;        /* grafito */
-  --althea-surface-3: #20241F;        /* superficie terciaria / hover */
-  --althea-on-surface: #F1F0EA;
-  --althea-on-surface-muted: #9C9C90;
-  --althea-outline: #2A2D27;
+  --althea-marble: #171512;           /* tinta (base de superficie) */
+  --althea-surface: #171512;          /* tinta */
+  --althea-surface-2: #1F1C17;        /* grafito cálido */
+  --althea-surface-3: #28241D;        /* superficie terciaria / hover */
+  --althea-on-surface: #F2EFE3;
+  --althea-on-surface-muted: #A39E92;
+  --althea-outline: #F2EFE3;          /* contornos crema duros sobre tinta */
 
-  --althea-marble-vein: rgba(226, 224, 214, 0.05);
-  --althea-marble-vein-strong: rgba(226, 224, 214, 0.09);
+  --althea-marble-vein: rgba(242, 239, 227, 0.06);
+  --althea-marble-vein-strong: rgba(242, 239, 227, 0.10);
 
-  --althea-gold: #C8A24E;
-  --althea-gold-soft: rgba(200, 162, 78, 0.14);
+  --althea-gold: #F2EFE3;
+  --althea-gold-soft: rgba(242, 239, 227, 0.10);
 
   --althea-carb: #D9A05C;
   --althea-protein: #B25D5D;
   --althea-fat: #D6C066;
   --althea-hydration: #6BB8D6;
   --althea-warning: #D6A85C;
-  --althea-error: #C25B5B;
+  --althea-error: #E5424F;
   --althea-success: #2F7A54;
+
+  --althea-domain-nutrition: #D9A05C;
+  --althea-domain-hydration: #5AA9F0;
+  --althea-domain-recovery: #3E9B74;
+  --althea-domain-training: #E5424F;
 
   /* Misma escala que en claro (gris · verde · naranja · azul), con el verde y el
      azul un punto más claros para no fundirse con la superficie oscura. */
@@ -169,8 +180,8 @@
   --althea-muscle-high-soft: rgba(30, 78, 128, 0.22);
   --althea-muscle-idle-soft: rgba(150, 157, 167, 0.2);
 
-  --althea-shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.24);
-  --althea-shadow-panel-hover: 0 4px 14px rgba(0, 0, 0, 0.4);
+  --althea-shadow-panel: 8px 8px 0 #000000;
+  --althea-shadow-panel-hover: 12px 12px 0 #000000;
 }
 
 /* Reduced motion = menos y más suave, no cero (Emil §7): se conservan los

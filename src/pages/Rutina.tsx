@@ -98,6 +98,7 @@ export default function RutinaPage(){
   const active = routines.find(r=>r.id===activeId) || routines[0]
   const [pickerFor,setPickerFor]=useState<number|null>(null)
   const [showNew,setShowNew]=useState(false)
+  const [editingEx,setEditingEx]=useState<{dayN:number; idx:number} | null>(null)
   // (E) Fecha de revisión al crear la rutina (configurable; vacío = creación + 30 días)
   const [newReviewDate,setNewReviewDate]=useState(()=>addDaysToKey(todayKey(),30))
   const [newName,setNewName]=useState('')
@@ -421,113 +422,16 @@ export default function RutinaPage(){
                 {exs.map((it,idx)=>{
                   const ex = exercises.find(e=>e.id===it.exId)
                   return (
-                    <div key={it.id} className="rounded bg-surface/60 border border-outline-variant p-3">
-                      <div className="flex justify-between">
-                        <span className="font-body-md text-sm text-on-surface font-medium">{ex?.name || it.name || it.exId}</span>
+                    <div key={it.id} className="rounded bg-surface/60 border border-outline-variant p-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-body-md text-sm text-on-surface font-medium truncate">{ex?.name || it.name || it.exId}</div>
+                        <div className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">{it.sets || 0} series</div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={()=>setEditingEx({dayN:d.n, idx})} aria-label={`Editar ${ex?.name || it.name || it.exId}`} className="px-3 py-1.5 rounded-lg bg-primary/15 border border-primary/40 text-primary font-label-caps text-[10px] uppercase font-bold min-h-[36px]">Editar</button>
                         <button onClick={()=>{
                           updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [d.n]: (r.dayExercises[d.n]||[]).filter((_,i)=>i!==idx)}}))
-                        }} aria-label={`Quitar ${ex?.name || it.name || it.exId}`} className="text-on-surface-variant min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 size={14}/></button>
-                      </div>
-                      <div className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex?.groupMain || it.muscle || 'grupo'} · {ex?.equipment || ''} · objetivo {it.sets}×{it.reps} · {(it.weight ?? 0) > 0 ? `${it.weight}kg` : 'sin peso'}</div>
-                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 mt-2">
-                        <input type="number" value={it.sets} onChange={e=>{
-                          updateActive(r=>{
-                            const a=[...(r.dayExercises[d.n]||[])]
-                            const cur={...a[idx]}
-                            const n=Math.max(1, Number(e.target.value)||1)
-                            // Cambiar la cantidad de series ajusta el plan por serie
-                            // (conserva las existentes y agrega/quit del final).
-                            const prev = Array.isArray(cur.series) && cur.series.length
-                              ? cur.series
-                              : Array.from({length: cur.sets||1}, ()=>({reps: cur.reps, weight: cur.weight ?? null}))
-                            const next = Array.from({length: n}, (_,k)=> prev[k] ?? {reps: cur.reps, weight: cur.weight ?? null})
-                            a[idx]={...cur, sets:n, series: next}
-                            return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}
-                          })
-                        }} aria-label={`Series de ${ex?.name || it.name || it.exId}`} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Series"/>
-                        <input type="number" value={it.reps} onChange={e=>{
-                          updateActive(r=>{
-                            const a=[...(r.dayExercises[d.n]||[])]
-                            const cur={...a[idx]}
-                            const reps=Number(e.target.value)
-                            a[idx]={...cur, reps, series: Array.isArray(cur.series) ? cur.series.map(s=>({...s, reps})) : cur.series}
-                            return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}
-                          })
-                        }} aria-label={`Repeticiones de ${ex?.name || it.name || it.exId}`} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Reps"/>
-                        <input type="number" value={it.weight ?? ''} onChange={e=>{
-                          const v = e.target.value === '' ? null : Number(e.target.value)
-                          updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], weight:v, series: Array.isArray(a[idx].series) ? a[idx].series!.map(s=>({...s, weight:v})) : a[idx].series }; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}}})
-                        }} aria-label={`Peso de ${ex?.name || it.name || it.exId}`} className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Peso"/>
-                      </div>
-                      {/* Plan POR SERIE: reps y peso propios de cada serie (C) */}
-                      <div className="mt-3 border-t border-outline-variant/40 pt-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-label-caps text-[10px] uppercase tracking-wider text-outline">Plan por serie</span>
-                          <button onClick={()=>addSeriesRow(d.n, idx)} aria-label={`Agregar serie a ${ex?.name || it.name || it.exId}`} className="rounded border border-outline-variant/60 px-2 py-1 min-h-[32px] font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/50 hover:text-on-surface">+ Serie</button>
-                        </div>
-                        <div className="mt-2 space-y-1.5">
-                          {seriesRowsOf(it).map((s, si)=>{
-                            const label = ex?.name || it.name || it.exId
-                            return (
-                              <div key={si} className="flex items-center gap-1.5">
-                                <span className="w-12 shrink-0 font-label-caps text-[9px] uppercase text-outline">S{si+1}</span>
-                                <input type="number" value={s.reps} onChange={e=>patchSeriesRow(d.n, idx, si, {reps: Number(e.target.value)})} aria-label={`Reps serie ${si+1} de ${label}`} placeholder="Reps" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[40px] font-label-md text-[11px] font-semibold text-on-surface-variant"/>
-                                <input type="number" step="0.5" value={s.weight ?? ''} onChange={e=>patchSeriesRow(d.n, idx, si, {weight: e.target.value === '' ? null : Number(e.target.value)})} aria-label={`Peso serie ${si+1} de ${label}`} placeholder="Peso" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[40px] font-label-md text-[11px] font-semibold text-on-surface-variant"/>
-                                <button onClick={()=>removeSeriesRow(d.n, idx, si)} aria-label={`Quitar serie ${si+1} de ${label}`} className="shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center text-on-surface-variant hover:text-error" title="Quitar serie"><Trash2 size={13}/></button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                      {/* Descanso y objetivos del ejercicio: viajan a la sesión (FASE cadena de datos) */}
-                      <div className="mt-3 border-t border-outline-variant/40 pt-2">
-                        <span className="font-label-caps text-[10px] uppercase tracking-wider text-outline">Descanso y objetivos</span>
-                        <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
-                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Descanso entre series (s)
-                            <input type="number" value={it.restSec ?? ''} onChange={e=>{
-                              const v = e.target.value === '' ? undefined : Math.max(0, Number(e.target.value))
-                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], restSec: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
-                            }} aria-label={`Descanso entre series en segundos de ${ex?.name || it.name || it.exId}`} placeholder="90" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant" inputMode="numeric"/>
-                          </label>
-                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Descanso entre ejercicios (s)
-                            <input type="number" value={it.restBetweenExercisesSec ?? ''} onChange={e=>{
-                              const v = e.target.value === '' ? undefined : Math.max(0, Number(e.target.value))
-                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], restBetweenExercisesSec: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
-                            }} aria-label={`Descanso entre ejercicios en segundos de ${ex?.name || it.name || it.exId}`} placeholder="120" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant" inputMode="numeric"/>
-                          </label>
-                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Tipo de serie
-                            <select value={it.seriesType || 'Normal'} onChange={e=>{
-                              const v = e.target.value
-                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], seriesType: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
-                            }} aria-label={`Tipo de serie de ${ex?.name || it.name || it.exId}`} className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant">
-                              <option>Normal</option><option>Ascendente</option><option>Descendente</option><option>Piramidal</option><option>DropSet</option><option>Otra</option>
-                            </select>
-                          </label>
-                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Tempo
-                            <input type="text" value={it.tempo ?? ''} onChange={e=>{
-                              const v = e.target.value.trim() || undefined
-                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], tempo: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
-                            }} aria-label={`Tempo de ${ex?.name || it.name || it.exId}`} placeholder="3-1-1" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant"/>
-                          </label>
-                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">RIR
-                            <input type="number" value={it.rir ?? ''} onChange={e=>{
-                              const v = e.target.value === '' ? undefined : Number(e.target.value)
-                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], rir: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
-                            }} aria-label={`RIR de ${ex?.name || it.name || it.exId}`} placeholder="—" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant" inputMode="numeric"/>
-                          </label>
-                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">RPE
-                            <input type="number" value={it.rpe ?? ''} onChange={e=>{
-                              const v = e.target.value === '' ? undefined : Number(e.target.value)
-                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], rpe: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
-                            }} aria-label={`RPE de ${ex?.name || it.name || it.exId}`} placeholder="—" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant" inputMode="numeric"/>
-                          </label>
-                          <label className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Notas
-                            <input type="text" value={it.notes ?? ''} onChange={e=>{
-                              const v = e.target.value.trim() || undefined
-                              updateActive(r=>{ const a=[...(r.dayExercises[d.n]||[])]; a[idx]={...a[idx], notes: v}; return {...r, dayExercises:{...r.dayExercises, [d.n]:a}} })
-                            }} aria-label={`Notas de ${ex?.name || it.name || it.exId}`} placeholder="—" className="w-full mt-1 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[44px] font-label-md text-[11px] font-semibold text-on-surface-variant"/>
-                          </label>
-                        </div>
+                        }} aria-label={`Quitar ${ex?.name || it.name || it.exId}`} className="text-on-surface-variant min-h-[36px] min-w-[36px] flex items-center justify-center"><Trash2 size={14}/></button>
                       </div>
                     </div>
                   )
@@ -712,6 +616,73 @@ export default function RutinaPage(){
           onView={setViewer}
         />
       )}
+
+      {editingEx && (() => {
+        const editIt = (active.dayExercises[editingEx.dayN] || [])[editingEx.idx]
+        if (!editIt) { return null }
+        const ex = exercises.find(e => e.id === editIt.exId)
+        const dayN = editingEx.dayN
+        const idx = editingEx.idx
+        return (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={() => setEditingEx(null)}>
+            <div onClick={e => e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-auto p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-headline-lg text-base font-semibold text-on-surface">{ex?.name || editIt.name || editIt.exId}</h3>
+                <button onClick={() => setEditingEx(null)} aria-label="Cerrar" className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors"><Trash2 size={14}/></button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
+                <input type="number" value={editIt.sets} onChange={e => {
+                  updateActive(r => {
+                    const a = [...(r.dayExercises[dayN] || [])]
+                    const cur = { ...a[idx] }
+                    const n = Math.max(1, Number(e.target.value) || 1)
+                    const prev = Array.isArray(cur.series) && cur.series.length ? cur.series : Array.from({ length: cur.sets || 1 }, () => ({ reps: cur.reps, weight: cur.weight ?? null }))
+                    const next = Array.from({ length: n }, (_, k) => prev[k] ?? { reps: cur.reps, weight: cur.weight ?? null })
+                    a[idx] = { ...cur, sets: n, series: next }
+                    return { ...r, dayExercises: { ...r.dayExercises, [dayN]: a } }
+                  })
+                }} aria-label="Series" className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Series" />
+                <input type="number" value={editIt.reps} onChange={e => {
+                  updateActive(r => {
+                    const a = [...(r.dayExercises[dayN] || [])]
+                    const cur = { ...a[idx] }
+                    const reps = Number(e.target.value)
+                    a[idx] = { ...cur, reps, series: Array.isArray(cur.series) ? cur.series.map(s => ({ ...s, reps })) : cur.series }
+                    return { ...r, dayExercises: { ...r.dayExercises, [dayN]: a } }
+                  })
+                }} aria-label="Repeticiones" className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Reps" />
+                <input type="number" value={editIt.weight ?? ''} onChange={e => {
+                  const v = e.target.value === '' ? null : Number(e.target.value)
+                  updateActive(r => { const a = [...(r.dayExercises[dayN] || [])]; a[idx] = { ...a[idx], weight: v, series: Array.isArray(a[idx].series) ? a[idx].series!.map(s => ({ ...s, weight: v })) : a[idx].series }; return { ...r, dayExercises: { ...r.dayExercises, [dayN]: a } } })
+                }} aria-label="Peso" className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Peso" />
+              </div>
+              {/* Plan por serie */}
+              <div className="border-t border-outline-variant/40 pt-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-label-caps text-[10px] uppercase tracking-wider text-outline">Plan por serie</span>
+                  <button onClick={() => addSeriesRow(dayN, idx)} aria-label="Agregar serie" className="rounded border border-outline-variant/60 px-2 py-1 min-h-[32px] font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/50 hover:text-on-surface">+ Serie</button>
+                </div>
+                <div className="mt-2 space-y-1.5">
+                  {seriesRowsOf(editIt).map((s, si) => {
+                    const label = ex?.name || editIt.name || editIt.exId
+                    return (
+                      <div key={si} className="flex items-center gap-1.5">
+                        <span className="w-12 shrink-0 font-label-caps text-[9px] uppercase text-outline">S{si + 1}</span>
+                        <input type="number" value={s.reps} onChange={e => patchSeriesRow(dayN, idx, si, { reps: Number(e.target.value) })} aria-label={`Reps serie ${si + 1} de ${label}`} placeholder="Reps" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[40px] font-label-md text-[11px] font-semibold text-on-surface-variant" />
+                        <input type="number" step="0.5" value={s.weight ?? ''} onChange={e => patchSeriesRow(dayN, idx, si, { weight: e.target.value === '' ? null : Number(e.target.value) })} aria-label={`Peso serie ${si + 1} de ${label}`} placeholder="Peso" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[40px] font-label-md text-[11px] font-semibold text-on-surface-variant" />
+                        <button onClick={() => removeSeriesRow(dayN, idx, si)} aria-label={`Quitar serie ${si + 1} de ${label}`} className="shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center text-on-surface-variant hover:text-error" title="Quitar serie"><Trash2 size={13} /></button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button onClick={() => setEditingEx(null)} className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-label-caps text-[10px] uppercase font-bold transition-colors min-h-[36px]">Guardar y cerrar</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {viewer && (
         <ExerciseViewer exercise={viewer} onClose={()=>setViewer(null)} onAdd={()=>{
@@ -952,7 +923,7 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
                 </button>
                 <div className="flex flex-col sm:flex-row flex-1 min-w-0">
                   <div className="h-24 sm:h-28 sm:w-40 bg-surface/60 border-b sm:border-b-0 sm:border-r border-outline-variant flex items-center justify-center overflow-hidden shrink-0">
-                    {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" className="w-full h-full object-cover" onError={e=>{ (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }} /> : null}
+                    {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" className="w-full h-full object-contain" onError={e=>{ (e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden') }} /> : null}
                     <div className="hidden p-4 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">Vista alternativa — {ex.name}</div>
                   </div>
                   <div className="p-3 min-w-0">

@@ -81,7 +81,8 @@ export function DailyRemindersConfig() {
             onChange={e => setEditing(prev => ({ ...prev, [c.id]: { ...prev[c.id], title: e.target.value } }))}
             onBlur={e => updateField(c.id, { title: e.target.value })}
             placeholder="Título"
-            className="w-full bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"
+            className="w-full bg-surface-container-high border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"
+            style={{ colorScheme: 'dark' }}
           />
           <div className="flex gap-2 items-center">
             <input
@@ -89,7 +90,8 @@ export function DailyRemindersConfig() {
               value={editing[c.id]?.time ?? c.time}
               onChange={e => setEditing(prev => ({ ...prev, [c.id]: { ...prev[c.id], time: e.target.value } }))}
               onBlur={e => updateField(c.id, { time: e.target.value, times: [e.target.value] })}
-              className="bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"
+              className="bg-surface-container-high border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"
+              style={{ colorScheme: 'dark' }}
             />
             <select
               value={c.recurrence}

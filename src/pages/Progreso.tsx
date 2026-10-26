@@ -591,7 +591,7 @@ export default function Progresos() {
             {loading ? 'Cargando…' : 'Progreso'}
           </h1>
           <p className="font-body-sm text-[12px] text-on-surface-variant mt-0.5">
-            Fuerza, volumen, peso y recuperación a partir de tus registros reales.
+            Fuerza, volumen, peso y recuperación de tus registros.
           </p>
         </div>
 
@@ -607,14 +607,14 @@ export default function Progresos() {
         <AtlasModeChips
           mode={mode}
           onMode={setMode}
-          wrapClass="flex gap-1.5 overflow-x-auto pb-1"
-          chipClass={(active) => `shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
+          wrapClass="flex flex-wrap gap-1.5 pb-1"
+          chipClass={(active) => `shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[13px] font-semibold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
         />
         <AtlasMetricControl
           metric={metric}
           onMetric={setMetric}
-          wrapClass="flex gap-1.5 items-center overflow-x-auto pb-1"
-          btnClass={(active) => `shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[10px] font-semibold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
+          wrapClass="flex flex-wrap gap-1.5 items-center pb-1"
+          btnClass={(active) => `shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[13px] font-semibold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
         />
         {mode === 'personalizada' && (
           <AtlasCustomRange
@@ -639,7 +639,7 @@ export default function Progresos() {
           <AltheaEmpty
             icon="fitness_center"
             title="Todavía sin datos de entrenamiento"
-            description="Registrá tu primera sesión en la pestaña Entrenar y volvé: tu evolución se construye con tus registros reales."
+            description="Registrá una sesión en Entrenar para ver tu evolución."
           />
         ) : !hasPeriodData ? (
           <AltheaCard className="p-4">
@@ -664,7 +664,6 @@ export default function Progresos() {
               totals={totals}
               volumeDeltaPct={volumeDeltaPct}
               hasPrior={hasPrior}
-              metric={metric}
               vista={vista}
               onVista={setVista}
               muscleData={muscleData}
@@ -717,7 +716,7 @@ export default function Progresos() {
             {loading ? 'Cargando…' : 'Progreso'}
           </h1>
           <p className="font-body-md text-[14px] text-on-surface-variant mt-1">
-            Fuerza, volumen, peso y recuperación a partir de tus registros reales.
+            Fuerza, volumen, peso y recuperación de tus registros.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -744,13 +743,13 @@ export default function Progresos() {
         mode={mode}
         onMode={setMode}
         wrapClass="flex gap-1.5 flex-wrap"
-        chipClass={(active) => `px-4 py-2 min-h-[48px] rounded-xl font-label-caps text-[11px] font-bold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
+        chipClass={(active) => `px-4 py-2 min-h-[48px] rounded-xl font-label-caps text-[13px] font-bold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
       />
       <AtlasMetricControl
         metric={metric}
         onMetric={setMetric}
         wrapClass="flex gap-1.5 flex-wrap items-center"
-        btnClass={(active) => `px-4 py-2 min-h-[48px] rounded-xl font-label-caps text-[11px] font-bold uppercase tracking-widest border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
+        btnClass={(active) => `px-4 py-2 min-h-[48px] rounded-xl font-label-caps text-[13px] font-bold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
       />
       {mode === 'personalizada' && (
         <AtlasCustomRange
@@ -774,7 +773,7 @@ export default function Progresos() {
         <AltheaEmpty
           icon="fitness_center"
           title="Todavía sin datos de entrenamiento"
-          description="Registrá tu primera sesión en la pestaña Entrenar y volvé: tu evolución se construye con tus registros reales."
+          description="Registrá una sesión en Entrenar para ver tu evolución."
         />
       ) : !hasPeriodData ? (
         <AltheaCard className="p-5">
@@ -800,7 +799,6 @@ export default function Progresos() {
             totals={totals}
             volumeDeltaPct={volumeDeltaPct}
             hasPrior={hasPrior}
-            metric={metric}
             vista={vista}
             onVista={setVista}
             muscleData={muscleData}
@@ -934,7 +932,7 @@ function AtlasCustomRange({ start, end, onStart, onEnd, error, inputClass }: {
  *  El orden es el MISMO que usa el renderizado real, de menor a mayor
  *  intensidad: sin trabajo (gris) · baja (verde oscuro) · moderada
  *  (naranja) · alta (azul marino). */
-function AtlasLegend({ metricLabel }: { metricLabel: string }) {
+function AtlasLegend() {
   return (
     <div className="atlas-legend" aria-label="Leyenda de intensidad">
       <span className="atlas-legend__item"><i className="atlas-legend__sw is-idle" aria-hidden="true" />Sin trabajo</span>
@@ -942,7 +940,7 @@ function AtlasLegend({ metricLabel }: { metricLabel: string }) {
       <span className="atlas-legend__item"><i className="atlas-legend__sw is-mid" aria-hidden="true" />Moderada</span>
       <span className="atlas-legend__item"><i className="atlas-legend__sw is-high" aria-hidden="true" />Alta</span>
       <p className="atlas-legend__note">
-        Intensidad relativa al período y a la métrica elegida ({metricLabel}). La tendencia histórica se muestra en el detalle de cada músculo.
+        Intensidad relativa al período y la métrica. El detalle de cada músculo muestra su tendencia.
       </p>
     </div>
   )
@@ -956,7 +954,7 @@ function AtlasSummary({ totals, volumeDeltaPct, hasPrior, windowLabel }: {
   windowLabel: string
 }) {
   const stats: Array<[string, string, string]> = [
-    ['Días con entrenamiento', String(totals.days), windowLabel],
+    ['Días', String(totals.days), windowLabel],
     ['Ejercicios', String(totals.exercises), `${totals.sets} series · ${totals.reps.toLocaleString('es-AR')} reps`],
     ['Volumen', `${Math.round(totals.volume).toLocaleString('es-AR')} kg`,
       volumeDeltaPct !== null
@@ -999,7 +997,6 @@ function AtlasSection(props: {
   totals: { sets: number; reps: number; volume: number; exercises: number; days: number }
   volumeDeltaPct: number | null
   hasPrior: boolean
-  metric: AtlasMetric
   vista: 'front' | 'back'
   onVista: (v: 'front' | 'back') => void
   muscleData: Record<string, import('@/components/progress/MuscleAtlas').MuscleDataPoint>
@@ -1008,10 +1005,9 @@ function AtlasSection(props: {
 }) {
   const {
     win, winError, mode, routine, routines, onRoutine, routineSel, compliance,
-    totals, volumeDeltaPct, hasPrior, metric,
+    totals, volumeDeltaPct, hasPrior,
     vista, onVista, muscleData, atlasSex, wide,
   } = props
-  const metricMeta = ATLAS_METRICS.find((m) => m.id === metric) ?? ATLAS_METRICS[0]
   const subtitle = !win
     ? 'Resolvé el rango para ver el mapa.'
     : mode === 'rutina' && routine
@@ -1019,7 +1015,7 @@ function AtlasSection(props: {
       : win.label
   const statsBlock = (
     <>
-      <AtlasSummary totals={totals} volumeDeltaPct={volumeDeltaPct} hasPrior={hasPrior} windowLabel={win ? win.label : ''} />
+      <AtlasSummary totals={totals} volumeDeltaPct={volumeDeltaPct} hasPrior={hasPrior} windowLabel={win ? (win.label.includes(' · ') ? win.label.split(' · ').slice(1).join(' · ') : win.label) : ''} />
       {mode === 'rutina' && compliance && (
         <div className="atlas-compliance" data-testid="atlas-compliance">
           <h3 className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">Cumplimiento de la rutina</h3>
@@ -1055,7 +1051,7 @@ function AtlasSection(props: {
             <AltheaEmpty
               icon="rutinas"
               title="Sin rutina para medir cumplimiento"
-              description="Creá una rutina en la pestaña Rutina: el cumplimiento se calcula contra lo planificado en ella."
+              description="Creá una rutina para medir el cumplimiento."
             />
           ) : (
             <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rutina
@@ -1080,7 +1076,7 @@ function AtlasSection(props: {
         <AltheaEmpty
           icon="fitness_center"
           title="Sin trabajo en este intervalo"
-          description="No hay series completadas en el rango elegido. Cambiá de modalidad o ampliá el rango."
+          description="Sin series en el rango: cambiá modalidad o ampliá fechas."
         />
       )}
 
@@ -1097,7 +1093,7 @@ function AtlasSection(props: {
         detail="below"
         sex={atlasSex}
       />
-      <AtlasLegend metricLabel={metricMeta.label} />
+      <AtlasLegend />
 
       {!wide && win && !winError && statsBlock}
     </section>

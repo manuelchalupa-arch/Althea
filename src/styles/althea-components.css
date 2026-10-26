@@ -119,16 +119,20 @@
   margin-left: 2px;
 }
 
+/* Etiquetas de métrica: legibles pero sin robar la fila (antes 22px y en dos
+   líneas dentro de la grilla de 2 columnas). */
 .althea-metric__label {
   font-family: var(--althea-font-ui);
-  font-size: var(--althea-fs-body-md);
+  font-size: 0.9375rem;
+  line-height: 1.25;
   color: var(--althea-on-surface);
   font-weight: 700;
 }
 
 .althea-metric__delta {
   font-family: var(--althea-font-ui);
-  font-size: var(--althea-fs-body-md);
+  font-size: 0.875rem;
+  white-space: nowrap;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -207,31 +211,35 @@
   .althea-toolbar__item:hover { background: var(--althea-surface-container-high); color: var(--althea-on-surface); }
 }
 .althea-toolbar__item[aria-selected='true'] {
-  background: none;
-  color: var(--althea-on-surface);
-  outline: 2px solid var(--althea-primary);
+  background: var(--althea-primary);
+  color: var(--althea-on-primary);
+  outline: 2px solid var(--althea-outline);
   outline-offset: 1px;
-  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--althea-primary) 35%, transparent);
+  box-shadow: var(--althea-shadow-sm);
 }
 .althea-toolbar__item:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ============ BOTONES ============ */
 .althea-btn {
-  font-family: var(--althea-font-ui);
+  font-family: var(--althea-font-display);
   font-size: var(--althea-fs-body-md);
-  font-weight: 600;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   border-radius: var(--althea-radius-md);
   padding: 10px 18px;
   border: var(--althea-border-width) solid transparent;
   cursor: pointer;
+  box-shadow: var(--althea-shadow-sm);
   transition: background-color var(--althea-duration-fast) var(--althea-ease-standard),
               border-color var(--althea-duration-fast) var(--althea-ease-standard),
               transform var(--althea-duration-press) var(--althea-ease-out);
 }
-.althea-btn:active { transform: scale(0.97); }
+.althea-btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--althea-btn-dark-border); }
 .althea-btn-primary {
   background: var(--althea-primary);
   color: var(--althea-on-primary);
+  border-color: var(--althea-on-surface);
 }
 @media (hover: hover) and (pointer: fine) {
   .althea-btn-primary:hover { background: var(--althea-primary-hover); }
@@ -265,12 +273,12 @@
 }
 .althea-nav-item:active { transform: scale(0.98); transition: transform var(--althea-duration-press) var(--althea-ease-out); }
 .althea-nav-item[aria-current='page'] {
-  background: none;
-  color: var(--althea-on-surface);
-  font-weight: 600;
-  outline: 2px solid var(--althea-primary);
+  background: var(--althea-primary);
+  color: var(--althea-on-primary);
+  font-weight: 800;
+  outline: 2px solid var(--althea-outline);
   outline-offset: 1px;
-  box-shadow: 0 0 10px 1px color-mix(in srgb, var(--althea-primary) 35%, transparent);
+  box-shadow: var(--althea-shadow-sm);
 }
 .althea-nav-item[data-disabled='true'] { opacity: 0.4; pointer-events: none; }
 
@@ -384,11 +392,13 @@
    Desktop (≥768): la grilla de 3 columnas tradicional. */
 .atlas-stats { margin: 12px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 @media (min-width: 768px) { .atlas-stats { grid-template-columns: repeat(3, 1fr); } }
+/* 3 indicadores en 2 columnas: el último ocupa la fila completa (sin hueco). */
+@media (max-width: 767px) { .atlas-stats__item:last-child:nth-child(odd) { grid-column: 1 / -1; } }
 .atlas-stats__item { background: var(--althea-surface-2); border: var(--althea-border-width) solid var(--althea-outline); border-radius: var(--althea-radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
 .atlas-stats__item dt { font-size: var(--althea-fs-label); text-transform: uppercase; letter-spacing: 0.06em; color: var(--althea-on-surface-muted); }
 .atlas-stats__item dd { margin: 0; font-weight: 600; color: var(--althea-on-surface); font-variant-numeric: tabular-nums; }
 .atlas-stats__sub { font-weight: 400 !important; font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted) !important; }
-.atlas-metric__label { font-size: var(--althea-fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--althea-on-surface-muted); }
+.atlas-metric__label { font-size: var(--althea-fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--althea-on-surface-muted); white-space: nowrap; flex: none; }
 .atlas-routine { margin: 8px 0; }
 .atlas-compliance { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .althea-atlas__note { flex-direction: column; gap: 2px; }
@@ -396,7 +406,9 @@
 /* ============ MACRO PLATE ============ */
 .althea-plate { display: inline-flex; flex-direction: column; align-items: center; gap: var(--althea-space-4); width: 100%; }
 .althea-plate__svg { width: 100%; height: auto; display: block; }
-.althea-plate__track { fill: none; stroke: var(--althea-surface-3); }
+/* Pista visible sobre cualquier superficie (antes coincidía con el fondo
+   de la tarjeta y el anillo desaparecía). */
+.althea-plate__track { fill: none; stroke: color-mix(in srgb, var(--althea-on-surface) 20%, transparent); }
 .althea-plate__arc { fill: none; transition: stroke-dasharray var(--althea-duration-slow) var(--althea-ease-out); }
 .althea-plate__over { fill: none; stroke: var(--althea-error); stroke-linecap: round; }
 .althea-plate__kcal { font-family: var(--althea-font-display); fill: var(--althea-on-surface); font-variant-numeric: tabular-nums; }
