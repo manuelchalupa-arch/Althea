@@ -167,6 +167,19 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
     })
   },[logs])
 
+  // Semilla del modo R desde las series ya confirmadas (sobrevive a recargar).
+  useEffect(()=>{
+    setRModes(prev=>{
+      const next = {...prev}
+      let changed = false
+      logs.forEach((l, i)=>{
+        if(!l) {return}
+        if((l as { modeR?: boolean }).modeR && !next[i]) { next[i] = true; changed = true }
+      })
+      return changed ? next : prev
+    })
+  },[logs])
+
   // Al cambiar de ejercicio, las marcas "editado a mano" no aplican más.
   useEffect(()=>{ dirtyRef.current = {w:new Set(), r:new Set()} }, [exerciseId])
 

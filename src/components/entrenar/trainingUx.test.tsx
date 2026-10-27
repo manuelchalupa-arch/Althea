@@ -61,6 +61,23 @@ describe('Todas las series son editables directamente', () => {
     expect(onComplete.mock.calls[1][6]).toBe(false)
   })
 
+  it('modo R: al recargar, las series ya confirmadas con R la siguen mostrando', async () => {
+    render(
+      <ExerciseSeriesTable
+        {...base}
+        logs={[{ modeR: true }, {}] as never[]}
+        onComplete={vi.fn()}
+      />
+    )
+    await waitFor(() => {
+      expect(screen.getByLabelText('kilogramos serie 1')).toBeInTheDocument()
+    })
+    const cell1 = screen.getByLabelText('repeticiones serie 1').parentElement!
+    const cell2 = screen.getByLabelText('repeticiones serie 2').parentElement!
+    await waitFor(() => { expect(cell1.textContent).toContain('R') })
+    expect(cell2.textContent).not.toContain('R')
+  })
+
   it('No existe botón Editar para ninguna serie completada', async () => {    const onComplete = vi.fn()
     render(
       <ExerciseSeriesTable
