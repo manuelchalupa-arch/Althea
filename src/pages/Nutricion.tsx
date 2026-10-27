@@ -359,8 +359,8 @@ export default function Nutricion() {
 
         {/* Cabecera compacta */}
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
-            <SemanticIcon name="restaurant" size={20} className="text-primary" />
+          <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/30 flex items-center justify-center shrink-0">
+            <SemanticIcon name="restaurant" size={20} className="text-accent" />
           </div>
           <div className="min-w-0">
             <h1 className="font-headline-lg text-xl font-semibold text-on-surface tracking-tight">Nutrición</h1>
@@ -411,8 +411,8 @@ export default function Nutricion() {
         {/* Hidratación */}
         <section className="domain-hydration rounded-2xl border border-outline-variant/40 bg-surface-container p-5 sm:p-6 shadow-al-sm" aria-label="Hidratación del día">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-xl bg-secondary-container/40 border border-secondary/40 flex items-center justify-center shrink-0">
-              <SemanticIcon name="water_drop" size={24} className="text-secondary" />
+            <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/40 flex items-center justify-center shrink-0">
+              <SemanticIcon name="water_drop" size={24} className="text-accent" />
             </div>
             <h2 className="font-label-caps text-[11px] uppercase text-on-surface font-semibold">Hidratación de hoy</h2>
           </div>
@@ -634,8 +634,8 @@ export default function Nutricion() {
       {/* Cabecera */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-outline-variant/30">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
-            <SemanticIcon name="restaurant" size={24} className="text-[24px] text-primary" />
+          <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/30 flex items-center justify-center shrink-0">
+            <SemanticIcon name="restaurant" size={24} className="text-[24px] text-accent" />
           </div>
           <div>
             <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">Nutrición</h1>

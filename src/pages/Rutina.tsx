@@ -97,6 +97,7 @@ export default function RutinaPage(){
   const [, setRoutinesLoaded] = useState(false)
   const active = routines.find(r=>r.id===activeId) || routines[0]
   const [pickerFor,setPickerFor]=useState<number|null>(null)
+  const [addingStretch,setAddingStretch]=useState(false)
   const [showNew,setShowNew]=useState(false)
   const [editingEx,setEditingEx]=useState<{dayN:number; idx:number} | null>(null)
   // (E) Fecha de revisión al crear la rutina (configurable; vacío = creación + 30 días)
@@ -272,12 +273,12 @@ export default function RutinaPage(){
     return (
       <div className="min-h-screen bg-transparent pb-24 sm:px-5 lg:px-8 xl:px-10 2xl:px-12 w-full mx-auto pt-2 md:py-6 space-y-6">
         <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-primary-container/30 border border-primary/30 flex items-center justify-center shrink-0">
-            <Dumbbell size={24} className="text-primary" />
+          <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/30 flex items-center justify-center shrink-0">
+            <Dumbbell size={24} className="text-accent" />
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="font-headline-lg text-xl sm:text-2xl font-semibold text-on-surface tracking-tight flex items-center gap-2">
-              <Dumbbell size={20} className="text-primary"/> Rutina
+              <Dumbbell size={20} className="text-accent"/> Rutina
             </h1>
             <p className="font-body-md text-[14px] text-on-surface-variant mt-1">Organizá tus días de entrenamiento y series por ejercicio.</p>
           </div>
@@ -348,16 +349,18 @@ export default function RutinaPage(){
       </AltheaCard>
 
       <div className="flex items-center gap-2">
-        <h1 className="font-headline-lg text-lg font-semibold text-on-surface flex items-center gap-2"><Dumbbell size={20} className="text-primary"/> {active.name}</h1>
+        <h1 className="font-headline-lg text-lg font-semibold text-on-surface flex items-center gap-2"><Dumbbell size={20} className="text-accent"/> {active.name}</h1>
         <AltheaBadge className="ml-auto" variant={estado==='Revisar' ? 'warning' : 'primary'}>{estado} · {daysElapsed}d</AltheaBadge>
       </div>
 
       {/* Rutina actual */}
       <AltheaCard className="space-y-2">
-        <div className="flex gap-2 items-center flex-wrap">
-          <input value={active.name} onChange={e=> updateActive(r=> ({...r, name: e.target.value}))} aria-label="Nombre de la rutina" className="flex-1 min-w-[140px] bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface font-medium min-h-[48px]" />
-          <AltheaButton variant="danger" onClick={()=>deleteRoutine(active.id)}><Trash2 size={14}/> Eliminar</AltheaButton>
-          <AltheaButton variant="secondary" onClick={()=>duplicateRoutine(active.id)}>Duplicar</AltheaButton>
+        <div className="flex gap-3 items-center flex-wrap">
+          <input value={active.name} onChange={e=> updateActive(r=> ({...r, name: e.target.value}))} aria-label="Nombre de la rutina" className="flex-1 min-w-0 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface font-medium min-h-[48px]" />
+          <div className="flex gap-2 shrink-0">
+            <AltheaButton variant="danger" onClick={()=>deleteRoutine(active.id)} className="min-h-[44px]"><Trash2 size={14}/> Eliminar</AltheaButton>
+            <AltheaButton variant="secondary" onClick={()=>duplicateRoutine(active.id)} className="min-h-[44px]">Duplicar</AltheaButton>
+          </div>
         </div>
         {versionNotice && (
           <p className="font-body-sm text-[12px] text-secondary">{versionNotice}</p>
@@ -413,6 +416,7 @@ export default function RutinaPage(){
                   }} aria-label={`Nombre del día N°${d.n}`} className="bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
                 </div>
                 <AltheaButton size="sm" onClick={()=>setPickerFor(d.n)}><Plus size={14}/> Ejercicio</AltheaButton>
+                <AltheaButton size="sm" variant="secondary" onClick={()=>{ setAddingStretch(true); setPickerFor(d.n) }}><Plus size={14}/> Estiramiento</AltheaButton>
               </div>
               <div className="flex items-center gap-2">
                 <StatusTag status="planned" />
@@ -421,17 +425,18 @@ export default function RutinaPage(){
               <div className="space-y-2">
                 {exs.map((it,idx)=>{
                   const ex = exercises.find(e=>e.id===it.exId)
+                  const isStr = (it as { isStretch?: boolean }).isStretch
                   return (
-                    <div key={it.id} className="rounded bg-surface/60 border border-outline-variant p-3 flex items-center justify-between gap-3">
+                    <div key={it.id} className={`rounded border p-3 flex items-center justify-between gap-3 ${isStr ? 'bg-[var(--althea-stretch)]/10 border-[var(--althea-stretch)]/40' : 'bg-surface/60 border-outline-variant'}`}>
                       <div className="min-w-0">
                         <div className="font-body-md text-sm text-on-surface font-medium truncate">{ex?.name || it.name || it.exId}</div>
-                        <div className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">{it.sets || 0} series</div>
+                        <div className={`font-label-md text-[11px] font-semibold uppercase tracking-widest ${isStr ? 'text-[var(--althea-stretch)]' : 'text-on-surface-variant'}`}>{it.sets || 0} series{isStr ? ' · estiramiento' : ''}</div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={()=>setEditingEx({dayN:d.n, idx})} aria-label={`Editar ${ex?.name || it.name || it.exId}`} className="px-3 py-1.5 rounded-lg bg-primary/15 border border-primary/40 text-primary font-label-caps text-[10px] uppercase font-bold min-h-[36px]">Editar</button>
+                        <button onClick={()=>setEditingEx({dayN:d.n, idx})} aria-label={`Editar ${ex?.name || it.name || it.exId}`} className={`px-3 py-1.5 rounded-lg border font-label-caps text-[10px] uppercase font-bold min-h-[36px] ${isStr ? 'bg-[var(--althea-stretch)]/15 border-[var(--althea-stretch)]/40 text-[var(--althea-stretch)]' : 'bg-primary/15 border-primary/40 text-primary'}`}>Editar</button>
                         <button onClick={()=>{
                           updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [d.n]: (r.dayExercises[d.n]||[]).filter((_,i)=>i!==idx)}}))
-                        }} aria-label={`Quitar ${ex?.name || it.name || it.exId}`} className="text-on-surface-variant min-h-[36px] min-w-[36px] flex items-center justify-center"><Trash2 size={14}/></button>
+                        }} aria-label={`Quitar ${ex?.name || it.name || it.exId}`} className="text-on-surface-variant min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 size={14}/></button>
                       </div>
                     </div>
                   )
@@ -600,8 +605,10 @@ export default function RutinaPage(){
           existingIds={(active.dayExercises[pickerFor]||[]).map(e=>e.exId)}
           onAdd={(exId,gifUrl,name,muscle,imageDataUrl)=>{
             const d = getMethodDefaults(active.cycle)
-            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl, name, muscle, imageDataUrl, restBetweenExercisesSec: 120, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }]}}))
+            const isStr = addingStretch
+            updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl, name, muscle, imageDataUrl, restBetweenExercisesSec: 120, isStretch: isStr, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }]}}))
             setPickerFor(null)
+            setAddingStretch(false)
           }}
           onAddMany={(items)=>{
             const d = getMethodDefaults(active.cycle)

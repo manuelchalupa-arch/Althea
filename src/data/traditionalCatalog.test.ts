@@ -49,9 +49,10 @@ describe('traditionalCatalog — síntesis de la Biblioteca', () => {
     expect(withGymId.length).toBeGreaterThan(0)
     expect(withGymId.every(e => e.matched && e.exercise.gifUrl !== '')).toBe(true)
     // shortcut: hip thrust con barra no existe en ExerciseGymGifsDB (solo versión
-    // con banda) — queda sin GIF hasta que el catálogo lo publique.
+    // con banda) — queda sin GIF hasta que el catálogo lo publique. Igual los
+    // estiramientos/movilidad: sin gymId se sintetizan sin GIF.
     const unmatched = list.filter(e => !e.matched)
-    expect(unmatched.map(e => e.id)).toEqual(['trad/hip-thrust'])
+    expect(unmatched.map(e => e.id)).toEqual(TRADITIONAL_SEEDS.filter(s => !s.gymId).map(s => s.id))
   })
 
   it('con catálogo vacío: se sintetizan sin GIF y conservan el id propio', () => {

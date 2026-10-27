@@ -415,10 +415,10 @@ export default function Perfil() {
 
       {/* ═══ HEADER ═══ */}
       <AltheaPanel className="relative overflow-hidden">
-        <div className="absolute -right-16 -top-16 w-48 h-48 bg-primary-container/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -right-16 -top-16 w-48 h-48 bg-accent/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-primary-container/30 border-2 border-primary/30 flex items-center justify-center shrink-0">
-            <span className="font-headline-lg text-xl text-primary font-bold">{getInitials(form.name || 'A')}</span>
+          <div className="w-16 h-16 rounded-full bg-accent/10 border-2 border-accent/30 flex items-center justify-center shrink-0">
+            <span className="font-headline-lg text-xl text-accent font-bold">{getInitials(form.name || 'A')}</span>
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="font-headline-lg text-lg text-on-surface font-semibold truncate">{form.name || 'Atleta'}</h1>

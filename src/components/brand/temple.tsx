@@ -1,8 +1,8 @@
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ThemeToggle } from './ThemeToggle'
-import BrandIcon from './BrandIcon'
 import { AltheaAvatar } from './AltheaAvatar'
 import { IconChatBubble } from './FitnessIcons'
+import { accentSectionForPath as navSectionForPath } from '@/components/navigation/sections'
 
 export type TempleSection =
   | 'inicio' | 'entrenar' | 'nutricion' | 'progreso' | 'mas'
@@ -70,23 +70,19 @@ const SECTION_TITLES: Record<TempleSection, string> = {
 
 export function AppHeader() {
   const loc = useLocation()
+  const nav = useNavigate()
   const section = sectionForPath(loc.pathname)
   return (
-    <header className="sticky top-[var(--safe-top)] z-30 flex items-center justify-between gap-3 pl-4 pr-4 sm:pl-6 sm:pr-6 lg:pl-8 lg:pr-8 h-14 md:h-16 w-full bg-surface/85 backdrop-blur-xl border-b border-outline-variant/50 max-md:border-b-primary/25 supports-[backdrop-filter]:bg-surface/75 transition-colors">
-      {/* Izquierda: identidad + contexto (busto + ALTHEA en ambos) */}
+    <header
+      data-section={navSectionForPath(loc.pathname)}
+      className="sticky top-[var(--safe-top)] z-30 flex items-center justify-between gap-3 pl-4 pr-4 sm:pl-6 sm:pr-6 lg:pl-8 lg:pr-8 h-14 md:h-16 w-full bg-surface/85 backdrop-blur-xl border-b border-outline-variant/50 [border-bottom-color:rgb(var(--althea-accent-rgb)/0.45)] supports-[backdrop-filter]:bg-surface/75 transition-colors"
+    >
+      {/* Izquierda: wordmark de Althea (sin icono ni círculo) + apartado en su color */}
       <div className="flex items-center gap-3 min-w-0">
-        <span className="shrink-0 w-8 h-8 rounded-full overflow-hidden ring-1 ring-primary/25 bg-surface-container-high" aria-hidden="true">
-          <span className="block md:hidden w-full h-full">
-            <AltheaAvatar context="header" size={32} alt="" className="w-full h-full object-cover" />
-          </span>
-          <span className="hidden md:block w-full h-full">
-            <BrandIcon name="logo" size={32} className="w-full h-full object-cover" />
-          </span>
+        <span className="font-headline block text-[32px] md:text-[34px] font-semibold tracking-[0.2em] leading-none text-[rgb(var(--althea-accent-rgb))]">
+          ALTHEA
         </span>
-        <div className="leading-none">
-          <span className="font-headline block text-[15px] font-semibold tracking-[0.22em] text-on-surface lg:hidden">ALTHEA</span>
-          <span className="label-olymp mt-1 block text-on-surface-variant hidden md:block">{SECTION_TITLES[section]}</span>
-        </div>
+        <span className="label-olymp hidden md:block truncate text-on-surface-variant">{SECTION_TITLES[section]}</span>
       </div>
       {/* Centro: spacer de layout (antes ocupaba un buscador sin functionality) */}
       <div className="hidden md:flex flex-1 max-w-[420px]">
@@ -97,9 +93,14 @@ export function AppHeader() {
         <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-medium">
           <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-primary" /> Coach activo
         </span>
-        <div className="hidden md:flex w-9 h-9 rounded-full bg-surface-container-high border border-outline-variant/50 overflow-hidden items-center justify-center text-on-surface-variant font-serif" aria-label="Perfil">
+        <button
+          type="button"
+          onClick={() => nav('/perfil')}
+          className="hidden md:flex w-9 h-9 rounded-full bg-surface-container-high border border-outline-variant/50 overflow-hidden items-center justify-center text-on-surface-variant font-serif hover:border-primary/50 transition-colors"
+          aria-label="Perfil y configuración"
+        >
           <AltheaAvatar context="avatar" size={36} alt="Perfil" />
-        </div>
+        </button>
         <ThemeToggle />
         <button
           type="button"

@@ -19,6 +19,8 @@ export default {
         'surface-container-highest': 'rgb(var(--c-surface-container-highest-rgb) / <alpha-value>)',
         'surface-variant': 'rgb(var(--c-surface-variant-rgb) / <alpha-value>)',
         'primary': 'rgb(var(--c-primary-rgb) / <alpha-value>)',
+        // Acento del apartado: rojo por defecto; cada `data-section` lo cambia.
+        'accent': 'rgb(var(--althea-accent-rgb) / <alpha-value>)',
         'primary-container': 'rgb(var(--c-primary-container-rgb) / <alpha-value>)',
         'primary-fixed': 'rgb(var(--c-primary-fixed-rgb) / <alpha-value>)',
         'primary-fixed-dim': 'rgb(var(--c-primary-fixed-dim-rgb) / <alpha-value>)',

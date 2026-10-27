@@ -102,11 +102,34 @@
   --althea-success: #1B4332;
 
   /* ============ COLOR DE DOMINIO (banda de tarjetas) ============
-     Cada tipo de dato tiene su color: lectura rápida por tarjeta. */
-  --althea-domain-nutrition: #C98A3E; /* nutrición — ámbar */
-  --althea-domain-hydration: #318CE7; /* hidratación — azul Francia */
-  --althea-domain-recovery: #1F6B4F;  /* recuperación — verde elegante */
-  --althea-domain-training: #D92735;  /* ejercicios — rojo Komi */
+     Cada tipo de dato tiene el tono de su familia: lectura rápida por tarjeta. */
+  --althea-domain-nutrition: #C98A3E; /* nutrición — ámbar base */
+  --althea-domain-hydration: #DDB273; /* hidratación — ámbar claro */
+  --althea-domain-recovery: #1F6B4F;  /* recuperación — verde */
+  --althea-domain-training: #1D4E89;  /* ejercicios — azul entrenamiento */
+
+  /* ============ COLOR POR APARTADO (familias y gamas) ============
+     El rojo queda para la app: Inicio, Más y acciones. Cada apartado tiene su
+     tono y las familias comparten tono en gamas distintas:
+       azul   · Entrenar (base) · Biblioteca (clara) · Rutinas (profunda) · Actividad (media)
+       verde  · Progreso (base) · Calendario y recuperación (clara)
+       ámbar  · Nutrición (base) · Hidratación (clara)
+       violeta· Coach   · pizarra · Perfil
+     El acento es el tono legible sobre papel; --althea-accent-on es el texto
+     que va encima de un relleno de acento (se invierte en modo oscuro). */
+  --althea-accent-rgb: 217 39 53;               /* acento vigente: rojo app */
+  --althea-accent-on: #FFFFFF;
+  --althea-section-app-rgb: 217 39 53;          /* #D92735 */
+  --althea-section-entrenar-rgb: 29 78 137;     /* #1D4E89 */
+  --althea-section-biblioteca-rgb: 47 108 179;  /* #2F6CB3 */
+  --althea-section-rutina-rgb: 18 54 95;        /* #12365F */
+  --althea-section-actividad-rgb: 35 92 153;    /* #235C99 */
+  --althea-section-progreso-rgb: 31 107 79;     /* #1F6B4F */
+  --althea-section-calendario-rgb: 39 121 90;   /* #27795A */
+  --althea-section-nutricion-rgb: 138 90 30;    /* #8A5A1E — ámbar de texto */
+  --althea-section-hidratacion-rgb: 122 90 34;  /* #7A5A22 — ámbar claro de texto */
+  --althea-section-coach-rgb: 107 79 160;       /* #6B4FA0 */
+  --althea-section-perfil-rgb: 85 96 110;       /* #55606E */
 
   /* ============ MAPA MUSCULAR ============ */
   /* Escala del atlas por INTENSIDAD RELATIVA de carga (no por tendencia).
@@ -160,9 +183,24 @@
   --althea-success: #2F7A54;
 
   --althea-domain-nutrition: #D9A05C;
-  --althea-domain-hydration: #5AA9F0;
+  --althea-domain-hydration: #E0BC85;
   --althea-domain-recovery: #3E9B74;
-  --althea-domain-training: #E5424F;
+  --althea-domain-training: #5B9BD5;
+
+  /* Misma familia, gama aclarada para leerse sobre la tinta. */
+  --althea-accent-rgb: 229 66 79;
+  --althea-accent-on: #171512;
+  --althea-section-app-rgb: 229 66 79;          /* #E5424F */
+  --althea-section-entrenar-rgb: 91 155 213;    /* #5B9BD5 */
+  --althea-section-biblioteca-rgb: 127 179 232; /* #7FB3E8 */
+  --althea-section-rutina-rgb: 74 134 196;      /* #4A86C4 */
+  --althea-section-actividad-rgb: 106 166 222;  /* #6AA6DE */
+  --althea-section-progreso-rgb: 62 155 116;    /* #3E9B74 */
+  --althea-section-calendario-rgb: 95 184 148;  /* #5FB894 */
+  --althea-section-nutricion-rgb: 217 160 92;   /* #D9A05C */
+  --althea-section-hidratacion-rgb: 224 188 133;/* #E0BC85 */
+  --althea-section-coach-rgb: 155 127 212;      /* #9B7FD4 */
+  --althea-section-perfil-rgb: 147 160 176;     /* #93A0B0 */
 
   /* Misma escala que en claro (gris · verde · naranja · azul), con el verde y el
      azul un punto más claros para no fundirse con la superficie oscura. */
@@ -183,6 +221,34 @@
   --althea-shadow-panel: 8px 8px 0 #000000;
   --althea-shadow-panel-hover: 12px 12px 0 #000000;
 }
+
+/* ============ MAPA APARTADO → ACENTO ============
+   `data-section` va en el shell de la página (App.tsx) y en cada enlace del
+   menú. `.domain-*` fija el acento de la tarjeta según su tipo de dato, así
+   una tarjeta de nutrición dentro de Inicio sigue siendo ámbar. */
+[data-section='app']        { --althea-accent-rgb: var(--althea-section-app-rgb); }
+[data-section='entrenar']   { --althea-accent-rgb: var(--althea-section-entrenar-rgb); }
+[data-section='biblioteca'] { --althea-accent-rgb: var(--althea-section-biblioteca-rgb); }
+[data-section='rutina']     { --althea-accent-rgb: var(--althea-section-rutina-rgb); }
+[data-section='actividad']  { --althea-accent-rgb: var(--althea-section-actividad-rgb); }
+[data-section='progreso']   { --althea-accent-rgb: var(--althea-section-progreso-rgb); }
+[data-section='calendario'] { --althea-accent-rgb: var(--althea-section-calendario-rgb); }
+[data-section='nutricion']  { --althea-accent-rgb: var(--althea-section-nutricion-rgb); }
+[data-section='hidratacion']{ --althea-accent-rgb: var(--althea-section-hidratacion-rgb); }
+[data-section='coach']      { --althea-accent-rgb: var(--althea-section-coach-rgb); }
+[data-section='perfil']     { --althea-accent-rgb: var(--althea-section-perfil-rgb); }
+
+/* Aliases del sello de temple (AppHeader / TempleBackdrop): el mismo apartado
+   con su nombre de familia. */
+[data-section='inicio']     { --althea-accent-rgb: var(--althea-section-app-rgb); }
+[data-section='mas']        { --althea-accent-rgb: var(--althea-section-app-rgb); }
+[data-section='default']    { --althea-accent-rgb: var(--althea-section-app-rgb); }
+[data-section='recuperacion'] { --althea-accent-rgb: var(--althea-section-calendario-rgb); }
+
+.domain-training  { --althea-accent-rgb: var(--althea-section-entrenar-rgb); }
+.domain-nutrition { --althea-accent-rgb: var(--althea-section-nutricion-rgb); }
+.domain-hydration { --althea-accent-rgb: var(--althea-section-hidratacion-rgb); }
+.domain-recovery  { --althea-accent-rgb: var(--althea-section-progreso-rgb); }
 
 /* Reduced motion = menos y más suave, no cero (Emil §7): se conservan los
    cambios de opacidad/color que ayudan a comprender; los componentes quitan

@@ -584,8 +584,8 @@ export default function Progresos() {
       <div className="space-y-2">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="h-2 w-2 rounded-full bg-secondary" />
-            <span className="font-label-caps text-[10px] text-secondary uppercase tracking-widest">Evolución de entrenamiento</span>
+            <span className="h-2 w-2 rounded-full bg-accent" />
+            <span className="font-label-caps text-[10px] text-accent uppercase tracking-widest">Evolución de entrenamiento</span>
           </div>
           <h1 className="font-headline-lg text-2xl font-semibold text-on-surface tracking-tight">
             {loading ? 'Cargando…' : 'Progreso'}
@@ -608,13 +608,13 @@ export default function Progresos() {
           mode={mode}
           onMode={setMode}
           wrapClass="flex flex-wrap gap-1.5 pb-1"
-          chipClass={(active) => `shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[13px] font-semibold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
+          chipClass={(active) => `shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[13px] font-semibold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-accent text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
         />
         <AtlasMetricControl
           metric={metric}
           onMetric={setMetric}
           wrapClass="flex flex-wrap gap-1.5 items-center pb-1"
-          btnClass={(active) => `shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[13px] font-semibold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
+          btnClass={(active) => `shrink-0 px-3 min-h-[44px] rounded-lg font-label-caps text-[13px] font-semibold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-accent text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant'}`}
         />
         {mode === 'personalizada' && (
           <AtlasCustomRange
@@ -709,8 +709,8 @@ export default function Progresos() {
       <section className="flex flex-col md:flex-row md:items-end justify-between pb-3 border-b border-outline-variant/40 gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="h-2 w-2 rounded-full bg-secondary" />
-            <span className="font-label-caps text-[11px] text-secondary uppercase tracking-widest">Evolución de entrenamiento</span>
+            <span className="h-2 w-2 rounded-full bg-accent" />
+            <span className="font-label-caps text-[11px] text-accent uppercase tracking-widest">Evolución de entrenamiento</span>
           </div>
           <h1 className="font-headline-lg text-[40px] font-bold text-on-surface tracking-tight">
             {loading ? 'Cargando…' : 'Progreso'}
@@ -730,11 +730,11 @@ export default function Progresos() {
           </button>
           <div className="px-4 py-2 bg-surface-container border border-outline-variant rounded-xl flex items-center gap-2">
             <span className="font-label-caps text-[11px] text-outline uppercase font-bold">Período:</span>
-            <span className="font-label-md text-[15px] text-primary font-semibold">{MODE_LABELS[mode]}</span>
+            <span className="font-label-md text-[15px] text-accent font-semibold">{MODE_LABELS[mode]}</span>
           </div>
           <div className="px-4 py-2 bg-surface-container border border-outline-variant rounded-xl flex items-center gap-2">
             <span className="font-label-caps text-[11px] text-outline uppercase font-bold">Registros:</span>
-            <span className="font-label-md text-[15px] text-primary font-semibold tabular-nums">{periodLogs.length}</span>
+            <span className="font-label-md text-[15px] text-accent font-semibold tabular-nums">{periodLogs.length}</span>
           </div>
         </div>
       </section>
@@ -743,13 +743,13 @@ export default function Progresos() {
         mode={mode}
         onMode={setMode}
         wrapClass="flex gap-1.5 flex-wrap"
-        chipClass={(active) => `px-4 py-2 min-h-[48px] rounded-xl font-label-caps text-[13px] font-bold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
+        chipClass={(active) => `px-4 py-2 min-h-[48px] rounded-xl font-label-caps text-[13px] font-bold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-accent text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
       />
       <AtlasMetricControl
         metric={metric}
         onMetric={setMetric}
         wrapClass="flex gap-1.5 flex-wrap items-center"
-        btnClass={(active) => `px-4 py-2 min-h-[48px] rounded-xl font-label-caps text-[13px] font-bold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-primary text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
+        btnClass={(active) => `px-4 py-2 min-h-[48px] rounded-xl font-label-caps text-[13px] font-bold uppercase tracking-wider border transition-all ${active ? 'bg-surface-container-high border-accent text-on-surface' : 'bg-surface-container-low border-outline-variant/60 text-on-surface-variant hover:border-outline'}`}
       />
       {mode === 'personalizada' && (
         <AtlasCustomRange

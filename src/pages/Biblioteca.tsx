@@ -4,11 +4,12 @@ import { MUSCLE_LIBRARY_GROUPS } from '@/data/muscleLibraryConfig'
 import * as Gym from '@/services/exerciseGym'
 import { effectiveBreakdown, listCustomExercises } from '@/services/training/customExercises'
 import { exerciseMatches } from '@/services/training/exerciseSearch'
-import { traditionalForGroup, CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT, CUSTOM_FORM_CATEGORIES, type TraditionalGroupId } from '@/data/traditionalCatalog'
+import { traditionalForGroup, TRADITIONAL_GROUPS, CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT, CUSTOM_FORM_CATEGORIES, type TraditionalGroupId } from '@/data/traditionalCatalog'
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Heart, Globe, WifiOff } from 'lucide-react'
 import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading } from '@/components/althea'
+import { isStretchingExercise } from '@/utils/stretching'
 
 export default function Biblioteca(){
   const [selectedKey,setSelectedKey]=useState<string>('__all__')
@@ -22,6 +23,9 @@ export default function Biblioteca(){
   const [editing,setEditing]=useState<CustomExercise|null>(null)
   const [favs,setFavs]=useState<string[]>([])
   const [onlyFavs,setOnlyFavs]=useState(false)
+  const [onlyStretch,setOnlyStretch]=useState(false)
+  const [stretchMode,setStretchMode]=useState(false)
+  const [showAll,setShowAll]=useState(false)
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true
 
   useEffect(()=>{
@@ -42,13 +46,19 @@ export default function Biblioteca(){
   const musclePct = (ex: Gym.Exercise)=> effectiveBreakdown(ex)
 
   // Síntesis: solo ejercicios tradicionales (lista curada) + los propios del usuario.
-  const load = async (group: string)=>{
+  const load = async (group: string, allMode: boolean = showAll)=>{
     setSelectedKey(group); setLoading(true); setError(null)
-    const cacheKey = `trad:${group}`
+    const cacheKey = `trad:${group}${allMode ? ':all' : ''}`
     try{
       const all = await Gym.fetchAll()
-      const trad = traditionalForGroup(all.exercises || [], (group as TraditionalGroupId | '__all__'))
-      const tradEx = trad.map(t => t.exercise)
+      let tradEx: Gym.Exercise[] = []
+      if (allMode) {
+        // Mostrar toda la biblioteca externa (1323+) + curados
+        tradEx = (all.exercises || []).slice()
+      } else {
+        const trad = traditionalForGroup(all.exercises || [], (group as TraditionalGroupId | '__all__'))
+        tradEx = trad.map(t => t.exercise)
+      }
       const customs = await listCustomExercises(undefined, undefined).catch(()=>[])
       setTradIds(new Set(tradEx.map(e => e.id)))
       setExercises([...tradEx, ...customs])
@@ -60,9 +70,20 @@ export default function Biblioteca(){
     }finally{ setLoading(false) }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{ load('__all__') },[])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(()=>{ if (stretchMode) { load('__all__', showAll) } },[stretchMode])
 
   const filtered = exercises.filter(ex=>{
+    const isStr = isStretchingExercise(ex as unknown as { pattern?: string; tags?: string[] })
+    if (stretchMode && !isStr) {return false}
+    if (stretchMode && selectedKey !== '__all__') {
+      // filtrar por grupo muscular dentro de estiramientos
+      const g = (ex as unknown as { group?: string }).group
+      if (g !== selectedKey) {return false}
+    }
+    if(!stretchMode && onlyStretch && !isStr) {return false}
     if(onlyFavs && !favs.includes(ex.id)) {return false}
     if(!q) {return true;}
     return exerciseMatches(ex, q)
@@ -101,7 +122,7 @@ export default function Biblioteca(){
               className={[
                 'min-h-24 rounded-xl border p-3 text-left',
                 'transition-colors',
-                selectedKey === group.id ? 'border-primary bg-primary/10' : 'border-outline-variant bg-surface-container',
+                selectedKey === group.id ? 'border-accent bg-accent/10' : 'border-outline-variant bg-surface-container',
               ].join(' ')}
             >
               <span className="block text-sm font-semibold text-on-surface">
@@ -129,10 +150,73 @@ export default function Biblioteca(){
       {!online && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-secondary bg-secondary/10 border border-secondary/40 rounded-lg p-2 flex items-center gap-2"><WifiOff size={14}/> Sin conexión — se muestra caché.</div>}
       {error && <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-error bg-error/10 border border-error/40 rounded-lg p-2">{error}</div>}
 
+      {/* Separador */}
+      <div className="h-px bg-outline-variant/40 my-2" />
+
+      {/* Botón: todos los ejercicios (biblioteca completa) */}
+      <button
+        onClick={() => {
+          const next = !showAll
+          setShowAll(next)
+          setStretchMode(false); setOnlyFavs(false); setOnlyStretch(false); setQ('')
+          load('__all__', next)
+        }}
+        className={`w-full py-2.5 rounded-lg font-label-md text-[11px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-2 min-h-[48px] transition-colors ${showAll ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant hover:border-primary/50'}`}
+      >
+        📋 {showAll ? `Mostrando todos (${exercises.length})` : 'Todos los ejercicios'}
+      </button>
+
+      {/* Separador */}
+      <div className="h-px bg-outline-variant/40 my-2" />
+
+      {/* Botón: biblioteca de estiramientos */}
+      <button
+        onClick={() => {
+          const next = !stretchMode
+          setStretchMode(next)
+          setShowAll(false); setOnlyFavs(false); setOnlyStretch(false); setQ('')
+          if (next) { load('__all__', false) }
+        }}
+        aria-pressed={stretchMode}
+        className={`w-full py-2.5 rounded-lg font-label-md text-[11px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-2 min-h-[48px] transition-colors ${stretchMode ? 'bg-[var(--althea-stretch)] text-on-surface border-[var(--althea-stretch)]' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant hover:border-[var(--althea-stretch)]/50'}`}
+      >
+        🧘 {stretchMode ? 'Viendo estiramientos' : 'Ejercicios de estiramiento'}
+      </button>
+
+      {/* Checkboxes de grupos musculares para filtrar estiramientos */}
+      {stretchMode && (
+        <div className="rounded-xl border border-[var(--althea-stretch)]/30 bg-[var(--althea-stretch)]/5 p-3 space-y-2">
+          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-[var(--althea-stretch)]">Filtrar estiramientos por grupo muscular</div>
+          <div className="grid grid-cols-2 gap-2">
+            {TRADITIONAL_GROUPS.map((g) => (
+              <label key={g.id} className="flex items-center gap-2 text-[12px] text-on-surface cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedKey === g.id}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      load(g.id, false)
+                    } else {
+                      load('__all__', false)
+                    }
+                  }}
+                  className="w-4 h-4 accent-[var(--althea-stretch)]"
+                />
+                <span>{g.label}</span>
+              </label>
+            ))}
+          </div>
+          <p className="text-[10px] text-on-surface-variant">Tildá un grupo para filtrar; destildalo para ver todos los estiramientos.</p>
+        </div>
+      )}
+
       {/* Favoritos */}
       <div className="flex gap-2">
         <button onClick={()=>setOnlyFavs(v=>!v)} aria-pressed={onlyFavs} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-1 min-h-[48px] ${onlyFavs ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant'}`}>
           <Heart size={12}/> Favoritos ({favs.length})
+        </button>
+        <button onClick={()=>setOnlyStretch(v=>!v)} aria-pressed={onlyStretch} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-1 min-h-[48px] ${onlyStretch ? 'bg-[var(--althea-stretch)] text-on-surface border-[var(--althea-stretch)]' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant'}`}>
+          🧘 Estiramientos
         </button>
       </div>
 
@@ -150,8 +234,9 @@ export default function Biblioteca(){
         {filtered.map(ex=>(
           <div key={ex.id} onClick={()=>setDetail(ex)} className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 sm:p-4 shadow-al-sm min-w-0 cursor-pointer active:bg-surface-container-low/50 transition-colors">
             <div className="flex gap-3 p-3">
-              <div className="w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-xl bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant flex items-center justify-center overflow-hidden">
-                {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'}} className="w-full h-full object-contain" /> : <span className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">GIF</span>}
+              <div className="w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-xl bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant flex items-center justify-center overflow-hidden relative">
+                {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).parentElement?.querySelector('.gif-fallback')?.classList.remove('hidden')}} className="w-full h-full object-contain" /> : <span className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">Sin GIF</span>}
+<span className="gif-fallback hidden absolute inset-0 flex items-center justify-center font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">Sin GIF</span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-body-md text-base text-on-surface font-medium flex items-center gap-2 flex-wrap">

@@ -1286,7 +1286,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
         <section className="domain-training rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-lg bg-secondary-container/40 border border-secondary/40 text-secondary font-label-caps text-[10px] uppercase tracking-widest">ENTRENAR · {rutinaName}</span>
+            <span className="px-2 py-0.5 rounded-lg bg-accent/10 border border-accent/40 text-accent font-label-caps text-[10px] uppercase tracking-widest">ENTRENAR · {rutinaName}</span>
             <span className="font-metric-mobile text-[11px] text-outline">Sem {weekNumber}</span>
           </div>
           <h1 className="font-headline-lg text-2xl font-semibold text-on-surface tracking-tight">{dayName}</h1>
@@ -1311,9 +1311,9 @@ const exercises: SessionEx[] = seList.map((se) => {
           <div className="domain-training rounded-xl border border-secondary/40 bg-surface-container-low overflow-hidden">
             <div className="p-3 border-b border-outline-variant/30 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-0.5 rounded bg-primary-container/20 border border-primary/40 font-label-caps text-[10px] text-primary uppercase font-semibold">EJERCICIO {current+1} DE {exs.length}</span>
+                <span className="px-2 py-0.5 rounded bg-accent/10 border border-accent/40 font-label-caps text-[10px] text-accent uppercase font-semibold">EJERCICIO {current+1} DE {exs.length}</span>
                 <span className="text-outline text-[12px]">• {cur.sets} series</span>
-                {done[current] && <span className="px-2 py-0.5 rounded bg-primary/15 border border-primary/40 font-label-caps text-[10px] text-primary uppercase font-semibold">Completado</span>}
+                {done[current] && <span className="px-2 py-0.5 rounded bg-accent/15 border border-accent/40 font-label-caps text-[10px] text-accent uppercase font-semibold">Completado</span>}
                 {cur.replaced && <span className="px-2 py-0.5 rounded bg-tertiary/15 border border-tertiary/40 font-label-caps text-[10px] text-tertiary uppercase font-semibold">Reemplazado</span>}
                 {cur.extra && <span className="px-2 py-0.5 rounded bg-tertiary/15 border border-tertiary/40 font-label-caps text-[10px] text-tertiary uppercase font-semibold">Extra</span>}
               </div>
@@ -1561,7 +1561,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <span className="px-2.5 py-0.5 rounded-lg bg-secondary-container/40 border border-secondary/40 text-secondary font-label-caps text-[10px] uppercase tracking-widest">
+                <span className="px-2.5 py-0.5 rounded-lg bg-accent/10 border border-accent/40 text-accent font-label-caps text-[10px] uppercase tracking-widest">
                   ENTRENAR · {rutinaName}
                 </span>
                 <span className="font-body-sm text-[13px] text-outline">Semana {weekNumber}</span>
@@ -1586,7 +1586,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                     location.reload()
                   }
                 }
-              }} className="hidden md:inline-flex items-center min-h-[48px] font-body-sm text-[13px] text-primary underline mt-1">Cambiar día de entrenamiento</button>
+              }} className="hidden md:inline-flex items-center min-h-[48px] font-body-sm text-[13px] text-accent underline mt-1">Cambiar día de entrenamiento</button>
             </div>
             <div className="flex items-center gap-2.5">
               <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">

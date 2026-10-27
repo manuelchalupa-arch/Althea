@@ -52,7 +52,7 @@
 }
 
 .althea-section__heading { display: flex; align-items: center; gap: var(--althea-space-2); min-width: 0; }
-.althea-section__icon { color: var(--althea-primary); display: inline-flex; }
+.althea-section__icon { color: rgb(var(--althea-accent-rgb)); display: inline-flex; }
 .althea-section__subtitle { margin: 0; font-family: var(--althea-font-ui); font-size: var(--althea-fs-body-md); color: var(--althea-on-surface); font-weight: 600; }
 .althea-section__slot { flex-shrink: 0; }
 .althea-section__action {
@@ -273,8 +273,8 @@
 }
 .althea-nav-item:active { transform: scale(0.98); transition: transform var(--althea-duration-press) var(--althea-ease-out); }
 .althea-nav-item[aria-current='page'] {
-  background: var(--althea-primary);
-  color: var(--althea-on-primary);
+  background: rgb(var(--althea-accent-rgb));
+  color: var(--althea-accent-on);
   font-weight: 800;
   outline: 2px solid var(--althea-outline);
   outline-offset: 1px;

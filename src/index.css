@@ -161,7 +161,7 @@ html[data-textscale="l"] { font-size: 112.5%; }
 
 /* ============================ DOMINIOS DE DATO ============================
    Banda superior de 8px por tipo de dato: lectura rápida por tarjeta.
-   Nutrición ámbar · Hidratación azul Francia · Recuperación verde · Ejercicios rojo.
+   Nutrición ámbar · Hidratación ámbar claro · Recuperación verde · Ejercicios azul.
    El resto del borde sigue siendo la tinta Komi. */
 /* Doble clase: la banda gana a `.althea-panel` y a las utilidades `border`. */
 .domain-nutrition.domain-nutrition,
@@ -376,10 +376,10 @@ button[class*="bg-secondary"]:not([class*="bg-secondary-container"]):not([class*
 }
 
 /* ============================================================
-   SELECCIÓN = FONDO ROJO KOMI + BORDE NEGRO + TILDE
-   El botón seleccionado se rellena con el primario rojo y texto
-   blanco, con borde tinta y sombra dura (estilo neo-brutalista
-   del preview Komi). Conserva la tilde ✓ al final.
+   SELECCIÓN = FONDO DEL APARTADO + BORDE NEGRO + TILDE
+   El botón seleccionado se rellena con el acento de su apartado (rojo en
+   la app), texto contrastado, borde tinta y sombra dura (estilo Komi).
+   Conserva la tilde ✓ al final.
    Atrapa los toggles/filtros por aria-pressed, aria-checked,
    .is-active y .althea-chip.is-active. Excluye tabs, seg,
    toolbar y nav (tienen su propia regla).
@@ -388,8 +388,8 @@ button[aria-pressed="true"]:not(:disabled):not(.althea-tab):not(.althea-toolbar_
 button[aria-checked="true"]:not(:disabled):not(.althea-tab):not(.althea-toolbar__item):not(.althea-nav-item):not(.althea-seg button),
 button.is-active:not(:disabled):not(.althea-seg button),
 .althea-chip.is-active {
-  background: var(--c-primary) !important;
-  color: #FFFFFF !important;
+  background: rgb(var(--althea-accent-rgb)) !important;
+  color: var(--althea-accent-on) !important;
   border-color: var(--c-outline) !important;
   outline: 2px solid var(--c-outline) !important;
   outline-offset: 2px;
@@ -615,8 +615,8 @@ input, select, textarea { max-width: 100%; }
 .temple-backdrop {
   position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
   background:
-    radial-gradient(1200px 600px at 85% -10%, color-mix(in srgb, var(--c-primary-container) 55%, transparent), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, color-mix(in srgb, var(--c-secondary-container) 45%, transparent), transparent 55%),
+    radial-gradient(1200px 600px at 85% -10%, color-mix(in srgb, rgb(var(--althea-accent-rgb) / 0.45), transparent), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, color-mix(in srgb, rgb(var(--althea-accent-rgb) / 0.30), transparent), transparent 55%),
     var(--c-background);
 }
 .temple-backdrop::before,
@@ -911,3 +911,12 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   opacity: 0.85;
   cursor: pointer;
 }
+
+/* Sidebar estrecho (tablet vertical): solo iconos, sin etiquetas envueltas */
+@media (max-width: 1023px) {
+  .w-16 .althea-nav-item__label { display: none; }
+  .w-16 .althea-nav-item { justify-content: center; }
+}
+
+/* Color para estiramientos/calentamiento (amarillo patito oscuro) */
+:root { --althea-stretch: #C9A227; }

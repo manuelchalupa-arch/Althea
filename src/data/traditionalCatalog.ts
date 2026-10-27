@@ -75,6 +75,28 @@ export const TRADITIONAL_SEEDS: TraditionalSeed[] = [
   { id: 'trad/overhead-extension', group: 'hombros-y-brazos', name: 'Extensión de tríceps tras nuca', focus: 'Cabeza larga', equipment: 'barra', muscle: 'triceps', gymId: 'triceps/barbell-seated-overhead-triceps-extension' },
   { id: 'trad/pushdown', group: 'hombros-y-brazos', name: 'Extensión de tríceps en polea', focus: 'Cabeza lateral / media', equipment: 'polea', muscle: 'triceps', gymId: 'triceps/cable-pushdown' },
   { id: 'trad/skull-crusher', group: 'hombros-y-brazos', name: 'Press francés (skull crusher)', focus: 'Masa general', equipment: 'barra', muscle: 'triceps', gymId: 'triceps/barbell-lying-triceps-extension-skull-crusher' },
+
+  // ——— Estiramientos / movilidad (bloque de calentamiento) ———
+  { id: 'trad/stretch-quad-band', group: 'piernas', name: 'Estiramiento de cuádriceps con banda', focus: 'Estiramiento · cuádriceps', equipment: 'banda', muscle: 'quads' },
+  { id: 'trad/stretch-hamstring-ball', group: 'piernas', name: 'Estiramiento de isquiotibiales con pelota', focus: 'Estiramiento · isquiotibiales', equipment: 'pelota', muscle: 'hamstrings' },
+  { id: 'trad/stretch-calf-wall', group: 'piernas', name: 'Estiramiento de pantorrillas en pared', focus: 'Estiramiento · pantorrilla', equipment: 'peso corporal', muscle: 'calves' },
+  { id: 'trad/stretch-hip-mobility-band', group: 'piernas', name: 'Movilidad de cadera con banda', focus: 'Movilidad · cadera', equipment: 'banda', muscle: 'glutes' },
+  { id: 'trad/stretch-adductor-floor', group: 'piernas', name: 'Estiramiento de aductores en suelo', focus: 'Estiramiento · aductores', equipment: 'peso corporal', muscle: 'quads' },
+  { id: 'trad/stretch-chest-band', group: 'pecho', name: 'Estiramiento de pecho con banda', focus: 'Estiramiento · pecho', equipment: 'banda', muscle: 'pectorals' },
+  { id: 'trad/stretch-chest-doorway', group: 'pecho', name: 'Estiramiento de pecho en marco', focus: 'Estiramiento · pecho', equipment: 'peso corporal', muscle: 'pectorals' },
+  { id: 'trad/stretch-thoracic-roller', group: 'pecho', name: 'Movilidad torácica con rodillo', focus: 'Movilidad · torácica', equipment: 'foam roller', muscle: 'upper-back' },
+  { id: 'trad/stretch-lat-band', group: 'espalda', name: 'Estiramiento de dorsal con banda', focus: 'Estiramiento · dorsal', equipment: 'banda', muscle: 'lats' },
+  { id: 'trad/stretch-cat-cow', group: 'espalda', name: 'Estiramiento gato-vaca', focus: 'Movilidad · columna', equipment: 'peso corporal', muscle: 'spine' },
+  { id: 'trad/stretch-trap', group: 'espalda', name: 'Estiramiento de trapecios', focus: 'Estiramiento · trapecios', equipment: 'peso corporal', muscle: 'traps' },
+  { id: 'trad/stretch-shoulder-band', group: 'hombros-y-brazos', name: 'Estiramiento de hombros con banda', focus: 'Estiramiento · hombros', equipment: 'banda', muscle: 'delts' },
+  { id: 'trad/stretch-shoulder-ball', group: 'hombros-y-brazos', name: 'Movilidad de hombros con pelota', focus: 'Movilidad · hombros', equipment: 'pelota', muscle: 'delts' },
+  { id: 'trad/stretch-shoulder-cross', group: 'hombros-y-brazos', name: 'Estiramiento cruzado de hombros', focus: 'Estiramiento · hombros', equipment: 'peso corporal', muscle: 'delts' },
+  { id: 'trad/stretch-bicep-wall', group: 'hombros-y-brazos', name: 'Estiramiento de bíceps en pared', focus: 'Estiramiento · bíceps', equipment: 'peso corporal', muscle: 'biceps' },
+  { id: 'trad/stretch-tricep-overhead', group: 'hombros-y-brazos', name: 'Estiramiento de tríceps sobre cabeza', focus: 'Estiramiento · tríceps', equipment: 'peso corporal', muscle: 'triceps' },
+  { id: 'trad/stretch-forearm', group: 'hombros-y-brazos', name: 'Estiramiento de antebrazos', focus: 'Estiramiento · antebrazos', equipment: 'peso corporal', muscle: 'biceps' },
+  { id: 'trad/stretch-cobra', group: 'core', name: 'Estiramiento abdominal en cobra', focus: 'Estiramiento · abdomen', equipment: 'peso corporal', muscle: 'abs' },
+  { id: 'trad/stretch-oblique', group: 'core', name: 'Estiramiento de oblicuos', focus: 'Estiramiento · oblicuos', equipment: 'peso corporal', muscle: 'abs' },
+  { id: 'trad/stretch-spine-roller', group: 'core', name: 'Movilidad de columna con rodillo', focus: 'Movilidad · columna', equipment: 'foam roller', muscle: 'abs' },
 ]
 
 /** Opciones del formulario de ejercicios custom, derivadas de la síntesis (sin listas sueltas). */

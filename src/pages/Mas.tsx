@@ -13,6 +13,7 @@ import { AltheaCard, AltheaCardHeader, AltheaKPICard, AltheaBadge, AltheaLoading
 import InstallAppButton from '@/components/install/InstallAppButton'
 import { todayKey, dayKeyOffset, toDateKey, parseLocalDateKey } from '@/utils/dates'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
+import { accentSectionForPath } from '@/components/navigation/sections'
 
 interface MasStats {
   sessions90d: number
@@ -227,11 +228,11 @@ export default function Mas(){
                 { to: '/coach', icon: 'forum', name: 'Coach', desc: stats.chatCount > 0 ? `${stats.chatCount} consultas realizadas` : 'Asistente de entrenamiento' },
                 { to: '/perfil', icon: 'badge', name: 'Perfil', desc: 'Datos, preferencias y cuenta' },
               ].map(l => (
-                <Link key={l.to} to={l.to} className="min-h-[72px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-xl">
+                <Link key={l.to} to={l.to} data-section={accentSectionForPath(l.to)} className="min-h-[72px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-xl">
                   <AltheaCard level={2} padding="sm" hover className="h-full">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
-                        <SemanticIcon name={l.icon} size={20} className="text-[20px] text-primary" />
+                      <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/25 flex items-center justify-center shrink-0">
+                        <SemanticIcon name={l.icon} size={20} className="text-[20px] text-accent" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-headline-md text-base text-on-surface font-semibold truncate">{l.name}</p>

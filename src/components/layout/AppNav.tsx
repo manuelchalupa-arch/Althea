@@ -5,6 +5,7 @@ import { AltheaNav, type AltheaNavEntry } from '@/components/navigation/AltheaNa
 import { AltheaIcon, type AltheaIconName } from '@/components/brand/AltheaIconRegistry'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
+import { accentSectionForPath } from '@/components/navigation/sections'
 
 export const MOBILE_NAV_OFFSET = 'calc(env(safe-area-inset-bottom, 0px) + 74px)'
 
@@ -85,13 +86,13 @@ export default function AppNav() {
   ) => (
     <NavLink
       to={entry.id}
+      end={entry.id === '/'}
       title={entry.label}
       aria-label={entry.label}
+      data-section={accentSectionForPath(entry.id)}
       className={({ isActive }) =>
         `${props.className} ${
-          isActive
-            ? 'bg-primary/10 text-primary font-semibold'
-            : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+          isActive ? '' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
         }`
       }
     >
@@ -112,7 +113,6 @@ export default function AppNav() {
               {!collapsed && (
                 <div className="min-w-0">
                   <h2 className="font-headline text-[15px] font-semibold tracking-[0.22em] text-on-surface leading-none">ALTHEA</h2>
-                  <p className="label-olymp mt-1 text-on-surface-variant">Palaestra Virtue</p>
                 </div>
               )}
             </div>
@@ -150,7 +150,6 @@ export default function AppNav() {
 
         <div className="lg:hidden flex flex-col justify-between w-16 py-5 px-2 items-center">
           <div className="flex flex-col gap-2 w-full items-center">
-            <span className="temple-mark mb-3" aria-hidden="true">Α</span>
             <AltheaNav
               items={primaryEntries}
               activeId={pathname}

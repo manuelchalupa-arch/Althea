@@ -212,7 +212,7 @@ export default function Calendario(){
     <AltheaCard padding="md" className="space-y-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2.5 min-w-0">
-          <SemanticIcon name="favorite" size={22} className="text-primary text-[22px] shrink-0" />
+          <SemanticIcon name="favorite" size={22} className="text-accent text-[22px] shrink-0" />
           <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Calendario y recuperación</h1>
         </div>
         {todayScore !== null ? (

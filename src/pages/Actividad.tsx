@@ -8,7 +8,7 @@ export default function Actividad() {
   return (
     <div className="min-h-screen bg-transparent pb-24 sm:px-5 lg:px-8 xl:px-10 2xl:px-12 w-full mx-auto pt-2 md:py-6 space-y-5">
       <header className="flex items-center gap-4">
-        <button onClick={() => navigate('/')} className="tpress w-11 h-11 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary" aria-label="Volver">
+        <button onClick={() => navigate('/')} className="tpress w-11 h-11 rounded-xl bg-accent/10 border border-accent/30 flex items-center justify-center text-accent" aria-label="Volver">
           <SemanticIcon name="chevron_left" size={22} />
         </button>
         <div className="min-w-0">

@@ -355,7 +355,7 @@ export default function Coach() {
     <div>
       <header className="flex items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-2">
-          <BrandIcon name="coach" size={24} className="rounded-full object-cover" />
+          <BrandIcon name="coach" size={24} className="rounded-full object-cover ring-2 ring-accent/40" />
           <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Coach IA</h1>
         </div>
         <AltheaBadge variant={available ? 'secondary' : 'outline'} dot={available} dotColor={available ? 'bg-secondary' : undefined} className="h-7">

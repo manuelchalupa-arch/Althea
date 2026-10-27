@@ -1,34 +1,1681 @@
 {
   "exercises": [
-    { "id": "ex-001", "name": "Press banca", "alias": "Bench press", "groupMain": "pecho", "groupsSecondary": ["triceps","hombros"], "equipment": "barra", "level": "intermedio", "pattern": "push", "description": "Empuje horizontal con barra", "instructions": ["Acuéstate, pies firmes","Baja barra al pecho","Empuja hasta extensión"], "variantIds": ["ex-002","ex-003"], "muscles": ["pectoral mayor","tríceps"], "restrictions": ["molestia hombro"], "tags": ["fuerza","hipertrofia"] },
-    { "id": "ex-002", "name": "Press mancuernas", "alias": "Dumbbell bench press", "groupMain": "pecho", "groupsSecondary": ["triceps"], "equipment": "mancuernas", "level": "principiante", "pattern": "push", "description": "Press de banca con mancuernas", "instructions": ["Mancuernas al pecho","Empuja arriba"], "variantIds": ["ex-001"], "muscles": ["pectoral mayor"], "restrictions": [], "tags": ["hipertrofia"] },
-    { "id": "ex-003", "name": "Máquina de pecho", "alias": "Chest press machine", "groupMain": "pecho", "groupsSecondary": [], "equipment": "maquina", "level": "principiante", "pattern": "push", "description": "Press en máquina guiada", "instructions": ["Ajusta asiento","Empuja manijas"], "variantIds": ["ex-001"], "muscles": ["pectoral mayor"], "restrictions": [], "tags": ["maquina"] },
-    { "id": "ex-004", "name": "Dominadas", "alias": "Pull-ups", "groupMain": "espalda", "groupsSecondary": ["biceps"], "equipment": "peso_corporal", "level": "intermedio", "pattern": "pull", "description": "Tracción vertical en barra fija", "instructions": ["Cuelga de la barra","Tira mentón sobre la barra"], "variantIds": ["ex-005"], "muscles": ["dorsal","bíceps"], "restrictions": [], "tags": ["peso_corporal"] },
-    { "id": "ex-005", "name": "Jalón al pecho", "alias": "Lat pulldown", "groupMain": "espalda", "groupsSecondary": [], "equipment": "polea", "level": "principiante", "pattern": "pull", "description": "Jalón en polea alta hacia el pecho", "instructions": ["Siéntate","Jala barra al pecho"], "variantIds": ["ex-004"], "muscles": ["dorsal"], "restrictions": [], "tags": ["polea"] },
-    { "id": "ex-006", "name": "Sentadilla", "alias": "Back squat", "groupMain": "cuadriceps", "groupsSecondary": ["gluteos"], "equipment": "barra", "level": "intermedio", "pattern": "squat", "description": "Sentadilla con barra sobre la espalda", "instructions": ["Barra en trapecio","Flexiona rodillas"], "variantIds": ["ex-007"], "muscles": ["cuádriceps","glúteo"], "restrictions": ["dolor rodilla"], "tags": ["fuerza"] },
-    { "id": "ex-007", "name": "Prensa", "alias": "Leg press", "groupMain": "cuadriceps", "groupsSecondary": [], "equipment": "maquina", "level": "principiante", "pattern": "squat", "description": "Prensa de piernas en máquina", "instructions": ["Pies en plataforma","Empuja"], "variantIds": ["ex-006"], "muscles": ["cuádriceps"], "restrictions": [], "tags": ["maquina"] },
-    { "id": "ex-008", "name": "Peso muerto", "alias": "Deadlift", "groupMain": "femorales", "groupsSecondary": ["gluteos","espalda"], "equipment": "barra", "level": "avanzado", "pattern": "hinge", "description": "Bisagra de cadera con barra desde el suelo", "instructions": ["Barra al suelo","Extiende cadera"], "variantIds": ["ex-009"], "muscles": ["isquios","glúteo"], "restrictions": ["lumbalgia"], "tags": ["fuerza"] },
-    { "id": "ex-009", "name": "Peso muerto rumano", "alias": "Romanian deadlift", "groupMain": "femorales", "groupsSecondary": [], "equipment": "mancuernas", "level": "intermedio", "pattern": "hinge", "description": "RDL con mancuernas", "instructions": ["Mancuernas al frente","Bisagra de cadera"], "variantIds": ["ex-008"], "muscles": ["isquios"], "restrictions": [], "tags": ["hipertrofia"] },
-    { "id": "ex-010", "name": "Press militar", "alias": "Overhead press", "groupMain": "hombros", "groupsSecondary": ["triceps"], "equipment": "barra", "level": "intermedio", "pattern": "push", "description": "Press de barra sobre la cabeza", "instructions": ["Barra al pecho","Empuja arriba"], "variantIds": [], "muscles": ["deltoide"], "restrictions": [], "tags": ["fuerza"] },
-    { "id": "ex-011", "name": "Press militar con mancuernas", "alias": "Dumbbell overhead press", "groupMain": "hombros", "groupsSecondary": ["triceps"], "equipment": "mancuernas", "level": "principiante", "pattern": "push", "description": "Press de mancuernas sobre la cabeza", "instructions": ["Mancuernas a los hombros","Empuja hacia arriba"], "variantIds": ["ex-010"], "muscles": ["deltoide","tríceps"], "restrictions": [], "tags": ["hipertrofia"] },
-    { "id": "ex-012", "name": "Elevaciones laterales", "alias": "Lateral raises", "groupMain": "hombros", "groupsSecondary": [], "equipment": "mancuernas", "level": "principiante", "pattern": "push", "description": "Elevación lateral de mancuernas", "instructions": ["Mancuernas a los costados","Elevá hasta los hombros"], "variantIds": [], "muscles": ["deltoide lateral"], "restrictions": [], "tags": ["hipertrofia","hombros"] },
-    { "id": "ex-013", "name": "Remo con barra", "alias": "Barbell row", "groupMain": "espalda", "groupsSecondary": ["biceps"], "equipment": "barra", "level": "intermedio", "pattern": "pull", "description": "Remo inclinado con barra", "instructions": ["Barra en manos","Inclina el torso","Jala la barra al abdomen"], "variantIds": [], "muscles": ["dorsal","bíceps","trapecios"], "restrictions": ["dolor lumbar"], "tags": ["fuerza","espalda"] },
-    { "id": "ex-014", "name": "Remo con mancuerna", "alias": "One-arm dumbbell row", "groupMain": "espalda", "groupsSecondary": ["biceps"], "equipment": "mancuernas", "level": "principiante", "pattern": "pull", "description": "Remo unilateral con mancuerna apoyando rodilla en banca", "instructions": ["Apoya rodilla en banca","Jala mancuerna al torso"], "variantIds": [], "muscles": ["dorsal","bíceps"], "restrictions": [], "tags": ["hipertrofia","espalda"] },
-    { "id": "ex-015", "name": "Curl de bíceps", "alias": "Bicep curl", "groupMain": "brazos", "groupsSecondary": [], "equipment": "barra", "level": "principiante", "pattern": "pull", "description": "Curl de bíceps con barra", "instructions": ["Barra en manos","Flexiona codos"], "variantIds": ["ex-016"], "muscles": ["bíceps"], "restrictions": [], "tags": ["hipertrofia","brazos"] },
-    { "id": "ex-016", "name": "Curl de bíceps con mancuernas", "alias": "Dumbbell bicep curl", "groupMain": "brazos", "groupsSecondary": [], "equipment": "mancuernas", "level": "principiante", "pattern": "pull", "description": "Curl alternado de bíceps con mancuernas", "instructions": ["Mancuernas en manos","Flexiona un codo a la vez"], "variantIds": ["ex-015"], "muscles": ["bíceps"], "restrictions": [], "tags": ["hipertrofia","brazos"] },
-    { "id": "ex-017", "name": "Extensión de tríceps en polea", "alias": "Tricep pushdown", "groupMain": "brazos", "groupsSecondary": [], "equipment": "polea", "level": "principiante", "pattern": "push", "description": "Extensión de tríceps con polea alta", "instructions": ["Agarra la barra de la polea","Extiende codos hacia abajo"], "variantIds": [], "muscles": ["tríceps"], "restrictions": [], "tags": ["hipertrofia","brazos"] },
-    { "id": "ex-018", "name": "Press francés", "alias": "Skull crusher", "groupMain": "brazos", "groupsSecondary": [], "equipment": "barra", "level": "intermedio", "pattern": "push", "description": "Extensión de tríceps tumbado con barra EZ", "instructions": ["Tumbado, barra sobre frente","Flexiona y extiende codos"], "variantIds": [], "muscles": ["tríceps"], "restrictions": ["molestia codo"], "tags": ["hipertrofia","brazos"] },
-    { "id": "ex-019", "name": "Zancada", "alias": "Lunge", "groupMain": "cuadriceps", "groupsSecondary": ["gluteos"], "equipment": "peso_corporal", "level": "intermedio", "pattern": "squat", "description": "Zancada adelante con peso corporal", "instructions": ["Da un paso adelante","Baja la rodilla trasera"], "variantIds": ["ex-020"], "muscles": ["cuádriceps","glúteo"], "restrictions": ["dolor rodilla"], "tags": ["peso_corporal","piernas"] },
-    { "id": "ex-020", "name": "Zancada con mancuernas", "alias": "Dumbbell lunge", "groupMain": "cuadriceps", "groupsSecondary": ["gluteos"], "equipment": "mancuernas", "level": "intermedio", "pattern": "squat", "description": "Zancada sosteniendo mancuernas", "instructions": ["Mancuernas en manos","Da un paso adelante","Baja la rodilla trasera"], "variantIds": ["ex-019"], "muscles": ["cuádriceps","glúteo"], "restrictions": ["dolor rodilla"], "tags": ["hipertrofia","piernas"] },
-    { "id": "ex-021", "name": "Elevación de talones", "alias": "Calf raise", "groupMain": "pantorrillas", "groupsSecondary": [], "equipment": "peso_corporal", "level": "principiante", "pattern": "push", "description": "Elevación de talones de pie", "instructions": ["Párate derecho","Levántate sobre las puntas de los pies"], "variantIds": [], "muscles": ["gastrocnemio","sóleo"], "restrictions": [], "tags": ["peso_corporal","piernas"] },
-    { "id": "ex-022", "name": "Curl femoral sentado", "alias": "Seated leg curl", "groupMain": "femorales", "groupsSecondary": [], "equipment": "maquina", "level": "principiante", "pattern": "hinge", "description": "Curl de piernas sentado en máquina", "instructions": ["Siéntate en máquina","Flexiona rodillas llevando talones al glúteo"], "variantIds": [], "muscles": ["isquios"], "restrictions": ["dolor rodilla"], "tags": ["maquina","piernas"] },
-    { "id": "ex-023", "name": "Extensión de piernas", "alias": "Leg extension", "groupMain": "cuadriceps", "groupsSecondary": [], "equipment": "maquina", "level": "principiante", "pattern": "squat", "description": "Extensión de piernas en máquina", "instructions": ["Siéntate","Extiende rodillas contra la resistencia"], "variantIds": [], "muscles": ["cuádriceps"], "restrictions": ["dolor rodilla"], "tags": ["maquina","piernas"] },
-    { "id": "ex-024", "name": "Hip thrust", "alias": "Hip thrust", "groupMain": "gluteos", "groupsSecondary": ["femorales"], "equipment": "barra", "level": "intermedio", "pattern": "hinge", "description": "Elevación de cadera con barra sobre las caderas", "instructions": ["Apoya espalda en banca","Barra sobre caderas","Elevá las caderas"], "variantIds": [], "muscles": ["glúteo","isquios"], "restrictions": [], "tags": ["fuerza","gluteos"] },
-    { "id": "ex-025", "name": "Plancha abdominal", "alias": "Plank", "groupMain": "abdomen", "groupsSecondary": [], "equipment": "peso_corporal", "level": "principiante", "pattern": "core", "description": "Plancha estática para core", "instructions": ["Apoya antebrazos y puntas de pies","Mantén el cuerpo recto"], "variantIds": [], "muscles": ["abdominales","core"], "restrictions": [], "tags": ["peso_corporal","core"] },
-    { "id": "ex-026", "name": "Crunches", "alias": "Crunches", "groupMain": "abdomen", "groupsSecondary": [], "equipment": "peso_corporal", "level": "principiante", "pattern": "core", "description": "Contracción abdominal tumbado", "instructions": ["Tumbado, rodillas flexionadas","Levanta hombros del suelo"], "variantIds": [], "muscles": ["abdominales"], "restrictions": [], "tags": ["peso_corporal","core"] },
-    { "id": "ex-027", "name": "Face pull", "alias": "Face pull", "groupMain": "hombros", "groupsSecondary": ["espalda"], "equipment": "polea", "level": "principiante", "pattern": "pull", "description": "Jalón hacia la cara con polea y cuerda", "instructions": ["Agarra la cuerda de la polea","Jala hacia la frente, abriendo codos"], "variantIds": [], "muscles": ["deltoide posterior","trapecios"], "restrictions": [], "tags": ["hipertrofia","hombros"] },
-    { "id": "ex-028", "name": "Pullover con mancuerna", "alias": "Dumbbell pullover", "groupMain": "pecho", "groupsSecondary": ["espalda"], "equipment": "mancuernas", "level": "intermedio", "pattern": "push", "description": "Pullover tumbado en banca con una mancuerna", "instructions": ["Tumbado en banca","Mancuerna sobre el pecho","Lleva los brazos atrás sobre la cabeza"], "variantIds": [], "muscles": ["pectoral mayor","dorsal"], "restrictions": [], "tags": ["hipertrofia"] },
-    { "id": "ex-029", "name": "Caminata del granjero", "alias": "Farmer's walk", "groupMain": "core", "groupsSecondary": ["brazos","trapezius"], "equipment": "mancuernas", "level": "intermedio", "pattern": "core", "description": "Caminata sosteniendo pesas en cada mano", "instructions": ["Pesa en cada mano","Camina manteniendo postura erguida"], "variantIds": [], "muscles": ["core","antebrazos","trapecios"], "restrictions": [], "tags": ["fuerza","core"] },
-    { "id": "ex-030", "name": "Burpee", "alias": "Burpee", "groupMain": "cardio", "groupsSecondary": ["pecho","cuadriceps"], "equipment": "peso_corporal", "level": "intermedio", "pattern": "cardio", "description": "Burpee completo con flexión y salto", "instructions": ["De pie","Baja a plancha","Haz una flexión","Salta hacia arriba"], "variantIds": [], "muscles": ["pecho","cuádriceps","deltoide","core"], "restrictions": ["dolor rodilla","dolor muñeca"], "tags": ["cardio","peso_corporal"] }
+    {
+      "id": "ex-001",
+      "name": "Press banca",
+      "alias": "Bench press",
+      "groupMain": "pecho",
+      "groupsSecondary": [
+        "triceps",
+        "hombros"
+      ],
+      "equipment": "barra",
+      "level": "intermedio",
+      "pattern": "push",
+      "description": "Empuje horizontal con barra",
+      "instructions": [
+        "Acuéstate, pies firmes",
+        "Baja barra al pecho",
+        "Empuja hasta extensión"
+      ],
+      "variantIds": [
+        "ex-002",
+        "ex-003"
+      ],
+      "muscles": [
+        "pectoral mayor",
+        "tríceps"
+      ],
+      "restrictions": [
+        "molestia hombro"
+      ],
+      "tags": [
+        "fuerza",
+        "hipertrofia"
+      ]
+    },
+    {
+      "id": "ex-002",
+      "name": "Press mancuernas",
+      "alias": "Dumbbell bench press",
+      "groupMain": "pecho",
+      "groupsSecondary": [
+        "triceps"
+      ],
+      "equipment": "mancuernas",
+      "level": "principiante",
+      "pattern": "push",
+      "description": "Press de banca con mancuernas",
+      "instructions": [
+        "Mancuernas al pecho",
+        "Empuja arriba"
+      ],
+      "variantIds": [
+        "ex-001"
+      ],
+      "muscles": [
+        "pectoral mayor"
+      ],
+      "restrictions": [],
+      "tags": [
+        "hipertrofia"
+      ]
+    },
+    {
+      "id": "ex-003",
+      "name": "Máquina de pecho",
+      "alias": "Chest press machine",
+      "groupMain": "pecho",
+      "groupsSecondary": [],
+      "equipment": "maquina",
+      "level": "principiante",
+      "pattern": "push",
+      "description": "Press en máquina guiada",
+      "instructions": [
+        "Ajusta asiento",
+        "Empuja manijas"
+      ],
+      "variantIds": [
+        "ex-001"
+      ],
+      "muscles": [
+        "pectoral mayor"
+      ],
+      "restrictions": [],
+      "tags": [
+        "maquina"
+      ]
+    },
+    {
+      "id": "ex-004",
+      "name": "Dominadas",
+      "alias": "Pull-ups",
+      "groupMain": "espalda",
+      "groupsSecondary": [
+        "biceps"
+      ],
+      "equipment": "peso_corporal",
+      "level": "intermedio",
+      "pattern": "pull",
+      "description": "Tracción vertical en barra fija",
+      "instructions": [
+        "Cuelga de la barra",
+        "Tira mentón sobre la barra"
+      ],
+      "variantIds": [
+        "ex-005"
+      ],
+      "muscles": [
+        "dorsal",
+        "bíceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "peso_corporal"
+      ]
+    },
+    {
+      "id": "ex-005",
+      "name": "Jalón al pecho",
+      "alias": "Lat pulldown",
+      "groupMain": "espalda",
+      "groupsSecondary": [],
+      "equipment": "polea",
+      "level": "principiante",
+      "pattern": "pull",
+      "description": "Jalón en polea alta hacia el pecho",
+      "instructions": [
+        "Siéntate",
+        "Jala barra al pecho"
+      ],
+      "variantIds": [
+        "ex-004"
+      ],
+      "muscles": [
+        "dorsal"
+      ],
+      "restrictions": [],
+      "tags": [
+        "polea"
+      ]
+    },
+    {
+      "id": "ex-006",
+      "name": "Sentadilla",
+      "alias": "Back squat",
+      "groupMain": "cuadriceps",
+      "groupsSecondary": [
+        "gluteos"
+      ],
+      "equipment": "barra",
+      "level": "intermedio",
+      "pattern": "squat",
+      "description": "Sentadilla con barra sobre la espalda",
+      "instructions": [
+        "Barra en trapecio",
+        "Flexiona rodillas"
+      ],
+      "variantIds": [
+        "ex-007"
+      ],
+      "muscles": [
+        "cuádriceps",
+        "glúteo"
+      ],
+      "restrictions": [
+        "dolor rodilla"
+      ],
+      "tags": [
+        "fuerza"
+      ]
+    },
+    {
+      "id": "ex-007",
+      "name": "Prensa",
+      "alias": "Leg press",
+      "groupMain": "cuadriceps",
+      "groupsSecondary": [],
+      "equipment": "maquina",
+      "level": "principiante",
+      "pattern": "squat",
+      "description": "Prensa de piernas en máquina",
+      "instructions": [
+        "Pies en plataforma",
+        "Empuja"
+      ],
+      "variantIds": [
+        "ex-006"
+      ],
+      "muscles": [
+        "cuádriceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "maquina"
+      ]
+    },
+    {
+      "id": "ex-008",
+      "name": "Peso muerto",
+      "alias": "Deadlift",
+      "groupMain": "femorales",
+      "groupsSecondary": [
+        "gluteos",
+        "espalda"
+      ],
+      "equipment": "barra",
+      "level": "avanzado",
+      "pattern": "hinge",
+      "description": "Bisagra de cadera con barra desde el suelo",
+      "instructions": [
+        "Barra al suelo",
+        "Extiende cadera"
+      ],
+      "variantIds": [
+        "ex-009"
+      ],
+      "muscles": [
+        "isquios",
+        "glúteo"
+      ],
+      "restrictions": [
+        "lumbalgia"
+      ],
+      "tags": [
+        "fuerza"
+      ]
+    },
+    {
+      "id": "ex-009",
+      "name": "Peso muerto rumano",
+      "alias": "Romanian deadlift",
+      "groupMain": "femorales",
+      "groupsSecondary": [],
+      "equipment": "mancuernas",
+      "level": "intermedio",
+      "pattern": "hinge",
+      "description": "RDL con mancuernas",
+      "instructions": [
+        "Mancuernas al frente",
+        "Bisagra de cadera"
+      ],
+      "variantIds": [
+        "ex-008"
+      ],
+      "muscles": [
+        "isquios"
+      ],
+      "restrictions": [],
+      "tags": [
+        "hipertrofia"
+      ]
+    },
+    {
+      "id": "ex-010",
+      "name": "Press militar",
+      "alias": "Overhead press",
+      "groupMain": "hombros",
+      "groupsSecondary": [
+        "triceps"
+      ],
+      "equipment": "barra",
+      "level": "intermedio",
+      "pattern": "push",
+      "description": "Press de barra sobre la cabeza",
+      "instructions": [
+        "Barra al pecho",
+        "Empuja arriba"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "deltoide"
+      ],
+      "restrictions": [],
+      "tags": [
+        "fuerza"
+      ]
+    },
+    {
+      "id": "ex-011",
+      "name": "Press militar con mancuernas",
+      "alias": "Dumbbell overhead press",
+      "groupMain": "hombros",
+      "groupsSecondary": [
+        "triceps"
+      ],
+      "equipment": "mancuernas",
+      "level": "principiante",
+      "pattern": "push",
+      "description": "Press de mancuernas sobre la cabeza",
+      "instructions": [
+        "Mancuernas a los hombros",
+        "Empuja hacia arriba"
+      ],
+      "variantIds": [
+        "ex-010"
+      ],
+      "muscles": [
+        "deltoide",
+        "tríceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "hipertrofia"
+      ]
+    },
+    {
+      "id": "ex-012",
+      "name": "Elevaciones laterales",
+      "alias": "Lateral raises",
+      "groupMain": "hombros",
+      "groupsSecondary": [],
+      "equipment": "mancuernas",
+      "level": "principiante",
+      "pattern": "push",
+      "description": "Elevación lateral de mancuernas",
+      "instructions": [
+        "Mancuernas a los costados",
+        "Elevá hasta los hombros"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "deltoide lateral"
+      ],
+      "restrictions": [],
+      "tags": [
+        "hipertrofia",
+        "hombros"
+      ]
+    },
+    {
+      "id": "ex-013",
+      "name": "Remo con barra",
+      "alias": "Barbell row",
+      "groupMain": "espalda",
+      "groupsSecondary": [
+        "biceps"
+      ],
+      "equipment": "barra",
+      "level": "intermedio",
+      "pattern": "pull",
+      "description": "Remo inclinado con barra",
+      "instructions": [
+        "Barra en manos",
+        "Inclina el torso",
+        "Jala la barra al abdomen"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "dorsal",
+        "bíceps",
+        "trapecios"
+      ],
+      "restrictions": [
+        "dolor lumbar"
+      ],
+      "tags": [
+        "fuerza",
+        "espalda"
+      ]
+    },
+    {
+      "id": "ex-014",
+      "name": "Remo con mancuerna",
+      "alias": "One-arm dumbbell row",
+      "groupMain": "espalda",
+      "groupsSecondary": [
+        "biceps"
+      ],
+      "equipment": "mancuernas",
+      "level": "principiante",
+      "pattern": "pull",
+      "description": "Remo unilateral con mancuerna apoyando rodilla en banca",
+      "instructions": [
+        "Apoya rodilla en banca",
+        "Jala mancuerna al torso"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "dorsal",
+        "bíceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "hipertrofia",
+        "espalda"
+      ]
+    },
+    {
+      "id": "ex-015",
+      "name": "Curl de bíceps",
+      "alias": "Bicep curl",
+      "groupMain": "brazos",
+      "groupsSecondary": [],
+      "equipment": "barra",
+      "level": "principiante",
+      "pattern": "pull",
+      "description": "Curl de bíceps con barra",
+      "instructions": [
+        "Barra en manos",
+        "Flexiona codos"
+      ],
+      "variantIds": [
+        "ex-016"
+      ],
+      "muscles": [
+        "bíceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "hipertrofia",
+        "brazos"
+      ]
+    },
+    {
+      "id": "ex-016",
+      "name": "Curl de bíceps con mancuernas",
+      "alias": "Dumbbell bicep curl",
+      "groupMain": "brazos",
+      "groupsSecondary": [],
+      "equipment": "mancuernas",
+      "level": "principiante",
+      "pattern": "pull",
+      "description": "Curl alternado de bíceps con mancuernas",
+      "instructions": [
+        "Mancuernas en manos",
+        "Flexiona un codo a la vez"
+      ],
+      "variantIds": [
+        "ex-015"
+      ],
+      "muscles": [
+        "bíceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "hipertrofia",
+        "brazos"
+      ]
+    },
+    {
+      "id": "ex-017",
+      "name": "Extensión de tríceps en polea",
+      "alias": "Tricep pushdown",
+      "groupMain": "brazos",
+      "groupsSecondary": [],
+      "equipment": "polea",
+      "level": "principiante",
+      "pattern": "push",
+      "description": "Extensión de tríceps con polea alta",
+      "instructions": [
+        "Agarra la barra de la polea",
+        "Extiende codos hacia abajo"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "tríceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "hipertrofia",
+        "brazos"
+      ]
+    },
+    {
+      "id": "ex-018",
+      "name": "Press francés",
+      "alias": "Skull crusher",
+      "groupMain": "brazos",
+      "groupsSecondary": [],
+      "equipment": "barra",
+      "level": "intermedio",
+      "pattern": "push",
+      "description": "Extensión de tríceps tumbado con barra EZ",
+      "instructions": [
+        "Tumbado, barra sobre frente",
+        "Flexiona y extiende codos"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "tríceps"
+      ],
+      "restrictions": [
+        "molestia codo"
+      ],
+      "tags": [
+        "hipertrofia",
+        "brazos"
+      ]
+    },
+    {
+      "id": "ex-019",
+      "name": "Zancada",
+      "alias": "Lunge",
+      "groupMain": "cuadriceps",
+      "groupsSecondary": [
+        "gluteos"
+      ],
+      "equipment": "peso_corporal",
+      "level": "intermedio",
+      "pattern": "squat",
+      "description": "Zancada adelante con peso corporal",
+      "instructions": [
+        "Da un paso adelante",
+        "Baja la rodilla trasera"
+      ],
+      "variantIds": [
+        "ex-020"
+      ],
+      "muscles": [
+        "cuádriceps",
+        "glúteo"
+      ],
+      "restrictions": [
+        "dolor rodilla"
+      ],
+      "tags": [
+        "peso_corporal",
+        "piernas"
+      ]
+    },
+    {
+      "id": "ex-020",
+      "name": "Zancada con mancuernas",
+      "alias": "Dumbbell lunge",
+      "groupMain": "cuadriceps",
+      "groupsSecondary": [
+        "gluteos"
+      ],
+      "equipment": "mancuernas",
+      "level": "intermedio",
+      "pattern": "squat",
+      "description": "Zancada sosteniendo mancuernas",
+      "instructions": [
+        "Mancuernas en manos",
+        "Da un paso adelante",
+        "Baja la rodilla trasera"
+      ],
+      "variantIds": [
+        "ex-019"
+      ],
+      "muscles": [
+        "cuádriceps",
+        "glúteo"
+      ],
+      "restrictions": [
+        "dolor rodilla"
+      ],
+      "tags": [
+        "hipertrofia",
+        "piernas"
+      ]
+    },
+    {
+      "id": "ex-021",
+      "name": "Elevación de talones",
+      "alias": "Calf raise",
+      "groupMain": "pantorrillas",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "push",
+      "description": "Elevación de talones de pie",
+      "instructions": [
+        "Párate derecho",
+        "Levántate sobre las puntas de los pies"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "gastrocnemio",
+        "sóleo"
+      ],
+      "restrictions": [],
+      "tags": [
+        "peso_corporal",
+        "piernas"
+      ]
+    },
+    {
+      "id": "ex-022",
+      "name": "Curl femoral sentado",
+      "alias": "Seated leg curl",
+      "groupMain": "femorales",
+      "groupsSecondary": [],
+      "equipment": "maquina",
+      "level": "principiante",
+      "pattern": "hinge",
+      "description": "Curl de piernas sentado en máquina",
+      "instructions": [
+        "Siéntate en máquina",
+        "Flexiona rodillas llevando talones al glúteo"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "isquios"
+      ],
+      "restrictions": [
+        "dolor rodilla"
+      ],
+      "tags": [
+        "maquina",
+        "piernas"
+      ]
+    },
+    {
+      "id": "ex-023",
+      "name": "Extensión de piernas",
+      "alias": "Leg extension",
+      "groupMain": "cuadriceps",
+      "groupsSecondary": [],
+      "equipment": "maquina",
+      "level": "principiante",
+      "pattern": "squat",
+      "description": "Extensión de piernas en máquina",
+      "instructions": [
+        "Siéntate",
+        "Extiende rodillas contra la resistencia"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "cuádriceps"
+      ],
+      "restrictions": [
+        "dolor rodilla"
+      ],
+      "tags": [
+        "maquina",
+        "piernas"
+      ]
+    },
+    {
+      "id": "ex-024",
+      "name": "Hip thrust",
+      "alias": "Hip thrust",
+      "groupMain": "gluteos",
+      "groupsSecondary": [
+        "femorales"
+      ],
+      "equipment": "barra",
+      "level": "intermedio",
+      "pattern": "hinge",
+      "description": "Elevación de cadera con barra sobre las caderas",
+      "instructions": [
+        "Apoya espalda en banca",
+        "Barra sobre caderas",
+        "Elevá las caderas"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "glúteo",
+        "isquios"
+      ],
+      "restrictions": [],
+      "tags": [
+        "fuerza",
+        "gluteos"
+      ]
+    },
+    {
+      "id": "ex-025",
+      "name": "Plancha abdominal",
+      "alias": "Plank",
+      "groupMain": "abdomen",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "core",
+      "description": "Plancha estática para core",
+      "instructions": [
+        "Apoya antebrazos y puntas de pies",
+        "Mantén el cuerpo recto"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "abdominales",
+        "core"
+      ],
+      "restrictions": [],
+      "tags": [
+        "peso_corporal",
+        "core"
+      ]
+    },
+    {
+      "id": "ex-026",
+      "name": "Crunches",
+      "alias": "Crunches",
+      "groupMain": "abdomen",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "core",
+      "description": "Contracción abdominal tumbado",
+      "instructions": [
+        "Tumbado, rodillas flexionadas",
+        "Levanta hombros del suelo"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "abdominales"
+      ],
+      "restrictions": [],
+      "tags": [
+        "peso_corporal",
+        "core"
+      ]
+    },
+    {
+      "id": "ex-027",
+      "name": "Face pull",
+      "alias": "Face pull",
+      "groupMain": "hombros",
+      "groupsSecondary": [
+        "espalda"
+      ],
+      "equipment": "polea",
+      "level": "principiante",
+      "pattern": "pull",
+      "description": "Jalón hacia la cara con polea y cuerda",
+      "instructions": [
+        "Agarra la cuerda de la polea",
+        "Jala hacia la frente, abriendo codos"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "deltoide posterior",
+        "trapecios"
+      ],
+      "restrictions": [],
+      "tags": [
+        "hipertrofia",
+        "hombros"
+      ]
+    },
+    {
+      "id": "ex-028",
+      "name": "Pullover con mancuerna",
+      "alias": "Dumbbell pullover",
+      "groupMain": "pecho",
+      "groupsSecondary": [
+        "espalda"
+      ],
+      "equipment": "mancuernas",
+      "level": "intermedio",
+      "pattern": "push",
+      "description": "Pullover tumbado en banca con una mancuerna",
+      "instructions": [
+        "Tumbado en banca",
+        "Mancuerna sobre el pecho",
+        "Lleva los brazos atrás sobre la cabeza"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "pectoral mayor",
+        "dorsal"
+      ],
+      "restrictions": [],
+      "tags": [
+        "hipertrofia"
+      ]
+    },
+    {
+      "id": "ex-029",
+      "name": "Caminata del granjero",
+      "alias": "Farmer's walk",
+      "groupMain": "core",
+      "groupsSecondary": [
+        "brazos",
+        "trapezius"
+      ],
+      "equipment": "mancuernas",
+      "level": "intermedio",
+      "pattern": "core",
+      "description": "Caminata sosteniendo pesas en cada mano",
+      "instructions": [
+        "Pesa en cada mano",
+        "Camina manteniendo postura erguida"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "core",
+        "antebrazos",
+        "trapecios"
+      ],
+      "restrictions": [],
+      "tags": [
+        "fuerza",
+        "core"
+      ]
+    },
+    {
+      "id": "ex-030",
+      "name": "Burpee",
+      "alias": "Burpee",
+      "groupMain": "cardio",
+      "groupsSecondary": [
+        "pecho",
+        "cuadriceps"
+      ],
+      "equipment": "peso_corporal",
+      "level": "intermedio",
+      "pattern": "cardio",
+      "description": "Burpee completo con flexión y salto",
+      "instructions": [
+        "De pie",
+        "Baja a plancha",
+        "Haz una flexión",
+        "Salta hacia arriba"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "pecho",
+        "cuádriceps",
+        "deltoide",
+        "core"
+      ],
+      "restrictions": [
+        "dolor rodilla",
+        "dolor muñeca"
+      ],
+      "tags": [
+        "cardio",
+        "peso_corporal"
+      ]
+    },
+    {
+      "id": "ex-031",
+      "name": "Estiramiento de cuádriceps",
+      "alias": "Estiramiento de cuádriceps",
+      "groupMain": "cuadriceps",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de cuádriceps de pie",
+      "instructions": [
+        "Mantener 20-30 segundos",
+        "Respirar de forma controlada"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "cuádriceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "cuadriceps"
+      ]
+    },
+    {
+      "id": "ex-032",
+      "name": "Estiramiento de isquiotibiales",
+      "alias": "Estiramiento de isquiotibiales",
+      "groupMain": "femorales",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de isquiotibiales sentado",
+      "instructions": [
+        "Mantener 20-30 segundos",
+        "Respirar de forma controlada"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "isquios"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "femorales"
+      ]
+    },
+    {
+      "id": "ex-033",
+      "name": "Estiramiento de glúteos",
+      "alias": "Estiramiento de glúteos",
+      "groupMain": "gluteos",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de glúteos en el suelo",
+      "instructions": [
+        "Mantener 20-30 segundos",
+        "Respirar de forma controlada"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "glúteo"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "gluteos"
+      ]
+    },
+    {
+      "id": "ex-034",
+      "name": "Estiramiento de pecho",
+      "alias": "Estiramiento de pecho",
+      "groupMain": "pecho",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de pecho en marco de puerta",
+      "instructions": [
+        "Mantener 20-30 segundos",
+        "Respirar de forma controlada"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "pectoral mayor"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "pecho"
+      ]
+    },
+    {
+      "id": "ex-035",
+      "name": "Estiramiento de espalda",
+      "alias": "Estiramiento de espalda",
+      "groupMain": "espalda",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de espalda en gato-vaca",
+      "instructions": [
+        "Mantener 20-30 segundos",
+        "Respirar de forma controlada"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "dorsal"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "espalda"
+      ]
+    },
+    {
+      "id": "ex-036",
+      "name": "Estiramiento de hombros",
+      "alias": "Estiramiento de hombros",
+      "groupMain": "hombros",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de hombros cruzado",
+      "instructions": [
+        "Mantener 20-30 segundos",
+        "Respirar de forma controlada"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "deltoide"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "hombros"
+      ]
+    },
+    {
+      "id": "ex-037",
+      "name": "Estiramiento de bíceps",
+      "alias": "Estiramiento de bíceps",
+      "groupMain": "brazos",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de bíceps contra pared",
+      "instructions": [
+        "Mantener 20-30 segundos",
+        "Respirar de forma controlada"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "bíceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "brazos"
+      ]
+    },
+    {
+      "id": "ex-038",
+      "name": "Estiramiento de tríceps",
+      "alias": "Estiramiento de tríceps",
+      "groupMain": "brazos",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de tríceps sobre la cabeza",
+      "instructions": [
+        "Mantener 20-30 segundos",
+        "Respirar de forma controlada"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "tríceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "brazos"
+      ]
+    },
+    {
+      "id": "ex-039",
+      "name": "Estiramiento abdominal",
+      "alias": "Estiramiento abdominal",
+      "groupMain": "abdomen",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de abdomen en cobra",
+      "instructions": [
+        "Mantener 20-30 segundos",
+        "Respirar de forma controlada"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "abdominales"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "abdomen"
+      ]
+    },
+    {
+      "id": "ex-040",
+      "name": "Estiramiento de pantorrillas",
+      "alias": "Estiramiento de pantorrillas",
+      "groupMain": "pantorrillas",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de pantorrilla contra pared",
+      "instructions": [
+        "Mantener 20-30 segundos",
+        "Respirar de forma controlada"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "gastrocnemio"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "pantorrillas"
+      ]
+    },
+    {
+      "id": "ex-041",
+      "name": "Calentamiento dinámico de cadera",
+      "alias": "Hip circles",
+      "groupMain": "gluteos",
+      "groupsSecondary": [
+        "cuadriceps"
+      ],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "mobilization",
+      "description": "Círculos de cadera para calentar",
+      "instructions": [
+        "Pies a la anchura de hombros",
+        "Círculos lentos de cadera"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "glúteo",
+        "cuádriceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "movilidad",
+        "calentamiento"
+      ]
+    },
+    {
+      "id": "ex-042",
+      "name": "Estiramiento de cuádriceps con banda",
+      "alias": "Quad stretch band",
+      "groupMain": "cuadriceps",
+      "groupsSecondary": [],
+      "equipment": "banda",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de cuádriceps con banda elástica",
+      "instructions": [
+        "Coloca la banda en el tobillo",
+        "Tira hacia glúteo suavemente"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "cuádriceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "p",
+        "i",
+        "e",
+        "r",
+        "n",
+        "a",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-043",
+      "name": "Estiramiento de isquios con pelota",
+      "alias": "Hamstring stretch ball",
+      "groupMain": "femorales",
+      "groupsSecondary": [],
+      "equipment": "pelota",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de isquios sobre pelota",
+      "instructions": [
+        "Siéntate sobre pelota",
+        "Extiende una pierna"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "isquios"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "p",
+        "i",
+        "e",
+        "r",
+        "n",
+        "a",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-044",
+      "name": "Estiramiento de gemelos en pared",
+      "alias": "Calf stretch wall",
+      "groupMain": "pantorrillas",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de pantorrilla contra pared",
+      "instructions": [
+        "Manos en pared",
+        "Talón al suelo"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "gastrocnemio"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "p",
+        "i",
+        "e",
+        "r",
+        "n",
+        "a",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-045",
+      "name": "Movilidad de cadera con banda",
+      "alias": "Hip mobility band",
+      "groupMain": "gluteos",
+      "groupsSecondary": [],
+      "equipment": "banda",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Movilidad de cadera con banda",
+      "instructions": [
+        "Banda en muslo",
+        "Rotaciones controladas"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "glúteo",
+        "cuádriceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "p",
+        "i",
+        "e",
+        "r",
+        "n",
+        "a",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-046",
+      "name": "Estiramiento de aductores en suelo",
+      "alias": "Adductor stretch floor",
+      "groupMain": "cuadriceps",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de aductores sentado",
+      "instructions": [
+        "Piernas abiertas",
+        "Inclina torso"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "aductores"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "p",
+        "i",
+        "e",
+        "r",
+        "n",
+        "a",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-047",
+      "name": "Estiramiento de pecho con banda",
+      "alias": "Chest stretch band",
+      "groupMain": "pecho",
+      "groupsSecondary": [],
+      "equipment": "banda",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de pecho con banda",
+      "instructions": [
+        "Banda detrás de espalda",
+        "Abre brazos"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "pectoral mayor"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "p",
+        "e",
+        "c",
+        "h",
+        "o"
+      ]
+    },
+    {
+      "id": "ex-048",
+      "name": "Estiramiento de pecho en marco",
+      "alias": "Doorway chest stretch",
+      "groupMain": "pecho",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de pecho en marco de puerta",
+      "instructions": [
+        "Brazo en marco",
+        "Rota torso"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "pectoral mayor"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "p",
+        "e",
+        "c",
+        "h",
+        "o"
+      ]
+    },
+    {
+      "id": "ex-049",
+      "name": "Movilidad torácica con foam roller",
+      "alias": "Thoracic mobility roller",
+      "groupMain": "espalda",
+      "groupsSecondary": [],
+      "equipment": "foam_roller",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Movilidad torácica con rodillo",
+      "instructions": [
+        "Rodillo bajo escápulas",
+        "Extiende espalda"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "dorsal",
+        "trapecios"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "p",
+        "e",
+        "c",
+        "h",
+        "o"
+      ]
+    },
+    {
+      "id": "ex-050",
+      "name": "Estiramiento de dorsal con banda",
+      "alias": "Lat stretch band",
+      "groupMain": "espalda",
+      "groupsSecondary": [],
+      "equipment": "banda",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de dorsal con banda",
+      "instructions": [
+        "Banda en barra",
+        "Inclina torso"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "dorsal"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "e",
+        "s",
+        "p",
+        "a",
+        "l",
+        "d",
+        "a"
+      ]
+    },
+    {
+      "id": "ex-051",
+      "name": "Estiramiento gato-vaca",
+      "alias": "Cat-cow stretch",
+      "groupMain": "espalda",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Movilidad de columna gato-vaca",
+      "instructions": [
+        "A cuatro patas",
+        "Arquea y redondea"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "dorsal",
+        "core"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "e",
+        "s",
+        "p",
+        "a",
+        "l",
+        "d",
+        "a"
+      ]
+    },
+    {
+      "id": "ex-052",
+      "name": "Estiramiento de trapecios",
+      "alias": "Trap stretch",
+      "groupMain": "espalda",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de trapecios",
+      "instructions": [
+        "Inclina cabeza lateral",
+        "Mano opuesta"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "trapecios"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "e",
+        "s",
+        "p",
+        "a",
+        "l",
+        "d",
+        "a"
+      ]
+    },
+    {
+      "id": "ex-053",
+      "name": "Estiramiento de hombros con banda",
+      "alias": "Shoulder stretch band",
+      "groupMain": "hombros",
+      "groupsSecondary": [],
+      "equipment": "banda",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de hombros con banda",
+      "instructions": [
+        "Banda detrás",
+        "Brazo extendido"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "deltoide"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "h",
+        "o",
+        "m",
+        "b",
+        "r",
+        "o",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-054",
+      "name": "Movilidad de hombros con pelota",
+      "alias": "Shoulder mobility ball",
+      "groupMain": "hombros",
+      "groupsSecondary": [],
+      "equipment": "pelota",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Movilidad de hombros con pelota",
+      "instructions": [
+        "Pelota en pared",
+        "Rotaciones"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "deltoide",
+        "manguito rotador"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "h",
+        "o",
+        "m",
+        "b",
+        "r",
+        "o",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-055",
+      "name": "Estiramiento cruzado de hombros",
+      "alias": "Cross-body shoulder stretch",
+      "groupMain": "hombros",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento cruzado de hombros",
+      "instructions": [
+        "Brazo cruzado",
+        "Tira con mano opuesta"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "deltoide posterior"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "h",
+        "o",
+        "m",
+        "b",
+        "r",
+        "o",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-056",
+      "name": "Estiramiento de bíceps con pared",
+      "alias": "Bicep stretch wall",
+      "groupMain": "brazos",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de bíceps contra pared",
+      "instructions": [
+        "Mano en pared",
+        "Rota torso"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "bíceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "b",
+        "r",
+        "a",
+        "z",
+        "o",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-057",
+      "name": "Estiramiento de tríceps sobre cabeza",
+      "alias": "Tricep stretch overhead",
+      "groupMain": "brazos",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de tríceps sobre la cabeza",
+      "instructions": [
+        "Brazo flexionado",
+        "Tira codo"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "tríceps"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "b",
+        "r",
+        "a",
+        "z",
+        "o",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-058",
+      "name": "Estiramiento de antebrazos",
+      "alias": "Forearm stretch",
+      "groupMain": "brazos",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de antebrazos",
+      "instructions": [
+        "Muñeca flexionada",
+        "Tira dedos"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "antebrazos"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "b",
+        "r",
+        "a",
+        "z",
+        "o",
+        "s"
+      ]
+    },
+    {
+      "id": "ex-059",
+      "name": "Estiramiento abdominal en cobra",
+      "alias": "Cobra stretch",
+      "groupMain": "abdomen",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento abdominal en cobra",
+      "instructions": [
+        "Boca abajo",
+        "Extiende brazos"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "abdominales"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "c",
+        "o",
+        "r",
+        "e"
+      ]
+    },
+    {
+      "id": "ex-060",
+      "name": "Estiramiento de oblicuos",
+      "alias": "Oblique stretch",
+      "groupMain": "abdomen",
+      "groupsSecondary": [],
+      "equipment": "peso_corporal",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Estiramiento de oblicuos de pie",
+      "instructions": [
+        "Brazo sobre cabeza",
+        "Inclina lateral"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "oblicuos"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "c",
+        "o",
+        "r",
+        "e"
+      ]
+    },
+    {
+      "id": "ex-061",
+      "name": "Movilidad de columna con rodillo",
+      "alias": "Spine mobility roller",
+      "groupMain": "abdomen",
+      "groupsSecondary": [],
+      "equipment": "foam_roller",
+      "level": "principiante",
+      "pattern": "stretch",
+      "description": "Movilidad de columna con rodillo",
+      "instructions": [
+        "Rodillo en espalda",
+        "Rotaciones suaves"
+      ],
+      "variantIds": [],
+      "muscles": [
+        "core",
+        "dorsal"
+      ],
+      "restrictions": [],
+      "tags": [
+        "stretching",
+        "c",
+        "o",
+        "r",
+        "e"
+      ]
+    }
   ]
 }

@@ -80,7 +80,7 @@
     letter-spacing: -0.01em;
   }
 
-  /* Bottom nav: 64px, icono + label, activo en rojo Komi */
+  /* Bottom nav: 64px, icono + label, activo con el color de su apartado */
   .althea-nav--bar {
     min-height: var(--althea-mobile-nav-height);
     align-items: center;
@@ -91,7 +91,7 @@
   }
   .althea-nav--bar .althea-nav-item[aria-current='page'] {
     background: transparent;
-    color: #D92735;
+    color: rgb(var(--althea-accent-rgb));
   }
 
   /* Modales: siempre centrados (también en mobile). Antes un override

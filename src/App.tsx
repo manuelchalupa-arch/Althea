@@ -11,6 +11,7 @@ import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersio
 import { weekdayOfKey } from '@/utils/dates'
 import { ErrorBoundary, EntrenarErrorBoundary, NutricionErrorBoundary, CoachErrorBoundary, ProgresoErrorBoundary } from '@/components/ErrorBoundary'
 import { SplashScreen, isMobileSplashConsumedThisDocument, MOBILE_SPLASH_BREAKPOINT } from '@/components/SplashScreen'
+import { accentSectionForPath } from '@/components/navigation/sections'
 
 // Lazy load all pages to reduce initial bundle size
 const Inicio = lazy(() => import('@/pages/Inicio'))
@@ -228,7 +229,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
       <TempleBackdrop />
       {!hideNav && <AppHeader />}
       {!hideNav && <MeanderFrieze height={3} color="rgb(var(--c-gold-rgb) / 0.4)" className="shell-content-nudge" />}
-      <div className="shell-content relative z-10 mx-auto px-3 sm:px-5 lg:px-6 xl:px-8 2xl:px-10 pt-4 pb-24 md:pb-10 transition-[margin-left] duration-200">
+      <div data-section={accentSectionForPath(loc.pathname)} className="shell-content relative z-10 mx-auto px-3 sm:px-5 lg:px-6 xl:px-8 2xl:px-10 pt-4 pb-24 md:pb-10 transition-[margin-left] duration-200">
       <Routes>
         <Route path="/login" element={<LazyPage><Login onDone={() => navigate('/', { replace: true })} /></LazyPage>} />
         <Route path="/feedback" element={<LazyPage><FeedbackEntry /></LazyPage>} />
