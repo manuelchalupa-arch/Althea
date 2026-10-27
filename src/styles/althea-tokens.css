@@ -68,6 +68,12 @@
   --althea-duration-base: 200ms;    /* aparición de paneles */
   --althea-duration-slow: 280ms;    /* llenado de anillo / botella */
 
+  /* ============ OPACIDAD DE INFORMACIÓN ============
+     La información que no se puede pulsar se atenúa para que los botones
+     (a opacidad 1) destaquen. 0.9 es el mínimo que mantiene AA en el texto
+     secundario (--althea-on-surface-muted sobre papel crema ≈ 4.5:1). */
+  --althea-info-opacity: 0.9;
+
   /* ============ GRID ============ */
   --althea-grid-columns-desktop: 12;
   --althea-container-max: 1280px;

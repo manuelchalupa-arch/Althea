@@ -920,3 +920,19 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 
 /* Color para estiramientos/calentamiento (amarillo patito oscuro) */
 :root { --althea-stretch: #C9A227; }
+
+/* ============================================================
+   OPACIDAD DE LA INFORMACIÓN
+   Lo que no se puede pulsar (textos, iconos, cifras) se atenúa un poco;
+   los controles (botones, enlaces, campos, pestañas) quedan a opacidad 1
+   para que se vea de un vistazo qué se aprieta. El color no cambia.
+   Solo se atenúan hojas (sin hijos) para no multiplicar opacidades.
+   ============================================================ */
+.shell-content :not(:has(*)):not(button):not(a):not(label):not([role='button']):not(summary):not(input):not(select):not(textarea):not(img):not(video):not(canvas):not(svg *):not(button *):not(a *):not(label *):not([role='button'] *):not(summary *):not([class*='opacity-']) {
+  opacity: var(--althea-info-opacity);
+}
+
+/* Los iconos SVG sí son información: se atenúan salvo dentro de un control. */
+.shell-content svg:not(button *):not(a *):not(label *):not([role='button'] *) {
+  opacity: var(--althea-info-opacity);
+}
