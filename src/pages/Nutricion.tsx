@@ -610,7 +610,7 @@ export default function Nutricion() {
   }
 
   return (
-    <div className="w-full max-w-[1260px] mx-auto px-8 py-6 space-y-6">
+    <div className="w-full max-w-[1260px] mx-auto px-4 md:px-8 py-4 md:py-6 space-y-6">
       {safetyAlerts.length > 0 && (
         <div className="space-y-2">
           {safetyAlerts.map(alert => (

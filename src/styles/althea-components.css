@@ -401,6 +401,9 @@
 .atlas-stats__item dd { margin: 0; font-weight: 600; color: var(--althea-on-surface); font-variant-numeric: tabular-nums; }
 .atlas-stats__sub { font-weight: 400 !important; font-size: var(--althea-fs-body-sm); color: var(--althea-on-surface-muted) !important; }
 .atlas-metric__label { font-size: var(--althea-fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--althea-on-surface-muted); white-space: nowrap; flex: none; }
+/* Mobile: la etiqueta "Color por:" ocupa su propia línea; si no, los chips
+   envuelven debajo de ella y quedan desalineados. */
+@media (max-width: 639px) { .atlas-metric__label { flex-basis: 100%; } }
 .atlas-routine { margin: 8px 0; }
 .atlas-compliance { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .althea-atlas__note { flex-direction: column; gap: 2px; }

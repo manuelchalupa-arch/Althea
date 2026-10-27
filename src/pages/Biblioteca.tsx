@@ -125,10 +125,13 @@ export default function Biblioteca(){
                 selectedKey === group.id ? 'border-accent bg-accent/10' : 'border-outline-variant bg-surface-container',
               ].join(' ')}
             >
-              <span className="block text-sm font-semibold text-on-surface">
+              {/* El botón se pinta oscuro por la regla global de botones: el
+                  texto hereda ese color claro (text-on-surface quedaba negro
+                  sobre negro y el título era invisible). */}
+              <span className="block text-sm font-semibold text-inherit">
                 {group.label}
               </span>
-              <span className="mt-1 block text-xs text-on-surface-variant">
+              <span className="mt-1 block text-xs text-inherit opacity-80">
                 {group.description}
               </span>
             </button>

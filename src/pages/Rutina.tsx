@@ -372,11 +372,11 @@ export default function RutinaPage(){
             <option value={20}>20 días</option><option value={30}>30 días</option><option value={45}>45 días</option><option value={60}>60 días</option>
           </select>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
           <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fecha de revisión</span>
           <input type="date" aria-label="Fecha de revisión" value={active.reviewDate ?? ''}
             onChange={e=> updateActive(r=> ({...r, reviewDate: e.target.value || null}))}
-            className="ml-auto bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]" />
+            className="sm:ml-auto bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]" />
         </div>
         <p className="font-body-sm text-[12px] text-on-surface-variant">
           {(() => {
