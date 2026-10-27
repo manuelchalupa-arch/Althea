@@ -301,8 +301,11 @@ async function flushEntry(entry: FeedbackOutboxEntry): Promise<FeedbackDelivery>
 
   // Chequeo de idempotencia: si el mensaje ya está en el servidor, la escritura
   // anterior se confirmó (el batch es atómico) y solo falta limpiar la cola.
-  const existing = await withTimeout(getDoc(messageRef))
-  if (existing.exists()) {
+  // Leer un documento que todavía no existe lo deniegan las reglas: ese "no"
+  // no es un fallo del envío, así que se sigue con el batch (ids fijos ⇒ el
+  // commit sigue siendo idempotente).
+  const existing = await withTimeout(getDoc(messageRef)).catch(() => null)
+  if (existing?.exists()) {
     await setLocalMessageStatus(message.id, 'synced')
     await removeOutbox(entry.id)
     return 'sent'

@@ -16,16 +16,23 @@ const fs = vi.hoisted(() => ({
   batchSetCalls: 0,
   getDocsMode: 'ok' as GetDocsMode,
   getDocsCalls: 0,
+  // Las reglas de Firestore deniegan leer un documento que no existe.
+  denyMissingGets: false,
 }))
 
 vi.mock('firebase/firestore', () => {
   type Ref = { path: string }
   return {
     doc: (...parts: unknown[]): Ref => ({ path: parts.slice(1).join('/') }),
-    getDoc: async (ref: Ref) => ({
-      exists: () => fs.server.has(ref.path),
-      data: () => fs.server.get(ref.path),
-    }),
+    getDoc: async (ref: Ref) => {
+      if (fs.denyMissingGets && !fs.server.has(ref.path)) {
+        throw { code: 'permission-denied', message: 'doc inexistente' }
+      }
+      return {
+        exists: () => fs.server.has(ref.path),
+        data: () => fs.server.get(ref.path),
+      }
+    },
     writeBatch: () => {
       const pending: Array<{ path: string; data: Record<string, unknown> }> = []
       const write = (ref: Ref, data: Record<string, unknown>) => {
@@ -92,6 +99,7 @@ describe('feedbackService — reglas del outbox', () => {
     fs.batchSetCalls = 0
     fs.getDocsMode = 'ok'
     fs.getDocsCalls = 0
+    fs.denyMissingGets = false
     resetFeedbackAdminCache()
     await db.delete()
     await db.open()
@@ -145,6 +153,17 @@ describe('feedbackService — reglas del outbox', () => {
     expect(manual.errors).toBe(1)
     entries = await db.feedbackOutbox.toArray()
     expect(entries[0].attempts).toBe(attemptsAfterFailure + 1)
+  })
+
+  it('regla 2: que las reglas denieguen leer un doc inexistente no bloquea el envío', async () => {
+    // Producción 2026-10-26: el pre-chequeo de idempotencia recibía 403 en cada
+    // primer envío y ningún reporte llegaba a Firestore.
+    fs.denyMissingGets = true
+    const res = await createThread({ category: 'duda', subject: 'Reglas', text: 'hola' })
+
+    expect(res.delivery).toBe('sent')
+    expect([...fs.server.keys()].some((k) => k.includes('/messages/'))).toBe(true)
+    expect(await db.feedbackOutbox.toArray()).toHaveLength(0)
   })
 
   it('regla 2: reintentar tras un ack perdido sobrescribe sin duplicar', async () => {
