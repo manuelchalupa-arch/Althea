@@ -43,7 +43,7 @@ export function AltheaCardHeader({ title, subtitle, icon, action, className = ''
       <div className="flex items-center gap-2.5 min-w-0">
         {icon && <SemanticIcon name={icon} size={18} className="text-[18px] text-accent shrink-0" ariaHidden />}
         <div className="min-w-0">
-          <h3 className="font-headline-md text-on-surface truncate">{title}</h3>
+          <h3 className="font-headline-md text-on-surface">{title}</h3>
           {subtitle && <p className="font-body-md text-xs text-on-surface-variant mt-0.5">{subtitle}</p>}
         </div>
       </div>

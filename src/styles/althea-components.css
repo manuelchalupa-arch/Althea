@@ -145,8 +145,9 @@
 /* ============ STAT ROW (varias métricas comparten fila, no tarjetas separadas) ============ */
 .althea-stat-row {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  /* auto-fit + min() para que en columnas angostas las métricas bajen a otra
+     fila en vez de desbordar la tarjeta. */
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
   gap: var(--althea-space-3);
 }
 
@@ -155,6 +156,7 @@
   align-items: center;
   gap: var(--althea-space-3);
   padding: var(--althea-space-2) 0;
+  min-width: 0;
 }
 
 .althea-stat__icon {
@@ -169,7 +171,7 @@
   flex-shrink: 0;
 }
 
-.althea-stat__body { display: flex; flex-direction: column; }
+.althea-stat__body { display: flex; flex-direction: column; min-width: 0; }
 .althea-stat__value {
   font-family: var(--althea-font-display);
   font-size: var(--althea-fs-display-md);

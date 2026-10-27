@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import SemanticIcon from '../components/ui/SemanticIcon';
 import { db } from '@/services/storage/db'
 import { v4 as uuid } from 'uuid'
@@ -72,9 +73,9 @@ function Section({ title, icon, children, defaultOpen = false }: { title: string
       <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-4 hover:bg-surface-container-high/30 transition-colors">
         <div className="flex items-center gap-2.5">
           {icon && <span className="text-primary">{icon}</span>}
-          <span className="font-body-md text-[15px] text-on-surface font-medium">{title}</span>
+          <span className="font-body-md text-[15px] font-medium">{title}</span>
         </div>
-        <BrandIcon name={open ? 'expand_less' : 'expand_more'} size={20} />
+        {open ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
       </button>
       {open && <div className="px-4 pb-4 border-t border-outline-variant/30">{children}</div>}
     </div>

@@ -142,7 +142,7 @@ export default function Mas(){
         </div>
         <div className="min-w-0">
           <h1 className="font-headline-lg text-lg text-on-surface font-semibold">Más</h1>
-          <p className="font-body-md text-xs text-on-surface-variant truncate">Centro de acceso y resumen de tu actividad.</p>
+          <p className="font-body-md text-xs text-on-surface-variant">Centro de acceso y resumen de tu actividad.</p>
         </div>
         <InstallAppButton />
       </header>

@@ -66,7 +66,7 @@ export function MacroSummary({ size = 260 }: { size?: number }) {
             const goal = goals[key]
             const pct = goal > 0 ? macroPercent(consumed, goal) : 0
             return (
-              <div key={key} className="rounded-xl bg-surface-container-high border border-outline-variant/30 p-2 sm:p-2.5 space-y-1.5 min-w-0">
+              <div key={key} className="rounded-xl bg-surface-container-high border border-outline-variant/30 p-2 space-y-1.5 min-w-0">
                 <div className="min-w-0">
                   <span className="font-label-caps !text-[12px] sm:!text-[13px] font-semibold text-on-surface truncate block">{label}</span>
                 </div>

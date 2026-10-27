@@ -318,7 +318,7 @@ export default function RutinaPage(){
     <div className="min-h-screen bg-transparent px-0 pt-2 pb-24 md:px-6 md:pt-6 md:pb-6 lg:px-8 lg:pt-8 lg:pb-8 sm:px-5 xl:px-10 2xl:px-12 w-full mx-auto space-y-4">
       {/* Selector superior */}
       <AltheaCard className="p-4 rounded-2xl shadow-al-sm border border-outline-variant/50">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-label-caps text-[11px] uppercase text-on-surface-variant font-bold">Rutina activa</span>
               <span className="font-body-md text-base text-on-surface-variant">{active.rotationDays} días de rotación</span>
@@ -415,8 +415,8 @@ export default function RutinaPage(){
                     updateActive(r=> ({...r, cycle: {...r.cycle, trainingDays: r.cycle.trainingDays.map(x=> x.n===d.n? {...x, name:e.target.value}:x)}}))
                   }} aria-label={`Nombre del día N°${d.n}`} className="bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
                 </div>
-                <AltheaButton size="sm" onClick={()=>setPickerFor(d.n)}><Plus size={14}/> Ejercicio</AltheaButton>
-                <AltheaButton size="sm" variant="secondary" onClick={()=>{ setAddingStretch(true); setPickerFor(d.n) }}><Plus size={14}/> Estiramiento</AltheaButton>
+                <AltheaButton size="sm" className="shrink-0" onClick={()=>setPickerFor(d.n)}><Plus size={14}/> Ejercicio</AltheaButton>
+                <AltheaButton size="sm" variant="secondary" className="shrink-0" onClick={()=>{ setAddingStretch(true); setPickerFor(d.n) }}><Plus size={14}/> Estiramiento</AltheaButton>
               </div>
               <div className="flex items-center gap-2">
                 <StatusTag status="planned" />
@@ -472,7 +472,7 @@ export default function RutinaPage(){
                 <select value={active.cycle.weekMap[i] ?? ''} onChange={e=>{
                   const wm=[...active.cycle.weekMap]; wm[i]= e.target.value ? Number(e.target.value):null
                   updateActive(r=> ({...r, cycle: {...r.cycle, weekMap: wm}}))
-                }} aria-label={`Día de la semana ${w}`} className="flex-1 bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface min-h-[48px]">
+                }} aria-label={`Día de la semana ${w}`} className="flex-1 min-w-0 bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface min-h-[48px]">
                   <option value="">Descanso</option>
                   {active.cycle.trainingDays.map(d=> <option key={d.n} value={d.n}>N°{d.n} — {d.name}</option>)}
                 </select>

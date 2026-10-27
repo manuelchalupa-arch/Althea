@@ -190,11 +190,17 @@ export default function Coach() {
   const available = isChatAvailable()
 
   const scrollToBottom = useCallback(() => {
-    // Guard: en algunos entornos (jsdom/tests) no existe scrollIntoView.
-    messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' })
+    // Solo el contenedor del chat: scrollIntoView movía también la página y al
+    // abrir /coach se aterrizaba a media pantalla.
+    const box = messagesEndRef.current?.parentElement
+    if (box) { box.scrollTop = box.scrollHeight }
   }, [])
 
-  useEffect(() => { scrollToBottom() }, [messages, streamText, scrollToBottom])
+  useEffect(() => {
+    // Con la conversación vacía no hay nada que bajar y el scroll recortaba el
+    // icono del estado vacío.
+    if (messages.length > 0 || streamText) { scrollToBottom() }
+  }, [messages, streamText, scrollToBottom])
 
   useEffect(() => {
     const load = async () => {
@@ -235,7 +241,7 @@ export default function Coach() {
 
   useEffect(() => {
     if (chatReady && available) {
-      setTimeout(() => inputRef.current?.focus(), 100)
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 100)
     }
   }, [chatReady, available])
 
@@ -513,7 +519,7 @@ export default function Coach() {
                   disabled={streaming || sending}
                   maxLength={500}
                   aria-label="Mensaje para el Coach"
-                  className="flex-1 min-h-[48px] rounded-xl bg-surface-container-low border border-outline-variant px-4 py-3 font-body-md text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary/60 disabled:opacity-50"
+                  className="flex-1 min-w-0 min-h-[48px] rounded-xl bg-surface-container-low border border-outline-variant px-4 py-3 font-body-md text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary/60 disabled:opacity-50"
                 />
                 <button
                   type="submit"
