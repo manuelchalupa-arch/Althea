@@ -55,8 +55,13 @@ service cloud.firestore {
     // ── Conversaciones de feedback ────────────────────────────────────────
     match /feedbackThreads/{threadId} {
 
-      allow get: if signedIn()
-        && (resource.data.ownerId == request.auth.uid || isFeedbackAdmin());
+      // `resource == null` = el documento no existe: permitir el get evita que
+      // una sonda de existencia (getDoc antes de escribir) muera con 403.
+      allow get: if signedIn() && (
+        resource == null
+        || resource.data.ownerId == request.auth.uid
+        || isFeedbackAdmin()
+      );
 
       // El cliente dueño SIEMPRE consulta con where('ownerId','==', uid).
       allow list: if signedIn()
@@ -93,8 +98,13 @@ service cloud.firestore {
       // ── Mensajes ────────────────────────────────────────────────────────
       match /messages/{messageId} {
 
-        allow get: if signedIn()
-          && (resource.data.ownerId == request.auth.uid || isFeedbackAdmin());
+        // Mismo criterio que el hilo: leer un mensaje que aún no existe es una
+        // sonda legítima del cliente, no un intento de acceso.
+        allow get: if signedIn() && (
+          resource == null
+          || resource.data.ownerId == request.auth.uid
+          || isFeedbackAdmin()
+        );
 
         // El dueño lista con where('ownerId','==', uid); el admin sin filtro.
         allow list: if signedIn()
