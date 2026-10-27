@@ -38,8 +38,30 @@ describe('Todas las series son editables directamente', () => {
     expect(onComplete.mock.calls[0][1]).toBe(90)
   })
 
-  it('No existe botón Editar para ninguna serie completada', async () => {
+  it('modo R: se marca por serie, muestra la R antes de las reps y se envía al confirmar', async () => {
     const onComplete = vi.fn()
+    render(<ExerciseSeriesTable {...base} onComplete={onComplete} />)
+    await waitFor(() => {
+      expect(screen.getByLabelText('kilogramos serie 1')).toBeInTheDocument()
+    })
+    // Sin marcar: no hay R visible en la celda de reps.
+    const repsCell = screen.getByLabelText('repeticiones serie 1').parentElement!
+    expect(repsCell.textContent).not.toContain('R')
+
+    fireEvent.click(screen.getByLabelText('modo R serie 1'))
+    expect(repsCell.textContent).toContain('R')
+
+    fireEvent.click(screen.getByLabelText('Confirmar serie 1'))
+    expect(onComplete).toHaveBeenCalledTimes(1)
+    // El séptimo argumento es el modo R de esa serie.
+    expect(onComplete.mock.calls[0][6]).toBe(true)
+
+    // La serie 2 no quedó marcada.
+    fireEvent.click(screen.getByLabelText('Confirmar serie 2'))
+    expect(onComplete.mock.calls[1][6]).toBe(false)
+  })
+
+  it('No existe botón Editar para ninguna serie completada', async () => {    const onComplete = vi.fn()
     render(
       <ExerciseSeriesTable
         {...base}
@@ -216,7 +238,7 @@ describe('FASE 1 — Plan precargado por serie, ejecutado separado', () => {
     })
     fireEvent.change(screen.getByLabelText('repeticiones serie 1') as HTMLInputElement, { target: { value: '9' } })
     fireEvent.click(screen.getByLabelText('Confirmar serie 1'))
-    expect(onComplete).toHaveBeenCalledWith(0, 80, 9, undefined, undefined, undefined)
+    expect(onComplete).toHaveBeenCalledWith(0, 80, 9, undefined, undefined, undefined, false)
     // El plan de las demás series sigue intacto
     expect((screen.getByLabelText('repeticiones serie 2') as HTMLInputElement).value).toBe('8')
   })

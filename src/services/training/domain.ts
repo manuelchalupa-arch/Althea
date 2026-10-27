@@ -164,6 +164,8 @@ export interface SetRecord {
    * El dato canónico es kg (`actualWeight`); este campo conserva el original.
    */
   actualLoadText?: string;
+  /** Modo R marcado al confirmar la serie (uso puntual de ese modo). */
+  modeR?: boolean;
   completedAt?: string;
   createdAt: string;
   updatedAt: string;

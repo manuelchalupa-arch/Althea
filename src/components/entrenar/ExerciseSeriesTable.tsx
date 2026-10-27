@@ -16,11 +16,13 @@ const kgOrNull = (v:number|null|undefined):number|null=>{
   return Math.round(n*10)/10
 }
 
-export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeight, plannedSets, planMeta, onComplete, onAddSet, logs, initialCompleted, initialSkipped }:{ exerciseId:string; today:string; sets:number; plannedReps:number; plannedWeight:number|null; plannedSets?: Array<{ order: number; reps: number; weight: number|null; setType?: string }>; planMeta?: { restSec?: number; tempo?: string; rir?: number; rpe?: number; notes?: string }; onComplete:(idx:number,w:number|null,r:number,neg?:any,obs?:string,loadText?:string)=>void; onSkipSet?:(idx:number)=>void; onAddSet?:()=>void; logs:any[]; initialCompleted?:Record<number,{weight:number|null;reps:number}>; initialSkipped?:number[] }){
+export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeight, plannedSets, planMeta, onComplete, onAddSet, logs, initialCompleted, initialSkipped }:{ exerciseId:string; today:string; sets:number; plannedReps:number; plannedWeight:number|null; plannedSets?: Array<{ order: number; reps: number; weight: number|null; setType?: string }>; planMeta?: { restSec?: number; tempo?: string; rir?: number; rpe?: number; notes?: string }; onComplete:(idx:number,w:number|null,r:number,neg?:any,obs?:string,loadText?:string,modeR?:boolean)=>void; onSkipSet?:(idx:number)=>void; onAddSet?:()=>void; logs:any[]; initialCompleted?:Record<number,{weight:number|null;reps:number}>; initialSkipped?:number[] }){
   const [refs,setRefs]=useState<Record<number,any>>({})
   const [weights,setWeights]=useState<Record<number,number|null>>({})
   const [reps,setReps]=useState<Record<number,number|null>>({})
   const [checks,setChecks]=useState<Record<number,boolean>>({})
+  // Modo R por serie: se marca al confirmar y queda en el registro de la serie.
+  const [rModes,setRModes]=useState<Record<number,boolean>>({})
   const [negEnabled,setNegEnabled]=useState(false)
   const [negReps,setNegReps]=useState('')
   const [negWeight,setNegWeight]=useState('')
@@ -279,18 +281,23 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                   </td>
                   <td className="py-2.5 px-2">
                     <div className="flex flex-col items-center">
-                      <input
-                        type="number"
-                        value={repsRaw ?? ''}
-                        onChange={e=>{
-                          const v = e.target.value
-                          dirtyRef.current.r.add(si)
-                          setReps({...reps, [si]: v === '' ? null : Number(v)})
-                        }}
-                        className="w-full min-w-[64px] px-2 py-2.5 min-h-[48px] bg-surface-container-highest border border-outline-variant/40 rounded text-[14px] text-on-surface text-center"
-                        inputMode="numeric"
-                        aria-label={`repeticiones serie ${si+1}`}
-                      />
+                      <div className="relative w-full">
+                        {rModes[si] && (
+                          <span aria-hidden="true" className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[12px] font-bold leading-none text-secondary">R</span>
+                        )}
+                        <input
+                          type="number"
+                          value={repsRaw ?? ''}
+                          onChange={e=>{
+                            const v = e.target.value
+                            dirtyRef.current.r.add(si)
+                            setReps({...reps, [si]: v === '' ? null : Number(v)})
+                          }}
+                          className={`w-full min-w-[64px] py-2.5 min-h-[48px] bg-surface-container-highest border border-outline-variant/40 rounded text-[14px] text-on-surface text-center ${rModes[si] ? 'pl-5 pr-2' : 'px-2'}`}
+                          inputMode="numeric"
+                          aria-label={`repeticiones serie ${si+1}`}
+                        />
+                      </div>
                       {r !== planFor.reps && <span className="mt-0.5 text-[9px] font-label-caps uppercase text-outline whitespace-nowrap">plan {planFor.reps}</span>}
                     </div>
                   </td>
@@ -357,6 +364,16 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                       <span className="text-[9px] text-outline">omitida</span>
                     ) : null}
                     <div className="flex flex-col items-center gap-1 mt-1">
+                      <label className="inline-flex items-center gap-1 min-h-[24px] font-label-caps text-[10px] uppercase text-on-surface-variant" title="Modo R: marcar esta serie">
+                        <input
+                          type="checkbox"
+                          checked={!!rModes[si]}
+                          onChange={e=>setRModes({...rModes, [si]: e.target.checked})}
+                          className="w-4 h-4 accent-secondary"
+                          aria-label={`modo R serie ${si+1}`}
+                        />
+                        R
+                      </label>
                       <button onClick={(e)=>{
                         setChecks({...checks, [si]: true})
                         try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ }
@@ -364,7 +381,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                         // La observación confirmada queda ligada a ESTA serie y el
                         // borrador se limpia para no arrastrarlo a la siguiente.
                         if(obsDeEstaSerie) { setObsBySet(prev=> ({ ...prev, [si]: '' })) }
-                        onComplete(si, w, r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obsDeEstaSerie||undefined, loadOriginal[si])
+                        onComplete(si, w, r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obsDeEstaSerie||undefined, loadOriginal[si], !!rModes[si])
                       }} aria-label={`Confirmar serie ${si+1}`} className="px-4 py-3 min-h-[48px] min-w-[48px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[11px] uppercase font-bold shadow-sm transition-all active:scale-95">
                         OK
                       </button>

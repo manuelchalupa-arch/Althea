@@ -308,6 +308,8 @@ export async function confirmSetRecord(input: {
   sessionId: string; sessionExerciseId: string; exerciseId: string; order: number;
   actualReps: number; actualWeight: number | null; setType?: SetType; observation?: string;
   actualLoadText?: string;
+  /** Modo R: la serie se hizo con ese modo puntual (se guarda en el registro). */
+  modeR?: boolean;
 }): Promise<SetRecord> {
   const now = new Date().toISOString();
   const id = setRecordIdFor(input.sessionExerciseId, input.order);
@@ -322,6 +324,8 @@ export async function confirmSetRecord(input: {
     // peso guardado; si el número cambió sin unidad tipeada, queda obsoleto.
     actualLoadText: input.actualLoadText
       ?? (prev?.actualLoadText && prev.actualWeight === (input.actualWeight ?? null) ? prev.actualLoadText : undefined),
+    // El modo R se guarda con la serie; si no se informa, se conserva el previo.
+    modeR: input.modeR ?? prev?.modeR ?? false,
     completedAt: now, createdAt: prev?.createdAt ?? now, updatedAt: now,
   };
   await db.setRecords.put(rec);

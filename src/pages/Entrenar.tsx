@@ -458,7 +458,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     }
   }
 
-  const handleSetDone = async (setIdx:number, w:number|null, r:number, neg?:{reps:number; weight:number}, obs?:string, loadText?:string)=>{
+  const handleSetDone = async (setIdx:number, w:number|null, r:number, neg?:{reps:number; weight:number}, obs?:string, loadText?:string, modeR?:boolean)=>{
     if(!cur || !session) {return}
     const seId = seIdByIndex[current] || cur.seId
     if(!seId) { setFinishError('Sin SessionExercise para este ejercicio: recargá la pestaña.'); return }
@@ -485,6 +485,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       // Valor + unidad originales tipeados (ej: "45 lb"): loadModel hace la
       // conversión y aquí se conserva la entrada tal cual.
       actualLoadText: loadText,
+      modeR: !!modeR,
     })
     // negativas: solo existen si el usuario las registra; una por ejercicio (§27)
     if(neg && (Number(neg.reps) > 0 || Number(neg.weight) > 0)){
@@ -502,6 +503,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       weight: weightOrNull, 
       reps: r, 
       setType,
+      modeR: !!modeR,
       obs,
       setRecordId: '',
       sessionId: session?.sessionId || '',
@@ -1394,7 +1396,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                 plannedWeight={cur.weight}
                 plannedSets={cur.plannedSetValues}
                 planMeta={{ restSec: cur.restSec, tempo: cur.tempo, rir: cur.rir, rpe: cur.rpe, notes: cur.notes }}
-                onComplete={(si,w,r,neg,obs,loadText)=> handleSetDone(si,w,r,neg,obs,loadText)}
+                onComplete={(si,w,r,neg,obs,loadText,modeR)=> handleSetDone(si,w,r,neg,obs,loadText,modeR)}
                 onSkipSet={(si)=> skipSetRow(si)}
                 onAddSet={addSetRow}
                 logs={logs[current]||[]}
@@ -1761,7 +1763,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                     plannedWeight={cur.weight}
                     plannedSets={cur.plannedSetValues}
                     planMeta={{ restSec: cur.restSec, tempo: cur.tempo, rir: cur.rir, rpe: cur.rpe, notes: cur.notes }}
-                    onComplete={(si,w,r,neg,obs,loadText)=> handleSetDone(si,w,r,neg,obs,loadText)}
+                    onComplete={(si,w,r,neg,obs,loadText,modeR)=> handleSetDone(si,w,r,neg,obs,loadText,modeR)}
                     onSkipSet={(si)=> skipSetRow(si)}
                     onAddSet={addSetRow}
                     logs={logs[current]||[]}
