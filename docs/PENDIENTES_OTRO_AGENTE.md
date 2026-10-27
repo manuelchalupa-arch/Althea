@@ -145,10 +145,10 @@ Acciones del propietario para dejarlo operativo (todas gratuitas):
    (no habilitable vía API sin consola).
 2. `npm run worker:secret:staging` — secret `GROQ_API_KEY` del worker de staging
    (`worker:staging:preflight` lo marca BLOCKED).
-3. Consolidar los cambios sin commitear de `worker/` (limpieza WGER de otra sesión
-   + `CORS_ORIGIN = https://althea-stg.web.app` ya escrito en
-   `wrangler.staging.toml`) y recién entonces `npm run worker:deploy:staging`.
-4. `npm run deploy:hosting:staging` cuando el WIP local (Entrenar/Biblioteca/estilos)
-   esté consolidado; recién ahí `staging:verify:all`.
+3. `npm run worker:deploy:staging` — el WIP local ya está consolidado y publicado
+   (`19767bd`, CI + Deploy Pages en verde); `wrangler.staging.toml` incluye
+   `CORS_ORIGIN = "https://althea-stg.web.app"`.
+4. `npm run deploy:hosting:staging` — mismo requisito anterior ya cumplido; recién
+   ahí `staging:verify:all`.
 
 
