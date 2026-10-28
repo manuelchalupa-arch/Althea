@@ -90,8 +90,29 @@ describe('traditionalCatalog — síntesis de la Biblioteca', () => {
     expect(squat?.exercise.bodyPart).toBe('legs')
   })
 
-  it('traditionalItems agrega el grupo a cada ejercicio', () => {
-    const items = traditionalItems(mkCatalog())
+  it('traditionalForGroup separa por finalidad y no mezcla categorías', () => {
+    const catalog = mkCatalog()
+    const conventional = traditionalForGroup(catalog, '__all__', 'conventional')
+    expect(conventional.length).toBeGreaterThan(0)
+    expect(conventional.some(e => e.id.startsWith('trad/stretch') || e.id.startsWith('trad/warm'))).toBe(false)
+    // Un grupo convencional (Piernas) no arrastra estiramientos ni calentamiento.
+    expect(traditionalForGroup(catalog, 'piernas', 'conventional').some(e => e.purpose)).toBe(false)
+
+    const stretch = traditionalForGroup(catalog, '__all__', 'stretch')
+    expect(stretch.length).toBeGreaterThan(0)
+    expect(stretch.every(e => e.purpose === 'stretch' && e.exercise.purpose === 'stretch')).toBe(true)
+    expect(stretch.every(e => e.exercise.category === 'stretching')).toBe(true)
+
+    const mobility = traditionalForGroup(catalog, '__all__', 'mobility')
+    expect(mobility.length).toBeGreaterThan(0)
+    expect(mobility.every(e => e.purpose === 'mobility')).toBe(true)
+
+    const warmup = traditionalForGroup(catalog, '__all__', 'warmup')
+    expect(warmup.length).toBeGreaterThan(0)
+    expect(warmup.every(e => e.purpose === 'warmup')).toBe(true)
+  })
+
+  it('traditionalItems agrega el grupo a cada ejercicio', () => {    const items = traditionalItems(mkCatalog())
     expect(items.length).toBe(TRADITIONAL_SEEDS.length)
     expect(items.every(e => TRADITIONAL_GROUPS.some(g => g.id === e.group))).toBe(true)
   })

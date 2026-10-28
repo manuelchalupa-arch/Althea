@@ -27,6 +27,7 @@ import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import { getOverrideDay, getChangedData, setOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import { transitionSession, type ActiveSession } from '@/services/training/sessionStore'
 import * as Gym from '@/services/exerciseGym'
+import { exercisePurpose } from '@/utils/stretching'
 import { saveDecision } from '@/services/ai/coachMemory'
 import type { SubstitutionReason } from '@/services/ai/substitutionEngine'
 import type { SessionStatus, SessionExercise } from '@/services/training/domain'
@@ -1147,7 +1148,7 @@ const exercises: SessionEx[] = seList.map((se) => {
     try{
       const res = await Gym.fetchByMuscle(m)
       const existing = new Set(exs.map(e=> e.exId))
-      setAddExOptions(res.exercises.filter((e: { id: string })=> !existing.has(e.id)).slice(0, 8))
+      setAddExOptions(res.exercises.filter((e: { id: string; category?: string })=> !existing.has(e.id) && exercisePurpose(e) === 'conventional').slice(0, 8))
       setShowAddEx(true)
     }catch{ /* noop */ }
   }

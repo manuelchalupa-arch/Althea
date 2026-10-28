@@ -5,6 +5,7 @@
 
 import { fetchWithRetry } from './apiUtils'
 import { EXERCISE_GYM_BASE } from './exerciseGymBase'
+import type { ExercisePurpose } from '@/utils/stretching'
 
 export const BASE = EXERCISE_GYM_BASE
 export const LANG = 'es' // siempre español
@@ -19,6 +20,8 @@ export type Exercise = {
   bodyPart: string
   equipment: string
   category: string
+  /** Finalidad curada (solo en la lista local): calentamiento, estiramiento, movilidad. */
+  purpose?: ExercisePurpose
   secondaryMuscles: string[]
   instructions: string[]
   file: string

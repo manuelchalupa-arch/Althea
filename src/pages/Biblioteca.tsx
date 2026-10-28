@@ -4,13 +4,14 @@ import { MUSCLE_LIBRARY_GROUPS } from '@/data/muscleLibraryConfig'
 import * as Gym from '@/services/exerciseGym'
 import { effectiveBreakdown, listCustomExercises } from '@/services/training/customExercises'
 import { exerciseMatches } from '@/services/training/exerciseSearch'
-import { traditionalForGroup, TRADITIONAL_GROUPS, CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT, CUSTOM_FORM_CATEGORIES, type TraditionalGroupId } from '@/data/traditionalCatalog'
+import { traditionalForGroup, CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT, CUSTOM_FORM_CATEGORIES, type TraditionalGroupId } from '@/data/traditionalCatalog'
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Heart, Globe, WifiOff } from 'lucide-react'
 import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading } from '@/components/althea'
-import { isStretchingExercise } from '@/utils/stretching'
+import { exercisePurpose, EXERCISE_PURPOSES, type ExercisePurpose } from '@/utils/stretching'
 
+const PURPOSES = EXERCISE_PURPOSES
 export default function Biblioteca(){
   const [selectedKey,setSelectedKey]=useState<string>('__all__')
   const [exercises,setExercises]=useState<Gym.Exercise[]>([])
@@ -23,9 +24,10 @@ export default function Biblioteca(){
   const [editing,setEditing]=useState<CustomExercise|null>(null)
   const [favs,setFavs]=useState<string[]>([])
   const [onlyFavs,setOnlyFavs]=useState(false)
-  const [onlyStretch,setOnlyStretch]=useState(false)
-  const [stretchMode,setStretchMode]=useState(false)
+  const [purpose,setPurpose]=useState<ExercisePurpose>('conventional')
   const [showAll,setShowAll]=useState(false)
+  // grupo muscular de cada id curado (el catálogo externo no lo trae)
+  const [groupById,setGroupById]=useState<Record<string,TraditionalGroupId>>({})
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true
 
   useEffect(()=>{
@@ -45,21 +47,30 @@ export default function Biblioteca(){
 
   const musclePct = (ex: Gym.Exercise)=> effectiveBreakdown(ex)
 
-  // Síntesis: solo ejercicios tradicionales (lista curada) + los propios del usuario.
-  const load = async (group: string, allMode: boolean = showAll)=>{
+  // Síntesis: ejercicios curados + los propios del usuario, separados por finalidad.
+  const load = async (group: string, allMode: boolean = showAll, p: ExercisePurpose = purpose)=>{
     setSelectedKey(group); setLoading(true); setError(null)
-    const cacheKey = `trad:${group}${allMode ? ':all' : ''}`
+    const cacheKey = `trad:${p}:${group}${allMode ? ':all' : ''}`
     try{
       const all = await Gym.fetchAll()
+      const catalog = all.exercises || []
+      const curated = traditionalForGroup(catalog, '__all__')
+      setGroupById(Object.fromEntries(curated.map(t => [t.exercise.id, t.group])) as Record<string,TraditionalGroupId>)
       let tradEx: Gym.Exercise[] = []
-      if (allMode) {
-        // Mostrar toda la biblioteca externa (1323+) + curados
-        tradEx = (all.exercises || []).slice()
+      if (p === 'conventional' && !allMode) {
+        // Biblioteca curada por grupo: solo fuerza/hipertrofia/cardio.
+        tradEx = curated
+          .filter(t => (t.purpose ?? 'conventional') === 'conventional' && (group === '__all__' || t.group === group))
+          .map(t => t.exercise)
       } else {
-        const trad = traditionalForGroup(all.exercises || [], (group as TraditionalGroupId | '__all__'))
-        tradEx = trad.map(t => t.exercise)
+        // Categoría de finalidad: catálogo completo + curados de esa finalidad.
+        const seen = new Set<string>()
+        const add = (e: Gym.Exercise) => { if (!seen.has(e.id)) { seen.add(e.id); tradEx.push(e) } }
+        catalog.filter(e => exercisePurpose(e) === p).forEach(add)
+        curated.filter(t => (t.purpose ?? 'conventional') === p).forEach(t => add(t.exercise))
       }
-      const customs = await listCustomExercises(undefined, undefined).catch(()=>[])
+      const customs = (await listCustomExercises(undefined, undefined).catch(()=>[]))
+        .filter(e => exercisePurpose(e as unknown as { category?: string; exerciseObjective?: string }) === p)
       setTradIds(new Set(tradEx.map(e => e.id)))
       setExercises([...tradEx, ...customs])
       Gym.cacheSet(cacheKey, [...tradEx, ...customs])
@@ -71,19 +82,19 @@ export default function Biblioteca(){
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(()=>{ load('__all__') },[])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(()=>{ if (stretchMode) { load('__all__', showAll) } },[stretchMode])
+  useEffect(()=>{ load('__all__', false, 'conventional') },[])
+
+  const BODY_PART_GROUP: Record<string, TraditionalGroupId> = {
+    legs: 'piernas', chest: 'pecho', back: 'espalda', core: 'core',
+    shoulders: 'hombros-y-brazos', arms: 'hombros-y-brazos',
+  }
+  const groupOf = (ex: Gym.Exercise) =>
+    groupById[ex.id] ?? BODY_PART_GROUP[ex.bodyPart] ?? '__all__'
 
   const filtered = exercises.filter(ex=>{
-    const isStr = isStretchingExercise(ex as unknown as { pattern?: string; tags?: string[] })
-    if (stretchMode && !isStr) {return false}
-    if (stretchMode && selectedKey !== '__all__') {
-      // filtrar por grupo muscular dentro de estiramientos
-      const g = (ex as unknown as { group?: string }).group
-      if (g !== selectedKey) {return false}
-    }
-    if(!stretchMode && onlyStretch && !isStr) {return false}
+    // La finalidad manda: nunca se mezclan categorías.
+    if (exercisePurpose(ex) !== purpose) {return false}
+    if (selectedKey !== '__all__' && groupOf(ex) !== selectedKey) {return false}
     if(onlyFavs && !favs.includes(ex.id)) {return false}
     if(!q) {return true;}
     return exerciseMatches(ex, q)
@@ -118,7 +129,7 @@ export default function Biblioteca(){
               key={group.id}
               type="button"
               aria-pressed={selectedKey === group.id}
-              onClick={() => void load(group.id)}
+              onClick={() => void load(group.id, showAll, purpose)}
               className={[
                 'min-h-24 rounded-xl border p-3 text-left',
                 'transition-colors',
@@ -140,7 +151,7 @@ export default function Biblioteca(){
         <button
           type="button"
           aria-pressed={selectedKey === '__all__'}
-          onClick={() => void load('__all__')}
+          onClick={() => void load('__all__', showAll, purpose)}
           className={`w-full py-3 min-h-[48px] rounded-xl border font-label-md text-[10px] font-semibold uppercase tracking-widest transition-colors ${selectedKey === '__all__' ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}
         >
           Todos los grupos
@@ -156,13 +167,32 @@ export default function Biblioteca(){
       {/* Separador */}
       <div className="h-px bg-outline-variant/40 my-2" />
 
-      {/* Botón: todos los ejercicios (biblioteca completa) */}
+      {/* Finalidad: la categoría filtra los ejercicios; los grupos musculares
+          siguen todos visibles arriba. */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="group" aria-label="Finalidad del ejercicio">
+        {PURPOSES.map(p => (
+          <button
+            key={p.id}
+            type="button"
+            aria-pressed={purpose === p.id}
+            onClick={() => {
+              setPurpose(p.id); setShowAll(false); setOnlyFavs(false); setQ('')
+              void load('__all__', false, p.id)
+            }}
+            className={`py-2.5 min-h-[48px] rounded-lg border font-label-md text-[11px] font-semibold uppercase tracking-widest transition-colors ${purpose === p.id ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant hover:border-primary/50'}`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Botón: todos los ejercicios de la finalidad elegida */}
       <button
         onClick={() => {
           const next = !showAll
           setShowAll(next)
-          setStretchMode(false); setOnlyFavs(false); setOnlyStretch(false); setQ('')
-          load('__all__', next)
+          setOnlyFavs(false); setQ('')
+          load('__all__', next, purpose)
         }}
         className={`w-full py-2.5 rounded-lg font-label-md text-[11px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-2 min-h-[48px] transition-colors ${showAll ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant hover:border-primary/50'}`}
       >
@@ -172,54 +202,10 @@ export default function Biblioteca(){
       {/* Separador */}
       <div className="h-px bg-outline-variant/40 my-2" />
 
-      {/* Botón: biblioteca de estiramientos */}
-      <button
-        onClick={() => {
-          const next = !stretchMode
-          setStretchMode(next)
-          setShowAll(false); setOnlyFavs(false); setOnlyStretch(false); setQ('')
-          if (next) { load('__all__', false) }
-        }}
-        aria-pressed={stretchMode}
-        className={`w-full py-2.5 rounded-lg font-label-md text-[11px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-2 min-h-[48px] transition-colors ${stretchMode ? 'bg-[var(--althea-stretch)] text-on-surface border-[var(--althea-stretch)]' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant hover:border-[var(--althea-stretch)]/50'}`}
-      >
-        🧘 {stretchMode ? 'Viendo estiramientos' : 'Ejercicios de estiramiento'}
-      </button>
-
-      {/* Checkboxes de grupos musculares para filtrar estiramientos */}
-      {stretchMode && (
-        <div className="rounded-xl border border-[var(--althea-stretch)]/30 bg-[var(--althea-stretch)]/5 p-3 space-y-2">
-          <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-[var(--althea-stretch)]">Filtrar estiramientos por grupo muscular</div>
-          <div className="grid grid-cols-2 gap-2">
-            {TRADITIONAL_GROUPS.map((g) => (
-              <label key={g.id} className="flex items-center gap-2 text-[12px] text-on-surface cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedKey === g.id}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      load(g.id, false)
-                    } else {
-                      load('__all__', false)
-                    }
-                  }}
-                  className="w-4 h-4 accent-[var(--althea-stretch)]"
-                />
-                <span>{g.label}</span>
-              </label>
-            ))}
-          </div>
-          <p className="text-[10px] text-on-surface-variant">Tildá un grupo para filtrar; destildalo para ver todos los estiramientos.</p>
-        </div>
-      )}
-
       {/* Favoritos */}
       <div className="flex gap-2">
         <button onClick={()=>setOnlyFavs(v=>!v)} aria-pressed={onlyFavs} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-1 min-h-[48px] ${onlyFavs ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant'}`}>
           <Heart size={12}/> Favoritos ({favs.length})
-        </button>
-        <button onClick={()=>setOnlyStretch(v=>!v)} aria-pressed={onlyStretch} className={`flex-1 py-2 rounded-lg font-label-md text-[10px] font-semibold uppercase tracking-widest border flex items-center justify-center gap-1 min-h-[48px] ${onlyStretch ? 'bg-[var(--althea-stretch)] text-on-surface border-[var(--althea-stretch)]' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant'}`}>
-          🧘 Estiramientos
         </button>
       </div>
 

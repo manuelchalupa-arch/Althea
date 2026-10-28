@@ -4,6 +4,7 @@
 // variantes. Los ids del catálogo se conservan cuando hay match para que
 // favoritos y ejercicios excluidos ya guardados sigan funcionando.
 import type { Exercise } from '@/services/exerciseGym'
+import type { ExercisePurpose } from '@/utils/stretching'
 
 export type TraditionalGroupId = 'piernas' | 'pecho' | 'espalda' | 'core' | 'hombros-y-brazos'
 
@@ -26,6 +27,8 @@ export type TraditionalSeed = {
   muscle: string
   /** Id exacto en ExerciseGymGifsDB (verificado contra api/es/exercises.json). */
   gymId?: string
+  /** Finalidad: sin valor = ejercicio convencional (fuerza/hipertrofia/cardio). */
+  purpose?: Exclude<ExercisePurpose, 'conventional'>
 }
 
 export const TRADITIONAL_SEEDS: TraditionalSeed[] = [
@@ -76,27 +79,32 @@ export const TRADITIONAL_SEEDS: TraditionalSeed[] = [
   { id: 'trad/pushdown', group: 'hombros-y-brazos', name: 'Extensión de tríceps en polea', focus: 'Cabeza lateral / media', equipment: 'polea', muscle: 'triceps', gymId: 'triceps/cable-pushdown' },
   { id: 'trad/skull-crusher', group: 'hombros-y-brazos', name: 'Press francés (skull crusher)', focus: 'Masa general', equipment: 'barra', muscle: 'triceps', gymId: 'triceps/barbell-lying-triceps-extension-skull-crusher' },
 
+  // ——— Calentamiento (activación previa; ejercicios reales del catálogo) ———
+  { id: 'trad/warm-jumping-jacks', group: 'piernas', name: 'Jumping jacks', focus: 'Calentamiento · cuerpo completo', equipment: 'peso corporal', muscle: 'cardio', gymId: 'cardio/jack-jump-male', purpose: 'warmup' },
+  { id: 'trad/warm-scissor-jumps', group: 'piernas', name: 'Saltos de tijera', focus: 'Calentamiento · coordinación', equipment: 'peso corporal', muscle: 'cardio', gymId: 'cardio/scissor-jumps-male', purpose: 'warmup' },
+  { id: 'trad/warm-star-jumps', group: 'piernas', name: 'Salto de estrella', focus: 'Calentamiento · cuerpo completo', equipment: 'peso corporal', muscle: 'cardio', gymId: 'cardio/star-jump-male', purpose: 'warmup' },
+
   // ——— Estiramientos / movilidad (bloque de calentamiento) ———
-  { id: 'trad/stretch-quad-band', group: 'piernas', name: 'Estiramiento de cuádriceps con banda', focus: 'Estiramiento · cuádriceps', equipment: 'banda', muscle: 'quads' },
-  { id: 'trad/stretch-hamstring-ball', group: 'piernas', name: 'Estiramiento de isquiotibiales con pelota', focus: 'Estiramiento · isquiotibiales', equipment: 'pelota', muscle: 'hamstrings' },
-  { id: 'trad/stretch-calf-wall', group: 'piernas', name: 'Estiramiento de pantorrillas en pared', focus: 'Estiramiento · pantorrilla', equipment: 'peso corporal', muscle: 'calves' },
-  { id: 'trad/stretch-hip-mobility-band', group: 'piernas', name: 'Movilidad de cadera con banda', focus: 'Movilidad · cadera', equipment: 'banda', muscle: 'glutes' },
-  { id: 'trad/stretch-adductor-floor', group: 'piernas', name: 'Estiramiento de aductores en suelo', focus: 'Estiramiento · aductores', equipment: 'peso corporal', muscle: 'quads' },
-  { id: 'trad/stretch-chest-band', group: 'pecho', name: 'Estiramiento de pecho con banda', focus: 'Estiramiento · pecho', equipment: 'banda', muscle: 'pectorals' },
-  { id: 'trad/stretch-chest-doorway', group: 'pecho', name: 'Estiramiento de pecho en marco', focus: 'Estiramiento · pecho', equipment: 'peso corporal', muscle: 'pectorals' },
-  { id: 'trad/stretch-thoracic-roller', group: 'pecho', name: 'Movilidad torácica con rodillo', focus: 'Movilidad · torácica', equipment: 'foam roller', muscle: 'upper-back' },
-  { id: 'trad/stretch-lat-band', group: 'espalda', name: 'Estiramiento de dorsal con banda', focus: 'Estiramiento · dorsal', equipment: 'banda', muscle: 'lats' },
-  { id: 'trad/stretch-cat-cow', group: 'espalda', name: 'Estiramiento gato-vaca', focus: 'Movilidad · columna', equipment: 'peso corporal', muscle: 'spine' },
-  { id: 'trad/stretch-trap', group: 'espalda', name: 'Estiramiento de trapecios', focus: 'Estiramiento · trapecios', equipment: 'peso corporal', muscle: 'traps' },
-  { id: 'trad/stretch-shoulder-band', group: 'hombros-y-brazos', name: 'Estiramiento de hombros con banda', focus: 'Estiramiento · hombros', equipment: 'banda', muscle: 'delts' },
-  { id: 'trad/stretch-shoulder-ball', group: 'hombros-y-brazos', name: 'Movilidad de hombros con pelota', focus: 'Movilidad · hombros', equipment: 'pelota', muscle: 'delts' },
-  { id: 'trad/stretch-shoulder-cross', group: 'hombros-y-brazos', name: 'Estiramiento cruzado de hombros', focus: 'Estiramiento · hombros', equipment: 'peso corporal', muscle: 'delts' },
-  { id: 'trad/stretch-bicep-wall', group: 'hombros-y-brazos', name: 'Estiramiento de bíceps en pared', focus: 'Estiramiento · bíceps', equipment: 'peso corporal', muscle: 'biceps' },
-  { id: 'trad/stretch-tricep-overhead', group: 'hombros-y-brazos', name: 'Estiramiento de tríceps sobre cabeza', focus: 'Estiramiento · tríceps', equipment: 'peso corporal', muscle: 'triceps' },
-  { id: 'trad/stretch-forearm', group: 'hombros-y-brazos', name: 'Estiramiento de antebrazos', focus: 'Estiramiento · antebrazos', equipment: 'peso corporal', muscle: 'biceps' },
-  { id: 'trad/stretch-cobra', group: 'core', name: 'Estiramiento abdominal en cobra', focus: 'Estiramiento · abdomen', equipment: 'peso corporal', muscle: 'abs' },
-  { id: 'trad/stretch-oblique', group: 'core', name: 'Estiramiento de oblicuos', focus: 'Estiramiento · oblicuos', equipment: 'peso corporal', muscle: 'abs' },
-  { id: 'trad/stretch-spine-roller', group: 'core', name: 'Movilidad de columna con rodillo', focus: 'Movilidad · columna', equipment: 'foam roller', muscle: 'abs' },
+  { id: 'trad/stretch-quad-band', group: 'piernas', name: 'Estiramiento de cuádriceps con banda', focus: 'Estiramiento · cuádriceps', equipment: 'banda', muscle: 'quads', purpose: 'stretch' },
+  { id: 'trad/stretch-hamstring-ball', group: 'piernas', name: 'Estiramiento de isquiotibiales con pelota', focus: 'Estiramiento · isquiotibiales', equipment: 'pelota', muscle: 'hamstrings', purpose: 'stretch' },
+  { id: 'trad/stretch-calf-wall', group: 'piernas', name: 'Estiramiento de pantorrillas en pared', focus: 'Estiramiento · pantorrilla', equipment: 'peso corporal', muscle: 'calves', purpose: 'stretch' },
+  { id: 'trad/stretch-hip-mobility-band', group: 'piernas', name: 'Movilidad de cadera con banda', focus: 'Movilidad · cadera', equipment: 'banda', muscle: 'glutes', purpose: 'mobility' },
+  { id: 'trad/stretch-adductor-floor', group: 'piernas', name: 'Estiramiento de aductores en suelo', focus: 'Estiramiento · aductores', equipment: 'peso corporal', muscle: 'quads', purpose: 'stretch' },
+  { id: 'trad/stretch-chest-band', group: 'pecho', name: 'Estiramiento de pecho con banda', focus: 'Estiramiento · pecho', equipment: 'banda', muscle: 'pectorals', purpose: 'stretch' },
+  { id: 'trad/stretch-chest-doorway', group: 'pecho', name: 'Estiramiento de pecho en marco', focus: 'Estiramiento · pecho', equipment: 'peso corporal', muscle: 'pectorals', purpose: 'stretch' },
+  { id: 'trad/stretch-thoracic-roller', group: 'pecho', name: 'Movilidad torácica con rodillo', focus: 'Movilidad · torácica', equipment: 'foam roller', muscle: 'upper-back', purpose: 'mobility' },
+  { id: 'trad/stretch-lat-band', group: 'espalda', name: 'Estiramiento de dorsal con banda', focus: 'Estiramiento · dorsal', equipment: 'banda', muscle: 'lats', purpose: 'stretch' },
+  { id: 'trad/stretch-cat-cow', group: 'espalda', name: 'Estiramiento gato-vaca', focus: 'Movilidad · columna', equipment: 'peso corporal', muscle: 'spine', purpose: 'mobility' },
+  { id: 'trad/stretch-trap', group: 'espalda', name: 'Estiramiento de trapecios', focus: 'Estiramiento · trapecios', equipment: 'peso corporal', muscle: 'traps', purpose: 'stretch' },
+  { id: 'trad/stretch-shoulder-band', group: 'hombros-y-brazos', name: 'Estiramiento de hombros con banda', focus: 'Estiramiento · hombros', equipment: 'banda', muscle: 'delts', purpose: 'stretch' },
+  { id: 'trad/stretch-shoulder-ball', group: 'hombros-y-brazos', name: 'Movilidad de hombros con pelota', focus: 'Movilidad · hombros', equipment: 'pelota', muscle: 'delts', purpose: 'mobility' },
+  { id: 'trad/stretch-shoulder-cross', group: 'hombros-y-brazos', name: 'Estiramiento cruzado de hombros', focus: 'Estiramiento · hombros', equipment: 'peso corporal', muscle: 'delts', purpose: 'stretch' },
+  { id: 'trad/stretch-bicep-wall', group: 'hombros-y-brazos', name: 'Estiramiento de bíceps en pared', focus: 'Estiramiento · bíceps', equipment: 'peso corporal', muscle: 'biceps', purpose: 'stretch' },
+  { id: 'trad/stretch-tricep-overhead', group: 'hombros-y-brazos', name: 'Estiramiento de tríceps sobre cabeza', focus: 'Estiramiento · tríceps', equipment: 'peso corporal', muscle: 'triceps', purpose: 'stretch' },
+  { id: 'trad/stretch-forearm', group: 'hombros-y-brazos', name: 'Estiramiento de antebrazos', focus: 'Estiramiento · antebrazos', equipment: 'peso corporal', muscle: 'biceps', purpose: 'stretch' },
+  { id: 'trad/stretch-cobra', group: 'core', name: 'Estiramiento abdominal en cobra', focus: 'Estiramiento · abdomen', equipment: 'peso corporal', muscle: 'abs', purpose: 'stretch' },
+  { id: 'trad/stretch-oblique', group: 'core', name: 'Estiramiento de oblicuos', focus: 'Estiramiento · oblicuos', equipment: 'peso corporal', muscle: 'abs', purpose: 'stretch' },
+  { id: 'trad/stretch-spine-roller', group: 'core', name: 'Movilidad de columna con rodillo', focus: 'Movilidad · columna', equipment: 'foam roller', muscle: 'abs', purpose: 'mobility' },
 ]
 
 /** Opciones del formulario de ejercicios custom, derivadas de la síntesis (sin listas sueltas). */
@@ -120,7 +128,8 @@ function synthesizeExercise(seed: TraditionalSeed): Exercise {
     muscle: seed.muscle,
     bodyPart,
     equipment: seed.equipment,
-    category: 'strength',
+    category: seed.purpose === 'stretch' ? 'stretching' : seed.purpose ?? 'strength',
+    purpose: seed.purpose ?? 'conventional',
     secondaryMuscles: [],
     instructions: [],
     file: '',
@@ -138,7 +147,8 @@ export function buildTraditionalList(catalog: Exercise[]): TraditionalEntry[] {
     const found = seed.gymId ? byId.get(seed.gymId) : undefined
     return {
       ...seed,
-      exercise: found ?? synthesizeExercise(seed),
+      // La finalidad curada viaja con el ejercicio aunque venga del catálogo.
+      exercise: { ...(found ?? synthesizeExercise(seed)), purpose: seed.purpose ?? 'conventional' },
       matched: Boolean(found),
     }
   })
@@ -147,8 +157,11 @@ export function buildTraditionalList(catalog: Exercise[]): TraditionalEntry[] {
 export function traditionalForGroup(
   catalog: Exercise[],
   group: TraditionalGroupId | '__all__',
+  purpose?: ExercisePurpose,
 ): TraditionalEntry[] {
-  const all = buildTraditionalList(catalog)
+  const all = buildTraditionalList(catalog).filter(
+    (e) => !purpose || (e.purpose ?? 'conventional') === purpose,
+  )
   return group === '__all__' ? all : all.filter((e) => e.group === group)
 }
 

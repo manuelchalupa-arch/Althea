@@ -12,6 +12,8 @@ import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { getActiveVersion, getCanonicalMethodId, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import * as Gym from '@/services/exerciseGym'
+import { exercisePurpose, EXERCISE_PURPOSES, type ExercisePurpose } from '@/utils/stretching'
+import { traditionalForGroup } from '@/data/traditionalCatalog'
 import { PeriodizationEditor } from '@/components/recovery/PeriodizationEditor'
 import { MAX_ROUTINES } from '@/services/storage/routineStore'
 import { todayKey, addDaysToKey, toDateKey, daysBetween } from '@/utils/dates'
@@ -603,9 +605,10 @@ export default function RutinaPage(){
           dayN={pickerFor}
           dayName={active.cycle.trainingDays.find(d=>d.n===pickerFor)?.name || ''}
           existingIds={(active.dayExercises[pickerFor]||[]).map(e=>e.exId)}
-          onAdd={(exId,gifUrl,name,muscle,imageDataUrl)=>{
+          initialPurpose={addingStretch ? 'stretch' : 'conventional'}
+          onAdd={(exId,gifUrl,name,muscle,imageDataUrl,isStretch)=>{
             const d = getMethodDefaults(active.cycle)
-            const isStr = addingStretch
+            const isStr = !!isStretch
             updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), { id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl, name, muscle, imageDataUrl, restBetweenExercisesSec: 120, isStretch: isStr, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }]}}))
             setPickerFor(null)
             setAddingStretch(false)
@@ -614,10 +617,11 @@ export default function RutinaPage(){
             const d = getMethodDefaults(active.cycle)
             updateActive(r=> {
               const already = new Set((r.dayExercises[pickerFor!]||[]).map(e=>e.exId))
-              const toAdd = items.filter(i=> !already.has(i.exId)).map(i=> ({ id: uuid(), exId: i.exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: i.gifUrl, name: i.name, muscle: i.muscle, imageDataUrl: i.imageDataUrl, restBetweenExercisesSec: 120, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }))
+              const toAdd = items.filter(i=> !already.has(i.exId)).map(i=> ({ id: uuid(), exId: i.exId, sets:d.sets, reps:d.reps, weight:d.weight, gifUrl: i.gifUrl, name: i.name, muscle: i.muscle, imageDataUrl: i.imageDataUrl, restBetweenExercisesSec: 120, isStretch: !!i.isStretch, series: Array.from({length:d.sets},()=>({reps:d.reps, weight:d.weight})) }))
               return {...r, dayExercises: {...r.dayExercises, [pickerFor!]: [...(r.dayExercises[pickerFor!]||[]), ...toAdd]}}
             })
             setPickerFor(null)
+            setAddingStretch(false)
           }}
           onClose={()=>setPickerFor(null)}
           onView={setViewer}
@@ -772,11 +776,12 @@ export default function RutinaPage(){
   )
 }
 
-function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClose, onView}:{dayN:number; dayName:string; existingIds:string[]; onAdd:(exId:string,gifUrl:string,name:string,muscle:string,imageDataUrl?:string)=>void; onAddMany:(items:{exId:string;gifUrl:string;name:string;muscle:string;imageDataUrl?:string}[])=>void; onClose:()=>void; onView:(ex:Gym.Exercise)=>void}){
+function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conventional', onAdd, onAddMany, onClose, onView}:{dayN:number; dayName:string; existingIds:string[]; initialPurpose?:ExercisePurpose; onAdd:(exId:string,gifUrl:string,name:string,muscle:string,imageDataUrl?:string,isStretch?:boolean)=>void; onAddMany:(items:{exId:string;gifUrl:string;name:string;muscle:string;imageDataUrl?:string;isStretch?:boolean}[])=>void; onClose:()=>void; onView:(ex:Gym.Exercise)=>void}){
   // Memo para que el array sea estable entre renders (el efecto de carga sólo
   // debe re-ejecutarse si cambian los músculos del día, no en cada render).
   const muscles = useMemo(() => parseDayMuscles(dayName), [dayName])
   const [q,setQ]=useState('')
+  const [purpose,setPurpose]=useState<ExercisePurpose>(initialPurpose)
   const [equipFilter,setEquipFilter]=useState('todos')
   const [muscleFilter,setMuscleFilter]=useState('todos')
   const [difficultyFilter,setDifficultyFilter]=useState('todos')
@@ -787,7 +792,7 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
   const [methodHint,setMethodHint]=useState<{types:string[];avoid:string[]}|null>(null)
   const existingSet = new Set(existingIds)
   useEffect(()=>{
-    if(muscles.length===0) {return}
+    if(muscles.length===0 && purpose==='conventional') {return}
     let cancelled=false
     // Load method hint for exercise prioritization
     // Canónico-primero (FASE 1M-B): manda la versión activa; profile.cycle sólo
@@ -803,20 +808,32 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
     const load = async ()=>{
       setLoading(true); setErr(null); setSelected([])
       try{
-        const results = await Promise.all(muscles.map(m=> Gym.fetchByMuscle(m).catch((): {exercises:Gym.Exercise[]}=> ({exercises:[]})) ))
         let merged:Gym.Exercise[] = []
         const seen=new Set<string>()
-        results.forEach(r=>{
-          r.exercises?.forEach((ex:Gym.Exercise)=>{
-            if(!seen.has(ex.id)){
-              seen.add(ex.id); merged.push(ex)
-            }
+        if (purpose === 'conventional') {
+          const results = await Promise.all(muscles.map(m=> Gym.fetchByMuscle(m).catch((): {exercises:Gym.Exercise[]}=> ({exercises:[]})) ))
+          results.forEach(r=>{
+            r.exercises?.forEach((ex:Gym.Exercise)=>{
+              if(!seen.has(ex.id) && exercisePurpose(ex) === 'conventional'){
+                seen.add(ex.id); merged.push(ex)
+              }
+            })
           })
-        })
+        } else {
+          // Calentamiento/estiramientos/movilidad: catálogo completo, así el
+          // selector sigue ofreciendo todos los grupos musculares.
+          const all = await Gym.fetchAll()
+          const catalog = all.exercises || []
+          const curated = traditionalForGroup(catalog, '__all__')
+          const add = (ex:Gym.Exercise) => { if(!seen.has(ex.id) && exercisePurpose(ex) === purpose){ seen.add(ex.id); merged.push(ex) } }
+          catalog.forEach(add)
+          curated.forEach(t => add(t.exercise))
+          merged.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
+        }
         try{
           const { listCustomExercises } = await import('@/services/training/customExercises')
           const customs:Gym.Exercise[] = []
-          for(const m of muscles){ const cs = await listCustomExercises('muscle', m).catch(()=>[]); for(const c of cs){ if(!seen.has(c.id)){ seen.add(c.id); customs.push(c as unknown as Gym.Exercise) } } }
+          for(const m of muscles){ const cs = await listCustomExercises('muscle', m).catch(()=>[]); for(const c of cs){ if(!seen.has(c.id) && exercisePurpose(c as unknown as { category?: string; exerciseObjective?: string }) === purpose){ seen.add(c.id); customs.push(c as unknown as Gym.Exercise) } } }
           merged.push(...customs)
           merged.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
         }catch{ /* noop */ }
@@ -827,7 +844,7 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
     }
     load()
     return ()=>{ cancelled=true }
-  },[muscles])
+  },[muscles, purpose])
 
   const availableMuscles = Array.from(new Set(items.map(ex=>ex.muscle))).sort((a,b)=> displayMuscle(a).localeCompare(displayMuscle(b), 'es'))
 
@@ -857,9 +874,9 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
   }) : filtered
 
   const toggleSelect = (ex:Gym.Exercise)=>{ setSelected(prev=> prev.includes(ex.id) ? prev.filter(id=>id!==ex.id) : [...prev, ex.id]) }
-  const addAllSelected = ()=>{ onAddMany(selected.filter(id=>!existingSet.has(id)).map(id=>{ const ex = items.find(e=>e.id===id)!; return { exId: ex.id, gifUrl: ex.gifUrl, name: ex.name, muscle: ex.muscle, imageDataUrl: ex.imageDataUrl } })) }
+  const addAllSelected = ()=>{ onAddMany(selected.filter(id=>!existingSet.has(id)).map(id=>{ const ex = items.find(e=>e.id===id)!; return { exId: ex.id, gifUrl: ex.gifUrl, name: ex.name, muscle: ex.muscle, imageDataUrl: ex.imageDataUrl, isStretch: purpose !== 'conventional' } })) }
 
-  if(muscles.length===0){
+  if(muscles.length===0 && purpose==='conventional'){
     return (
       <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
         <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3">
@@ -885,6 +902,19 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
             {existingSet.size} ejercicio{existingSet.size===1?'':'s'} ya presente{existingSet.size===1?'':'s'} en este día (marcad{existingSet.size===1?'o':'os'} en la lista).
           </div>
         )}
+        <div className="flex gap-1 flex-wrap" role="group" aria-label="Finalidad del ejercicio">
+          {EXERCISE_PURPOSES.map(p => (
+            <button
+              key={p.id}
+              type="button"
+              aria-pressed={purpose === p.id}
+              onClick={() => { setPurpose(p.id); setMuscleFilter('todos'); setQ('') }}
+              className={`px-3 py-2 min-h-[44px] rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest ${purpose === p.id ? 'bg-primary text-on-surface border-primary' : 'bg-surface border-outline-variant text-on-surface-variant'}`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
         <div className="relative">
           <Search size={14} className="absolute left-3 top-3 text-on-surface-variant"/>
           <input placeholder="Buscar por nombre, músculo, equipo..." value={q} onChange={e=>setQ(e.target.value)} className="w-full bg-surface border border-outline-variant rounded pl-9 p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
@@ -945,7 +975,7 @@ function IntelligentPicker({dayN, dayName, existingIds, onAdd, onAddMany, onClos
                     {String(ex.exerciseDifficulty||'') && <div className="font-label-md text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant mt-0.5">{ex.exerciseDifficulty} · {ex.category}</div>}
                     <div className="flex gap-2 mt-2">
                       <AltheaButton size="sm" variant="secondary" fullWidth onClick={()=> onView(ex)}><Eye size={14}/> Ver</AltheaButton>
-                      <AltheaButton size="sm" fullWidth onClick={()=> onAdd(ex.id, ex.gifUrl, ex.name, ex.muscle, ex.imageDataUrl)}>AGREGAR</AltheaButton>
+                      <AltheaButton size="sm" fullWidth onClick={()=> onAdd(ex.id, ex.gifUrl, ex.name, ex.muscle, ex.imageDataUrl, purpose !== 'conventional')}>AGREGAR</AltheaButton>
                     </div>
                   </div>
                 </div>
