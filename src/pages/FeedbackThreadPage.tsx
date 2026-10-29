@@ -5,6 +5,7 @@ import {
   getThread,
   listThreadMessages,
   markThreadRead,
+  sendThreadMessage,
   setThreadStatus,
 } from '@/services/feedback/feedbackService'
 import type {
@@ -28,6 +29,8 @@ export default function FeedbackThreadPage() {
   const [messages, setMessages] = useState<FeedbackLocalMessage[]>([])
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(true)
+  const [reply, setReply] = useState('')
+  const [sending, setSending] = useState(false)
 
   const isAdmin = !!actor?.isAdmin
   const scope = isAdmin ? 'admin' : 'owner'
@@ -66,6 +69,33 @@ export default function FeedbackThreadPage() {
     setThreadStatus(id, status)
       .then(() => setThread((t) => (t ? { ...t, status } : t)))
       .catch((e) => setError((e as { message?: string })?.message || 'No se pudo cambiar el estado.'))
+  }
+
+  /** Responder al hilo (rol según quién escribe: admin o dueño). */
+  const handleReply = async () => {
+    if (!thread || !reply.trim() || sending) { return }
+    setSending(true)
+    setError('')
+    try {
+      const res = await sendThreadMessage({ thread, text: reply.trim(), role: isAdmin ? 'admin' : 'user' })
+      if (res.delivery === 'sent' || res.delivery === 'pending') {
+        const local: FeedbackLocalMessage = {
+          id: res.messageId, threadId: thread.id, ownerId: thread.ownerId,
+          authorId: actor?.uid || '', authorRole: isAdmin ? 'admin' : 'user',
+          text: reply.trim(), createdAt: new Date().toISOString(),
+          readByOwner: !isAdmin, readByAdmin: isAdmin,
+          syncStatus: res.delivery === 'sent' ? 'synced' : 'pending',
+        }
+        setMessages((ms) => [...ms, local])
+        setReply('')
+      } else {
+        setError(res.error || 'No se pudo enviar la respuesta.')
+      }
+    } catch (e) {
+      setError((e as { message?: string })?.message || 'No se pudo enviar la respuesta.')
+    } finally {
+      setSending(false)
+    }
   }
 
   if (actorLoading) {
@@ -120,12 +150,48 @@ export default function FeedbackThreadPage() {
                       <span className="text-on-surface-variant text-xs">{formatStamp(m.createdAt)}</span>
                     </div>
                     <p className="text-on-surface text-sm whitespace-pre-wrap break-words">{m.text}</p>
+                    {m.authorRole === 'user' && (
+                      <p className="mt-1 text-[11px] text-on-surface-variant">
+                        {m.readByAdmin ? '✓ Leído por la administración' : '· enviado'}
+                      </p>
+                    )}
                     <div className="mt-1">
                       <SyncChip status={m.syncStatus} />
                     </div>
                   </div>
                 )
               })}
+            </section>
+
+            {/* Estado visible para el dueño: confirmación de trabajo sobre el problema. */}
+            {!isAdmin && thread.status !== 'pendiente' && (
+              <p className="mt-4 text-sm text-on-surface-variant bg-surface-container p-3 rounded-lg">
+                {thread.status === 'en_curso'
+                  ? '⚙︎ La administración está trabajando en tu consulta.'
+                  : '✓ Tu consulta fue resuelta por la administración.'}
+              </p>
+            )}
+
+            <section className="mt-6">
+              <h2 className="text-sm font-medium text-on-surface-variant uppercase tracking-wider mb-2">
+                Responder
+              </h2>
+              <textarea
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                placeholder={isAdmin ? 'Respuesta al usuario…' : 'Escribí tu respuesta…'}
+                rows={3}
+                maxLength={2000}
+                className="w-full bg-surface-container border border-outline-variant rounded-lg p-3 text-sm text-on-surface"
+              />
+              <button
+                onClick={() => { void handleReply() }}
+                disabled={!reply.trim() || sending}
+                className="mt-2 btn-primary disabled:opacity-40"
+              >
+                {sending ? 'Enviando…' : 'Enviar respuesta'}
+              </button>
+              {error && <p className="mt-2 text-sm text-error">{error}</p>}
             </section>
 
             {isAdmin && (
