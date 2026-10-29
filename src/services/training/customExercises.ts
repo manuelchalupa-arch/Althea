@@ -113,6 +113,10 @@ export async function createCustomExercise(input: CustomInput): Promise<CustomEx
     updatedAt: now,
   }
   await db.customExercises.put(rec as never)
+  try {
+    const { ensureInShared } = await import('./sharedExercises')
+    await ensureInShared(rec).catch(() => {})
+  } catch {}
   return rec
 }
 

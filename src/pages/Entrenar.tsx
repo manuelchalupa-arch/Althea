@@ -24,7 +24,7 @@ import { AltheaPanel, AltheaMetric } from '@/components/althea'
 import { buildTrainingContext } from '@/services/ai/contextBuilder'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
-import { getOverrideDay, getChangedData, setOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
+import { getChangedData, setOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import { transitionSession, type ActiveSession } from '@/services/training/sessionStore'
 import * as Gym from '@/services/exerciseGym'
 import { exercisePurpose } from '@/utils/stretching'
@@ -34,7 +34,7 @@ import type { SessionStatus, SessionExercise } from '@/services/training/domain'
 import { type VariantOption, type VariantContext } from '@/services/ai/variantService'
 import PainToggle from '@/features/training/components/PainToggle'
 import { VariantPicker } from '@/features/training/components/VariantPicker'
-import { todayKey, toDateKey, daysBetween, weekdayOfKey } from '@/utils/dates'
+import { todayKey, toDateKey, daysBetween } from '@/utils/dates'
 
 type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number|null; muscle?:string; gifUrl?:string; imageDataUrl?:string; swappedFrom?:string; replaced?:boolean; extra?:boolean; plannedSets?:number; plannedSetsDetail?: { order:number; reps:number; weight:number|null }[]; plannedSetValues?: Array<{ order: number; reps: number; weight: number|null; setType?: import('@/services/training/domain').SetType }>; seriesType?:string; restSec?:number; tempo?:string; rir?:number; rpe?:number; notes?:string; seId?:string }
 
@@ -291,50 +291,55 @@ const exercises: SessionEx[] = seList.map((se) => {
   // Pain toggle state
 
   const load = async () => {
+      // `active` queda fuera del try: si algo revienta, el catch sabe si hay
+      // sesión (nunca expulsar) o no (redirigir como siempre).
+      let active: Awaited<ReturnType<typeof import('@/services/training/sessionStore').getActiveSession>> | null = null
+      try {
       const { getActiveSession, getSessionExercises: getSE } = await import('@/services/training/sessionStore')
       // PRIORIDAD 1: sesion activa por activeSessionId (nunca calendario por encima).
-      const active = await getActiveSession().catch(() => null)
+      active = await getActiveSession().catch(() => null)
       if (active && active.calendarDate === today && ['READY', 'IN_PROGRESS', 'PAUSED', 'COMPLETING'].includes(active.sessionStatus)) {
         // Verificar que la sesion tenga ejercicios en la DB antes de usarla.
         const seCount = await getSE(active.sessionId).then(l => l.length).catch(() => 0)
         if (seCount > 0) {
-          // Verificar si la rutina de la sesion activa coincide con la rutina de hoy
-          const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
-          const rawList = await getAllRoutines()
-          const activeId = await getActiveRoutineId()
-          const todayRoutine = rawList?.find((r: { id: string }) => r.id === activeId) || rawList?.[0]
-          const dow = weekdayOfKey(today)
-          const override = await getOverrideDay(today)
-          const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
-          const cyc = (pv?.cycle ?? todayRoutine?.cycle) as CycleConfig | undefined
-          const todayDayN = override ? Number(override) : cyc?.weekMap?.[dow] ?? null
-          // Si la sesion activa es de otro dia de rutina, limpiar y crear nueva
-          if (active.actualDay !== null && active.actualDay !== undefined && todayDayN !== null && todayDayN !== undefined && active.actualDay !== todayDayN) {
-            const { clearActiveSession } = await import('@/services/training/sessionStore')
-            clearActiveSession()
-          } else {
-            if (active.sessionStatus === 'READY') {
-              setReadyPlan({ sessionId: active.sessionId, routineName: active.routineName || 'Rutina', plannedDayN: active.plannedDay, plannedName: active.plannedDayName || '', actualDayN: active.actualDay, actualName: active.actualDayName || '', isResume: false })
-            }
-            setSession(active)
- setSessionStatus(active.sessionStatus)
- setRutinaName(active.routineName || 'Rutina')
- setRoutineId(active.routineId)
- setDayName(active.actualDayName || (active.actualDay !== null && active.actualDay !== undefined ? `Día N°${active.actualDay}` : 'Descanso'))
- setPlannedDayN(active.plannedDay)
- setActualDayN(active.actualDay)
- setPlannedName(active.plannedDayName || '')
- setWeekNumber(active.weekNumber || 1)
- setSessionStartTime(active.startedAt || active.createdAt)
- setSessionId(active.sessionId)
- setSessionStatus(active.sessionStatus)
-            await handleSessionLoaded(active as any)
-            return
+          // La sesión activa de HOY es la fuente de verdad. Se adopta SIEMPRE,
+          // aunque la planificación haya cambiado fuera (bug: limpiar + rebotar
+          // a Inicio dejaba la pestaña inaccesible con la sesión en curso).
+          if (active.sessionStatus === 'READY') {
+            setReadyPlan({ sessionId: active.sessionId, routineName: active.routineName || 'Rutina', plannedDayN: active.plannedDay, plannedName: active.plannedDayName || '', actualDayN: active.actualDay, actualName: active.actualDayName || '', isResume: false })
           }
+          setSession(active)
+          setSessionStatus(active.sessionStatus)
+          setRutinaName(active.routineName || 'Rutina')
+          setRoutineId(active.routineId)
+          setDayName(active.actualDayName || (active.actualDay !== null && active.actualDay !== undefined ? `Día N°${active.actualDay}` : 'Descanso'))
+          setPlannedDayN(active.plannedDay)
+          setActualDayN(active.actualDay)
+          setPlannedName(active.plannedDayName || '')
+          setWeekNumber(active.weekNumber || 1)
+          setSessionStartTime(active.startedAt || active.createdAt)
+          setSessionId(active.sessionId)
+          setSessionStatus(active.sessionStatus)
+          await handleSessionLoaded(active as any)
+          return
         } else {
-          // Sesion sin ejercicios en DB → limpiar y caer al plan de rutina.
-          const { clearActiveSession } = await import('@/services/training/sessionStore')
-          clearActiveSession()
+          // Sesión activa de HOY SIN ejercicios (día vacío/descanso con sesión):
+          // se conserva y se muestra el estado vacío con acciones. NUNCA se
+          // limpia ni se redirige: entrar a Entrenar no puede fallar por eso.
+          setSession(active)
+          setSessionStatus(active.sessionStatus)
+          setRutinaName(active.routineName || 'Rutina')
+          setRoutineId(active.routineId)
+          setDayName(active.actualDayName || (active.actualDay !== null && active.actualDay !== undefined ? `Día N°${active.actualDay}` : 'Descanso'))
+          setPlannedDayN(active.plannedDay)
+          setActualDayN(active.actualDay)
+          setPlannedName(active.plannedDayName || '')
+          setWeekNumber(active.weekNumber || 1)
+          setSessionStartTime(active.startedAt || active.createdAt)
+          setSessionId(active.sessionId)
+          setSessionStatus(active.sessionStatus)
+          setExs([])
+          return
         }
       }
       let hasCrossDateSession = false
@@ -351,7 +356,13 @@ const exercises: SessionEx[] = seList.map((se) => {
       // banner de reanudación arriba.
       try { localStorage.removeItem(`session:active:${today}`) } catch { /* noop */ }
       if (hasCrossDateSession) { setExs([]); return }
-      setRedirectHome(true)
+      // Solo se expulsa si de verdad NO hay sesión activa.
+      if (!active) { setRedirectHome(true) }
+      } catch {
+        // Error de carga (red, Dexie, catálogo): si hay sesión, se queda en la
+        // pestaña y se muestra lo que haya (estado vacío navegable).
+        if (!active) { setRedirectHome(true) }
+      }
   }
 
   // carga inicial + escucha cambios de día desde Inicio
@@ -1140,33 +1151,75 @@ const exercises: SessionEx[] = seList.map((se) => {
   }
 
   // Agregar ejercicio EXTRA (no planificado, §22): picker del mismo grupo + motivo.
+  // Siempre abre el modal (aunque falle la red o no haya `cur`): las opciones
+  // propias/compartidas se suman y en modo offline queda el botón de crear.
   const openAddExtra = async () => {
-    if(!cur) {return}
     setAddExReason(''); setAddExComment('')
     const muscleMap: Record<string,string> = { pecho:'pectorals', espalda:'lats', biceps:'biceps', triceps:'triceps', hombros:'delts', piernas:'quads', cuadriceps:'quads', gluteos:'glutes', isquios:'hamstrings' }
-    const m = muscleMap[(cur.muscle||'').toLowerCase()] || 'pectorals'
+    const m = cur ? (muscleMap[(cur.muscle||'').toLowerCase()] || 'pectorals') : 'pectorals'
+    setShowAddEx(true)
+    const opts: Gym.Exercise[] = []
     try{
       const res = await Gym.fetchByMuscle(m)
-      const existing = new Set(exs.map(e=> e.exId))
-      setAddExOptions(res.exercises.filter((e: { id: string; category?: string })=> !existing.has(e.id) && exercisePurpose(e) === 'conventional').slice(0, 8))
-      setShowAddEx(true)
+      opts.push(...res.exercises.filter((e: { id: string; category?: string })=> exercisePurpose(e) === 'conventional'))
+    }catch{ /* offline: siguen las propias/compartidas */ }
+    try{
+      const { listCustomExercises } = await import('@/services/training/customExercises')
+      const { listSharedExercises } = await import('@/services/training/sharedExercises')
+      const [own, shared] = await Promise.all([listCustomExercises().catch(()=>[]), listSharedExercises().catch(()=>[])])
+      opts.push(...(own as Gym.Exercise[]), ...(shared as Gym.Exercise[]))
     }catch{ /* noop */ }
+    const existing = new Set(exs.map(e=> e.exId))
+    const seen = new Set<string>()
+    setAddExOptions(opts.filter((e)=>{
+      if(existing.has(e.id) || seen.has(e.id)) {return false}
+      seen.add(e.id)
+      return true
+    }).slice(0, 24))
   }
 
   const confirmAddExtra = async (opt: Gym.Exercise) => {
     if(!session) {return}
-    if(!addExReason.trim()){ setFinishError('Indicá el motivo del ejercicio extra.'); return }
+    // Con la sesión vacía no se pide motivo: es el primer ejercicio del día.
+    if(!addExReason.trim() && exs.length>0){ setFinishError('Indicá el motivo del ejercicio extra.'); return }
     const { addExtraExercise, logEvent } = await import('@/services/training/sessionStore')
     const methodDef = methodIdRef.current ? getMethod(methodIdRef.current)?.defaults : undefined
     const exSets = methodDef?.setsPerExercise ?? 3
     const exReps = methodDef?.repsRange?.[1] ?? 10
     const created = await addExtraExercise(session.sessionId, { exId: opt.id, name: opt.name, sets: exSets, reps: exReps, weight: null, muscle: opt.muscle })
-    await logEvent(session.sessionId, 'EXERCISE_ADDED', { metadata: { reason: addExReason.trim(), comment: addExComment.trim() || undefined } }).catch(()=>null)
-    saveDecision({ date: today, type:'modify', exercise: opt.name, reason:`EXTRA: ${addExReason.trim()}`, contextSnapshot:{} })
+    await logEvent(session.sessionId, 'EXERCISE_ADDED', { metadata: { reason: addExReason.trim() || 'Primer ejercicio del día', comment: addExComment.trim() || undefined } }).catch(()=>null)
+    saveDecision({ date: today, type:'modify', exercise: opt.name, reason:`EXTRA: ${addExReason.trim() || 'Primer ejercicio del día'}`, contextSnapshot:{} })
     setExs(prev => [...prev, { exId: opt.id, name: opt.name, sets: exSets, reps: exReps, weight: null, muscle: opt.muscle, gifUrl: opt.gifUrl, plannedSets: 0, seId: created.sessionExerciseId, extra: true }])
     setSeIdByIndex(prev => ({ ...prev, [Object.keys(prev).length]: created.sessionExerciseId }))
     setShowAddEx(false)
     setAddExReason(''); setAddExComment('')
+  }
+
+  // Crear ejercicio propio desde la sesión: va a la biblioteca (y a la
+  // compartida vía createCustomExercise) y se agrega EXTRA a la sesión.
+  const createCustomForSession = async (draft: { name:string; equipment:string; muscles:string[]; description:string }) => {
+    if(!session) {return}
+    const bodyByMuscle: Record<string,string> = { quads:'legs', hamstrings:'legs', glutes:'legs', calves:'legs', pectorals:'chest', lats:'back', 'upper-back':'back', traps:'back', spine:'back', abs:'core', delts:'shoulders', biceps:'arms', triceps:'arms', cardio:'cardio' }
+    const primary = draft.muscles[0]
+    const secs = draft.muscles.slice(1)
+    const secPct = secs.length>0? Math.floor(30/secs.length) : 0
+    const { createCustomExercise } = await import('@/services/training/customExercises')
+    const created = await createCustomExercise({
+      name: draft.name, description: draft.description,
+      bodyPart: bodyByMuscle[primary] || 'core', muscle: primary,
+      secondaryMuscles: secs, primaryPct: 100 - secPct*secs.length, secondaryPcts: secs.map(()=>secPct),
+      category: 'strength', equipment: draft.equipment,
+    })
+    const { addExtraExercise, logEvent } = await import('@/services/training/sessionStore')
+    const methodDef = methodIdRef.current ? getMethod(methodIdRef.current)?.defaults : undefined
+    const exSets = methodDef?.setsPerExercise ?? 3
+    const exReps = methodDef?.repsRange?.[1] ?? 10
+    const se = await addExtraExercise(session.sessionId, { exId: created.id, name: created.name, sets: exSets, reps: exReps, weight: null, muscle: created.muscle })
+    await logEvent(session.sessionId, 'EXERCISE_ADDED', { metadata: { reason: 'Ejercicio creado en sesión', comment: draft.description || undefined } }).catch(()=>null)
+    saveDecision({ date: today, type:'modify', exercise: created.name, reason:'EXTRA: ejercicio creado en sesión', contextSnapshot:{} })
+    setExs(prev => [...prev, { exId: created.id, name: created.name, sets: exSets, reps: exReps, weight: null, muscle: created.muscle, gifUrl: created.gifUrl || undefined, imageDataUrl: created.imageDataUrl, plannedSets: 0, seId: se.sessionExerciseId, extra: true }])
+    setSeIdByIndex(prev => ({ ...prev, [Object.keys(prev).length]: se.sessionExerciseId }))
+    setShowAddEx(false)
   }
 
   // (D) Fuente de verdad = sesión activa. Sin sesión activa, /entrenar no
@@ -1195,7 +1248,18 @@ const exercises: SessionEx[] = seList.map((se) => {
     )
   }
 
-  if(exs.length===0) {return <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 w-full mx-auto sm:px-5 xl:px-10 2xl:px-12"><p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios. Cambiá el día en Inicio.</p></div>}
+  if(exs.length===0) {return (
+    <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 w-full mx-auto sm:px-5 xl:px-10 2xl:px-12 space-y-4">
+      <p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios todavía.</p>
+      <div className="flex flex-wrap gap-2">
+        {session? <button onClick={()=>{ void openAddExtra() }} className="px-4 py-2 rounded bg-primary text-on-primary">Agregar o crear ejercicio</button> : null}
+        <button onClick={()=>{ window.location.href='/' }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Ir a Inicio</button>
+        <button onClick={()=>{ window.location.href='/rutina' }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Configurar rutina</button>
+        <button onClick={()=>{ window.location.href='/biblioteca' }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Ver biblioteca</button>
+      </div>
+      <AddExtraModal show={showAddEx} onClose={()=>setShowAddEx(false)} options={addExOptions} reason={addExReason} setReason={setAddExReason} comment={addExComment} setComment={setAddExComment} onAdd={(opt)=>{ void confirmAddExtra(opt) }} onCreate={createCustomForSession} />
+    </div>
+  )}
   if(sessionStatus==='COMPLETED' || sessionStatus==='PARTIAL') {return (
     <div className="min-h-screen bg-transparent pb-24">
       <div className="w-full p-4 md:p-6 lg:p-8 sm:px-5 xl:px-10 space-y-4">
@@ -1255,7 +1319,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
       <AbandonModal show={showAbandon} onClose={()=>setShowAbandon(false)} reason={abandonReason} setReason={setAbandonReason} comment={abandonComment} setComment={setAbandonComment} onConfirm={confirmAbandon} />
 
-      <AddExtraModal show={showAddEx} onClose={()=>setShowAddEx(false)} options={addExOptions} reason={addExReason} setReason={setAddExReason} comment={addExComment} setComment={setAddExComment} onAdd={confirmAddExtra} />
+      <AddExtraModal show={showAddEx} onClose={()=>setShowAddEx(false)} options={addExOptions} reason={addExReason} setReason={setAddExReason} comment={addExComment} setComment={setAddExComment} onAdd={confirmAddExtra} onCreate={createCustomForSession} />
       <FinishModal show={showFinishModal} onClose={()=>setShowFinishModal(false)} summary={computeSummary()} rutinaName={rutinaName} weekNumber={weekNumber} plannedDayN={plannedDayN} plannedName={plannedName} actualDayN={actualDayN} dayName={dayName} exs={exs} logs={logs} pendingReasons={pendingReasons} setPendingReasons={setPendingReasons} skipReasons={skipReasons} musclePct={musclePct} volumeAlerts={volumeAlerts} progressLines={progressLines} finishSurvey={finishSurvey} setFinishSurvey={setFinishSurvey} finishError={finishError} isSaving={isSaving} onConfirm={confirmFinish} session={session} sessionId={sessionId} setSession={setSession} setSessionStatus={setSessionStatus} />
 
       {/* Variant Picker Modal: solo ante sustitución explícita con contexto válido */}
@@ -1328,8 +1392,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                 {lastExec && lastExec.date && <span className="px-2 py-0.5 rounded-full bg-surface-container-high/50 border border-outline-variant/40 font-label-caps text-[10px] text-on-surface-variant uppercase">Última {lastExec.date}</span>}
               </div>
               <div className="flex gap-2 pt-1">
-                <button onClick={openViewer} className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded bg-surface-container border border-outline-variant text-secondary font-label-md text-[13px]"><SemanticIcon name="visibility" size={18} className="text-[18px]" />Ver</button>
-                <button onClick={loadSwapOptions} className="flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded bg-surface-container border border-outline-variant text-secondary font-label-md text-[13px]"><SemanticIcon name="swap_horiz" size={18} className="text-[18px]" />Cambiar</button>
+                {/* Móvil: sin botones secundarios (Ver/Cambiar); solo entrenar. */}
               </div>
             </div>
 
@@ -1408,9 +1471,8 @@ const exercises: SessionEx[] = seList.map((se) => {
 
             {!done[current] && (
               <div className="px-3 pb-3 flex gap-2">
-                <button onClick={()=>{ setMod({weight:cur.weight ?? 0,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant">Modificar</button>
-                <button onClick={handleSkipWithReason} className="flex-1 min-h-[44px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant">Saltar</button>
-                <button onClick={openAddExtra} className="flex-1 min-h-[44px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant">Extra</button>
+                {/* Móvil: solo agregar ejercicio; modificar/saltar viven en la tabla de series. */}
+                <button onClick={openAddExtra} className="flex-1 min-h-[44px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant">Agregar ejercicio</button>
               </div>
             )}
 

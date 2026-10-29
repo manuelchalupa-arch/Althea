@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import * as Gym from '@/services/exerciseGym'
+import { CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT } from '@/data/traditionalCatalog'
 
 const INCOMPLETE_REASONS = ['Dolor / molestia','Falta de tiempo','Cansancio excesivo','Falta de equipamiento','Lesión','Otro']
 
@@ -174,11 +176,30 @@ export function AbandonModal({ show, onClose, reason, setReason, comment, setCom
 }
 
 /* ── Add Extra Exercise Modal ── */
-export function AddExtraModal({ show, onClose, options, reason, setReason, comment, setComment, onAdd }:{
+export function AddExtraModal({ show, onClose, options, reason, setReason, comment, setComment, onAdd, onCreate }:{
   show:boolean; onClose:()=>void; options:Gym.Exercise[];
   reason:string; setReason:(v:string)=>void; comment:string; setComment:(v:string)=>void; onAdd:(ex:Gym.Exercise)=>void
+  onCreate?:(draft:{ name:string; equipment:string; muscles:string[]; description:string })=>Promise<void>
 }){
+  const [mode,setMode]=useState<'pick'|'create'>('pick')
+  const [cName,setCName]=useState('')
+  const [cEquipment,setCEquipment]=useState(CUSTOM_FORM_EQUIPMENT[0]||'')
+  const [cMuscles,setCMuscles]=useState<string[]>([])
+  const [cDesc,setCDesc]=useState('')
+  const [cErr,setCErr]=useState('')
+  const [saving,setSaving]=useState(false)
+  useEffect(()=>{ if(show){ setMode('pick'); setCName(''); setCMuscles([]); setCDesc(''); setCErr('') } },[show])
   if(!show) {return null}
+  const toggleMuscle=(m:string)=>{ setCMuscles(prev=> prev.includes(m)? prev.filter(x=>x!==m) : [...prev,m]) }
+  const submitCreate=async()=>{
+    if(!onCreate){return}
+    if(!cName.trim()){ setCErr('Ingresá el nombre del ejercicio.'); return }
+    if(cMuscles.length===0){ setCErr('Elegí al menos un grupo muscular.'); return }
+    setCErr(''); setSaving(true)
+    try{ await onCreate({ name:cName.trim(), equipment:cEquipment, muscles:cMuscles, description:cDesc.trim() }) }
+    catch(e){ setCErr(e instanceof Error? e.message : 'No se pudo crear el ejercicio.'); setSaving(false); return }
+    setSaving(false)
+  }
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
       <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[80vh] overflow-auto">
@@ -186,23 +207,53 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
           <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio EXTRA</h3>
           <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
         </div>
-        <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">No planificado · quedará marcado EXTRA con su motivo.</p>
-        <select value={reason} onChange={(e)=>setReason(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
-          <option value="">Motivo del agregado…</option>
-          {['Quiero trabajar más este grupo','Me siento con energía','Recomendación del coach','Recuperar ejercicio pendiente','Otro'].map((r)=>(<option key={r} value={r}>{r}</option>))}
-        </select>
-        <textarea value={comment} onChange={(e)=>setComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
-        <div className="space-y-2 max-h-60 overflow-auto">
-          {options.map((opt)=>(
-            <button key={opt.id} onClick={()=>onAdd(opt)} className="w-full text-left p-3 rounded bg-surface-container border border-outline-variant flex items-center gap-3 hover:bg-surface-container-high/40 transition">
-              {opt.gifUrl ? <img src={opt.gifUrl} alt={opt.name} className="w-12 h-12 rounded-lg object-contain"/> : null}
-              <div>
-                <div className="font-body-md text-[15px] text-on-surface font-medium">{opt.name}</div>
-                <div className="font-label-caps text-[10px] uppercase text-on-surface-variant">{opt.muscle} · {opt.equipment}</div>
+        {mode==='create' ? (
+          <>
+            <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Nuevo ejercicio propio · se guarda en tu biblioteca y en la compartida.</p>
+            <input value={cName} onChange={(e)=>setCName(e.target.value)} placeholder="Nombre del ejercicio" maxLength={80} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+            <select value={cEquipment} onChange={(e)=>setCEquipment(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
+              {CUSTOM_FORM_EQUIPMENT.map((eq)=>(<option key={eq} value={eq}>{eq}</option>))}
+            </select>
+            <div>
+              <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider mb-1">Grupos musculares involucrados</div>
+              <div className="flex flex-wrap gap-1.5">
+                {CUSTOM_FORM_MUSCLES.map((m)=>(
+                  <button key={m} type="button" onClick={()=>toggleMuscle(m)} aria-pressed={cMuscles.includes(m)} className={`px-2.5 py-1 rounded-full text-xs border transition ${cMuscles.includes(m)? 'bg-primary text-on-primary border-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>{m}</button>
+                ))}
               </div>
-            </button>
-          ))}
-        </div>
+            </div>
+            <textarea value={cDesc} onChange={(e)=>setCDesc(e.target.value)} placeholder="Breve descripción (opcional)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+            {cErr? <p className="font-body-md text-[13px] text-error">{cErr}</p> : null}
+            <div className="flex gap-2">
+              <button onClick={()=>submitCreate()} disabled={saving} className="flex-1 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold disabled:opacity-60">{saving? 'Guardando…':'Crear y agregar'}</button>
+              <button onClick={()=>setMode('pick')} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Elegir existente</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">No planificado · quedará marcado EXTRA con su motivo.</p>
+            <select value={reason} onChange={(e)=>setReason(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
+              <option value="">Motivo del agregado…</option>
+              {['Quiero trabajar más este grupo','Me siento con energía','Recomendación del coach','Recuperar ejercicio pendiente','Otro'].map((r)=>(<option key={r} value={r}>{r}</option>))}
+            </select>
+            <textarea value={comment} onChange={(e)=>setComment(e.target.value)} placeholder="Comentario (opcional)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+            <div className="space-y-2 max-h-60 overflow-auto">
+              {options.map((opt)=>(
+                <button key={opt.id} onClick={()=>onAdd(opt)} className="w-full text-left p-3 rounded bg-surface-container border border-outline-variant flex items-center gap-3 hover:bg-surface-container-high/40 transition">
+                  {opt.gifUrl ? <img src={opt.gifUrl} alt={opt.name} className="w-12 h-12 rounded-lg object-contain"/> : null}
+                  <div>
+                    <div className="font-body-md text-[15px] text-on-surface font-medium">{opt.name}</div>
+                    <div className="font-label-caps text-[10px] uppercase text-on-surface-variant">{opt.muscle} · {opt.equipment}</div>
+                  </div>
+                </button>
+              ))}
+              {options.length===0? <p className="font-body-md text-[13px] text-on-surface-variant py-2">Sin opciones disponibles (sin conexión o sin resultados).</p> : null}
+            </div>
+            {onCreate? (
+              <button onClick={()=>setMode('create')} className="w-full py-2 rounded bg-surface-container-high/40 border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface">+ Crear ejercicio nuevo</button>
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   )

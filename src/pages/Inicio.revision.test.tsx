@@ -131,8 +131,8 @@ describe('Inicio — revisión de la rutina (aviso NO bloqueante)', () => {
     }, { timeout: 8000 })
     // Sin modal/puerta que bloquee la pantalla
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    // El acceso a entrenar sigue visible y operativo
+    // El acceso a entrenar sigue visible y operativo (hero sticky)
     expect(await screen.findByText('Continuar', undefined, { timeout: 8000 })).toBeInTheDocument()
-    expect(screen.getByTestId('inicio-change-day')).toBeInTheDocument()
+    expect(screen.getByTestId('inicio-change-day-hero')).toBeInTheDocument()
   }, 30000)
 })

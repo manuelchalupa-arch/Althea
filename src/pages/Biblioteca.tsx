@@ -10,6 +10,7 @@ import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Heart, Globe, WifiOff } from 'lucide-react'
 import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading } from '@/components/althea'
 import { exercisePurpose, EXERCISE_PURPOSES, type ExercisePurpose } from '@/utils/stretching'
+import { listSharedExercises } from '@/services/training/sharedExercises'
 
 const PURPOSES = EXERCISE_PURPOSES
 export default function Biblioteca(){
@@ -71,9 +72,23 @@ export default function Biblioteca(){
       }
       const customs = (await listCustomExercises(undefined, undefined).catch(()=>[]))
         .filter(e => exercisePurpose(e as unknown as { category?: string; exerciseObjective?: string }) === p)
+      const shared = (await listSharedExercises().catch(()=>[]))
+        .filter((e:any) => exercisePurpose(e as unknown as { category?: string; exerciseObjective?: string }) === p)
       setTradIds(new Set(tradEx.map(e => e.id)))
-      setExercises([...tradEx, ...customs])
-      Gym.cacheSet(cacheKey, [...tradEx, ...customs])
+      const seenAll = new Set<string>()
+      const merged: Gym.Exercise[] = []
+      const pushAll = (arr: any[]) => {
+        for (const e of arr) {
+          if (!e?.id || seenAll.has(e.id)) continue
+          seenAll.add(e.id)
+          merged.push(e as Gym.Exercise)
+        }
+      }
+      pushAll(tradEx)
+      pushAll(customs)
+      pushAll(shared)
+      setExercises(merged)
+      Gym.cacheSet(cacheKey, merged)
     }catch(e:any){
       const cached = Gym.cacheGet(cacheKey)
       if(cached){ setExercises(cached); setError('Mostrando caché offline (sin conexión).') }

@@ -91,8 +91,9 @@ describe('D — /entrenar solo muestra sesión activa (fuente de verdad)', () =>
     )
     mounted.push(view.unmount)
 
-    const cta = await screen.findByTestId('inicio-start-training', undefined, { timeout: 15000 })
-    expect(cta.textContent).toMatch(/COMENZAR ENTRENAMIENTO/)
+    // CTA del hero (sticky): única ubicación de Continuar/Comenzar.
+    const cta = await screen.findByTestId('inicio-hero-cta', undefined, { timeout: 15000 })
+    expect(cta.getAttribute('aria-label')).toMatch(/Comenzar entrenamiento/i)
     cta.click()
 
     await waitFor(() => {
@@ -143,5 +144,53 @@ describe('D — /entrenar ofrece reanudar una sesión sin terminar de otro día'
     expect(screen.getByText(/Continuar/)).toBeInTheDocument()
     // No redirigió a Inicio.
     expect(screen.queryByTestId('inicio-screen')).not.toBeInTheDocument()
+  }, 30000)
+})
+
+describe('D — sesión activa de HOY sin ejercicios: /entrenar NO expulsa', () => {
+  const mounted: Array<() => void> = []
+  const renderIn = () => {
+    const view = render(
+      <MemoryRouter initialEntries={['/entrenar']}>
+        <Routes>
+          <Route path="/entrenar" element={<Entrenar />} />
+          <Route path="/" element={<div data-testid="inicio-screen">Inicio</div>} />
+          <Route path="*" element={<div data-testid="unknown-route">ruta desconocida</div>} />
+        </Routes>
+        <LocationSpy />
+      </MemoryRouter>,
+    )
+    mounted.push(view.unmount)
+    return view
+  }
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    await Promise.all(db.tables.map((t) => t.clear()))
+    localStorage.clear()
+  })
+  afterEach(() => { while (mounted.length) mounted.pop()!() })
+
+  it('sesión READY de hoy con 0 ejercicios: se conserva y se ofrece agregar/crear', async () => {
+    const s = await createSession({
+      routineId: 'r1', calendarDate: todayKey(), plannedDay: 1, actualDay: 1,
+      plannedExercises: [],
+    })
+    expect(s.sessionStatus).toBe('READY')
+
+    renderIn()
+    await waitFor(() => {
+      expect(screen.getByText(/Hoy es descanso o sin ejercicios/)).toBeInTheDocument()
+    }, { timeout: 15000 })
+    // Bug original: clearActiveSession + Navigate a /. Ahora no redirige.
+    expect(screen.queryByTestId('inicio-screen')).not.toBeInTheDocument()
+    expect(screen.getByTestId('loc').textContent).toBe('/entrenar')
+    // La sesión se adopta en load() (async): el botón aparece al terminar la carga.
+    await waitFor(() => {
+      expect(screen.getByText(/Agregar o crear ejercicio/)).toBeInTheDocument()
+    }, { timeout: 15000 })
+    // La sesión sigue activa en la DB.
+    const row = await db.trainingSessions.get(s.sessionId) as { sessionStatus: string } | undefined
+    expect(row?.sessionStatus).toBe('READY')
   }, 30000)
 })

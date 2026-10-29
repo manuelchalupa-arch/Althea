@@ -155,7 +155,9 @@ export default function Inicio(){
       for(let i = 0; i < weekKeys.length; i++){
         const iso = weekKeys[i]
         const dow = weekdayOfKey(iso)
-        const n = cycle.weekMap[dow] ?? null
+        // El override ("Cambiar día") manda sobre el weekMap: el título del día
+        // debe reflejar el día elegido, no el plan original.
+        const n = overrides[i] ?? cycle.weekMap[dow] ?? null
         const nm = n ? cycle.trainingDays.find((d:any)=>d.n===n)?.name || `Día N°${n}` : null
         const sess = byDate[iso]
         map[iso] = {
@@ -378,6 +380,8 @@ export default function Inicio(){
   }
   const completedCount = Object.values(dayStatus).filter(s => s.sessionStatus === 'COMPLETED').length
   const totalCount = Object.values(dayStatus).filter(s => s.planned).length
+  // Próximo entreno pendiente de la semana (desde mañana en adelante).
+  const nextWorkoutKey = weekKeys.find(k => k > todayStr && dayStatus[k]?.planned && dayStatus[k]?.sessionStatus !== 'COMPLETED') ?? null
   const plannedRpes = exNames.map(e=> e.rpe).filter((v): v is number => typeof v === 'number' && v > 0)
   const todayRPE = plannedRpes.length > 0 ? plannedRpes.reduce((a,b)=> a + b, 0) / plannedRpes.length : null
 
@@ -407,8 +411,9 @@ export default function Inicio(){
 
       <main className="dashboard-main w-full min-w-0 space-y-6">
 
-        {/* ─── HERO COMPACTO: saludo + estado del día + acciones ─── */}
-        <AltheaPanel className="p-5 sm:p-6 space-y-4 shadow-al-sm border border-outline-variant/50">
+        {/* ─── HERO COMPACTO: saludo + estado del día + acciones ───
+             sticky: las acciones (Continuar/Cambiar día) se mantienen visibles al hacer scroll. */}
+        <AltheaPanel className="p-5 sm:p-6 space-y-4 shadow-al-sm border border-outline-variant/50 sticky top-0 z-30">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3">
@@ -466,6 +471,29 @@ export default function Inicio(){
             </div>
           </div>
         </AltheaPanel>
+
+        {/* ─── CALENDARIO SEMANAL COMPACTO: 7 días con el plan real (ciclo + cambios de día) ─── */}
+        <div data-testid="inicio-week-calendar" className="border border-outline-variant/40 rounded-2xl p-3 shadow-al-sm bg-surface-container">
+          <div className="grid grid-cols-7 gap-1.5">
+            {weekKeys.map((k)=>{
+              const st = dayStatus[k]
+              const isToday = k === todayStr
+              const isNext = k === nextWorkoutKey
+              const done = st?.sessionStatus === 'COMPLETED'
+              return (
+                <div key={k} className={`rounded-lg border px-1 py-1.5 text-center min-w-0 ${isToday ? 'bg-primary/15 border-primary/50' : isNext ? 'bg-secondary-container/20 border-secondary/40' : st?.planned ? 'bg-surface-container-high/30 border-outline-variant/30' : 'bg-transparent border-outline-variant/20'}`}>
+                  <div className={`font-label-caps text-[9px] uppercase ${isToday ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>{isToday ? 'Hoy' : ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][weekdayOfKey(k)]}</div>
+                  <div className="font-body-md text-[12px] font-semibold text-on-surface">{Number(k.slice(8))}</div>
+                  <div className={`text-[9px] leading-tight truncate ${st?.planned ? 'text-on-surface' : 'text-on-surface-variant italic'}`} title={st?.planned ? (st.dayName || `Día ${st.dayN}`) : 'Descanso'}>
+                    {st?.planned ? (st.dayName || `Día ${st.dayN}`) : 'Descanso'}
+                  </div>
+                  {done && <SemanticIcon name="check_circle" size={11} className="text-primary mx-auto" />}
+                  {isNext && !done && <div className="font-label-caps text-[8px] uppercase text-secondary">Próximo</div>}
+                </div>
+              )
+            })}
+          </div>
+        </div>
 
         {/* Cuota del gimnasio — tira compacta: pago, vencimiento (+1 mes real) y aviso a 5 días */}
         <GymPaymentCard />
@@ -528,7 +556,9 @@ export default function Inicio(){
         {/* ─── FILA 2 — SECUNDARIA: entrenamiento, actividad, registros ─── */}
         <section className="dashboard-secondary-grid grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">
 
-          {/* Entrenamiento / sesión del día — ancho completo en lg */}
+          {/* Entrenamiento / sesión del día — ancho completo en lg.
+              Tras completar se oculta la configuración (tabla de ejercicios),
+              pero el card conserva el badge "SESIÓN COMPLETADA". */}
           <div className="domain-training lg:col-span-2 border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
@@ -551,26 +581,11 @@ export default function Inicio(){
                     <span className="uppercase tracking-wider text-[12px] font-semibold">SESIÓN COMPLETADA</span>
                   </span>
                 )}
-                {(!isRest || hasActiveSession) && !todayCompleted && (
-                  <>
-                    <button onClick={()=>{ startOrContinueTraining() }}
-                      data-testid="inicio-start-training"
-                      aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
-                      className="flex items-center gap-2 px-4 py-2 min-h-[48px] rounded-xl bg-primary-container hover:bg-tertiary-container text-on-primary-container border border-outline-variant/50 transition-all font-label-md active:scale-[0.98]">
-                      <SemanticIcon name="play_arrow" size={18} className="text-secondary" />
-                      <span className="uppercase tracking-wider text-[12px] font-semibold">{hasActiveSession ? 'CONTINUAR ENTRENAMIENTO' : 'COMENZAR ENTRENAMIENTO'}</span>
-                    </button>
-                    <button onClick={()=> setShowChangeDay(true)}
-                      data-testid="inicio-change-day"
-                      className="flex items-center gap-2 px-4 py-2 min-h-[48px] rounded-xl bg-surface-container border border-outline-variant text-on-surface font-label-md hover:bg-surface-container-high transition-colors">
-                      Cambiar día
-                    </button>
-                  </>
-                )}
+                {/* Acciones Continuar/Cambiar día: solo en el hero (sticky), no duplicar acá. */}
               </div>
             </div>
 
-            {isRest ? (
+            {!todayCompleted && (isRest ? (
               <p className="text-[11px] text-on-surface-variant border-t border-surface-bright pt-3 italic">
                 «Descansa con propósito.»
               </p>
@@ -663,7 +678,7 @@ export default function Inicio(){
                   ]} />
                 )}
               </>
-            )}
+            ))}
           </div>
 
           {/* Actividad libre y Registros de virtud — dos tarjetas en lg */}

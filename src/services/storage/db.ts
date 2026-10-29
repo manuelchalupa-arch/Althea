@@ -92,6 +92,7 @@ export class TrainDB extends Dexie {
   negativeSets!: Table<NegativeSet>
   exerciseObservations!: Table<ExerciseObservation>
   customExercises!: Table<CustomExercise>
+  sharedExercises!: Table<CustomExercise>
   weeklySequences!: Table<WeeklySequence>
   exerciseRecords!: Table<any>
   scoreSnapshots!: Table<any>
@@ -282,6 +283,10 @@ export class TrainDB extends Dexie {
     // siguiente descarga. Solo aditivo.
     this.version(27).stores({
       syncDeletes: '++id, table, docId',
+    })
+    // v28: Biblioteca compartida local cache
+    this.version(28).stores({
+      sharedExercises: 'id, muscle, bodyPart',
     })
   }
 }
