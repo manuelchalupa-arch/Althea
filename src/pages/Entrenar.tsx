@@ -1238,9 +1238,9 @@ const exercises: SessionEx[] = seList.map((se) => {
             <div className="font-body-md text-[15px] text-on-surface font-medium">Tenés un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
             <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} — {resumeBanner.dayName} · estado {resumeBanner.status} · {resumeBanner.exerciseCount} ejercicios</div>
             <div className="flex gap-2">
-              <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Continuar</button>
+              <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 min-h-[48px] py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Continuar</button>
               <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[48px] py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Finalizar</button>
-              <button onClick={localAbandonResume} className="flex-1 py-2 rounded bg-surface-container/60 border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Abandonar</button>
+              <button onClick={localAbandonResume} className="flex-1 min-h-[48px] py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Abandonar</button>
             </div>
           </div>
         </div>
@@ -1346,12 +1346,12 @@ const exercises: SessionEx[] = seList.map((se) => {
             <div className="flex gap-2">
               <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[11px] uppercase font-bold">Continuar</button>
               <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[11px] uppercase text-on-surface-variant">Finalizar</button>
-              <button onClick={localAbandonResume} className="flex-1 min-h-[48px] rounded bg-surface-container/60 border border-outline-variant font-label-caps text-[11px] uppercase text-on-surface-variant">Abandonar</button>
+              <button onClick={localAbandonResume} className="flex-1 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[11px] uppercase text-on-surface-variant">Abandonar</button>
             </div>
           </div>
         )}
 
-        <section className="domain-training rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2">
+        <section className="domain-training rounded-xl border border-outline-variant/40 bg-surface-container/70 backdrop-blur-md p-3 space-y-2">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-lg bg-accent/10 border border-accent/40 text-accent font-label-caps text-[10px] uppercase tracking-widest">ENTRENAR · {rutinaName}</span>
             <span className="font-metric-mobile text-[11px] text-outline">Sem {weekNumber}</span>
@@ -1375,7 +1375,7 @@ const exercises: SessionEx[] = seList.map((se) => {
         ) : null}
 
         {cur && (
-          <div className="domain-training rounded-xl border border-secondary/40 bg-surface-container-low overflow-hidden">
+          <div className="domain-training rounded-xl border border-secondary/40 bg-surface-container-low/70 backdrop-blur-md overflow-hidden">
             <div className="p-3 border-b border-outline-variant/30 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2 py-0.5 rounded bg-accent/10 border border-accent/40 font-label-caps text-[10px] text-accent uppercase font-semibold">EJERCICIO {current+1} DE {exs.length}</span>
@@ -1396,7 +1396,7 @@ const exercises: SessionEx[] = seList.map((se) => {
               </div>
             </div>
 
-            <div className="px-3 py-2.5 bg-surface-container/60 border-b border-outline-variant/30 flex items-center gap-2.5">
+            <div className="px-3 py-2.5 bg-surface-container border-b border-outline-variant/30 flex items-center gap-2.5">
               <SemanticIcon name="lightbulb" className="text-secondary shrink-0" />
               <p className="text-[12px] text-on-surface-variant min-w-0">
                 <strong className="text-secondary font-medium">Clave:</strong>{' '}
@@ -1472,7 +1472,7 @@ const exercises: SessionEx[] = seList.map((se) => {
             {!done[current] && (
               <div className="px-3 pb-3 flex gap-2">
                 {/* Móvil: solo agregar ejercicio; modificar/saltar viven en la tabla de series. */}
-                <button onClick={openAddExtra} className="flex-1 min-h-[44px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant">Agregar ejercicio</button>
+                <button onClick={openAddExtra} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Agregar ejercicio</button>
               </div>
             )}
 
@@ -1483,8 +1483,8 @@ const exercises: SessionEx[] = seList.map((se) => {
                     <button onClick={()=> restBetweenExPaused ? resumeRestBetweenEx() : pauseRestBetweenEx()} aria-label={restBetweenExPaused?'Reanudar descanso':'Pausar descanso'} className="font-metric-mobile text-[32px] leading-none font-semibold text-on-surface tabular-nums">{Math.floor(restBetweenExSec/60)}:{String(restBetweenExSec%60).padStart(2,'0')}</button>
                     <span className="font-label-caps text-[10px] text-secondary tracking-widest">{restBetweenExPaused ? 'PAUSADO' : 'DESCANSO ENTRE EJERCICIOS'}</span>
                     <div className="ml-auto flex gap-1.5">
-                      <button onClick={()=>adjustRestBetweenEx(-15)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant/60 text-[13px] text-on-surface-variant">-15s</button>
-                      <button onClick={()=>adjustRestBetweenEx(30)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant/60 text-[13px] text-on-surface-variant">+30s</button>
+                      <button onClick={()=>adjustRestBetweenEx(-15)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant text-[13px] text-on-surface-variant">-15s</button>
+                      <button onClick={()=>adjustRestBetweenEx(30)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant text-[13px] text-on-surface-variant">+30s</button>
                     </div>
                   </>
                 ) : (
@@ -1492,8 +1492,8 @@ const exercises: SessionEx[] = seList.map((se) => {
                     <button onClick={()=> restPaused ? resumeRest() : pauseRest()} aria-label={restPaused?'Reanudar descanso':'Pausar descanso'} className="font-metric-mobile text-[32px] leading-none font-semibold text-on-surface tabular-nums">{Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</button>
                     <span className="font-label-caps text-[10px] text-primary tracking-widest">{restPaused ? 'PAUSADO' : 'RESPIRA HONDO'}</span>
                     <div className="ml-auto flex gap-1.5">
-                      <button onClick={()=>adjustRest(-15)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant/60 text-[13px] text-on-surface-variant">-15s</button>
-                      <button onClick={()=>adjustRest(30)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant/60 text-[13px] text-on-surface-variant">+30s</button>
+                      <button onClick={()=>adjustRest(-15)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant text-[13px] text-on-surface-variant">-15s</button>
+                      <button onClick={()=>adjustRest(30)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant text-[13px] text-on-surface-variant">+30s</button>
                     </div>
                   </>
                 )}
@@ -1502,7 +1502,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
             <div className="px-3 pb-3 flex flex-col gap-2">
               <div className="flex gap-2">
-                <button onClick={()=>{ if(current>0){ goToExercise(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 min-h-[48px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase font-bold disabled:opacity-50">‹ Anterior</button>
+                <button onClick={()=>{ if(current>0){ goToExercise(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase font-bold disabled:opacity-50">‹ Anterior</button>
                 {current < exs.length-1 ? (
                   <button onClick={()=>{ goToExercise(current+1) }} aria-label="Ejercicio siguiente" className="flex-1 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold"><span className="inline-flex items-center justify-center gap-2"><Check size={14}/> Siguiente ›</span></button>
                 ) : (
@@ -1562,8 +1562,8 @@ const exercises: SessionEx[] = seList.map((se) => {
         </div>
 
         <div className="flex gap-2">
-          <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant font-label-caps text-[10px] uppercase">Cancelar sesión</button>
-          <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant font-label-caps text-[10px] uppercase">Abandonar</button>
+          <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant font-label-caps text-[10px] uppercase">Cancelar sesión</button>
+          <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant font-label-caps text-[10px] uppercase">Abandonar</button>
         </div>
 
         <div style={{ height: MOBILE_NAV_OFFSET }} aria-hidden="true"></div>
@@ -1614,9 +1614,9 @@ const exercises: SessionEx[] = seList.map((se) => {
             <div className="font-body-md text-[15px] text-on-surface font-medium">Tenés un entrenamiento en progreso ({resumeBanner.calendarDate}).</div>
             <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">{resumeBanner.routineName} — {resumeBanner.dayName} · estado {resumeBanner.status} · {resumeBanner.exerciseCount} ejercicios</div>
             <div className="flex gap-2">
-              <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Continuar</button>
+              <button onClick={()=> localAdoptResumeSession(resumeBanner, false)} className="flex-1 min-h-[48px] py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Continuar</button>
               <button onClick={()=> localAdoptResumeSession(resumeBanner, true)} className="flex-1 min-h-[48px] py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Finalizar</button>
-              <button onClick={localAbandonResume} className="flex-1 py-2 rounded bg-surface-container/60 border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Abandonar</button>
+              <button onClick={localAbandonResume} className="flex-1 min-h-[48px] py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Abandonar</button>
             </div>
           </div>
         )}
@@ -1654,11 +1654,11 @@ const exercises: SessionEx[] = seList.map((se) => {
               }} className="hidden md:inline-flex items-center min-h-[48px] font-body-sm text-[13px] text-accent underline mt-1">Cambiar día de entrenamiento</button>
             </div>
             <div className="flex items-center gap-2.5">
-              <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
+              <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
                 <SemanticIcon name="swap_horiz" size={18} className="text-[18px]" />
                 <span className="hidden sm:inline">Cancelar sesión</span>
               </button>
-              <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
+              <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
                 <SemanticIcon name="reorder" size={18} className="text-[18px]" />
                 <span className="hidden sm:inline">Abandonar</span>
               </button>
@@ -1680,7 +1680,7 @@ const exercises: SessionEx[] = seList.map((se) => {
             {(sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED') && (
               <div className="flex items-center gap-2">
                 <span className={`px-3 py-1 rounded-full border font-label-caps text-[10px] uppercase ${sessionStatus==='PAUSED' ? 'bg-secondary-container/20 border-secondary/30 text-secondary' : 'bg-primary-container/20 border-primary/30 text-primary'}`}>Estado: {sessionStatus}</span>
-                <button onClick={togglePause} className="min-h-[48px] px-3 py-1 rounded-full bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/40 transition-colors">{sessionStatus==='PAUSED' ? 'Continuar' : 'Pausar'}</button>
+                <button onClick={togglePause} className="min-h-[48px] px-3 py-1 rounded-full bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/40 transition-colors">{sessionStatus==='PAUSED' ? 'Continuar' : 'Pausar'}</button>
               </div>
             )}
           </div>
@@ -1701,7 +1701,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           <div className="lg:col-span-8 space-y-6">
             {/* Active Exercise Card */}
             {cur && (
-              <div className="bg-surface-container-low border border-secondary/40 rounded-xl   overflow-hidden">
+              <div className="bg-surface-container-low/70 backdrop-blur-md border border-secondary/40 rounded-xl overflow-hidden">
                 {/* Exercise Header Strip */}
                 <div className="p-6 pb-4 border-b border-outline-variant/30 flex flex-col sm:flex-row sm:items-start justify-between gap-4 bg-surface-container-low/80">
                   <div className="flex items-start gap-4 min-w-0">
@@ -1756,7 +1756,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                 </div>
 
                 {/* Architectural Cue — Coach */}
-                <div className="px-6 py-3 bg-surface-container/60 border-b border-outline-variant/30 flex items-center gap-3">
+                <div className="px-6 py-3 bg-surface-container border-b border-outline-variant/30 flex items-center gap-3">
                   <SemanticIcon name="lightbulb" className="text-secondary" />
                   <p className="font-body-sm text-[13px] text-on-surface-variant">
                     <strong className="text-secondary font-medium">Clave de Virtud:</strong>{' '}
@@ -1838,9 +1838,9 @@ const exercises: SessionEx[] = seList.map((se) => {
                 {/* Modify + Skip buttons */}
                 {!done[current] && (
                   <div className="px-6 pb-4 flex gap-2">
-                    <button onClick={()=>{ setMod({weight:cur.weight ?? 0,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
-                    <button onClick={handleSkipWithReason} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
-                    <button onClick={openAddExtra} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container/60 border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Extra</button>
+                    <button onClick={()=>{ setMod({weight:cur.weight ?? 0,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
+                    <button onClick={handleSkipWithReason} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
+                    <button onClick={openAddExtra} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Extra</button>
                   </div>
                 )}
 
@@ -1848,7 +1848,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                     indica en su panel propio y nunca reemplaza SIGUIENTE/FINALIZAR. */}
                 <div className="px-6 pb-4 flex flex-col gap-2">
                   <div className="flex gap-2">
-                      <button onClick={()=>{ if(current>0){ goToExercise(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 py-3 min-h-[48px] rounded bg-surface-container border border-outline-variant/60 font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] disabled:opacity-50">
+                      <button onClick={()=>{ if(current>0){ goToExercise(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 py-3 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] disabled:opacity-50">
                       <span className="flex items-center justify-center gap-2">‹ Anterior</span>
                     </button>
                     {current < exs.length-1 ? (
@@ -1913,7 +1913,7 @@ const exercises: SessionEx[] = seList.map((se) => {
            <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-6 lg:self-start">
 {/* Rest Timer Widget - shows active rest (between-exercises takes priority) */}
               {(restSec > 0 || restFlash || restBetweenExSec > 0 || restBetweenExFlash) && (
-                <div className="bg-surface-container-low border border-outline-variant/60 rounded-xl p-6  flex flex-col items-center text-center relative overflow-hidden">
+                <div className="bg-surface-container-low border border-outline-variant rounded-xl p-6  flex flex-col items-center text-center relative overflow-hidden">
                   <div className="w-full flex items-center justify-between pb-3 border-b border-outline-variant/30 mb-5">
                     <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider flex items-center gap-1.5">
                       <SemanticIcon name="hourglass_top" size={16} className="text-[16px]" />
@@ -1956,13 +1956,13 @@ const exercises: SessionEx[] = seList.map((se) => {
                   <div className="grid grid-cols-2 gap-2 w-full mt-4">
                     {restBetweenExSec > 0 || restBetweenExFlash ? (
                       <>
-                        <button onClick={()=>adjustRestBetweenEx(-15)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">-15s</button>
-                        <button onClick={()=>adjustRestBetweenEx(30)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">+30s</button>
+                        <button onClick={()=>adjustRestBetweenEx(-15)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">-15s</button>
+                        <button onClick={()=>adjustRestBetweenEx(30)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">+30s</button>
                       </>
                     ) : (
                       <>
-                        <button onClick={()=>adjustRest(-15)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">-15s</button>
-                        <button onClick={()=>adjustRest(30)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant/60 hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">+30s</button>
+                        <button onClick={()=>adjustRest(-15)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">-15s</button>
+                        <button onClick={()=>adjustRest(30)} className="px-2 py-1.5 rounded bg-surface-container border border-outline-variant hover:border-secondary text-on-surface-variant hover:text-on-surface font-label-md text-[14px] transition-all active:scale-95">+30s</button>
                       </>
                     )}
                   </div>
