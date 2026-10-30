@@ -63,8 +63,11 @@ export function effectiveBreakdown(ex: Pick<Exercise, 'muscle' | 'secondaryMuscl
 export function validateCustomInput(input: CustomInput): string[] {
   const errs: string[] = []
   if (!input.name || !input.name.trim()) {errs.push('Nombre obligatorio')}
+  if (!input.description || !input.description.trim()) {errs.push('Descripción obligatoria')}
   if (!input.bodyPart) {errs.push('Parte obligatoria')}
   if (!input.muscle) {errs.push('Grupo muscular principal obligatorio')}
+  if (!input.category || !input.category.trim()) {errs.push('Tipo de movimiento obligatorio')}
+  if (!input.equipment || !input.equipment.trim()) {errs.push('Equipo obligatorio')}
   const all = [input.primaryPct, ...input.secondaryPcts]
   if (all.some((p) => !Number.isFinite(p) || p < 0 || p > 100)) {errs.push('Porcentajes entre 0 y 100')}
   if (input.secondaryMuscles.length !== input.secondaryPcts.length) {errs.push('Cada secundario necesita su porcentaje')}

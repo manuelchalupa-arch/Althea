@@ -17,7 +17,8 @@ describe('flujo custom extremo a extremo (Casos 5–8)', () => {
   it('crear → rutina(snapshot) → entrenar → historial → progreso por parte → reemplazo', async () => {
     // 1. crear (Caso 1/2)
     const custom = await createCustomExercise({
-      name: 'Press unilateral en polea', bodyPart: 'chest', muscle: 'pectorals',
+      name: 'Press unilateral en polea', description: 'Tira unilateral en polea alta con control.',
+      bodyPart: 'chest', muscle: 'pectorals',
       secondaryMuscles: ['triceps'], primaryPct: 70, secondaryPcts: [30],
       category: 'strength', equipment: 'cable',
     })
@@ -57,7 +58,8 @@ describe('flujo custom extremo a extremo (Casos 5–8)', () => {
 
   it('eliminar con historial archiva (no borra); sin historial elimina', async () => {
     const withHist = await createCustomExercise({
-      name: 'Remo polea', bodyPart: 'back', muscle: 'lats',
+      name: 'Remo polea', description: 'Remo corto en polea baja.',
+      bodyPart: 'back', muscle: 'lats',
       secondaryMuscles: [], primaryPct: 100, secondaryPcts: [],
       category: 'strength', equipment: 'cable',
     })
@@ -79,7 +81,8 @@ describe('flujo custom extremo a extremo (Casos 5–8)', () => {
     expect(last!.weight).toBe(40)
     // Sin historial → borrado físico
     const fresh = await createCustomExercise({
-      name: 'Temporal', bodyPart: 'chest', muscle: 'pectorals',
+      name: 'Temporal', description: 'Ejercicio de prueba sin historial.',
+      bodyPart: 'chest', muscle: 'pectorals',
       secondaryMuscles: [], primaryPct: 100, secondaryPcts: [],
       category: 'strength', equipment: 'cable',
     })

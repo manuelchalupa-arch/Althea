@@ -13,7 +13,8 @@ import { getActiveVersion, getCanonicalMethodId, PROFILE_SCOPE } from '@/service
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import * as Gym from '@/services/exerciseGym'
 import { exercisePurpose, EXERCISE_PURPOSES, type ExercisePurpose } from '@/utils/stretching'
-import { traditionalForGroup } from '@/data/traditionalCatalog'
+import { traditionalForGroup, CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT, CUSTOM_FORM_CATEGORIES } from '@/data/traditionalCatalog'
+import BibliotecaCustomForm from './BibliotecaCustomForm'
 import { PeriodizationEditor } from '@/components/recovery/PeriodizationEditor'
 import { MAX_ROUTINES } from '@/services/storage/routineStore'
 import { todayKey, addDaysToKey, toDateKey, daysBetween } from '@/utils/dates'
@@ -790,6 +791,8 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
   const [loading,setLoading]=useState(false)
   const [err,setErr]=useState<string|null>(null)
   const [methodHint,setMethodHint]=useState<{types:string[];avoid:string[]}|null>(null)
+  const [showCreate,setShowCreate]=useState(false)
+  const [reloadKey,setReloadKey]=useState(0)
   const existingSet = new Set(existingIds)
   useEffect(()=>{
     if(muscles.length===0 && purpose==='conventional') {return}
@@ -831,9 +834,16 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
           merged.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
         }
         try{
-          const { listCustomExercises } = await import('@/services/training/customExercises')
+          const { listCustomExercises, matchesCustomFilter } = await import('@/services/training/customExercises')
           const customs:Gym.Exercise[] = []
           for(const m of muscles){ const cs = await listCustomExercises('muscle', m).catch(()=>[]); for(const c of cs){ if(!seen.has(c.id) && exercisePurpose(c as unknown as { category?: string; exerciseObjective?: string }) === purpose){ seen.add(c.id); customs.push(c as unknown as Gym.Exercise) } } }
+          // Biblioteca compartida (creada por cualquier usuario): mismo criterio
+          // músculo+finalidad; refresca la cache de Firestore y filtra en local.
+          try{
+            const { listSharedExercises } = await import('@/services/training/sharedExercises')
+            const sh = await listSharedExercises()
+            for(const c of sh){ if(!seen.has(c.id) && muscles.some(m=> matchesCustomFilter(c, 'muscle', m)) && exercisePurpose(c as unknown as { category?: string; exerciseObjective?: string }) === purpose){ seen.add(c.id); customs.push(c as unknown as Gym.Exercise) } }
+          }catch{ /* noop */ }
           merged.push(...customs)
           merged.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'es'))
         }catch{ /* noop */ }
@@ -844,7 +854,7 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
     }
     load()
     return ()=>{ cancelled=true }
-  },[muscles, purpose])
+  },[muscles, purpose, reloadKey])
 
   const availableMuscles = Array.from(new Set(items.map(ex=>ex.muscle))).sort((a,b)=> displayMuscle(a).localeCompare(displayMuscle(b), 'es'))
 
@@ -892,7 +902,10 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[80vh] overflow-auto p-4 space-y-3">
-        <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio</h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio</h3>
+          <button type="button" onClick={()=>setShowCreate(true)} className="shrink-0 px-3 min-h-[40px] rounded bg-primary text-on-primary font-label-md text-[12px] font-semibold">+ Crear ejercicio</button>
+        </div>
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Día: <b>{dayName}</b> → {muscles.map(m=> displayMuscle(m)).join(' + ')} <span className="text-on-surface-variant">({muscles.join(', ')})</span></div>
         <div className="flex gap-1 flex-wrap">
           {muscles.map(m=> <span key={m} className="px-2 py-1 rounded-full bg-primary border border-outline-variant font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface">{displayMuscle(m)}</span>)}
@@ -985,6 +998,15 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
           })}
         </div>
         <AltheaButton fullWidth variant="secondary" onClick={onClose}>Cerrar</AltheaButton>
+        {showCreate && (
+          <BibliotecaCustomForm
+            muscles={CUSTOM_FORM_MUSCLES}
+            equipment={CUSTOM_FORM_EQUIPMENT}
+            categories={CUSTOM_FORM_CATEGORIES}
+            onSaved={()=>{ setShowCreate(false); setReloadKey(k=>k+1) }}
+            onClose={()=>setShowCreate(false)}
+          />
+        )}
       </div>
     </div>
   )

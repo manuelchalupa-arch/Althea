@@ -103,7 +103,7 @@ export default function BibliotecaCustomForm({
             <section className="space-y-2">
               <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant font-medium">Información básica</div>
               <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nombre *<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Press unilateral en polea" maxLength={80} className="w-full mt-1 bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface" /></label>
-              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Descripción<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} maxLength={300} placeholder="Opcional" className="w-full mt-1 bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface" /></label>
+              <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Descripción *<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} maxLength={300} placeholder="Qué hace el ejercicio y cómo se ejecuta" className="w-full mt-1 bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface" /></label>
             </section>
 
             <section className="space-y-2">
@@ -121,12 +121,13 @@ export default function BibliotecaCustomForm({
                     {muscles.map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </label>
-                <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Tipo de movimiento
+                <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Tipo de movimiento *
                   <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full mt-1 bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface">
+                    <option value="">Seleccionar…</option>
                     {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </label>
-                <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Equipo
+                <label className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Equipo *
                   <select value={equip} onChange={(e) => setEquip(e.target.value)} className="w-full mt-1 bg-surface border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface">
                     <option value="">Seleccionar…</option>
                     {equipment.map((c) => <option key={c} value={c}>{c}</option>)}

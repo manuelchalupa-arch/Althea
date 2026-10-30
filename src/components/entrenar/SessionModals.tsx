@@ -195,6 +195,7 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
     if(!onCreate){return}
     if(!cName.trim()){ setCErr('Ingresá el nombre del ejercicio.'); return }
     if(cMuscles.length===0){ setCErr('Elegí al menos un grupo muscular.'); return }
+    if(!cDesc.trim()){ setCErr('Ingresá una descripción del ejercicio.'); return }
     setCErr(''); setSaving(true)
     try{ await onCreate({ name:cName.trim(), equipment:cEquipment, muscles:cMuscles, description:cDesc.trim() }) }
     catch(e){ setCErr(e instanceof Error? e.message : 'No se pudo crear el ejercicio.'); setSaving(false); return }
@@ -222,7 +223,7 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
                 ))}
               </div>
             </div>
-            <textarea value={cDesc} onChange={(e)=>setCDesc(e.target.value)} placeholder="Breve descripción (opcional)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+            <textarea value={cDesc} onChange={(e)=>setCDesc(e.target.value)} placeholder="Breve descripción (obligatoria)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
             {cErr? <p className="font-body-md text-[13px] text-error">{cErr}</p> : null}
             <div className="flex gap-2">
               <button onClick={()=>submitCreate()} disabled={saving} className="flex-1 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold disabled:opacity-60">{saving? 'Guardando…':'Crear y agregar'}</button>

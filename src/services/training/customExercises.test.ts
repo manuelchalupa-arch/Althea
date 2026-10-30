@@ -40,6 +40,13 @@ describe('validación (§14, §36)', () => {
   it('cada secundario necesita su porcentaje', () => {
     expect(validateCustomInput(input({ secondaryPcts: [] }))).toContain('Cada secundario necesita su porcentaje')
   })
+  it('todos los apartados cargados: descripción, tipo de movimiento y equipo obligatorios', () => {
+    expect(validateCustomInput(input({ description: ' ' }))).toContain('Descripción obligatoria')
+    expect(validateCustomInput(input({ category: '' }))).toContain('Tipo de movimiento obligatorio')
+    expect(validateCustomInput(input({ equipment: '' }))).toContain('Equipo obligatorio')
+    // Con todo cargado no hay errores
+    expect(validateCustomInput(input())).toEqual([])
+  })
 })
 
 describe('identidad y breakdown (§9, §19)', () => {
