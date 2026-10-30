@@ -17,7 +17,7 @@ export async function listSharedExercises(): Promise<CustomExercise[]> {
     const out: CustomExercise[] = []
     snap.forEach((d) => {
       const data = d.data() as CustomExercise
-      if (data && data.id) out.push(data)
+      if (data && data.id) {out.push(data)}
     })
     // cache
     try { await db.sharedExercises.clear(); await db.sharedExercises.bulkPut(out as any) } catch {}
@@ -31,7 +31,7 @@ export async function publishSharedExercise(ex: CustomExercise): Promise<CustomE
   try {
     const auth = getAuth()
     const uid = auth.currentUser?.uid
-    if (!uid) throw new Error('Debes iniciar sesión para compartir')
+    if (!uid) {throw new Error('Debes iniciar sesión para compartir')}
   } catch {}
   const id = ex.id && ex.id.startsWith('custom/') ? ex.id : newCustomId()
   const rec: CustomExercise = {
@@ -61,7 +61,7 @@ export async function ensureInShared(ex: CustomExercise): Promise<CustomExercise
     const existing = await listSharedExercises()
     const key = norm(ex.name) + '|' + norm(ex.muscle)
     const dup = existing.find(e => norm(e.name) + '|' + norm(e.muscle) === key)
-    if (dup) return dup
+    if (dup) {return dup}
   } catch {}
   try {
     return await publishSharedExercise(ex)

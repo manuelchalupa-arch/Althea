@@ -79,7 +79,7 @@ export default function Biblioteca(){
       const merged: Gym.Exercise[] = []
       const pushAll = (arr: any[]) => {
         for (const e of arr) {
-          if (!e?.id || seenAll.has(e.id)) continue
+          if (!e?.id || seenAll.has(e.id)) {continue}
           seenAll.add(e.id)
           merged.push(e as Gym.Exercise)
         }
