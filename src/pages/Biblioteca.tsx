@@ -130,9 +130,19 @@ export default function Biblioteca(){
 
   return (
     <div className="min-h-screen bg-transparent px-0 pt-2 pb-24 md:px-6 md:pt-6 md:pb-6 lg:px-8 lg:pt-8 lg:pb-8 sm:px-5 xl:px-10 2xl:px-12 w-full mx-auto space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Biblioteca</h1>
-        <AltheaBadge variant="outline"><Globe size={12}/> {exercises.length || '…'} ejercicios</AltheaBadge>
+        <div className="flex items-center gap-2">
+          <AltheaBadge variant="outline"><Globe size={12}/> {exercises.length || '…'} ejercicios</AltheaBadge>
+          <button
+            type="button"
+            onClick={()=>{ setEditing(null); setShowForm(true) }}
+            aria-label="Agregar ejercicio"
+            className="shrink-0 px-3 min-h-[36px] rounded bg-primary text-on-primary text-sm font-medium"
+          >
+            + Agregar
+          </button>
+        </div>
       </div>
       <section aria-label="Grupos musculares" className="space-y-3">
         <h2 className="text-sm font-semibold text-on-surface">
