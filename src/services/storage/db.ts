@@ -104,7 +104,7 @@ export class TrainDB extends Dexie {
   onboardingDrafts!: Table<OnboardingDraft>
   painLogs!: Table<PainLog>
   cycleVersions!: Table<CycleVersion>
-  hydrationBottles!: Table<{ id: string; name?: string; capacityMl: number; active: boolean; order: number; updatedAt: string }>
+  hydrationBottles!: Table<{ id: string; name?: string; capacityMl: number; active: boolean; order: number; color?: string; updatedAt: string }>
   hydrationBottleLogs!: Table<{ id: string; localDate: string; bottleId: string; amountMl: number; time: string }>
   notifConfigs!: Table<{ id: string;[k: string]: unknown }>
   notifLog!: Table<{ id: string; date: string;[k: string]: unknown }>

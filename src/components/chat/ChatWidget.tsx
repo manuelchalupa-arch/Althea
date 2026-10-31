@@ -49,6 +49,13 @@ export default function ChatWidget() {
     return () => { mountedRef.current = false }
   }, [])
 
+  // El botón de chat del AppHeader (temple.tsx) dispatchea este evento.
+  useEffect(() => {
+    const openFromHeader = () => setOpenChat(true)
+    window.addEventListener('althea:open-chat', openFromHeader)
+    return () => window.removeEventListener('althea:open-chat', openFromHeader)
+  }, [])
+
   useEffect(() => {
     if (openChat) {
       loadMessages()

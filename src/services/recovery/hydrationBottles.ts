@@ -8,6 +8,8 @@ export type BottleConfig = {
   capacityLiters: number
   active: boolean
   order: number
+  /** Color propio de la botella (hex), usado en los botones de carga rápida. */
+  color?: string
 }
 
 export type BottleLog = {
@@ -36,9 +38,9 @@ export type BottleDailySummary = {
 }
 
 const DEFAULT_BOTTLES: Omit<BottleConfig, 'capacityLiters'>[] = [
-  { id: 'bottle-1', name: 'Botella 1', capacityMl: 750, active: true, order: 1 },
-  { id: 'bottle-2', name: 'Botella 2', capacityMl: 1000, active: true, order: 2 },
-  { id: 'bottle-3', name: 'Botella 3', capacityMl: 1500, active: false, order: 3 },
+  { id: 'bottle-1', name: 'Botella 1', capacityMl: 750, active: true, order: 1, color: '#2E6FE0' },
+  { id: 'bottle-2', name: 'Botella 2', capacityMl: 1000, active: true, order: 2, color: '#0E9F6E' },
+  { id: 'bottle-3', name: 'Botella 3', capacityMl: 1500, active: false, order: 3, color: '#8B5CF6' },
 ]
 
 /**
@@ -48,7 +50,7 @@ const DEFAULT_BOTTLES: Omit<BottleConfig, 'capacityLiters'>[] = [
  */
 export const MANUAL_BOTTLE_ID = 'manual'
 
-function toConfig(raw: { id: string; name?: string; capacityMl: number; active: boolean; order: number }): BottleConfig {
+function toConfig(raw: { id: string; name?: string; capacityMl: number; active: boolean; order: number; color?: string }): BottleConfig {
   return {
     ...raw,
     capacityLiters: raw.capacityMl / 1000,
@@ -57,7 +59,8 @@ function toConfig(raw: { id: string; name?: string; capacityMl: number; active: 
 
 export function validateBottles(bottles: BottleConfig[]): string | null {
   const active = bottles.filter(b => b.active)
-  if (active.length < 2 || active.length > 3) {return 'Debe haber entre 2 y 3 botellas activas'}
+  // 1 a 3 activas: el usuario elige cuántas botellas usa (1, 2 o 3).
+  if (active.length < 1 || active.length > 3) {return 'Debe haber entre 1 y 3 botellas activas'}
   for (const b of bottles) {
     if (!Number.isFinite(b.capacityMl) || b.capacityMl <= 0) {return `Capacidad inválida para ${b.id}`}
     if (b.capacityMl < 100 || b.capacityMl > 5000) {return `Capacidad fuera de rango para ${b.id}`}
@@ -74,7 +77,10 @@ export async function getBottleConfigs(): Promise<BottleConfig[]> {
     await db.hydrationBottles.bulkPut(toPut as any)
     return toPut.map(toConfig)
   }
-  return rows.sort((a, b) => a.order - b.order).map(toConfig)
+  // Backfill de color: configs guardadas antes del campo `color` toman el color
+  // por defecto de su id (o el primario vía fallback en los botones).
+  return rows.sort((a, b) => a.order - b.order)
+    .map(r => toConfig({ ...r, color: r.color || DEFAULT_BOTTLES.find(d => d.id === r.id)?.color }))
 }
 
 export async function saveBottleConfigs(configs: BottleConfig[]): Promise<void> {
@@ -87,6 +93,7 @@ export async function saveBottleConfigs(configs: BottleConfig[]): Promise<void> 
     capacityMl: Math.round(c.capacityMl),
     active: c.active,
     order: c.order,
+    color: c.color || undefined,
     updatedAt: now,
   }))
   await db.hydrationBottles.bulkPut(rows as any)

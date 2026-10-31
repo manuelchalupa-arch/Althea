@@ -6,6 +6,9 @@ import { Settings2 } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { getBottleConfigs, saveBottleConfigs, validateBottles, type BottleConfig } from '@/services/recovery/hydrationBottles'
 
+/** Paleta propia de cada botella (botones de carga rápida en Inicio). */
+const BOTTLE_COLORS = ['#2E6FE0', '#0E9F6E', '#8B5CF6', '#E08D1A', '#D92735']
+
 export function BottleConfigEditor() {
   const isMobile = useIsMobile()
   const [configs, setConfigs] = useState<BottleConfig[]>([])
@@ -35,7 +38,12 @@ export function BottleConfigEditor() {
     setError(null)
     setSaving(true)
     try {
-      const normalized = draft.map(b => ({ ...b, capacityLiters: b.capacityMl / 1000 }))
+      const normalized = draft.map((b, i) => ({
+        ...b,
+        capacityLiters: b.capacityMl / 1000,
+        // Toda botella guardada queda con color propio (por defecto, el de su slot).
+        color: b.color || BOTTLE_COLORS[i % BOTTLE_COLORS.length],
+      }))
       const err = validateBottles(normalized)
       if (err) { throw new Error(err) }
       await saveBottleConfigs(normalized)
@@ -53,9 +61,10 @@ export function BottleConfigEditor() {
 
   const panel = (
     <div className="rounded-lg border border-outline-variant/40 bg-surface-container p-3 space-y-3">
-      <div className="font-label-caps text-[10px] uppercase text-on-surface-variant">Configuración (2 a 3 botellas activas)</div>
+      <div className="font-label-caps text-[10px] uppercase text-on-surface-variant">Configuración (1 a 3 botellas activas)</div>
       {draft.map((b, idx) => (
-        <div key={b.id} className="flex items-center gap-2">
+        <div key={b.id} className="space-y-1.5">
+        <div className="flex items-center gap-2">
           <input
             type="text"
             placeholder={`Botella ${idx + 1}`}
@@ -91,6 +100,20 @@ export function BottleConfigEditor() {
             />
             activa
           </label>
+        </div>
+        <div className="flex items-center gap-1.5 pl-1" role="group" aria-label={`Color de la botella ${idx + 1}`}>
+          {BOTTLE_COLORS.map(c => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setDraft(prev => prev.map(x => x.id === b.id ? { ...x, color: c } : x))}
+              aria-label={`Color ${c} de la botella ${idx + 1}`}
+              aria-pressed={(b.color ?? BOTTLE_COLORS[0]) === c}
+              className={`w-6 h-6 rounded-full border-2 transition-transform ${(b.color ?? BOTTLE_COLORS[0]) === c ? 'border-on-surface scale-110' : 'border-transparent'}`}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
         </div>
       ))}
       {error && <div className="font-body-sm text-xs text-error">{error}</div>}

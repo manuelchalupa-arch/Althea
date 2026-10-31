@@ -409,6 +409,9 @@ button.is-active:not(:disabled):not(.althea-seg button):not(.no-check)::after,
 }
 
 /* ============================ CAMPOS ============================ */
+/* En @layer components para que las utilidades Tailwind (w-[80px], etc.)
+   puedan sobreescribir width/padding — sin la capa, .input pisaba w-*. */
+@layer components {
 .input {
   background: var(--c-surface);
   border: 3px solid var(--c-outline);
@@ -416,6 +419,7 @@ button.is-active:not(:disabled):not(.althea-seg button):not(.no-check)::after,
   color: var(--c-on-surface);
   padding: 10px 12px; width: 100%;
   transition: border-color 0.16s ease-out, box-shadow 0.16s ease-out;
+}
 }
 .input::placeholder { color: var(--c-on-surface-variant); }
 .input:hover { border-color: var(--c-outline); }

@@ -512,7 +512,7 @@ export default function Inicio(){
               {isVisible('nutrition') && <Link to="/nutricion" className="shrink-0 inline-flex items-center min-h-[44px] text-[10px] text-on-surface-variant font-label-caps hover:text-primary transition-colors">Nutrición →</Link>}
             </div>
             {/* Solo visual: el registro y la configuración viven en Nutrición. */}
-            <WaterBottle size="sm" allowQuickAdd={false} />
+            <WaterBottle size="sm" allowQuickAdd />
           </div>
 
           {isVisible('nutrition') && (

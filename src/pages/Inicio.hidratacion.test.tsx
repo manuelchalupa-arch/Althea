@@ -17,7 +17,7 @@ describe('Inicio — hidratación es solo visual (registro y config en Nutrició
     localStorage.clear()
   })
 
-  it('muestra la botella chica sin botones de registro ni editor de config', async () => {
+  it('muestra la botella chica con botones de registro (sin editor de config)', async () => {
     render(<MemoryRouter><Inicio /></MemoryRouter>)
 
     await waitFor(() => {
@@ -27,10 +27,11 @@ describe('Inicio — hidratación es solo visual (registro y config en Nutrició
     const svg = await screen.findByTestId('water-bottle-svg', undefined, { timeout: 10000 })
     expect(svg).toBeInTheDocument()
 
-    // Nada de edición desde Inicio: solo gráfico de un vistazo.
+    // Registro rápido desde Inicio: vaso estático + botellas activas; sin editor.
     expect(screen.queryByTestId('inicio-add-water-250')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('water-bottle-actions')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('water-bottle-manual')).not.toBeInTheDocument()
+    expect(screen.getByTestId('water-bottle-actions')).toBeInTheDocument()
+    const staticBtn = await screen.findByTestId('water-bottle-add-static', undefined, { timeout: 10000 })
+    expect(staticBtn).toBeInTheDocument()
     expect(screen.queryByTestId('bottle-config-editor')).not.toBeInTheDocument()
 
     // El detalle/registro queda referenciado desde la tarjeta de hidratación.

@@ -92,6 +92,20 @@ export function WaterBottle({ date, allowQuickAdd = true, compact = false, size,
     }
   }
 
+  // Vaso estático (no es botella configurada): suma ml sin botella asociada.
+  const onStaticAdd = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      await addHydrationMl(FALLBACK_BOTTLE_ML, day)
+      await reload()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'No se pudo registrar el agua')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const manualValue = Math.round(Number(manualMl))
   // (G) Registro manual: ml libres ? db.hydrationBottleLogs con id `manual`.
   const onManualAdd = async () => {
@@ -199,23 +213,36 @@ export function WaterBottle({ date, allowQuickAdd = true, compact = false, size,
           <div className="flex flex-wrap gap-1.5 mt-2 justify-center" data-testid="water-bottle-actions">
             {loading ? (
               <span className="font-body-sm text-[11px] text-on-surface-variant">Cargando…</span>
-            ) : bottles.length === 0 ? (
-              <span className="font-body-sm text-[11px] text-on-surface-variant">Sin botellas activas configuradas</span>
             ) : (
-              bottles.map(b => (
+              <>
+                {/* Vaso estático (medida de referencia) — siempre disponible */}
                 <button
-                  key={b.id}
-                  onClick={() => onComplete(b.id)}
+                  onClick={() => void onStaticAdd()}
                   disabled={busy}
-                  data-testid={`water-bottle-add-${b.id}`}
-                  aria-label={`Registrar ${b.name || b.id} (${b.capacityMl} ml)`}
+                  data-testid="water-bottle-add-static"
+                  aria-label={`Registrar vaso de ${FALLBACK_BOTTLE_ML} ml`}
                   className="min-h-[44px] px-2.5 flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/35 text-primary font-label-caps text-[10px] font-bold uppercase tracking-wider disabled:opacity-40"
                 >
                   <SemanticIcon name="water_drop" size={14} className="text-[14px]" />
-                  +{b.capacityMl >= 1000 ? `${(b.capacityMl / 1000).toFixed(b.capacityMl % 1000 ? 1 : 0)}L` : `${b.capacityMl}ml`}
-                  {counts[b.id] ? <span className="text-on-surface-variant">({counts[b.id]})</span> : null}
+                  +{FALLBACK_BOTTLE_ML}ml
                 </button>
-              ))
+                {/* Una botella por cada configurada activa: su color y su medida */}
+                {bottles.map(b => (
+                  <button
+                    key={b.id}
+                    onClick={() => onComplete(b.id)}
+                    disabled={busy}
+                    data-testid={`water-bottle-add-${b.id}`}
+                    aria-label={`Registrar ${b.name || b.id} (${b.capacityMl} ml)`}
+                    style={b.color ? { color: b.color, borderColor: b.color, backgroundColor: `${b.color}14` } : undefined}
+                    className="min-h-[44px] px-2.5 flex items-center gap-1 rounded-lg border font-label-caps text-[10px] font-bold uppercase tracking-wider disabled:opacity-40 [&:not([style])]:bg-primary/10 [&:not([style])]:border-primary/35 [&:not([style])]:text-primary"
+                  >
+                    <SemanticIcon name="water_drop" size={14} className="text-[14px]" />
+                    +{b.capacityMl >= 1000 ? `${(b.capacityMl / 1000).toFixed(b.capacityMl % 1000 ? 1 : 0)}L` : `${b.capacityMl}ml`}
+                    {counts[b.id] ? <span className="opacity-70">({counts[b.id]})</span> : null}
+                  </button>
+                ))}
+              </>
             )}
           </div>
         )}
