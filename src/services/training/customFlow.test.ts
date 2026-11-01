@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { db } from '@/services/storage/db'
+
+vi.mock('@/services/exerciseGym', () => ({ fetchAll: async () => ({ count: 0, exercises: [] }) }))
+
 import { createCustomExercise, overlayCustomParts, deleteCustomExercise, getCustomExercise } from './customExercises'
 import { createSession, transitionSession, confirmSetRecord, getSessionExercises } from './sessionStore'
 import { getLastSerieWithSource } from '@/services/history'

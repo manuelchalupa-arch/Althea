@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { db } from '@/services/storage/db'
+
+vi.mock('@/services/exerciseGym', () => ({ fetchAll: async () => ({ count: 0, exercises: [] }) }))
+
 import {
   validateCustomInput, buildBreakdown, effectiveBreakdown, matchesCustomFilter,
   createCustomExercise, updateCustomExercise, deleteCustomExercise,

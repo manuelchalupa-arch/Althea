@@ -5,6 +5,7 @@
 import { normFold } from '@/utils/format'
 import { db } from '@/services/storage/db'
 import type { Exercise, MuscleShare } from '@/services/exerciseGym'
+import { findExerciseDuplicates } from './exerciseDuplicates'
 
 export type CustomExercise = Exercise & {
   origin: 'USER_CREATED'
@@ -92,6 +93,8 @@ export function matchesCustomFilter(
 export async function createCustomExercise(input: CustomInput): Promise<CustomExercise> {
   const errs = validateCustomInput(input)
   if (errs.length > 0) {throw new Error(errs.join(' · '))}
+  const dup = (await findExerciseDuplicates(input)).find((d) => d.level === 'block')
+  if (dup) {throw new Error(dup.reason)}
   const now = new Date().toISOString()
   const slug = normFold(input.name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'ejercicio'
   const rec: CustomExercise = {
@@ -143,6 +146,8 @@ export async function updateCustomExercise(id: string, patch: Partial<CustomInpu
   }
   const errs = validateCustomInput(merged)
   if (errs.length > 0) {throw new Error(errs.join(' · '))}
+  const dup = (await findExerciseDuplicates(merged, id)).find((d) => d.level === 'block')
+  if (dup) {throw new Error(dup.reason)}
   const nx: CustomExercise = {
     ...prev,
     name: merged.name.trim(),

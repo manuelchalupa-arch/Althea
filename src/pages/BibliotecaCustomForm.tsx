@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BODY_PARTS } from '@/services/exerciseGym'
 import {
   createCustomExercise, updateCustomExercise, fileToExerciseImage,
   type CustomExercise, type CustomInput,
 } from '@/services/training/customExercises'
+import { findExerciseDuplicates, type DuplicateMatch } from '@/services/training/exerciseDuplicates'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { displayMuscle } from '@/utils/muscleMap'
 import { displayBodyPart, displayCategory, displayEquipment } from '@/utils/exerciseLabels'
@@ -38,6 +39,19 @@ export default function BibliotecaCustomForm({
   const [imgErr, setImgErr] = useState('')
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [dupe, setDupe] = useState<DuplicateMatch | null>(null)
+
+  // Aviso en vivo de duplicado mientras el usuario completa el formulario.
+  useEffect(() => {
+    let alive = true
+    const t = setTimeout(() => {
+      if (!name.trim() || !muscle || !equip) { setDupe(null); return }
+      void findExerciseDuplicates({ name, muscle, equipment: equip, machine, secondaryMuscles }, initial?.id)
+        .then((ms) => { if (alive) { setDupe(ms[0] ?? null) } })
+        .catch(() => { if (alive) { setDupe(null) } })
+    }, 500)
+    return () => { alive = false; clearTimeout(t) }
+  }, [name, muscle, equip, machine, secondaryMuscles, initial])
 
   const toggleSec = (m: string) => {
     if (secondaryMuscles.includes(m)) {
@@ -220,6 +234,11 @@ export default function BibliotecaCustomForm({
 
         {/* Parte superior del botón de guardado: errores + resumen compacto. */}
         <footer className="shrink-0 border-t border-outline-variant/60 bg-surface-container-low/95 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
+          {dupe && (
+            <div role="status" className={`rounded border px-2 py-1 ${dupe.level === 'block' ? 'border-error/40 bg-error/10' : 'border-outline-variant bg-surface'}`}>
+              <p className={`font-label-md text-[10px] font-semibold uppercase tracking-widest ${dupe.level === 'block' ? 'st-error-text' : 'text-on-surface-variant'}`}>{dupe.level === 'block' ? '⚠ ' : '💡 '}{dupe.reason}</p>
+            </div>
+          )}
           {errors.length > 0 && (
             <div className="max-h-24 overflow-y-auto rounded border border-error/40 bg-error/10 px-2 py-1">
               {errors.map((e) => <p key={e} className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant st-error-text">{e}</p>)}
