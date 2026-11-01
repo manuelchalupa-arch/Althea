@@ -90,12 +90,13 @@ describe('biblioteca compartida entre usuarios', () => {
     expect(await db.sharedExercises.count()).toBe(1)
   })
 
-  it('no duplica: segunda creación con el mismo nombre queda bloqueada', async () => {
+  it('no duplica: segunda creación con el mismo nombre pide doble confirmación', async () => {
     await createCustomExercise(input)
-    // Segunda creación con la misma clave normalizada (mayúsculas/espacios):
-    // la restricción de duplicados la rechaza antes de publicar.
+    // Sin confirmación → rechazada con el aviso de duplicado.
     await expect(createCustomExercise({ ...input, name: `  ${input.name.toUpperCase()}  ` }))
       .rejects.toThrow(/Ya existe en la biblioteca/)
+    // Con doble confirmación sí guarda, pero la nube no recibe un doc nuevo.
+    await createCustomExercise({ ...input, name: `  ${input.name.toUpperCase()}  ` }, { confirmDuplicate: true })
     expect(mem.docs.size).toBe(1)
   })
 

@@ -5,6 +5,7 @@ import * as Gym from '@/services/exerciseGym'
 import { CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT } from '@/data/traditionalCatalog'
 import { displayMuscle } from '@/utils/muscleMap'
 import { displayEquipment } from '@/utils/exerciseLabels'
+import { DuplicateExerciseError } from '@/services/training/exerciseDuplicates'
 
 const INCOMPLETE_REASONS = ['Dolor / molestia','Falta de tiempo','Cansancio excesivo','Falta de equipamiento','Lesión','Otro']
 
@@ -182,7 +183,7 @@ export function AbandonModal({ show, onClose, reason, setReason, comment, setCom
 export function AddExtraModal({ show, onClose, options, reason, setReason, comment, setComment, onAdd, onCreate }:{
   show:boolean; onClose:()=>void; options:Gym.Exercise[];
   reason:string; setReason:(v:string)=>void; comment:string; setComment:(v:string)=>void; onAdd:(ex:Gym.Exercise)=>void
-  onCreate?:(draft:{ name:string; equipment:string; muscles:string[]; description:string })=>Promise<void>
+  onCreate?:(draft:{ name:string; equipment:string; muscles:string[]; description:string }, opts?:{ confirmDuplicate?: boolean })=>Promise<void>
 }){
   const [mode,setMode]=useState<'pick'|'create'>('pick')
   const [cName,setCName]=useState('')
@@ -190,18 +191,24 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
   const [cMuscles,setCMuscles]=useState<string[]>([])
   const [cDesc,setCDesc]=useState('')
   const [cErr,setCErr]=useState('')
+  const [cDup,setCDup]=useState('')
   const [saving,setSaving]=useState(false)
-  useEffect(()=>{ if(show){ setMode('pick'); setCName(''); setCMuscles([]); setCDesc(''); setCErr('') } },[show])
+  useEffect(()=>{ if(show){ setMode('pick'); setCName(''); setCMuscles([]); setCDesc(''); setCErr(''); setCDup('') } },[show])
   if(!show) {return null}
   const toggleMuscle=(m:string)=>{ setCMuscles(prev=> prev.includes(m)? prev.filter(x=>x!==m) : [...prev,m]) }
-  const submitCreate=async()=>{
+  const submitCreate=async(confirmed=false)=>{
     if(!onCreate){return}
     if(!cName.trim()){ setCErr('Ingresá el nombre del ejercicio.'); return }
     if(cMuscles.length===0){ setCErr('Elegí al menos un grupo muscular.'); return }
     if(!cDesc.trim()){ setCErr('Ingresá una descripción del ejercicio.'); return }
-    setCErr(''); setSaving(true)
-    try{ await onCreate({ name:cName.trim(), equipment:cEquipment, muscles:cMuscles, description:cDesc.trim() }) }
-    catch(e){ setCErr(e instanceof Error? e.message : 'No se pudo crear el ejercicio.'); setSaving(false); return }
+    setCErr(''); setCDup(''); setSaving(true)
+    try{ await onCreate({ name:cName.trim(), equipment:cEquipment, muscles:cMuscles, description:cDesc.trim() }, { confirmDuplicate: confirmed }) }
+    catch(e){
+      // Coincidencias → aviso + doble confirmación; otros errores → mensaje.
+      if(e instanceof DuplicateExerciseError){ setCDup(e.matches[0]?.reason || e.message) }
+      else { setCErr(e instanceof Error? e.message : 'No se pudo crear el ejercicio.') }
+      setSaving(false); return
+    }
     setSaving(false)
   }
   // Portal a body: sin esto la nav móvil (z-50) queda encima de los botones del pie.
@@ -234,10 +241,20 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
               <span className="truncate text-on-surface-variant">{cMuscles.length ? cMuscles.map(displayMuscle).join(' · ') : 'Sin grupo'}</span>
             </div>
             {cErr? <p className="font-body-md text-[13px] text-error">{cErr}</p> : null}
-            <div className="flex gap-2">
-              <button onClick={()=>submitCreate()} disabled={saving} className="flex-1 py-2.5 min-h-[44px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold disabled:opacity-60">{saving? 'Guardando…':'Crear y agregar'}</button>
-              <button onClick={()=>setMode('pick')} className="flex-1 py-2.5 min-h-[44px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Elegir existente</button>
-            </div>
+            {cDup ? (
+              <div className="space-y-2 rounded border border-error/40 bg-error/10 p-2" role="alert">
+                <p className="font-body-md text-[13px] text-error">⚠ {cDup}</p>
+                <div className="flex gap-2">
+                  <button onClick={()=>{ setCDup('') }} className="flex-1 py-2.5 min-h-[44px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Volver</button>
+                  <button onClick={()=>submitCreate(true)} disabled={saving} className="flex-1 py-2.5 min-h-[44px] rounded bg-error/20 border border-error/40 font-label-caps text-[10px] uppercase font-bold text-error disabled:opacity-60">{saving? 'Guardando…':'Sí, crear igual'}</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={()=>submitCreate()} disabled={saving} className="flex-1 py-2.5 min-h-[44px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold disabled:opacity-60">{saving? 'Guardando…':'Crear y agregar'}</button>
+                <button onClick={()=>setMode('pick')} className="flex-1 py-2.5 min-h-[44px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Elegir existente</button>
+              </div>
+            )}
           </>
         ) : (
           <>

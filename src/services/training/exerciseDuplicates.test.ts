@@ -53,6 +53,19 @@ describe('duplicidad al crear ejercicios', () => {
     await expect(createCustomExercise(input())).rejects.toThrow(/Ya existe en la biblioteca/)
   })
 
+  it('doble confirmación: guarda pese al duplicado solo si confirmDuplicate', async () => {
+    catalog.list = [catalogEx()]
+    const created = await createCustomExercise(input(), { confirmDuplicate: true })
+    expect(created.id.startsWith('custom/')).toBe(true)
+  })
+
+  it('coincidencia parcial (sugiere) también exige doble confirmación', async () => {
+    catalog.list = [catalogEx()]
+    await expect(createCustomExercise(input({ equipment: 'mancuerna' }))).rejects.toThrow(/Puede que ya exista/)
+    const created = await createCustomExercise(input({ equipment: 'mancuerna' }), { confirmDuplicate: true })
+    expect(created.id.startsWith('custom/')).toBe(true)
+  })
+
   it('bloquea equivalencia ES↔EN en nombre, músculo y equipamiento (sinónimos)', async () => {
     catalog.list = [catalogEx({ name: 'Bench press' })]
     const ms = await findExerciseDuplicates({ name: 'Press banca', muscle: 'pecho', equipment: 'barra' })

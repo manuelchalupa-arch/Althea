@@ -1197,7 +1197,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
   // Crear ejercicio propio desde la sesión: va a la biblioteca (y a la
   // compartida vía createCustomExercise) y se agrega EXTRA a la sesión.
-  const createCustomForSession = async (draft: { name:string; equipment:string; muscles:string[]; description:string }) => {
+  const createCustomForSession = async (draft: { name:string; equipment:string; muscles:string[]; description:string }, opts?: { confirmDuplicate?: boolean }) => {
     if(!session) {return}
     const bodyByMuscle: Record<string,string> = { quads:'legs', hamstrings:'legs', glutes:'legs', calves:'legs', pectorals:'chest', lats:'back', 'upper-back':'back', traps:'back', spine:'back', abs:'core', delts:'shoulders', biceps:'arms', triceps:'arms', cardio:'cardio' }
     const primary = draft.muscles[0]
@@ -1209,7 +1209,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       bodyPart: bodyByMuscle[primary] || 'core', muscle: primary,
       secondaryMuscles: secs, primaryPct: 100 - secPct*secs.length, secondaryPcts: secs.map(()=>secPct),
       category: 'strength', equipment: draft.equipment,
-    })
+    }, opts)
     const { addExtraExercise, logEvent } = await import('@/services/training/sessionStore')
     const methodDef = methodIdRef.current ? getMethod(methodIdRef.current)?.defaults : undefined
     const exSets = methodDef?.setsPerExercise ?? 3

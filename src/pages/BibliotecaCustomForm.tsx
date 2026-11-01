@@ -5,7 +5,7 @@ import {
   createCustomExercise, updateCustomExercise, fileToExerciseImage,
   type CustomExercise, type CustomInput,
 } from '@/services/training/customExercises'
-import { findExerciseDuplicates, type DuplicateMatch } from '@/services/training/exerciseDuplicates'
+import { findExerciseDuplicates, DuplicateExerciseError, type DuplicateMatch } from '@/services/training/exerciseDuplicates'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { displayMuscle } from '@/utils/muscleMap'
 import { displayBodyPart, displayCategory, displayEquipment } from '@/utils/exerciseLabels'
@@ -40,9 +40,11 @@ export default function BibliotecaCustomForm({
   const [errors, setErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [dupe, setDupe] = useState<DuplicateMatch | null>(null)
+  const [dupConfirm, setDupConfirm] = useState<DuplicateMatch[] | null>(null)
 
   // Aviso en vivo de duplicado mientras el usuario completa el formulario.
   useEffect(() => {
+    setDupConfirm(null)
     let alive = true
     const t = setTimeout(() => {
       if (!name.trim() || !muscle || !equip) { setDupe(null); return }
@@ -79,15 +81,20 @@ export default function BibliotecaCustomForm({
     setErrors(errs)
     if (errs.length === 0) {setStep('preview')}
   }
-  const onSave = async () => {
+  const onSave = async (confirmed = false) => {
     setSaving(true)
     try {
-      if (initial) {await updateCustomExercise(initial.id, collect())}
-      else {await createCustomExercise(collect())}
+      if (initial) {await updateCustomExercise(initial.id, collect(), { confirmDuplicate: confirmed })}
+      else {await createCustomExercise(collect(), { confirmDuplicate: confirmed })}
       onSaved()
     } catch (e: unknown) {
-      setErrors([e instanceof Error ? e.message : 'No se pudo guardar'])
-      setStep('form')
+      if (e instanceof DuplicateExerciseError) {
+        // Primera guardada con coincidencias → pedir doble confirmación.
+        setDupConfirm(e.matches)
+      } else {
+        setErrors([e instanceof Error ? e.message : 'No se pudo guardar'])
+        setStep('form')
+      }
     } finally {
       setSaving(false)
     }
@@ -234,6 +241,17 @@ export default function BibliotecaCustomForm({
 
         {/* Parte superior del botón de guardado: errores + resumen compacto. */}
         <footer className="shrink-0 border-t border-outline-variant/60 bg-surface-container-low/95 px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
+          {dupConfirm && (
+            <div role="alert" className="rounded border border-error/40 bg-error/10 px-2 py-1.5 space-y-1.5">
+              <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest st-error-text">
+                ⚠ Coincide con {dupConfirm.length > 1 ? `${dupConfirm.length} ejercicios ya cargados` : 'un ejercicio ya cargado'}: {dupConfirm.map((m) => `“${m.name}”`).join(', ')}. ¿Guardar igual?
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => setDupConfirm(null)} className="flex-1 py-2 min-h-[40px] rounded bg-surface border border-outline-variant font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">Volver</button>
+                <button onClick={() => void onSave(true)} disabled={saving} className="flex-1 py-2 min-h-[40px] rounded bg-error/20 border border-error/40 font-label-caps text-[10px] uppercase tracking-widest font-bold text-error disabled:opacity-60">{saving ? 'Guardando…' : 'Sí, guardar igual'}</button>
+              </div>
+            </div>
+          )}
           {dupe && (
             <div role="status" className={`rounded border px-2 py-1 ${dupe.level === 'block' ? 'border-error/40 bg-error/10' : 'border-outline-variant bg-surface'}`}>
               <p className={`font-label-md text-[10px] font-semibold uppercase tracking-widest ${dupe.level === 'block' ? 'st-error-text' : 'text-on-surface-variant'}`}>{dupe.level === 'block' ? '⚠ ' : '💡 '}{dupe.reason}</p>
@@ -256,7 +274,7 @@ export default function BibliotecaCustomForm({
           ) : (
             <div className="flex gap-2">
               <button onClick={() => setStep('form')} className="flex-1 py-2.5 min-h-[44px] rounded bg-surface border border-outline-variant font-body-md text-sm text-on-surface">Volver</button>
-              <button onClick={onSave} disabled={saving} className="flex-1 py-2.5 min-h-[44px] rounded bg-primary text-on-surface font-medium disabled:opacity-50">{saving ? 'Guardando…' : initial ? 'Guardar cambios' : 'Guardar ejercicio'}</button>
+              <button onClick={() => void onSave()} disabled={saving} className="flex-1 py-2.5 min-h-[44px] rounded bg-primary text-on-surface font-medium disabled:opacity-50">{saving ? 'Guardando…' : initial ? 'Guardar cambios' : 'Guardar ejercicio'}</button>
             </div>
           )}
         </footer>

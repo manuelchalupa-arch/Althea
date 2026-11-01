@@ -28,6 +28,21 @@ export interface DuplicateInput {
   secondaryMuscles?: string[]
 }
 
+export interface SaveOptions {
+  /** El usuario dio la doble confirmación pese a las coincidencias. */
+  confirmDuplicate?: boolean
+}
+
+/** Lanzado al guardar si hay coincidencias y aún no hubo doble confirmación. */
+export class DuplicateExerciseError extends Error {
+  matches: DuplicateMatch[]
+  constructor(matches: DuplicateMatch[]) {
+    super(matches[0]?.reason || 'Ya existe un ejercicio con estas características en la biblioteca.')
+    this.name = 'DuplicateExerciseError'
+    this.matches = matches
+  }
+}
+
 interface Candidate {
   id: string
   name: string

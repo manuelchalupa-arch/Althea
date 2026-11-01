@@ -5,7 +5,7 @@
 import { normFold } from '@/utils/format'
 import { db } from '@/services/storage/db'
 import type { Exercise, MuscleShare } from '@/services/exerciseGym'
-import { findExerciseDuplicates } from './exerciseDuplicates'
+import { findExerciseDuplicates, DuplicateExerciseError, type SaveOptions } from './exerciseDuplicates'
 
 export type CustomExercise = Exercise & {
   origin: 'USER_CREATED'
@@ -90,11 +90,12 @@ export function matchesCustomFilter(
   return c.category === key
 }
 
-export async function createCustomExercise(input: CustomInput): Promise<CustomExercise> {
+export async function createCustomExercise(input: CustomInput, opts?: SaveOptions): Promise<CustomExercise> {
   const errs = validateCustomInput(input)
   if (errs.length > 0) {throw new Error(errs.join(' · '))}
-  const dup = (await findExerciseDuplicates(input)).find((d) => d.level === 'block')
-  if (dup) {throw new Error(dup.reason)}
+  // Coincidencias → doble confirmación; sin coincidencias → guarda directo.
+  const matches = await findExerciseDuplicates(input)
+  if (matches.length > 0 && !opts?.confirmDuplicate) {throw new DuplicateExerciseError(matches)}
   const now = new Date().toISOString()
   const slug = normFold(input.name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'ejercicio'
   const rec: CustomExercise = {
@@ -126,7 +127,7 @@ export async function createCustomExercise(input: CustomInput): Promise<CustomEx
   return rec
 }
 
-export async function updateCustomExercise(id: string, patch: Partial<CustomInput>): Promise<CustomExercise> {
+export async function updateCustomExercise(id: string, patch: Partial<CustomInput>, opts?: SaveOptions): Promise<CustomExercise> {
   const prev = (await db.customExercises.get(id).catch(() => null)) as CustomExercise | null
   if (!prev) {throw new Error('Ejercicio inexistente')}
   if (prev.archived) {throw new Error('El ejercicio está archivado')}
@@ -146,8 +147,8 @@ export async function updateCustomExercise(id: string, patch: Partial<CustomInpu
   }
   const errs = validateCustomInput(merged)
   if (errs.length > 0) {throw new Error(errs.join(' · '))}
-  const dup = (await findExerciseDuplicates(merged, id)).find((d) => d.level === 'block')
-  if (dup) {throw new Error(dup.reason)}
+  const matches = await findExerciseDuplicates(merged, id)
+  if (matches.length > 0 && !opts?.confirmDuplicate) {throw new DuplicateExerciseError(matches)}
   const nx: CustomExercise = {
     ...prev,
     name: merged.name.trim(),
