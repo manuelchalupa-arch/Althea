@@ -92,7 +92,8 @@ export function displayMuscle(muscle:string){
     pectorals:'Pecho', lats:'Espalda', biceps:'Bíceps', triceps:'Tríceps', delts:'Hombros',
     quads:'Cuádriceps', hamstrings:'Isquios', glutes:'Glúteos', calves:'Pantorrillas',
     abs:'Abdominales', forearms:'Antebrazos', traps:'Trapecios', cardio:'Cardio',
-    'upper-back':'Espalda alta', 'abductors':'Abductores', 'adductors':'Aductores'
+    'upper-back':'Espalda alta', 'abductors':'Abductores', 'adductors':'Aductores',
+    spine:'Columna', 'levator-scapulae':'Elevador de la escápula', 'serratus-anterior':'Serrato anterior'
   }
   return rev[muscle] || muscle
 }

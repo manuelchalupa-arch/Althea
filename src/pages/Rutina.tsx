@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
 import type { Exercise } from '@/types'
 import { DEFAULT_CYCLE, type CycleConfig, type LoadState, LOAD_STATE_LABEL, LOAD_STATE_COLOR, getWeekLoads } from '@/utils/cycle'
@@ -13,6 +14,7 @@ import { getActiveVersion, getCanonicalMethodId, PROFILE_SCOPE } from '@/service
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import * as Gym from '@/services/exerciseGym'
 import { exercisePurpose, EXERCISE_PURPOSES, type ExercisePurpose } from '@/utils/stretching'
+import { displayEquipment, displayCategory, displayBodyPart, displayDifficulty } from '@/utils/exerciseLabels'
 import { traditionalForGroup, CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT, CUSTOM_FORM_CATEGORIES } from '@/data/traditionalCatalog'
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import { PeriodizationEditor } from '@/components/recovery/PeriodizationEditor'
@@ -899,9 +901,10 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
     )
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border-t border-outline-variant rounded-t-2xl w-full max-w-lg lg:max-w-2xl max-h-[80vh] overflow-auto p-4 space-y-3">
+  // Portal a body: `.shell-content` (z-10) atrapa el z-index y la nav móvil queda encima.
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[9999] p-0 sm:p-4 althea-modal" onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border-t sm:border border-outline-variant rounded-t-2xl sm:rounded-2xl w-full max-w-lg lg:max-w-2xl max-h-[92dvh] overflow-auto p-3 sm:p-4 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio</h3>
           <button type="button" onClick={()=>setShowCreate(true)} className="shrink-0 px-3 min-h-[40px] rounded bg-primary text-on-primary font-label-md text-[12px] font-semibold">+ Crear ejercicio</button>
@@ -983,9 +986,9 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
                       {isExisting ? <AltheaBadge variant="outline" className="shrink-0 text-[10px]">En este día</AltheaBadge> : null}
                     </div>
                     <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">
-                      <span className="text-primary">{displayMuscle(ex.muscle)}</span>{secs.length>0 ? <> + {secs.map(s=>displayMuscle(s)).join(' · ')}</> : null} · {ex.equipment}
+                      <span className="text-primary">{displayMuscle(ex.muscle)}</span>{secs.length>0 ? <> + {secs.map(s=>displayMuscle(s)).join(' · ')}</> : null} · {displayEquipment(ex.equipment)}
                     </div>
-                    {String(ex.exerciseDifficulty||'') && <div className="font-label-md text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant mt-0.5">{ex.exerciseDifficulty} · {ex.category}</div>}
+                    {String(ex.exerciseDifficulty||'') && <div className="font-label-md text-[9px] font-semibold uppercase tracking-widest text-on-surface-variant mt-0.5">{displayDifficulty(ex.exerciseDifficulty)} · {displayCategory(ex.category)}</div>}
                     <div className="flex gap-2 mt-2">
                       <AltheaButton size="sm" variant="secondary" fullWidth onClick={()=> onView(ex)}><Eye size={14}/> Ver</AltheaButton>
                       <AltheaButton size="sm" fullWidth onClick={()=> onAdd(ex.id, ex.gifUrl, ex.name, ex.muscle, ex.imageDataUrl, purpose !== 'conventional')}>AGREGAR</AltheaButton>
@@ -999,16 +1002,19 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
         </div>
         <AltheaButton fullWidth variant="secondary" onClick={onClose}>Cerrar</AltheaButton>
         {showCreate && (
-          <BibliotecaCustomForm
-            muscles={CUSTOM_FORM_MUSCLES}
-            equipment={CUSTOM_FORM_EQUIPMENT}
-            categories={CUSTOM_FORM_CATEGORIES}
-            onSaved={()=>{ setShowCreate(false); setReloadKey(k=>k+1) }}
-            onClose={()=>setShowCreate(false)}
-          />
+          <div onClick={(e)=>e.stopPropagation()}>
+            <BibliotecaCustomForm
+              muscles={CUSTOM_FORM_MUSCLES}
+              equipment={CUSTOM_FORM_EQUIPMENT}
+              categories={CUSTOM_FORM_CATEGORIES}
+              onSaved={()=>{ setShowCreate(false); setReloadKey(k=>k+1) }}
+              onClose={()=>setShowCreate(false)}
+            />
+          </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -1021,7 +1027,7 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
         <div className="sticky top-0 bg-surface/80 backdrop-blur-md border-b border-outline-variant p-4 flex justify-between items-center">
           <div>
             <div className="font-headline-lg text-base font-semibold text-on-surface">{exercise.name}</div>
-            <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{displayMuscle(exercise.muscle)} · {exercise.equipment} · {exercise.bodyPart} · {exercise.category}</div>
+            <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{displayMuscle(exercise.muscle)} · {displayEquipment(exercise.equipment)} · {displayBodyPart(exercise.bodyPart)} · {displayCategory(exercise.category)}</div>
           </div>
           <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface border border-outline-variant flex items-center justify-center font-body-md text-sm text-on-surface"><BrandIcon name="close" size={16}/></button>
         </div>

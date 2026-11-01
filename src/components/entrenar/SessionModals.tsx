@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import BrandIcon from '@/components/brand/BrandIcon'
 import * as Gym from '@/services/exerciseGym'
 import { CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT } from '@/data/traditionalCatalog'
+import { displayMuscle } from '@/utils/muscleMap'
+import { displayEquipment } from '@/utils/exerciseLabels'
 
 const INCOMPLETE_REASONS = ['Dolor / molestia','Falta de tiempo','Cansancio excesivo','Falta de equipamiento','Lesión','Otro']
 
@@ -42,7 +45,7 @@ export function ViewerModal({ viewer, onClose }:{ viewer:any; onClose:()=>void }
           <div className="rounded bg-surface-container-low border border-outline-variant flex items-center justify-center min-h-[300px] p-2">
             {viewer.gifUrl ? <img src={viewer.gifUrl} alt={viewer.name} className="max-w-full max-h-[60vh] object-contain"/> : <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">Sin GIF</span>}
           </div>
-          <div className="font-label-caps text-[10px] uppercase text-on-surface-variant mt-2">{viewer.muscle} · {viewer.equipment}</div>
+          <div className="font-label-caps text-[10px] uppercase text-on-surface-variant mt-2">{displayMuscle(viewer.muscle)} · {displayEquipment(viewer.equipment)}</div>
           <ol className="list-decimal list-inside font-body-md text-[15px] text-on-surface mt-1">{viewer.instructions?.slice(0,4).map((s:string,i:number)=><li key={i}>{s}</li>)}</ol>
         </div>
       </div>
@@ -201,11 +204,12 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
     catch(e){ setCErr(e instanceof Error? e.message : 'No se pudo crear el ejercicio.'); setSaving(false); return }
     setSaving(false)
   }
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
-      <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[80vh] overflow-auto">
+  // Portal a body: sin esto la nav móvil (z-50) queda encima de los botones del pie.
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[9999] p-0 sm:p-4 althea-modal" onClick={onClose}>
+      <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-t-2xl sm:rounded-xl w-full max-w-lg lg:max-w-2xl p-3 sm:p-4 space-y-2 max-h-[92dvh] overflow-auto">
         <div className="flex justify-between items-center">
-          <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio EXTRA</h3>
+          <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio extra</h3>
           <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
         </div>
         {mode==='create' ? (
@@ -213,26 +217,31 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
             <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Nuevo ejercicio propio · se guarda en tu biblioteca y en la compartida.</p>
             <input value={cName} onChange={(e)=>setCName(e.target.value)} placeholder="Nombre del ejercicio" maxLength={80} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
             <select value={cEquipment} onChange={(e)=>setCEquipment(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
-              {CUSTOM_FORM_EQUIPMENT.map((eq)=>(<option key={eq} value={eq}>{eq}</option>))}
+              {CUSTOM_FORM_EQUIPMENT.map((eq)=>(<option key={eq} value={eq}>{displayEquipment(eq)}</option>))}
             </select>
             <div>
               <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider mb-1">Grupos musculares involucrados</div>
               <div className="flex flex-wrap gap-1.5">
                 {CUSTOM_FORM_MUSCLES.map((m)=>(
-                  <button key={m} type="button" onClick={()=>toggleMuscle(m)} aria-pressed={cMuscles.includes(m)} className={`px-2.5 py-1 rounded-full text-xs border transition ${cMuscles.includes(m)? 'bg-primary text-on-primary border-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>{m}</button>
+                  <button key={m} type="button" onClick={()=>toggleMuscle(m)} aria-pressed={cMuscles.includes(m)} className={`px-2.5 py-1 rounded-full text-xs border transition ${cMuscles.includes(m)? 'bg-primary text-on-primary border-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>{displayMuscle(m)}</button>
                 ))}
               </div>
             </div>
             <textarea value={cDesc} onChange={(e)=>setCDesc(e.target.value)} placeholder="Breve descripción (obligatoria)" rows={2} maxLength={300} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+            {/* Resumen sobre el botón de guardado. */}
+            <div className="flex items-center justify-between gap-2 min-w-0 font-label-caps text-[10px] uppercase tracking-wider">
+              <span className="truncate font-semibold text-on-surface">{cName.trim() || 'Sin nombre'}</span>
+              <span className="truncate text-on-surface-variant">{cMuscles.length ? cMuscles.map(displayMuscle).join(' · ') : 'Sin grupo'}</span>
+            </div>
             {cErr? <p className="font-body-md text-[13px] text-error">{cErr}</p> : null}
             <div className="flex gap-2">
-              <button onClick={()=>submitCreate()} disabled={saving} className="flex-1 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold disabled:opacity-60">{saving? 'Guardando…':'Crear y agregar'}</button>
-              <button onClick={()=>setMode('pick')} className="flex-1 py-2 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Elegir existente</button>
+              <button onClick={()=>submitCreate()} disabled={saving} className="flex-1 py-2.5 min-h-[44px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold disabled:opacity-60">{saving? 'Guardando…':'Crear y agregar'}</button>
+              <button onClick={()=>setMode('pick')} className="flex-1 py-2.5 min-h-[44px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Elegir existente</button>
             </div>
           </>
         ) : (
           <>
-            <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">No planificado · quedará marcado EXTRA con su motivo.</p>
+            <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">No planificado · quedará marcado extra con su motivo.</p>
             <select value={reason} onChange={(e)=>setReason(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
               <option value="">Motivo del agregado…</option>
               {['Quiero trabajar más este grupo','Me siento con energía','Recomendación del coach','Recuperar ejercicio pendiente','Otro'].map((r)=>(<option key={r} value={r}>{r}</option>))}
@@ -244,19 +253,20 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
                   {opt.gifUrl ? <img src={opt.gifUrl} alt={opt.name} className="w-12 h-12 rounded-lg object-contain"/> : null}
                   <div>
                     <div className="font-body-md text-[15px] text-on-surface font-medium">{opt.name}</div>
-                    <div className="font-label-caps text-[10px] uppercase text-on-surface-variant">{opt.muscle} · {opt.equipment}</div>
+                    <div className="font-label-caps text-[10px] uppercase text-on-surface-variant">{displayMuscle(opt.muscle)} · {displayEquipment(opt.equipment)}</div>
                   </div>
                 </button>
               ))}
               {options.length===0? <p className="font-body-md text-[13px] text-on-surface-variant py-2">Sin opciones disponibles (sin conexión o sin resultados).</p> : null}
             </div>
             {onCreate? (
-              <button onClick={()=>setMode('create')} className="w-full py-2 rounded bg-surface-container-high/40 border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface">+ Crear ejercicio nuevo</button>
+              <button onClick={()=>setMode('create')} className="w-full py-2.5 min-h-[44px] rounded bg-surface-container-high/40 border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface">+ Crear ejercicio nuevo</button>
             ) : null}
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -277,7 +287,7 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
       <div className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-4 max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between">
           <h3 className="font-headline-lg text-base font-semibold text-on-surface">Finalizar entrenamiento</h3>
-          <span className="px-3 py-1 rounded-full bg-secondary-container/20 border border-secondary/30 text-secondary font-label-caps text-[10px] uppercase">COMPLETING</span>
+          <span className="px-3 py-1 rounded-full bg-secondary-container/20 border border-secondary/30 text-secondary font-label-caps text-[10px] uppercase">FINALIZANDO</span>
         </div>
 
         <div className="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant/50 rounded-lg p-3">
@@ -404,7 +414,7 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
         {finishError && <p className="text-sm text-error">{finishError}</p>}
 
         <button onClick={onConfirm} disabled={isSaving} className="w-full py-3 px-5 rounded bg-primary hover:bg-primary-fixed text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm disabled:opacity-50">
-          {isSaving ? 'Guardando…' : ((s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'Confirmar — COMPLETED' : `Confirmar — PARTIAL (${s.exPct}%)`)}
+          {isSaving ? 'Guardando…' : ((s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'Confirmar — COMPLETADO' : `Confirmar — PARCIAL (${s.exPct}%)`)}
         </button>
         <button onClick={async()=>{ try{ const store = await import('@/services/training/sessionStore'); const targetId = session?.sessionId || sessionId; if(targetId){ const cur = await store.getSession(targetId).catch(()=>null); if(cur && cur.sessionStatus==='COMPLETING'){ const nx = await store.transitionSession(targetId,'IN_PROGRESS'); setSession(nx); setSessionStatus('IN_PROGRESS') } } }catch{ /* noop */ } onClose() }} className="w-full py-2.5 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant">Volver al entrenamiento</button>
       </div>

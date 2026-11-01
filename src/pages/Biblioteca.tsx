@@ -10,6 +10,8 @@ import type { CustomExercise } from '@/services/training/customExercises'
 import { Search, Heart, Globe, WifiOff } from 'lucide-react'
 import { AltheaCard, AltheaBadge, AltheaInput, AltheaEmpty, AltheaLoading } from '@/components/althea'
 import { exercisePurpose, EXERCISE_PURPOSES, type ExercisePurpose } from '@/utils/stretching'
+import { displayMuscle } from '@/utils/muscleMap'
+import { displayEquipment } from '@/utils/exerciseLabels'
 import { listSharedExercises } from '@/services/training/sharedExercises'
 
 const PURPOSES = EXERCISE_PURPOSES
@@ -258,10 +260,10 @@ export default function Biblioteca(){
                   {tradIds.has(ex.id) ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[11px]">Tradicional</AltheaBadge> : null}
                   {ex.origin==='USER_CREATED' ? <AltheaBadge variant="outline" className="text-primary border-primary shrink-0 text-[11px]">Mío</AltheaBadge> : null}
                 </div>
-                <div className="font-label-md text-[12px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle} · {ex.equipment}</div>
+                <div className="font-label-md text-[12px] font-semibold uppercase tracking-widest text-on-surface-variant">{displayMuscle(ex.muscle)} · {displayEquipment(ex.equipment)}</div>
                 <div className="flex flex-wrap gap-1 mt-2">
                   {musclePct(ex).slice(0,3).map(m=> (
-                    <span key={m.name} className={`px-2 py-1 rounded border text-[11px] ${m.role==='Principal'?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{m.name} {m.pct}%</span>
+                    <span key={m.name} className={`px-2 py-1 rounded border text-[11px] ${m.role==='Principal'?'bg-primary border-primary text-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant text-on-surface-variant'}`}>{displayMuscle(m.name)} {m.pct}%</span>
                   ))}
                 </div>
               </div>
@@ -305,7 +307,7 @@ export default function Biblioteca(){
                 <div className="mt-2 space-y-2">
                   {musclePct(detail).map(m=>(
                     <div key={m.name} className="flex items-center gap-2">
-                      <span className="flex-1 font-body-md text-sm text-on-surface">{m.name} <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">· {m.role}</span></span>
+                      <span className="flex-1 font-body-md text-sm text-on-surface">{displayMuscle(m.name)} <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">· {m.role}</span></span>
                       <span className="font-body-md text-sm text-on-surface font-medium">{m.pct}%</span>
                       <div className="w-20 h-2 bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant rounded-full overflow-hidden"><div className={`h-full ${m.role==='Principal'?'bg-primary':'bg-primary'}`} style={{width:`${m.pct}%`}}/></div>
                     </div>
