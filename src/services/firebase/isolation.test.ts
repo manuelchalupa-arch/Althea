@@ -17,7 +17,8 @@ vi.mock('./config', () => ({
   firebaseDb: vi.fn(() => ({})),
 }))
 
-import { firestoreRemote } from './sync'
+import { firestoreRemote, autoRestore, localUserDataEmpty } from './sync'
+import { db } from '@/services/storage/db'
 
 describe('Aislamiento multiusuario (Firestore users/{uid})', () => {
   beforeEach(() => {
@@ -46,5 +47,46 @@ describe('Aislamiento multiusuario (Firestore users/{uid})', () => {
     for (const c of calls) {
       expect(c.path.startsWith('users/uid-A/')).toBe(true)
     }
+  })
+})
+
+describe('restore automático por cuenta (autoRestore)', () => {
+  beforeEach(() => {
+    calls.length = 0
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  it('al iniciar sesión baja los datos de users/{uid} y registra el restore', async () => {
+    const { getDocs } = await import('firebase/firestore')
+    await autoRestore('uid-A')
+    expect((getDocs as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(0)
+    expect(localStorage.getItem('althea:autoSync:uid-A')).toBeTruthy()
+  })
+
+  it('no repite el restore dentro de los 5 min (throttle por uid)', async () => {
+    localStorage.setItem('althea:autoSync:uid-B', String(Date.now()))
+    const { getDocs } = await import('firebase/firestore')
+    await autoRestore('uid-B')
+    expect((getDocs as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0)
+  })
+
+  it('sin conexión no intenta nada', async () => {
+    Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
+    const { getDocs } = await import('firebase/firestore')
+    try {
+      await autoRestore('uid-C')
+    } finally {
+      Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => true })
+    }
+    expect((getDocs as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0)
+    expect(localStorage.getItem('althea:autoSync:uid-C')).toBeNull()
+  })
+
+  it('localUserDataEmpty: true sin datos, false con perfil propio', async () => {
+    await db.userProfile.clear().catch(() => null)
+    expect(await localUserDataEmpty()).toBe(true)
+    await db.userProfile.put({ id: 'me', onboardingDone: true } as never).catch(() => null)
+    expect(await localUserDataEmpty()).toBe(false)
   })
 })

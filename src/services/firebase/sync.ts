@@ -252,3 +252,38 @@ export async function syncAll(
   } catch {}
   return { uploaded, downloaded, deleted, tables, at, conflicts: conflicts.slice(0, 50) }
 }
+
+// ¿Hay datos locales que mostrar? Decide si el arranque debe ESPERAR el
+// restore (dispositivo nuevo o tras cambio de cuenta) o seguir en segundo
+// plano: si ya hay datos, no se demora la entrada.
+export async function localUserDataEmpty(): Promise<boolean> {
+  try {
+    const [profile, sessions, days, logs] = await Promise.all([
+      db.userProfile.get('me').catch(() => null),
+      db.trainingSessions.count().catch(() => 0),
+      db.routineDays.count().catch(() => 0),
+      db.setLogs.count().catch(() => 0),
+    ])
+    return !profile && sessions === 0 && days === 0 && logs === 0
+  } catch { return false }
+}
+
+// Restore automático por cuenta (login, inicio de app y actualización del SW):
+// sube lo pendiente y baja users/{uid} para que los datos del mail estén en el
+// dispositivo sin sincronizar a mano. Con red y como máximo una vez cada 5 min
+// por uid (la nube es respaldo: jamás bloquea lo local).
+const AUTO_RESTORE_PREFIX = 'althea:autoSync:'
+const AUTO_RESTORE_MS = 5 * 60_000
+
+export async function autoRestore(uid: string): Promise<void> {
+  try {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {return}
+    let last = 0
+    try { last = Number(localStorage.getItem(AUTO_RESTORE_PREFIX + uid) || 0) } catch {}
+    if (Date.now() - last < AUTO_RESTORE_MS) {return}
+    const { processQueue } = await import('@/services/sync/engine')
+    await processQueue(uid, firestoreRemote(uid))
+    await syncAll(uid)
+    try { localStorage.setItem(AUTO_RESTORE_PREFIX + uid, String(Date.now())) } catch {}
+  } catch { /* sin conexión o sin permisos: lo local queda intacto */ }
+}

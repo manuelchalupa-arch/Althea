@@ -128,20 +128,37 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
         // Primer login (sin uid previo): se conservan (datos anónimos propios).
         if (u) {
           void (async () => {
+            // Esperar el restore solo si no hay nada local que mostrar
+            // (dispositivo nuevo o tras el wipe): los datos del mail están
+            // al entrar, sin recargar a mano. Si ya hay datos locales, el
+            // restore corre en segundo plano y no demora la entrada.
+            let restoreFirst = false
             try {
               const { shouldWipeOnAccountSwitch, rememberAccountUid } = await import('@/services/storage/accountWipe')
               const lastUid = localStorage.getItem('althea:lastUid')
               if (shouldWipeOnAccountSwitch(lastUid, u.uid)) {
                 const { clearUserDataOnAccountDelete } = await import('@/services/storage/accountWipe')
-                clearUserDataOnAccountDelete().catch(() => {}).finally(() => { rememberAccountUid(u.uid) })
+                await clearUserDataOnAccountDelete().catch(() => {})
+                rememberAccountUid(u.uid)
+                restoreFirst = true
               } else if (!lastUid) {
                 rememberAccountUid(u.uid)
+                const { localUserDataEmpty } = await import('@/services/firebase/sync')
+                restoreFirst = await localUserDataEmpty()
               }
             } catch { /* noop: jamás bloquear el login */ }
+            try {
+              const { autoRestore } = await import('@/services/firebase/sync')
+              const restoring = autoRestore(u.uid)
+              if (restoreFirst) { await restoring }
+            } catch { /* noop */ }
+            // Siempre liberar el gate, aunque el restore falle.
+            if (alive) { setNeedsLogin(false); setAuthChecked(true) }
           })()
+        } else {
+          setNeedsLogin(true)
+          setAuthChecked(true)
         }
-        setNeedsLogin(!u)
-        setAuthChecked(true)
       })}
     }).catch(() => {})
     return () => { alive = false }
