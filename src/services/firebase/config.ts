@@ -40,6 +40,7 @@ function readConfig() {
 let app: FirebaseApp | null = null
 let auth: Auth | null = null
 let firestore: Firestore | null = null
+let persistenceReady: Promise<void> | null = null
 
 export function isFirebaseConfigured(): boolean {
   return readConfig() !== null
@@ -51,11 +52,19 @@ function ensure(): { app: FirebaseApp; auth: Auth; db: Firestore } {
   if (!app) {
     app = getApps().length ? getApps()[0]! : initializeApp(cfg)
     auth = getAuth(app)
-    // Sesión persistente en el dispositivo (funciona offline tras el primer login)
-    setPersistence(auth, browserLocalPersistence).catch(() => {})
+    // Sesión persistente en el dispositivo (funciona offline tras el primer
+    // login). La promesa se expone para esperarla antes de cada login:
+    // sin ella, signIn podría correr antes de aplicar la persistencia.
+    persistenceReady = setPersistence(auth, browserLocalPersistence).catch(() => {})
     firestore = getFirestore(app)
   }
   return { app, auth: auth!, db: firestore! }
+}
+
+/** Resuelta cuando la persistencia local de Firebase Auth está aplicada. */
+export function authPersistenceReady(): Promise<void> {
+  ensure()
+  return persistenceReady ?? Promise.resolve()
 }
 
 export function firebaseAuth(): Auth {

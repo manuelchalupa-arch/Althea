@@ -34,19 +34,21 @@ export async function signInWithGoogle(): Promise<User | null> {
   try {
     // Popup: no depende del iframe cross-origin de firebaseapp.com (Chrome
     // M115+ bloquea su storage en sitios que no están en Firebase Hosting).
+    await authPersistenceReady()
     const cred = await signInWithPopup(firebaseAuth(), provider)
     setOfflineMode(false)
     return cred.user
   } catch (e: any) {
     if (e?.code === 'auth/popup-blocked') {
       // Si el navegador bloquea la ventana, caemos al redirect tradicional.
+      await authPersistenceReady()
       await signInWithRedirect(firebaseAuth(), provider)
       return null
     }
     throw new Error(toMessage(e?.code || '', 'No se pudo iniciar sesión con Google.'))
   }
 }
-import { firebaseAuth, isFirebaseConfigured } from './config'
+import { firebaseAuth, isFirebaseConfigured, authPersistenceReady } from './config'
 
 export type { User }
 
@@ -84,6 +86,7 @@ export function toMessage(code: string, fallback: string): string {
 
 export async function signUp(email: string, password: string): Promise<User> {
   try {
+    await authPersistenceReady()
     const cred = await createUserWithEmailAndPassword(firebaseAuth(), email.trim(), password)
     setOfflineMode(false)
     return cred.user
@@ -94,6 +97,7 @@ export async function signUp(email: string, password: string): Promise<User> {
 
 export async function signIn(email: string, password: string): Promise<User> {
   try {
+    await authPersistenceReady()
     const cred = await signInWithEmailAndPassword(firebaseAuth(), email.trim(), password)
     setOfflineMode(false)
     return cred.user

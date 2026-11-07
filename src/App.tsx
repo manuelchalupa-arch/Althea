@@ -7,6 +7,7 @@ import { MeanderFrieze } from '@/components/brand/MeanderFrieze'
 import { useEffect, useState, lazy } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db } from '@/services/storage/db'
+import { resolveOnboardingGate } from '@/services/storage/onboardingGate'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { weekdayOfKey } from '@/utils/dates'
 import { ErrorBoundary, EntrenarErrorBoundary, NutricionErrorBoundary, CoachErrorBoundary, ProgresoErrorBoundary } from '@/components/ErrorBoundary'
@@ -228,13 +229,19 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
         if (hadController) { window.location.reload() }
       })
     }
-    db.userProfile.get('me').then(p => {
-      const needsOnboarding = !p?.onboardingDone || !(p as any)?.email
-      if (needsOnboarding && loc.pathname !== '/onboarding') {
-        navigate('/onboarding', { replace: true })
-      }
-    })
-  }, [loc.pathname, navigate])
+    // Gate de onboarding: recién cuando la sesión y el restore quedaron
+    // resueltos (authChecked). Antes, un dispositivo nuevo parecía "sin datos"
+    // y mandaba al usuario a reconfigurar un perfil que ya existe en la nube.
+    if (authChecked) {
+      import('@/services/firebase/auth').then(({ currentUser }) => {
+        resolveOnboardingGate(currentUser()?.email).then(needsOnboarding => {
+          if (needsOnboarding && loc.pathname !== '/onboarding') {
+            navigate('/onboarding', { replace: true })
+          }
+        }).catch(() => { /* noop */ })
+      }).catch(() => { /* noop */ })
+    }
+  }, [loc.pathname, navigate, authChecked])
 
   if (!authChecked) {return <div className="p-8 text-center">Cargando…</div>}
   if (needsLogin && loc.pathname !== '/login') {
