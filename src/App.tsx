@@ -89,13 +89,19 @@ function Layout() {
   const [needsLogin, setNeedsLogin] = useState(false)
   const [isFirebaseConfigured, setIsFirebaseConfigured] = useState(false)
 const [isOfflineMode, setIsOfflineMode] = useState(false)
+  // true cuando el import de config resolvió (con o sin Firebase). Sin este
+  // guard, authChecked se liberaba en el montaje y el gate corría antes de
+  // tener la decisión de sesión → onboarding forzado en vacío.
+  const [configResolved, setConfigResolved] = useState(false)
+  // Incrementa cuando termina un restore, para re-evaluar el gate de onboarding.
+  const [gateTick, setGateTick] = useState(0)
 
   // Initialize Firebase config at top level
   useEffect(() => {
     let alive = true
     import('@/services/firebase/config').then(m => {
-      if (alive) {setIsFirebaseConfigured(m.isFirebaseConfigured())}
-    }).catch(() => {})
+      if (alive) {setIsFirebaseConfigured(m.isFirebaseConfigured()); setConfigResolved(true)}
+    }).catch(() => { if (alive) { setConfigResolved(true) } })
     return () => { alive = false }
   }, [])
 
@@ -112,6 +118,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
   // Gate de cuenta: si Firebase está configurado y no hay sesión ni modo offline → /login
   useEffect(() => {
     let alive = true
+    if (!configResolved) { return }
     if (!isFirebaseConfigured) {
       if (alive) { setNeedsLogin(false); setAuthChecked(true) }
       return
@@ -151,6 +158,9 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
             try {
               const { autoRestore } = await import('@/services/firebase/sync')
               const restoring = autoRestore(u.uid)
+              // Al terminar el restore, re-evaluar el gate de onboarding:
+              // si bajó el perfil completo, hay que salir del onboarding forzado.
+              void restoring.catch(() => {}).finally(() => { if (alive) { setGateTick((t) => t + 1) } })
               if (restoreFirst) { await restoring }
             } catch { /* noop */ }
             // Siempre liberar el gate, aunque el restore falle.
@@ -163,7 +173,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
       })}
     }).catch(() => {})
     return () => { alive = false }
-  }, [isFirebaseConfigured, isOfflineMode])
+  }, [isFirebaseConfigured, isOfflineMode, configResolved])
 
   // Migrar rutinas de localStorage a Dexie al iniciar
   useEffect(() => {
@@ -237,11 +247,15 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
         resolveOnboardingGate(currentUser()?.email).then(needsOnboarding => {
           if (needsOnboarding && loc.pathname !== '/onboarding') {
             navigate('/onboarding', { replace: true })
+          } else if (!needsOnboarding && loc.pathname === '/onboarding') {
+            // Perfil completo (local o restaurado desde la nube): el onboarding
+            // forzado ya no aplica — volver al inicio sin reconfigurar nada.
+            navigate('/', { replace: true })
           }
         }).catch(() => { /* noop */ })
       }).catch(() => { /* noop */ })
     }
-  }, [loc.pathname, navigate, authChecked])
+  }, [loc.pathname, navigate, authChecked, gateTick])
 
   if (!authChecked) {return <div className="p-8 text-center">Cargando…</div>}
   if (needsLogin && loc.pathname !== '/login') {
