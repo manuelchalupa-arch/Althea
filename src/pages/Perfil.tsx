@@ -393,7 +393,13 @@ export default function Perfil() {
         const { deleteUser } = await import('firebase/auth')
         await deleteUser(u)
       }
-    } catch { /* noop — local data still gets cleared */ }
+    } catch {
+      // Cuenta viva p.ej. por CREDENTIAL_TOO_OLD_LOGIN_AGAIN (login reciente
+      // obligatorio): sin signOut la sesión sobrevive y el gate devuelve al
+      // usuario al onboarding de la cuenta vieja, sin poder crear la nueva.
+      // Al volver a entrar la credencial queda fresca y la eliminación funciona.
+      try { const { signOut } = await import('@/services/firebase/auth'); await signOut() } catch { /* noop */ }
+    }
     const { clearUserDataOnAccountDelete } = await import('@/services/storage/accountWipe')
     await clearUserDataOnAccountDelete()
     window.location.href = '/login'
