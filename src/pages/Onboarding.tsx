@@ -202,7 +202,8 @@ export default function Onboarding(){
     if(!validate()) {return}
     persistDraft()
     if(step < total-1) {setStep(s=>s+1)}
-    else {crear()}
+    // Sin catch, un fallo de guardado dejaba el botón muerto sin aviso.
+    else {crear().catch((e:any) => setErr(e?.message || 'No se pudo guardar tu perfil. Intentá de nuevo.'))}
   }
   const back = ()=> { persistDraft(); setStep(s=> Math.max(0,s-1)) }
 

@@ -100,7 +100,15 @@ export async function clearUserDataOnAccountDelete(
   }
   let dexieDeleted = false
   try {
-    await db.delete()
+    // Vaciar tablas en vivo. NUNCA db.delete()/deleteDatabase aquí: si queda
+    // una petición de delete PENDIENTE y bloqueada por una conexión abierta
+    // (p.ej. el sync que corre en paralelo al cambiar de cuenta), TODA
+    // operación Dexie posterior se cola para siempre en silencio — el guardado
+    // del onboarding nunca completaría y el usuario quedaba sin poder empezar.
+    await db.open()
+    await db.transaction('rw', db.tables, async () => {
+      for (const t of db.tables) { await t.clear() }
+    })
     dexieDeleted = true
   } catch {
     dexieDeleted = false
