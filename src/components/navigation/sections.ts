@@ -7,6 +7,7 @@
 
 export const ACCENT_SECTION_BY_PATH: Record<string, string> = {
   '/entrenar': 'entrenar',
+  '/crossfit': 'crossfit',
   '/biblioteca': 'biblioteca',
   '/rutina': 'rutina',
   '/rutinas': 'rutina',

@@ -127,6 +127,7 @@
   --althea-accent-on: #FFFFFF;
   --althea-section-app-rgb: 217 39 53;          /* #D92735 */
   --althea-section-entrenar-rgb: 29 78 137;     /* #1D4E89 */
+  --althea-section-crossfit-rgb: 166 75 30;     /* #A64B1E — naranja quemado */
   --althea-section-biblioteca-rgb: 47 108 179;  /* #2F6CB3 */
   --althea-section-rutina-rgb: 18 54 95;        /* #12365F */
   --althea-section-actividad-rgb: 35 92 153;    /* #235C99 */
@@ -198,6 +199,7 @@
   --althea-accent-on: #171512;
   --althea-section-app-rgb: 229 66 79;          /* #E5424F */
   --althea-section-entrenar-rgb: 91 155 213;    /* #5B9BD5 */
+  --althea-section-crossfit-rgb: 224 130 66;    /* #E08242 */
   --althea-section-biblioteca-rgb: 127 179 232; /* #7FB3E8 */
   --althea-section-rutina-rgb: 74 134 196;      /* #4A86C4 */
   --althea-section-actividad-rgb: 106 166 222;  /* #6AA6DE */
@@ -234,6 +236,7 @@
    una tarjeta de nutrición dentro de Inicio sigue siendo ámbar. */
 [data-section='app']        { --althea-accent-rgb: var(--althea-section-app-rgb); }
 [data-section='entrenar']   { --althea-accent-rgb: var(--althea-section-entrenar-rgb); }
+[data-section='crossfit']   { --althea-accent-rgb: var(--althea-section-crossfit-rgb); }
 [data-section='biblioteca'] { --althea-accent-rgb: var(--althea-section-biblioteca-rgb); }
 [data-section='rutina']     { --althea-accent-rgb: var(--althea-section-rutina-rgb); }
 [data-section='actividad']  { --althea-accent-rgb: var(--althea-section-actividad-rgb); }

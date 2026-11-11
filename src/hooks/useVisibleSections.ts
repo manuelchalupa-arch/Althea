@@ -6,6 +6,7 @@ const LOCKED = new Set(['home', 'profile', 'more'])
 
 export const TOGGLEABLE_SECTIONS: { icon: string; label: string }[] = [
   { icon: 'training', label: 'Entrenamiento' },
+  { icon: 'crossfit', label: 'CrossFit' },
   { icon: 'nutrition', label: 'Nutrición' },
   { icon: 'progress', label: 'Progreso' },
   { icon: 'calendar', label: 'Calendario' },

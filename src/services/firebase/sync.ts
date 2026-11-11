@@ -47,6 +47,12 @@ const TABLES = [
   'chatMessages',
   'chatConversations',
   'painLogs',
+  // v29 CrossFit: WODs y programación editables (LWW), resultados y marcas
+  // append-only.
+  'cfWods',
+  'cfSchedule',
+  'cfResults',
+  'cfMarks',
 ] as const
 
 // Tablas append-only / históricas: solo se agregan ids faltantes, jamás se pisan.
@@ -56,6 +62,7 @@ const ADD_ONLY = new Set([
   'exerciseRecords', 'nutritionDiary', 'nutritionAdherence', 'hydrationLogs',
   'bodyMeasurements', 'chatMessages', 'chatConversations', 'coachMemory',
   'decisionLog', 'painLogs', 'customExercises', 'cycleVersions',
+  'cfResults', 'cfMarks',
 ])
 
 export interface SyncConflict { table: string; id: string; reason: 'remote-older' | 'tie-keep-local' | 'history-preserved' }

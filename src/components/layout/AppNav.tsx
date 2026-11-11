@@ -12,6 +12,7 @@ export const MOBILE_NAV_OFFSET = 'calc(env(safe-area-inset-bottom, 0px) + 74px)'
 const ICON_MAP: Record<string, AltheaIconName> = {
   home: 'inicio',
   training: 'entrenar',
+  crossfit: 'crossfit',
   nutrition: 'nutricion',
   progress: 'progreso',
   calendar: 'calendario',
@@ -57,7 +58,7 @@ export default function AppNav() {
   const primaryItems = NAV_ITEMS.filter(i => {
     if (!isVisible(i.icon as string)) { return false }
     if (i.icon === 'training') {return hasActiveSession}
-    return ['home', 'nutrition', 'progress'].includes(i.icon as string)
+    return ['home', 'nutrition', 'progress', 'crossfit'].includes(i.icon as string)
   })
   const moreItem = NAV_ITEMS.find(i => i.icon === 'more')!
   // Deduplicar por ICONO, no por ruta: '/progreso' y '/progresos' son dos

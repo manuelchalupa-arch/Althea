@@ -17,6 +17,7 @@ import { accentSectionForPath } from '@/components/navigation/sections'
 // Lazy load all pages to reduce initial bundle size
 const Inicio = lazy(() => import('@/pages/Inicio'))
 const Entrenar = lazy(() => import('@/pages/Entrenar'))
+const Crossfit = lazy(() => import('@/pages/Crossfit'))
 const Progresos = lazy(() => import('@/pages/Progreso'))
 const Coach = lazy(() => import('@/pages/Coach'))
 const Mas = lazy(() => import('@/pages/Mas'))
@@ -275,6 +276,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
         <Route path="/feedback/thread/:id" element={<LazyPage><FeedbackThreadPage /></LazyPage>} />
         <Route path="/" element={<LazyPage><Inicio /></LazyPage>} />
         <Route path="/entrenar" element={<LazyPage><EntrenarErrorBoundary componentName="Entrenar"><Entrenar /></EntrenarErrorBoundary></LazyPage>} />
+        <Route path="/crossfit" element={<LazyPage><ErrorBoundary componentName="Crossfit"><Crossfit /></ErrorBoundary></LazyPage>} />
         <Route path="/progresos" element={<LazyPage><ProgresoErrorBoundary componentName="Progreso"><Progresos /></ProgresoErrorBoundary></LazyPage>} />
         <Route path="/progreso" element={<LazyPage><ProgresoErrorBoundary componentName="Progreso"><Progresos /></ProgresoErrorBoundary></LazyPage>} />
         <Route path="/coach" element={<LazyPage><CoachErrorBoundary componentName="Coach"><Coach /></CoachErrorBoundary></LazyPage>} />

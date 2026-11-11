@@ -727,7 +727,9 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --c-outline-rgb: 23 21 18;
   --c-outline-variant-rgb: 23 21 18;
   --c-on-surface-rgb: 23 21 18;
-  --c-on-surface-variant-rgb: 98 94 85;
+  /* 92 88 80 (no 98 94 85): con la atenuación global de 0.9 (index.css:935)
+     el gris anterior daba 4.26–4.49 de contraste sobre fondos claros (AA pide 4.5). */
+  --c-on-surface-variant-rgb: 92 88 80;
   --c-on-background-rgb: 23 21 18;
   --c-inverse-surface-rgb: 248 245 233;
   --c-inverse-primary-rgb: 217 39 53;
@@ -772,7 +774,7 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --c-outline: #171512;
   --c-outline-variant: #171512;
   --c-on-surface: #171512;
-  --c-on-surface-variant: #625E55;
+  --c-on-surface-variant: #5C5850;
   --c-on-background: #171512;
   --c-inverse-surface: #F8F5E9;
   --c-inverse-primary: #D92735;

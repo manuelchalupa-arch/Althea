@@ -12,6 +12,7 @@ import type { DecisionRecord } from '@/services/ai/decisionLogger'
 import type { KnowledgeDocument } from '@/services/ai/knowledgeBase'
 import type { ExerciseKnowledgeEntry } from '@/services/ai/exerciseKnowledge'
 import type { CycleVersion } from '@/services/planning/cycleVersions'
+import type { CfWod, CfScheduleEntry, CfResult, CfMark, CfTimerState } from '@/services/crossfit/types'
 
 export type CoachMemoryEntry = CoachDecision | (CoachQA & { type: 'qa' }) | { id: string; type: 'prefs'; date: string; prefs: Record<string, unknown>; createdAt: string } | { id: string; type: 'score'; date: string; score: number; factors: any; createdAt: string } | { id: string; type: 'observation'; date: string; sessionId: string; sessionStatus: string; routineName: string;[k: string]: any }
 
@@ -122,6 +123,14 @@ export class TrainDB extends Dexie {
   }>
   customFoods!: Table<CustomFood>
   syncDeletes!: Table<{ table: string; docId: string; deletedAt: string }, number>
+  // v29: módulo CrossFit (solo aditivo). WODs/plantillas, programación por
+  // fecha, resultados históricos (append-only) y marcas personales. El estado
+  // del cronómetro es local-only, igual que restTimerState.
+  cfWods!: Table<CfWod>
+  cfSchedule!: Table<CfScheduleEntry>
+  cfResults!: Table<CfResult>
+  cfMarks!: Table<CfMark>
+  cfTimerState!: Table<CfTimerState>
   constructor() {
     super('trainPWA')
     this.version(1).stores({
@@ -287,6 +296,15 @@ export class TrainDB extends Dexie {
     // v28: Biblioteca compartida local cache
     this.version(28).stores({
       sharedExercises: 'id, muscle, bodyPart',
+    })
+    // v29: Módulo CrossFit — solo aditivo, ninguna tabla existente cambia.
+    // cfResults y cfMarks son histórico append-only (política ADD_ONLY en sync).
+    this.version(29).stores({
+      cfWods: 'id, updatedAt, format, benchmarkId',
+      cfSchedule: 'id, date, kind, updatedAt',
+      cfResults: 'id, date, wodId, benchmarkId, createdAt',
+      cfMarks: 'id, movement, date',
+      cfTimerState: 'id, updatedAt',
     })
   }
 }

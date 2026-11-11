@@ -3,6 +3,7 @@ import React from 'react';
 export type AltheaIconName =
   | 'inicio'
   | 'entrenar'
+  | 'crossfit'
   | 'nutricion'
   | 'progreso'
   | 'recuperacion'
@@ -39,6 +40,12 @@ const PATHS: Record<AltheaIconName, React.ReactNode> = {
       <path d="M6 8v8M18 8v8" />
       <path d="M3 10v4M21 10v4" />
       <path d="M6 12h12" />
+    </>
+  ),
+  crossfit: (
+    <>
+      <path d="M9.5 8.4a2.5 2.5 0 0 1 5 0" />
+      <path d="M8.4 8.4h7.2c1.5 1.4 2.6 3.3 2.6 5.3A4.7 4.7 0 0 1 12 19.8a4.7 4.7 0 0 1-6.2-6.1c0-2 1.1-3.9 2.6-5.3Z" />
     </>
   ),
   nutricion: (
@@ -103,6 +110,7 @@ const PATHS: Record<AltheaIconName, React.ReactNode> = {
 const LABELS: Record<AltheaIconName, string> = {
   inicio: 'Inicio',
   entrenar: 'Entrenar',
+  crossfit: 'CrossFit',
   nutricion: 'Nutrición',
   progreso: 'Progreso',
   recuperacion: 'Recuperación',

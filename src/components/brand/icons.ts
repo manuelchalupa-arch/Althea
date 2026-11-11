@@ -4,7 +4,7 @@ import {
   Moon, Brain, User, Plus, Check, ChevronLeft, ChevronRight,
   ChevronsLeft, ChevronsRight, Search, Eye, Play, Pause, Clock, RotateCcw, X, XCircle,
   Download, Info, AlertTriangle, Copy, Code2, Camera, Barcode, ExternalLink,
-  Globe, WifiOff, Box, Layers, Heart, History, Cpu, HardDrive, Droplets, Zap,
+  Globe, WifiOff, Box, Layers, Heart, History, Cpu, HardDrive, Droplets, Zap, Flame,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -26,6 +26,7 @@ export const ICONS: Record<string, BrandIconDef> = {
   logo:        { name: 'logo',        file: 'logo.png',        group: 'navigation', label: 'Logo Althea',            lucide: Dumbbell, custom: IconDumbbell },
   home:        { name: 'home',        file: 'home.png',        group: 'navigation', label: 'Inicio',                 lucide: Home, custom: IconHome },
   training:    { name: 'training',    file: 'training.png',    group: 'navigation', label: 'Entrenamiento',          lucide: Dumbbell, custom: IconDumbbell },
+  crossfit:    { name: 'crossfit',    file: 'crossfit.svg',    group: 'navigation', label: 'CrossFit',               lucide: Flame, custom: IconFire },
   nutrition:   { name: 'nutrition',   file: 'nutrition.png',   group: 'navigation', label: 'Nutrición',              lucide: Apple, custom: IconApple },
   progress:    { name: 'progress',    file: 'progress.png',    group: 'navigation', label: 'Progreso',               lucide: TrendingUp, custom: IconTrendingUp },
   more:        { name: 'more',        file: 'more.png',        group: 'navigation', label: 'Menú',                   lucide: LayoutGrid, custom: IconMenu },
@@ -96,6 +97,7 @@ export interface NavItem { to: string; label: string; icon: keyof typeof ICONS; 
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Inicio', icon: 'home' },
   { to: '/entrenar', label: 'Entrenar', icon: 'training', priority: true },
+  { to: '/crossfit', label: 'CrossFit', icon: 'crossfit', priority: true },
   { to: '/nutricion', label: 'Nutrición', icon: 'nutrition' },
   { to: '/progreso', label: 'Progreso', icon: 'progress' },
   { to: '/calendario', label: 'Calendario', icon: 'calendar' },
