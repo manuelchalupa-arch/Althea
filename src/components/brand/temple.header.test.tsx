@@ -52,7 +52,7 @@ describe('S8 - AppHeader: sin falsa funcionalidad', () => {
   it('el header sigue funcionando: identidad, seccion y toggle de tema', () => {
     renderAt('/entrenar')
     expect(screen.getByText('ALTHEA')).toBeInTheDocument()
-    expect(screen.getByText('Entrenamiento')).toBeInTheDocument()
+    expect(screen.getByText('Entrenar')).toBeInTheDocument()
     expect(screen.getByLabelText(/modo (claro|oscuro)/)).toBeInTheDocument()
   })
 })

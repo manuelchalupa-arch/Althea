@@ -1,6 +1,6 @@
 ﻿import SemanticIcon from '../components/ui/SemanticIcon';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
 import { useRestTimer } from '@/hooks/useRestTimer'
 import { useRestTimerBetweenExercises } from '@/hooks/useRestTimerBetweenExercises'
@@ -42,6 +42,7 @@ export default function Entrenar(){
   const today = todayKey()
   // Presentación mobile (Gym Mode). En jsdom no hay matchMedia → false → desktop.
   const isMobile = useIsMobile()
+  const navigate = useNavigate()
 
   // Guarda anti reinicialización: la carga solo inicializa ante sesión
   // distinta o ejercicios vacíos. Navegar/editar NO resetea current.
@@ -1253,9 +1254,9 @@ const exercises: SessionEx[] = seList.map((se) => {
       <p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios todavía.</p>
       <div className="flex flex-wrap gap-2">
         {session? <button onClick={()=>{ void openAddExtra() }} className="px-4 py-2 rounded bg-primary text-on-primary">Agregar o crear ejercicio</button> : null}
-        <button onClick={()=>{ window.location.href='/' }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Ir a Inicio</button>
-        <button onClick={()=>{ window.location.href='/rutina' }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Configurar rutina</button>
-        <button onClick={()=>{ window.location.href='/biblioteca' }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Ver biblioteca</button>
+        <button onClick={()=>{ navigate('/') }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Ir a Inicio</button>
+        <button onClick={()=>{ navigate('/rutina') }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Configurar rutina</button>
+        <button onClick={()=>{ navigate('/biblioteca') }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Ver biblioteca</button>
       </div>
       <AddExtraModal show={showAddEx} onClose={()=>setShowAddEx(false)} options={addExOptions} reason={addExReason} setReason={setAddExReason} comment={addExComment} setComment={setAddExComment} onAdd={(opt)=>{ void confirmAddExtra(opt) }} onCreate={createCustomForSession} />
     </div>
@@ -1558,7 +1559,7 @@ const exercises: SessionEx[] = seList.map((se) => {
             <span>Progreso</span>
             <strong className="text-on-surface">{progress}%</strong>
           </div>
-          <button onClick={openFinishModal} className="w-full min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest">Confirmar y guardar en el templo</button>
+          {/* Finalizar vive en la barra inferior fija (pulgar) y en la última serie: sin duplicar acá. */}
         </div>
 
         <div className="flex gap-2">
@@ -1593,7 +1594,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                   <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Progreso</div>
                   <div className="text-[15px] text-on-surface font-medium font-metric-mobile">{progress}% — {Object.keys(done).filter(k=>done[Number(k)]).length}/{exs.length}</div>
                 </div>
-                <button onClick={openFinishModal} className="flex items-center gap-1.5 px-5 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shrink-0"><Check size={14}/> FINALIZAR</button>
+                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-5 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shrink-0"><Check size={14}/> FINALIZAR</button>
               </>
             )}
           </div>
@@ -1647,8 +1648,10 @@ const exercises: SessionEx[] = seList.map((se) => {
                   const n=Number(choice)
                   if(cycle.trainingDays.find((d:any)=>d.n===n)){
                     await setOverride(today, n, null, null)
+                    // R5: sin location.reload() — el listener 'routineChange'
+                    // (línea ~378) limpia loadedRef y re-ejecuta load(),
+                    // conservando sesión, registros y estado de React Router.
                     window.dispatchEvent(new Event('routineChange'))
-                    location.reload()
                   }
                 }
               }} className="hidden md:inline-flex items-center min-h-[48px] font-body-sm text-[13px] text-accent underline mt-1">Cambiar día de entrenamiento</button>
@@ -1662,7 +1665,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                 <SemanticIcon name="reorder" size={18} className="text-[18px]" />
                 <span className="hidden sm:inline">Abandonar</span>
               </button>
-              <button onClick={openFinishModal} className="flex items-center gap-1.5 min-h-[48px] px-4 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98]">
+              <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 min-h-[48px] px-4 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98]">
                 <Check size={14}/> <span className="hidden sm:inline">FINALIZAR</span><span className="sm:hidden">FIN</span>
               </button>
             </div>
@@ -2012,7 +2015,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                   <strong className="text-on-surface">{progress}%</strong>
                 </div>
               </div>
-              <button onClick={openFinishModal} className="w-full min-h-[48px] py-2 px-3 rounded bg-primary hover:bg-primary-fixed text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
+              <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="w-full min-h-[48px] py-2 px-3 rounded bg-primary hover:bg-primary-fixed text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
                 CONFIRMAR Y GUARDAR EN EL TEMPLO
               </button>
             </div>
@@ -2051,7 +2054,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                   <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Progreso</div>
                   <div className="font-body-md text-[15px] text-on-surface font-medium">{progress}% — {Object.keys(done).filter(k=>done[Number(k)]).length}/{exs.length} ejercicios</div>
                 </div>
-                <button onClick={openFinishModal} className="flex items-center gap-1.5 px-5 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98] shrink-0">
+                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-5 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98] shrink-0">
                   <Check size={14}/> FINALIZAR
                 </button>
               </>

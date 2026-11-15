@@ -225,8 +225,8 @@ export default function Mas(){
                 { to: '/calendario', icon: 'calendar_month', name: 'Calendario', desc: `${stats.sessions90d} sesiones en 90 días` },
                 { to: '/biblioteca', icon: 'menu_book', name: 'Biblioteca', desc: `${stats.exerciseCount} ejercicios disponibles` },
                 { to: '/recuperacion', icon: 'bedtime', name: 'Recuperación', desc: 'Sueño, energía y fatiga' },
-                { to: '/coach', icon: 'forum', name: 'Coach', desc: stats.chatCount > 0 ? `${stats.chatCount} consultas realizadas` : 'Asistente de entrenamiento' },
-                { to: '/perfil', icon: 'badge', name: 'Perfil', desc: 'Datos, preferencias y cuenta' },
+                { to: '/coach', icon: 'forum', name: 'Coach y objetivos', desc: stats.chatCount > 0 ? `${stats.chatCount} consultas realizadas` : 'Asistente de entrenamiento' },
+                { to: '/perfil', icon: 'badge', name: 'Perfil y configuración', desc: 'Datos, preferencias y cuenta' },
               ].map(l => (
                 <Link key={l.to} to={l.to} data-section={accentSectionForPath(l.to)} className="min-h-[72px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-xl">
                   <AltheaCard level={2} padding="sm" hover className="h-full">

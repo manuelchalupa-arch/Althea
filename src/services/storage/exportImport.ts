@@ -91,6 +91,13 @@ export interface ImportResult {
     scoreSnapshots: number
     onboardingDrafts: number
     painLogs: number
+    cfWods: number
+    cfSchedule: number
+    cfResults: number
+    cfMarks: number
+    activitySessions: number
+    exerciseRecords: number
+    cycleVersions: number
   }
   errors: string[]
   conflicts: ConflictInfo[]
@@ -140,6 +147,16 @@ export interface ExportData {
   scoreSnapshots: any[]
   onboardingDrafts: any[]
   painLogs: PainLog[]
+  // Añadidas aditivamente (sin bump de versión): antes el respaldo omitía
+  // CrossFit, actividad, historial de ejercicios y versiones de ciclo.
+  // Opcionales para seguir leyendo archivos antiguos.
+  cfWods?: any[]
+  cfSchedule?: any[]
+  cfResults?: any[]
+  cfMarks?: any[]
+  activitySessions?: any[]
+  exerciseRecords?: any[]
+  cycleVersions?: any[]
 }
 
 async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
@@ -174,6 +191,13 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     scoreSnapshots,
     onboardingDrafts,
     painLogs,
+    cfWods,
+    cfSchedule,
+    cfResults,
+    cfMarks,
+    activitySessions,
+    exerciseRecords,
+    cycleVersions,
   ] = await Promise.all([
     db.routineDays.toArray(),
     db.routineExercises.toArray(),
@@ -202,6 +226,13 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     db.scoreSnapshots.toArray(),
     db.onboardingDrafts.toArray(),
     db.painLogs.toArray(),
+    db.cfWods.toArray(),
+    db.cfSchedule.toArray(),
+    db.cfResults.toArray(),
+    db.cfMarks.toArray(),
+    db.activitySessions.toArray(),
+    db.exerciseRecords.toArray(),
+    db.cycleVersions.toArray(),
   ])
 
   return {
@@ -233,6 +264,13 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     scoreSnapshots,
     onboardingDrafts,
     painLogs,
+    cfWods,
+    cfSchedule,
+    cfResults,
+    cfMarks,
+    activitySessions,
+    exerciseRecords,
+    cycleVersions,
   }
 }
 
@@ -364,7 +402,9 @@ function validateExportData(data: any): { valid: boolean; errors: string[] } {
     'customExercises', 'weeklySequences', 'chatMessages', 'chatConversations',
     'nutritionDiary', 'nutritionAdherence', 'sessionOverrides', 'coachMemory',
     'decisionLog', 'knowledgeDocuments', 'exerciseKnowledge', 'scoreSnapshots',
-    'onboardingDrafts', 'painLogs'
+    'onboardingDrafts', 'painLogs',
+    'cfWods', 'cfSchedule', 'cfResults', 'cfMarks',
+    'activitySessions', 'exerciseRecords', 'cycleVersions',
   ]
   
   for (const table of requiredTables) {
@@ -448,6 +488,8 @@ async function applyImport(
       nutritionAdherence: 0, sessionOverrides: 0, coachMemory: 0,
       decisionLog: 0, knowledgeDocuments: 0, exerciseKnowledge: 0,
       scoreSnapshots: 0, onboardingDrafts: 0, painLogs: 0,
+      cfWods: 0, cfSchedule: 0, cfResults: 0, cfMarks: 0,
+      activitySessions: 0, exerciseRecords: 0, cycleVersions: 0,
     },
     errors: [],
     conflicts,
@@ -482,6 +524,13 @@ async function applyImport(
     { table: db.scoreSnapshots as any, data: data.scoreSnapshots ?? [], key: 'id', countKey: 'scoreSnapshots', name: 'scoreSnapshots' },
     { table: db.onboardingDrafts as any, data: data.onboardingDrafts ?? [], key: 'id', countKey: 'onboardingDrafts', name: 'onboardingDrafts' },
     { table: db.painLogs as any, data: data.painLogs ?? [], key: 'id', countKey: 'painLogs', name: 'painLogs' },
+    { table: db.cfWods as any, data: data.cfWods ?? [], key: 'id', countKey: 'cfWods', name: 'cfWods' },
+    { table: db.cfSchedule as any, data: data.cfSchedule ?? [], key: 'id', countKey: 'cfSchedule', name: 'cfSchedule' },
+    { table: db.cfResults as any, data: data.cfResults ?? [], key: 'id', countKey: 'cfResults', name: 'cfResults' },
+    { table: db.cfMarks as any, data: data.cfMarks ?? [], key: 'id', countKey: 'cfMarks', name: 'cfMarks' },
+    { table: db.activitySessions as any, data: data.activitySessions ?? [], key: 'id', countKey: 'activitySessions', name: 'activitySessions' },
+    { table: db.exerciseRecords as any, data: data.exerciseRecords ?? [], key: 'id', countKey: 'exerciseRecords', name: 'exerciseRecords' },
+    { table: db.cycleVersions as any, data: data.cycleVersions ?? [], key: 'id', countKey: 'cycleVersions', name: 'cycleVersions' },
   ]
   
   for (const { table, data: tableData, key, countKey, name } of tablesToImport) {
@@ -662,7 +711,8 @@ export async function importJSON(file: File, options: ImportOptions = { mode: 'm
     db.nutritionDiary, db.nutritionAdherence, db.sessionOverrides,
     db.coachMemory, db.decisionLog, db.knowledgeDocuments,
     db.exerciseKnowledge, db.scoreSnapshots, db.onboardingDrafts,
-    db.painLogs,
+    db.painLogs, db.cfWods, db.cfSchedule, db.cfResults, db.cfMarks,
+    db.activitySessions, db.exerciseRecords, db.cycleVersions,
   ], async () => {
     return await applyImport(migrated, options, conflicts)
   })

@@ -55,6 +55,15 @@ describe('cfStore — módulo CrossFit', () => {
     expect((await listResults()).map((r) => r.wodName)).toEqual(['Grace'])
   })
 
+  it('newResult sin fecha usa la fecha local del día (no el corte UTC)', async () => {
+    // Regresión: t.slice(0,10) sobre ISO UTC desplazaba el resultado al día
+    // siguiente cuando se creaba después de las 21:00 (ART).
+    const { todayKey } = await import('@/utils/dates')
+    const r = await newResult({ wodName: 'Grace', format: 'FOR_TIME', scoreText: '2:14' })
+    expect(r.date).toBe(todayKey())
+    expect((await db.cfResults.toArray())[0].date).toBe(todayKey())
+  })
+
   it('el cronómetro es local-only: persiste y se limpia sin tocar la cola de sync', async () => {
     await saveTimerState({
       wodId: 'w1',

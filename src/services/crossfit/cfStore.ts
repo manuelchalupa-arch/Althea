@@ -1,5 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { db } from '@/services/storage/db'
+import { toDateKey } from '@/utils/dates'
 import type { CfMark, CfResult, CfScheduleEntry, CfTimerState, CfWod } from './types'
 
 /**
@@ -120,7 +121,8 @@ export async function saveResult(result: CfResult): Promise<CfResult> {
 
 export async function newResult(partial: Partial<CfResult> & { wodName: string; format: CfResult['format']; scoreText: string }): Promise<CfResult> {
   const t = nowIso()
-  const date = partial.date ?? t.slice(0, 10)
+  // Fecha local: t es ISO UTC (tras las 21:00 ART el slice UTC era el día siguiente).
+  const date = partial.date ?? toDateKey(t)
   return saveResult({
     id: uuid(),
     date,

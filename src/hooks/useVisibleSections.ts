@@ -5,7 +5,7 @@ const EVENT = 'althea:visible-sections-changed'
 const LOCKED = new Set(['home', 'profile', 'more'])
 
 export const TOGGLEABLE_SECTIONS: { icon: string; label: string }[] = [
-  { icon: 'training', label: 'Entrenamiento' },
+  { icon: 'training', label: 'Entrenar' },
   { icon: 'crossfit', label: 'CrossFit' },
   { icon: 'nutrition', label: 'Nutrición' },
   { icon: 'progress', label: 'Progreso' },

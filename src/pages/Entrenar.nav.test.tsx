@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { todayKey } from '@/utils/dates'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter } from 'react-router-dom'
 import { db } from '@/services/storage/db'
@@ -48,7 +48,11 @@ describe('Entrenar — navegación estable 0→1→2→1→0→1 sin resets', ()
     // Pantalla inicial = ejercicio 1 (Press)
     await screen.findByLabelText('Ejercicio siguiente', undefined, { timeout: 10000 })
     expect(screen.getByLabelText('Ejercicio anterior')).toBeDisabled()
-    expect(screen.queryByLabelText('Finalizar entrenamiento')).not.toBeInTheDocument()
+    // R6: el label 'Finalizar entrenamiento' es COHERENTE en todas las barras
+    // (puede haber varios a la vez); el intercambio Siguiente→Finalizar se
+    // verifica sobre la fila de navegación de ejercicios.
+    const navRow = () => screen.getByLabelText('Ejercicio anterior').parentElement as HTMLElement
+    expect(within(navRow()).queryByLabelText('Finalizar entrenamiento')).not.toBeInTheDocument()
 
     const shownExercise = () => {
       // El h2 del ejercicio actual contiene su nombre
@@ -69,11 +73,11 @@ describe('Entrenar — navegación estable 0→1→2→1→0→1 sin resets', ()
     }, { timeout: 8000 })
     fireEvent.click(screen.getByLabelText('Ejercicio siguiente'))
     await waitFor(() => {
-      expect(screen.getByLabelText('Finalizar entrenamiento')).toBeInTheDocument()
+      expect(within(navRow()).getByLabelText('Finalizar entrenamiento')).toBeInTheDocument()
     }, { timeout: 8000 })
     // Esperar efectos async y verificar que NO volvió a 0
     await new Promise(r => setTimeout(r, 500))
-    expect(screen.getByLabelText('Finalizar entrenamiento')).toBeInTheDocument()
+    expect(within(navRow()).getByLabelText('Finalizar entrenamiento')).toBeInTheDocument()
     expect(screen.queryByLabelText('Ejercicio siguiente')).not.toBeInTheDocument()
     expect(shownExercise()).toBe('sentadilla')
 

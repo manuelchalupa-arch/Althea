@@ -12,6 +12,7 @@ export type AltheaIconName =
   | 'biblioteca'
   | 'coach'
   | 'perfil'
+  | 'actividad'
   | 'mas';
 
 export interface AltheaIconProps {
@@ -98,6 +99,11 @@ const PATHS: Record<AltheaIconName, React.ReactNode> = {
       <path d="M4.5 20c1.2-4 4-6 7.5-6s6.3 2 7.5 6" />
     </>
   ),
+  actividad: (
+    <>
+      <path d="M13 3 5 14h6l-1 7 8-11h-6l1-7Z" />
+    </>
+  ),
   mas: (
     <>
       <circle cx="5" cy="12" r="1.1" fill="currentColor" stroke="none" />
@@ -117,8 +123,9 @@ const LABELS: Record<AltheaIconName, string> = {
   rutinas: 'Rutinas',
   calendario: 'Calendario',
   biblioteca: 'Biblioteca',
-  coach: 'Coach',
-  perfil: 'Perfil',
+  coach: 'Coach y objetivos',
+  perfil: 'Perfil y configuración',
+  actividad: 'Actividad deportiva',
   mas: 'Más',
 };
 

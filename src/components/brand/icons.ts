@@ -25,11 +25,11 @@ export interface BrandIconDef { name: string; file: string; group: 'navigation' 
 export const ICONS: Record<string, BrandIconDef> = {
   logo:        { name: 'logo',        file: 'logo.png',        group: 'navigation', label: 'Logo Althea',            lucide: Dumbbell, custom: IconDumbbell },
   home:        { name: 'home',        file: 'home.png',        group: 'navigation', label: 'Inicio',                 lucide: Home, custom: IconHome },
-  training:    { name: 'training',    file: 'training.png',    group: 'navigation', label: 'Entrenamiento',          lucide: Dumbbell, custom: IconDumbbell },
+  training:    { name: 'training',    file: 'training.png',    group: 'navigation', label: 'Entrenar',               lucide: Dumbbell, custom: IconDumbbell },
   crossfit:    { name: 'crossfit',    file: 'crossfit.svg',    group: 'navigation', label: 'CrossFit',               lucide: Flame, custom: IconFire },
   nutrition:   { name: 'nutrition',   file: 'nutrition.png',   group: 'navigation', label: 'Nutrición',              lucide: Apple, custom: IconApple },
   progress:    { name: 'progress',    file: 'progress.png',    group: 'navigation', label: 'Progreso',               lucide: TrendingUp, custom: IconTrendingUp },
-  more:        { name: 'more',        file: 'more.png',        group: 'navigation', label: 'Menú',                   lucide: LayoutGrid, custom: IconMenu },
+  more:        { name: 'more',        file: 'more.png',        group: 'navigation', label: 'Más',                    lucide: LayoutGrid, custom: IconMenu },
   library:     { name: 'library',     file: 'library.svg',     group: 'more',       label: 'Biblioteca',             lucide: BookOpen, custom: IconBook },
   routines:    { name: 'routines',    file: 'routines.png',    group: 'more',       label: 'Rutinas',                lucide: ClipboardList, custom: IconClipboard },
   calendar:    { name: 'calendar',    file: 'calendar.svg',    group: 'more',       label: 'Calendario',             lucide: Calendar, custom: IconCalendar },
@@ -107,20 +107,21 @@ export const NAV_ITEMS: NavItem[] = [
 export interface MasGroup { title: string; items: { to: string; label: string; icon: keyof typeof ICONS }[] }
 
 export const MAS_GROUPS: MasGroup[] = [
-  { title: 'Biblioteca', items: [{ to: '/biblioteca', label: 'Ejercicios y músculos', icon: 'library' }] },
+  { title: 'Biblioteca', items: [{ to: '/biblioteca', label: 'Biblioteca', icon: 'library' }] },
   {
     title: 'Entrenamiento',
     items: [
       { to: '/rutina', label: 'Rutinas', icon: 'routines' },
       { to: '/actividad', label: 'Actividad deportiva', icon: 'energy' },
-      { to: '/calendario', label: 'Calendario y recuperación', icon: 'calendar' },
+      { to: '/calendario', label: 'Calendario', icon: 'calendar' },
     ],
   },
   {
     title: 'Salud y progreso',
     items: [
       { to: '/nutricion', label: 'Nutrición', icon: 'nutrition' },
-      { to: '/progreso', label: 'Progreso y estadísticas', icon: 'progress' },
+      { to: '/progreso', label: 'Progreso', icon: 'progress' },
+      { to: '/recuperacion', label: 'Recuperación', icon: 'recovery' },
     ],
   },
   {

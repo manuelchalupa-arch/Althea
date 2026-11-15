@@ -18,6 +18,11 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(()=>{})
   })
 }
+// Pide almacenamiento durable: protege los datos locales (IndexedDB) de ser
+// evictados por presión de espacio. Best-effort; browsers sin soporte lo ignoran.
+// R3: persist() es una promesa — un rechazo (denegado/sin soporte) no debe
+// quedar como unhandled rejection ni bloquear el arranque. Pedir ≠ tener.
+try { void navigator.storage?.persist?.()?.catch(() => {}) } catch { /* noop */ }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

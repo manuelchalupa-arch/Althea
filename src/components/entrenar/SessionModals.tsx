@@ -296,9 +296,10 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
   finishSurvey:any; setFinishSurvey:(fn:(p:any)=>any)=>void; finishError:string; isSaving:boolean; onConfirm:()=>void;
   session:any; sessionId:string; setSession:(s:any)=>void; setSessionStatus:(s:any)=>void
 }){
+  const [showSummaryDetail, setShowSummaryDetail] = useState(false)
   if(!show) {return null}
   const s = summary
-  const setSurvey = (k:string,v:any)=> setFinishSurvey((p:any)=> ({...p,[k]:v}))
+  const setSurvey = (k:string,v:any)=> setFinishSurvey((p:any) => ({...p,[k]:v}))
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal">
       <div className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-4 max-h-[90vh] overflow-auto">
@@ -308,26 +309,34 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
         </div>
 
         <div className="bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant/50 rounded-lg p-3">
-          <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider mb-2">RESUMEN</div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider">RESUMEN</div>
+            <button type="button" onClick={()=>setShowSummaryDetail(d=>!d)} aria-expanded={showSummaryDetail}
+              className="min-h-[44px] px-2 font-label-caps text-[10px] uppercase text-primary hover:underline">
+              {showSummaryDetail ? 'Ocultar detalle' : 'Ver detalle'}
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.completedEx}/{s.plannedEx}</span>
+            <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.completedSets}/{s.plannedSets}</span>
+            <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Volumen</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.totalVol} kg</span>
+            <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Duración</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.durMin} min</span>
+          </div>
+          {showSummaryDetail && (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mt-2 pt-2 border-t border-outline-variant/40">
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Rutina</span><span className="font-body-md text-[15px] text-on-surface text-right">{rutinaName}</span>
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Semana</span><span className="font-body-md text-[15px] text-on-surface text-right">{weekNumber}</span>
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Día planificado</span><span className="font-body-md text-[15px] text-on-surface text-right">{plannedDayN !== null && plannedDayN !== undefined ? `N°${plannedDayN} ${plannedName}` : '—'}</span>
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Día realizado</span><span className="font-body-md text-[15px] text-on-surface text-right">{actualDayN !== null && actualDayN !== undefined ? `N°${actualDayN} ${dayName}` : dayName}</span>
-            <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios planificados</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.plannedEx}</span>
-            <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios completados</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.completedEx}</span>
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios no realizados</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.pendingIdx.length}</span>
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios omitidos</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.skippedIdx.length}</span>
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios modificados</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.modified}</span>
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios reemplazados</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.replaced}</span>
-            <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series planificadas</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.plannedSets}</span>
-            <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series realizadas</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.completedSets}</span>
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Repeticiones</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.totalReps}</span>
-            <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Volumen</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.totalVol} kg</span>
-            <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Duración</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.durMin} min</span>
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Ejercicios</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.exPct}%</span>
             <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Series</span><span className="font-body-md text-[15px] text-on-surface text-right">{s.setPct}%</span>
           </div>
+          )}
           {(s.pendingIdx.length===0 && s.skippedIdx.length===0)
             ? <p className="font-label-caps text-[10px] text-primary mt-2">Todos los ejercicios planificados fueron registrados.</p>
             : <p className="font-label-caps text-[10px] text-secondary mt-2">Entrenamiento parcial — {s.exPct}% · El entrenamiento tiene ejercicios pendientes.</p>}

@@ -107,4 +107,24 @@ describe('FASE 1.6 — Calendario lee Recovery solo desde Dexie', () => {
     expect(screen.getByText(/165 kcal/)).toBeInTheDocument()
     expect(screen.getByText(/7\.5h/)).toBeInTheDocument()
   })
+
+  it('CrossFit del día se muestra como referencia read-only (sin tocar cfResults)', async () => {
+    await db.cfResults.put({
+      id: 'cf1', date: today, wodName: 'Fran', format: 'AMRAP', level: 'RX',
+      scoreText: '7:32', isBenchmark: true,
+      createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:00:00Z`,
+    } as never)
+    await openToday()
+    await waitFor(() => {
+      expect(screen.getByText('CrossFit del día')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Fran · Benchmark')).toBeInTheDocument()
+    expect(screen.getByText('7:32')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver CrossFit' }).getAttribute('href')).toBe('/crossfit')
+    // La fuente original queda intacta: solo se consultó.
+    const rows = await db.cfResults.toArray()
+    expect(rows).toHaveLength(1)
+    expect(rows[0].id).toBe('cf1')
+    expect(rows[0].scoreText).toBe('7:32')
+  })
 })

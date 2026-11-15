@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter } from 'react-router-dom'
 import { db } from '@/services/storage/db'
@@ -138,12 +138,15 @@ it.skip('al confirmar la serie se inicia el descanso obligatorio y bloquea la na
       expect(screen.getByLabelText('Ejercicio anterior')).not.toBeDisabled()
     }, { timeout: 10000 })
     nextExercise()
+    // R6: el label es coherente en todas las barras; el control que reemplaza
+    // a "Siguiente" vive en la fila de navegación de ejercicios.
+    const navRow = () => screen.getByLabelText('Ejercicio anterior').parentElement as HTMLElement
     await waitFor(() => {
-      expect(screen.getByLabelText('Finalizar entrenamiento')).toBeInTheDocument()
+      expect(within(navRow()).getByLabelText('Finalizar entrenamiento')).toBeInTheDocument()
     }, { timeout: 10000 })
     expect(screen.queryByLabelText('Ejercicio siguiente')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByLabelText('Finalizar entrenamiento'))
+    fireEvent.click(within(navRow()).getByLabelText('Finalizar entrenamiento'))
     const heading = await screen.findByRole('heading', { name: 'Finalizar entrenamiento' }, { timeout: 10000 })
     expect(heading).toBeInTheDocument()
     // El modal de cierre ofrece acciones (no es un bloqueo sin salida)

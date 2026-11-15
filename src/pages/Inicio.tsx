@@ -12,7 +12,6 @@ import BrandIcon from '@/components/brand/BrandIcon'
 import { WaterBottle } from '@/components/recovery/WaterBottle'
 import GymPaymentCard from '@/components/gym/GymPaymentCard'
 import { AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
-import ActivityModal from '@/components/activity/ActivityModal'
 import { MacroSummary } from '@/components/nutrition/MacroSummary'
 import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
@@ -76,11 +75,7 @@ export default function Inicio(){
   const [selectedDate] = useState<string>(todayStr)
   const [, setPreviewList] = useState<{id:string;name:string;sets:number;reps:number;weight:number|null;restSec?:number;seriesType?:string;muscle?:string}[]>([])
   const [, setPreviewName] = useState('')
-  const [editingIdx, setEditingIdx] = useState<number|null>(null)
-  const [editDraft, setEditDraft] = useState<{reps:number|''; weight:number|null; restSec:number|''}>({reps:0, weight:0, restSec:90})
-  const [, setSavedIdx] = useState<number|null>(null)
   const [showCalendarPopover, setShowCalendarPopover] = useState(false)
-  const [activityOpen, setActivityOpen] = useState(false)
 
   // Igual que ChatWidget: los efectos de abajo hacen setState tras awaits
   // (Dexie/imports dinámicos). Si el componente se desmonta antes de que
@@ -99,37 +94,6 @@ export default function Inicio(){
     setExNames(list.map(x=> ({id:x.exId, name:x.name, sets:x.sets, reps:x.reps, weight:x.weight, restSec:x.restSec, rpe:x.rpe, muscle:x.muscle})))
   }
 
-  const saveExerciseEdit = async (idx:number)=>{
-    const updated = [...exNames]
-    updated[idx] = { ...updated[idx], reps: editDraft.reps === '' ? 0 : editDraft.reps, weight: editDraft.weight, restSec: editDraft.restSec === '' ? 90 : editDraft.restSec }
-    setExNames(updated)
-    try{
-      const { getAllRoutines, getActiveRoutineId, saveAllRoutines } = await import('@/services/storage/routineStore')
-      const rawList = await getAllRoutines()
-      const activeId = await getActiveRoutineId()
-      const activeIdx = rawList?.findIndex((r:any)=>r.id===activeId) ?? 0
-      if(rawList && rawList[activeIdx]){
-        const dayN = effectiveN
-        if(dayN && rawList[activeIdx].dayExercises?.[dayN]){
-          const exArr = rawList[activeIdx].dayExercises[dayN]
-          const targetId = updated[idx].id
-          const exInDay = exArr.findIndex((e:any)=> (e.exId || e.id) === targetId)
-          if(exInDay >= 0){
-            const prevEx = exArr[exInDay]
-            const repsN = editDraft.reps === '' ? 0 : editDraft.reps
-            const restN = editDraft.restSec === '' ? 90 : editDraft.restSec
-            exArr[exInDay] = { ...prevEx, reps: repsN, weight: editDraft.weight ?? null, restSec: restN,
-              series: Array.isArray(prevEx.series) ? prevEx.series.map(s=> ({ ...s, reps: repsN, weight: editDraft.weight ?? null })) : prevEx.series }
-            rawList[activeIdx].dayExercises[dayN] = exArr
-            await saveAllRoutines(rawList, activeId)
-          }
-        }
-      }
-    }catch{}
-    setEditingIdx(null)
-    setSavedIdx(idx)
-    setTimeout(()=> setSavedIdx(null), 1500)
-  }
   const weekKeys = useMemo(()=>{
     const base = parseLocalDateKey(todayStr)
     const mon = new Date(base)
@@ -246,7 +210,7 @@ export default function Inicio(){
         if(m) {setActiveMethodName(m.nameEs)}
       }
     }).catch(()=>{})
-    db.userProfile.get('me').then((p: any)=>{ if(p?.name && mountedRef.current) {setUserName(p.name)} }).catch(()=>{})
+    db.userProfile.get('me').then((p: any)=>{ const n = p?.displayName || p?.name; if(n && mountedRef.current) {setUserName(n)} }).catch(()=>{})
   },[todayStr])
 
   useEffect(()=>{
@@ -600,14 +564,12 @@ export default function Inicio(){
                         <th className="py-3 px-3 text-center">Reps</th>
                         <th className="py-3 px-3 text-right">Peso</th>
                         <th className="py-3 px-3 text-right">Descanso</th>
-                        <th className="py-3 px-3 w-20"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-surface-bright font-body-md text-body-sm">
                       {exNames.map((ex, i)=>{
-                        const isEditing = editingIdx === i
                         return (
-                          <tr key={ex.id} className={`hover:bg-surface-container/50 transition-colors group ${isEditing ? 'bg-surface-container/30' : ''}`}>
+                          <tr key={ex.id} className="hover:bg-surface-container/50 transition-colors group">
                             <td className="py-3 px-3">
                               <div className="flex items-center gap-2.5">
                                 <span className="w-5 h-5 rounded bg-surface-container border border-secondary/30 flex items-center justify-center font-headline-sm text-[11px] text-secondary">{ROMAN[i] || i+1}</span>
@@ -619,56 +581,27 @@ export default function Inicio(){
                             </td>
                             <td className="py-3 px-3 text-center font-semibold text-on-surface">{ex.sets}</td>
                             <td className="py-3 px-3 text-center">
-                              {isEditing ? (
-                                <input type="number" value={editDraft.reps} onChange={e=>setEditDraft(d=>({...d, reps: e.target.value === '' ? '' : Number(e.target.value)}))}
-                                  className="w-14 bg-surface-container-high border border-primary/40 rounded px-1.5 py-0.5 text-center text-on-surface text-sm focus:outline-none focus:border-primary"/>
-                              ) : (
-                                <span className="text-on-surface">{ex.reps || '—'}</span>
-                              )}
+                              <span className="text-on-surface">{ex.reps || '—'}</span>
                             </td>
                             <td className="py-3 px-3 text-right">
-                              {isEditing ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <input type="number" step="0.5" value={editDraft.weight ?? ''} onChange={e=>setEditDraft(d=>({...d, weight: e.target.value === '' ? null : Number(e.target.value)}))}
-                                    className="w-16 bg-surface-container-high border border-primary/40 rounded px-1.5 py-0.5 text-right text-secondary text-sm focus:outline-none focus:border-primary"/>
-                                  <span className="text-[10px] text-on-surface-variant">kg</span>
-                                </div>
-                              ) : (
-                                <span className={`font-medium ${(ex.weight ?? 0) > 0 ? 'text-secondary' : 'text-on-surface-variant italic'}`}>{(ex.weight ?? 0) > 0 ? `${ex.weight} kg` : 'sin peso'}</span>
-                              )}
+                              <span className={`font-medium ${(ex.weight ?? 0) > 0 ? 'text-secondary' : 'text-on-surface-variant italic'}`}>{(ex.weight ?? 0) > 0 ? `${ex.weight} kg` : 'sin peso'}</span>
                             </td>
                             <td className="py-3 px-3 text-right">
-                              {isEditing ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <input type="number" step="5" value={editDraft.restSec} onChange={e=>setEditDraft(d=>({...d, restSec: e.target.value === '' ? '' : Number(e.target.value)}))}
-                                    className="w-14 bg-surface-container-high border border-primary/40 rounded px-1.5 py-0.5 text-right text-on-surface-variant text-sm focus:outline-none focus:border-primary"/>
-                                  <span className="text-[10px] text-on-surface-variant">s</span>
-                                </div>
-                              ) : (
-                                <span className="text-on-surface-variant">{ex.restSec ? `${ex.restSec}s` : '90s'}</span>
-                              )}
-                            </td>
-                            <td className="py-3 px-3 text-right">
-                              {isEditing ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <button onClick={()=>saveExerciseEdit(i)} className="px-2.5 py-0.5 min-h-[44px] min-w-[44px] rounded bg-primary text-on-primary text-[10px] font-label-caps uppercase font-bold hover:bg-primary/80 transition-colors">Guardar</button>
-                                  <button onClick={()=>setEditingIdx(null)} className="px-2.5 py-0.5 min-h-[44px] min-w-[44px] rounded bg-surface-container-high border border-outline-variant text-on-surface-variant text-[10px] font-label-caps uppercase hover:bg-surface-container transition-colors">Cancelar</button>
-                                </div>
-                              ) : (
-                                <button onClick={()=>{ setEditingIdx(i); setEditDraft({reps: ex.reps || 0, weight: ex.weight ?? null, restSec: ex.restSec || 90}) }}
-                                  className="px-2 py-0.5 min-h-[44px] min-w-[44px] rounded bg-surface-container-high border border-outline-variant text-on-surface-variant text-[10px] font-label-caps uppercase hover:border-primary hover:text-primary transition-all active:scale-[0.97]">
-                                  <SemanticIcon name="edit" size={14} />
-                                </button>
-                              )}
+                              <span className="text-on-surface-variant">{ex.restSec ? `${ex.restSec}s` : '90s'}</span>
                             </td>
                           </tr>
                         )
                       })}
                       {exNames.length === 0 && (
-                        <tr><td colSpan={6} className="py-8 text-center text-on-surface-variant text-sm">Sin ejercicios programados. <Link to="/rutina" className="text-primary underline">Configurar rutina</Link></td></tr>
+                        <tr><td colSpan={5} className="py-8 text-center text-on-surface-variant text-sm">Sin ejercicios programados. <Link to="/rutina" className="text-primary underline">Configurar rutina</Link></td></tr>
                       )}
                     </tbody>
                   </table>
+                </div>
+                <div className="pt-2">
+                  <Link to="/rutina" className="min-h-[44px] inline-flex items-center gap-1.5 px-3 rounded-lg border border-outline-variant/60 bg-surface-container-high/60 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface hover:text-primary">
+                    <SemanticIcon name="edit" size={14} /> Editar en Rutinas
+                  </Link>
                 </div>
                 {exNames.length > 0 && (
                   <AltheaStatRow className="pt-4 border-t border-surface-bright" items={[
@@ -697,16 +630,14 @@ export default function Inicio(){
               <p className="text-[11px] text-on-surface-variant">
                 Caminatas, deportes o movimiento fuera de la fuerza.
               </p>
-              <button
-                type="button"
-                onClick={() => setActivityOpen(true)}
-                aria-haspopup="dialog"
+              <Link
+                to="/actividad"
                 aria-label="Registrar actividad libre"
                 data-testid="inicio-activity-btn"
                 className="w-full min-h-[48px] rounded-xl bg-teal-700 text-white hover:bg-teal-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 text-[12px] font-semibold tracking-wide uppercase flex items-center justify-center gap-2"
               >
                 Actividad libre
-              </button>
+              </Link>
             </div>
 
             {/* Registros de virtud */}
@@ -833,10 +764,6 @@ export default function Inicio(){
           ALTHEA · PALAESTRA DE ARETE
         </p>
       </footer>
-
-      {activityOpen && (
-        <ActivityModal onClose={() => setActivityOpen(false)} />
-      )}
 
       {routineBlocked && routineReview && !hasActiveSession && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="routine-block-title">

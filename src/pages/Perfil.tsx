@@ -170,6 +170,10 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
 /* ─── Main Perfil ─── */
 export default function Perfil() {
   const [profile, setProfile] = useState<any>(null)
+  // R2: distingue "cargando" (null + !loaded) de "no existe" (null + loaded).
+  // Sin este flag un guardado temprano crearía un perfil nuevo con defaults
+  // por encima del existente que todavía se estaba cargando.
+  const [profileLoaded, setProfileLoaded] = useState(false)
   // Fuente canónica del método del ciclo (FASE 1M-B): versión activa de
   // db.cycleVersions. profile.cycle queda SÓLO como fallback legacy.
   const [canonicalMethodId, setCanonicalMethodId] = useState<TrainingMethodId | undefined>(undefined)
@@ -228,7 +232,8 @@ export default function Perfil() {
           dislikedFoods: (p.nutritionPrefs?.dislikedFoods || []).join(', '),
         })
       }
-    })
+    }).catch(() => { /* perfil ilegible: queda como inexistente ya cargado */ })
+      .finally(() => setProfileLoaded(true))
     loadConfigs().then(setNotifCfgs).catch(() => {})
     permissionStatus().then(setNotifPerm).catch(() => setNotifPerm('unknown'))
 
@@ -266,6 +271,10 @@ export default function Perfil() {
   }, [showBiblio])
 
   const saveProfile = async () => {
+    // R2: mientras el perfil no terminó de cargar no se guarda nada — un put
+    // con base = profile ?? default pisaría el perfil existente con defaults.
+    // profileLoaded && !profile sí es creación legítima (usuario sin perfil).
+    if (!profileLoaded) { return }
     const data: any = {
       displayName: form.name || undefined,
       age: Number(form.age) || undefined,
@@ -293,10 +302,14 @@ export default function Perfil() {
     await db.userProfile.put({ ...base, ...data, updatedAt: new Date().toISOString() })
     setProfile({ ...base, ...data })
     const today = todayKey()
-    await db.table('bodyMeasurements').put({
-      id: uuid(), localDate: today, weightKg: data.weightKg, heightCm: data.heightCm,
-      bodyFatPct: data.bodyFatPct, muscleMassKg: data.muscleMassKg, createdAt: new Date().toISOString()
-    })
+    // Solo registra una medición si hay datos reales: sin ellos se insertaría
+    // una fila vacía por cada guardado, contaminando el histórico de Progreso.
+    if (data.weightKg || data.bodyFatPct || data.muscleMassKg) {
+      await db.table('bodyMeasurements').put({
+        id: uuid(), localDate: today, weightKg: data.weightKg, heightCm: data.heightCm,
+        bodyFatPct: data.bodyFatPct, muscleMassKg: data.muscleMassKg, createdAt: new Date().toISOString()
+      })
+    }
     setEditing(false)
   }
 
@@ -478,14 +491,8 @@ export default function Perfil() {
                 <input value={form.targetWeightKg} onChange={e => setForm({ ...form, targetWeightKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface" />
               </label>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="font-label-caps text-[12px] uppercase text-outline tracking-wider font-bold text-on-surface">Grasa %
-                <input value={form.bodyFatPct} onChange={e => setForm({ ...form, bodyFatPct: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-[15px] text-on-surface" />
-              </label>
-              <label className="font-label-caps text-[12px] uppercase text-outline tracking-wider font-bold text-on-surface">Músculo kg
-                <input value={form.muscleMassKg} onChange={e => setForm({ ...form, muscleMassKg: e.target.value })} type="number" step={0.1} className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-[15px] text-on-surface" />
-              </label>
-            </div>
+            {/* Grasa % y Músculo kg se ocultan de la UI: siguen en form y en el perfil,
+                y el guardado los conserva intactos (sin pedirlos de nuevo). */}
             <label className="font-label-caps text-[12px] uppercase text-outline tracking-wider font-bold text-on-surface">Restricciones alimentarias
               <input value={form.restrictions} onChange={e => setForm({ ...form, restrictions: e.target.value })} placeholder="Ej: vegetariano, sin lactosa" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-[15px] text-on-surface" />
             </label>
@@ -507,8 +514,6 @@ export default function Perfil() {
                 ['Peso', form.weightKg ? `${form.weightKg} kg` : '—'],
                 ['Altura', form.heightCm ? `${form.heightCm} cm` : '—'],
                 ['Peso obj.', form.targetWeightKg ? `${form.targetWeightKg} kg` : '—'],
-                ['Grasa', form.bodyFatPct ? `${form.bodyFatPct}%` : '—'],
-                ['Músculo', form.muscleMassKg ? `${form.muscleMassKg} kg` : '—'],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between"><span className="text-on-surface-variant">{k}</span><span className="text-on-surface font-medium">{v}</span></div>
               ))}
@@ -519,8 +524,8 @@ export default function Perfil() {
                 {form.allergies && <div className="flex justify-between"><span className="text-on-surface-variant">Alergias</span><span className="text-on-surface font-medium text-right max-w-[60%] truncate">{form.allergies}</span></div>}
               </div>
             )}
-            <button onClick={() => setEditing(true)} className="w-full py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-primary/50 transition-colors mt-2">
-              Editar datos
+            <button onClick={() => setEditing(true)} disabled={!profileLoaded} className="w-full py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-primary/50 transition-colors mt-2 disabled:opacity-60">
+              {profileLoaded ? 'Editar datos' : 'Cargando…'}
             </button>
           </div>
         )}
@@ -553,7 +558,7 @@ export default function Perfil() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Personalidad</span>
-              <AltheaBadge variant="primary">{derivedTone}</AltheaBadge>
+              <AltheaBadge variant="primary">{COACH_TONES.find(t => t.id === derivedTone)?.label ?? derivedTone}</AltheaBadge>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {COACH_TONES.map(t => (
@@ -597,7 +602,7 @@ export default function Perfil() {
       <Section title="Secciones de la app" icon={<IconDumbbell className="w-5 h-5" />}>
         <div className="pt-3 space-y-2">
           <p className="font-body-md text-xs text-on-surface-variant">
-            Activa o desactiva las pestañas del menú para tener una vista más limpia. Inicio, Perfil y Menú siempre quedan activos.
+            Activa o desactiva las pestañas del menú para tener una vista más limpia. Inicio, Perfil y Más siempre quedan activos.
           </p>
           {TOGGLEABLE_SECTIONS.map((s) => (
             <div key={s.icon} className="flex items-center justify-between gap-2 py-1.5">

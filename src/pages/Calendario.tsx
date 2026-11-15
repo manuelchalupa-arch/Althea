@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import SemanticIcon from '../components/ui/SemanticIcon';
 import { prettyExId } from '@/utils/format'
 import { db } from '@/services/storage/db'
 import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaPanel, AltheaStatRow } from '@/components/althea'
-import { RecoveryCheckForm } from '@/components/recovery/RecoveryCheckForm'
 import { getOverrideDay, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import type { CycleConfig, LoadState } from '@/utils/cycle'
 import { getLoadForDate, LOAD_STATE_LABEL, LOAD_STATE_COLOR } from '@/utils/cycle'
@@ -41,15 +41,15 @@ export default function Calendario(){
   const [view,setView]=useState<{y:number; m:number}>(()=>({ y: now.getFullYear(), m: now.getMonth() }))
   const { y, m } = view
   const [map,setMap]=useState<Record<string,number>>({})
-  const [detail,setDetail]=useState<{date:string; scheduled:string; actual:string; changed:boolean; sessions:any[]; hydration:number; recovery:any; meals?:number; calories?:number; macros?:{proteins:number; carbs:number; fats:number}} | null>(null)
+  const [detail,setDetail]=useState<{date:string; scheduled:string; actual:string; changed:boolean; sessions:any[]; hydration:number; recovery:any; meals?:number; calories?:number; macros?:{proteins:number; carbs:number; fats:number}; cf?:{id:string; wodName:string; scoreText:string; isBenchmark:boolean}[]} | null>(null)
   const [cycle,setCycle]=useState<CycleConfig | null>(null)
   const [monthOverrides,setMonthOverrides]=useState<Record<string,boolean>>({})
-  const [showCheckin,setShowCheckin]=useState(false)
   const [todayScore,setTodayScore]=useState<number|null>(null)
   const [,setTodaySleep]=useState<number|null>(null)
   const [todayHydration,setTodayHydration]=useState(0)
 
   const isMobile = useIsMobile()
+  const navigate = useNavigate()
 
   const todayStr = selectedDate ?? todayKey()
 
@@ -181,6 +181,11 @@ export default function Calendario(){
       }
     }))
     const hyd = await db.hydrationLogs.where('localDate').equals(key).toArray().then(a=> a.reduce((s,b)=>s+b.amountMl,0)).catch(()=>0)
+    // CrossFit: consulta read-only sobre cfResults (append-only). Sin copias ni
+    // movimientos de datos: el histórico vive solo en su tabla original.
+    const cf = await db.cfResults.where('date').equals(key).toArray()
+      .then(a=> a.map(r=> ({ id: String(r.id), wodName: String(r.wodName || 'WOD'), scoreText: String(r.scoreText || ''), isBenchmark: !!r.isBenchmark })))
+      .catch(()=>[])
     // Solo Dexie: sin dato → Sin datos (sin fallback a localStorage).
     const rec = await db.recoveryChecks.get(key).catch(()=>null)
     const diary = await db.nutritionDiary.where('date').equals(key).toArray().catch(() => [])
@@ -191,7 +196,7 @@ export default function Calendario(){
       const mc = (e as { macros?: { proteins?: number; carbs?: number; fats?: number } }).macros
       proteins += Number(mc?.proteins || 0); carbs += Number(mc?.carbs || 0); fats += Number(mc?.fats || 0)
     }
-    setDetail({date:key, scheduled, actual, changed, sessions: detailed, hydration: hyd, recovery: rec, meals: diary.length, calories: Math.round(dayCalories), load,
+    setDetail({date:key, scheduled, actual, changed, sessions: detailed, hydration: hyd, recovery: rec, meals: diary.length, calories: Math.round(dayCalories), load, cf,
       macros: { proteins: Math.round(proteins), carbs: Math.round(carbs), fats: Math.round(fats) }} as never)
   }
 
@@ -225,7 +230,7 @@ export default function Calendario(){
         <SemanticIcon name="water_drop" size={16} className="text-[16px]" />
         {todayHydration > 0 ? `Agua: ${(todayHydration / 1000).toFixed(1)} L` : 'Agua: Sin datos'}
       </div>
-      <AltheaButton icon="favorite" fullWidth onClick={()=>setShowCheckin(true)} className="sm:w-auto sm:min-w-[280px] min-h-[52px]">
+      <AltheaButton icon="favorite" fullWidth onClick={()=>navigate('/recuperacion')} className="sm:w-auto sm:min-w-[280px] min-h-[52px]">
         Recuperación
       </AltheaButton>
     </AltheaCard>
@@ -361,25 +366,30 @@ export default function Calendario(){
                 </p>
               </div>
             )}
-            <AltheaButton fullWidth size="lg" onClick={()=>setDetail(null)} className="min-h-[48px]">Cerrar</AltheaButton>
-          </div>
-        </div>
-  )
-
-  const checkinSheet = showCheckin && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 sm:p-6 althea-modal" onClick={()=>setShowCheckin(false)}>
-          <div onClick={e=>e.stopPropagation()} className="bg-surface border border-outline-variant rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-3 pb-safe">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <SemanticIcon name="favorite" size={22} className="text-primary text-[22px]" />
-                <h3 className="font-headline-lg text-base font-semibold text-on-surface">Recuperación</h3>
-              </div>
-              <button onClick={()=>setShowCheckin(false)} aria-label="Cerrar recuperación" className="p-2 min-w-[48px] min-h-[48px] rounded-lg border border-outline-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center">
-                <SemanticIcon name="close" size={20} className="text-[20px]" />
-              </button>
+            {(detail.cf?.length ?? 0) > 0 && (
+              <AltheaCard className="space-y-2">
+                <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">CrossFit del día</p>
+                {detail.cf!.map(r=> (
+                  <div key={r.id} className="flex items-center justify-between gap-2 font-body-sm text-[12px] text-on-surface">
+                    <span className="truncate">{r.wodName}{r.isBenchmark ? ' · Benchmark' : ''}</span>
+                    <span className="text-primary font-semibold shrink-0">{r.scoreText}</span>
+                  </div>
+                ))}
+                <Link to="/crossfit" onClick={()=>setDetail(null)} className="min-h-[44px] inline-flex items-center px-3 rounded-lg border border-outline-variant/60 bg-surface-container/60 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface hover:text-primary">
+                  Ver CrossFit
+                </Link>
+              </AltheaCard>
+            )}
+            {/* Accesos a las secciones dueñas de cada registro (solo lectura aquí) */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Link to="/nutricion" onClick={()=>setDetail(null)} className="min-h-[44px] inline-flex items-center gap-1.5 px-3 rounded-lg border border-outline-variant/60 bg-surface-container/60 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface hover:text-primary">
+                <SemanticIcon name="water_drop" size={16} className="text-[16px]" /> Hidratación y comidas
+              </Link>
+              <Link to="/recuperacion" onClick={()=>setDetail(null)} className="min-h-[44px] inline-flex items-center gap-1.5 px-3 rounded-lg border border-outline-variant/60 bg-surface-container/60 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface hover:text-primary">
+                <SemanticIcon name="favorite" size={16} className="text-[16px]" /> Recuperación
+              </Link>
             </div>
-            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Solo registra tu estado. No modifica tu rutina.</p>
-            <RecoveryCheckForm onSaved={()=>setShowCheckin(false)} />
+            <AltheaButton fullWidth size="lg" onClick={()=>setDetail(null)} className="min-h-[48px]">Cerrar</AltheaButton>
           </div>
         </div>
   )
@@ -391,7 +401,6 @@ export default function Calendario(){
         {monthCard}
         {sideCards}
         {detailSheet}
-        {checkinSheet}
       </div>
     )
   }
@@ -404,7 +413,6 @@ export default function Calendario(){
         <div className="lg:col-span-4 space-y-3">{sideCards}</div>
       </div>
       {detailSheet}
-      {checkinSheet}
     </div>
   )
 }

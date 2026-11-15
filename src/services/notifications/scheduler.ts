@@ -215,6 +215,8 @@ async function buildGates(): Promise<GateContext> {
 
 // Revisa y dispara (marca cada horario vencido). onOpen se usa para deep-link (cuestionario).
 // Nunca crea datos de dominio: solo notifica. No pide permiso (solo Perfil lo pide).
+// R4: un ÚNICO motor para ambas tablas — primero el histórico (prioridad por
+// tipo/hora), después el unificado con la regla de no-duplicado de reminders.ts.
 export async function checkAndFire(
   onOpen: (kind: NotifKind) => void = () => {},
   // Desconocido NO es día de entrenamiento (un error jamás equivale a entrenar).
@@ -246,6 +248,31 @@ export async function checkAndFire(
       }
     }
   }
+
+  // --- R4: sistema unificado (misma pasada, después del histórico) ---
+  try {
+    const { dueReminders, legacyFiredKindTime, unifiedBody, normalizeUnified } = await import('./reminders')
+    const { loadUnifiedConfigs } = await import('./unifiedNotifications')
+    const unified = normalizeUnified(await loadUnifiedConfigs())
+    const legacyKindTime = legacyFiredKindTime(cfgs, date, fired)
+    const dueU = dueReminders(unified, now, legacyKindTime, () => trainingDay, fired)
+    for (const c of dueU) {
+      for (const t of c.times) {
+        const key = firedId(c.id, date, t)
+        if (t <= time && !fired.has(key)) {
+          try {
+            const ok = await sendNotification(c.kind, c.title, unifiedBody(c, (k) => KIND_BODY[k] ?? c.title))
+            if (ok) {
+              await markFired(c.id, date, t)
+              fired.add(key)
+              firedOut.push(`${c.id}@${t}`)
+            }
+          } catch { /* noop */ }
+        }
+      }
+    }
+  } catch { /* capa unificada best-effort: el histórico ya corrió */ }
+
   return firedOut
 }
 

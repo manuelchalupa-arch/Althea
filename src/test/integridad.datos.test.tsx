@@ -1,0 +1,203 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import '@testing-library/jest-dom'
+import { MemoryRouter } from 'react-router-dom'
+import { db } from '@/services/storage/db'
+import { exportJSON, importJSON } from '@/services/storage/exportImport'
+import { todayKey } from '@/utils/dates'
+import Inicio from '@/pages/Inicio'
+import Calendario from '@/pages/Calendario'
+import Perfil from '@/pages/Perfil'
+
+vi.mock('@/services/ai/aiService', () => ({
+  aiService: { getChatCompletion: vi.fn().mockResolvedValue({ content: '' }) },
+}))
+
+/**
+ * Integridad de datos (auditoría Etapas 2 y 9):
+ * 1) el respaldo exporta TODOS los dominios del usuario (incluidas las 7
+ *    tablas que faltaban en R4) y una restauración sobre DB vacía devuelve
+ *    exactamente los mismos datos;
+ * 2) renderizar Inicio, Calendario y Perfil sobre datos sembrados no altera
+ *    una sola fila (antes/después byte a byte).
+ */
+
+const today = todayKey()
+
+// Una tabla representativa por dominio de la auditoría.
+const TABLES = [
+  'userProfile', 'routineStore', 'trainingSessions', 'sessionExercises', 'setRecords',
+  'recoveryChecks', 'hydrationLogs', 'bodyMeasurements', 'nutritionDiary',
+  'cfWods', 'cfSchedule', 'cfResults', 'cfMarks',
+  'activitySessions', 'exerciseRecords', 'cycleVersions',
+] as const
+
+async function seedRepresentative() {
+  await db.userProfile.put({
+    id: 'me', displayName: 'Nico', weightKg: 80, heightCm: 175,
+    bodyFatPct: 18.5, muscleMassKg: 34, onboardingDone: true,
+  } as never)
+  await db.routineStore.put({
+    id: 'r1', name: 'Push/Pull', updatedAt: '2026-11-01T10:00:00Z',
+    dayExercises: { 1: [{ exId: 'press', name: 'Press banca', sets: 3, reps: 8, weight: 70 }] },
+  } as never)
+  await db.trainingSessions.put({
+    id: 'ts1', sessionId: 'ts1', userId: 'me', routineId: 'r1',
+    plannedDay: 1, actualDay: 1, calendarDate: today, sessionStatus: 'COMPLETED',
+    plannedSets: 3, startedAt: `${today}T10:00:00Z`, endedAt: `${today}T10:40:00Z`,
+    createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:40:00Z`,
+  } as never)
+  await db.sessionExercises.put({
+    sessionExerciseId: 'se1', sessionId: 'ts1', exerciseId: 'press',
+    order: 0, planned: true, completed: true, status: 'COMPLETED',
+    plannedSetCount: 3, actualSetCount: 3, plannedSets: [],
+    createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:00:00Z`,
+  } as never)
+  await db.setRecords.put({
+    setRecordId: 'sr1', sessionId: 'ts1', sessionExerciseId: 'se1', exerciseId: 'press',
+    order: 1, setType: 'NORMAL', plannedReps: 8, plannedWeight: 70,
+    actualReps: 8, actualWeight: 70, status: 'COMPLETED',
+    completedAt: `${today}T10:05:00Z`, createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:05:00Z`,
+  } as never)
+  await db.recoveryChecks.put({
+    id: today, localDate: today, energy: 8, fatigue: 2, stress: 3,
+    motivation: 8, score: 80, color: 'green',
+  } as never)
+  await db.hydrationLogs.put({
+    id: 'h1', localDate: today, amountMl: 500, createdAt: `${today}T09:00:00Z`,
+  } as never)
+  await db.bodyMeasurements.put({
+    id: 'bm1', localDate: today, weightKg: 80, heightCm: 175,
+    bodyFatPct: 18.5, muscleMassKg: 34, createdAt: `${today}T08:00:00Z`,
+  } as never)
+  await db.nutritionDiary.put({
+    id: 'nd1', date: today, name: 'Pollo', mealType: 'almuerzo',
+    servingLabel: '100g', amount: 100, unit: 'g',
+    macros: { calories: 165, proteins: 31, carbs: 0, fats: 3.6 },
+    addedAt: `${today}T13:00:00Z`,
+  } as never)
+  await db.cfWods.put({
+    id: 'wod1', name: 'Fran', format: 'FOR_TIME', updatedAt: `${today}T10:00:00Z`,
+  } as never)
+  await db.cfSchedule.put({
+    id: 'sch1', date: today, kind: 'wod', updatedAt: `${today}T10:00:00Z`,
+  } as never)
+  await db.cfResults.put({
+    id: 'cf1', date: today, wodName: 'Fran', format: 'FOR_TIME', level: 'rx',
+    scoreText: '7:32', timeSec: 452, isBenchmark: true,
+    createdAt: `${today}T11:00:00Z`, updatedAt: `${today}T11:00:00Z`,
+  } as never)
+  await db.cfMarks.put({
+    id: 'mk1', movement: 'backSquat', reps: 1, valueKg: 140, date: today,
+    createdAt: `${today}T11:00:00Z`, updatedAt: `${today}T11:00:00Z`,
+  } as never)
+  await db.activitySessions.put({
+    id: 'act1', userId: 'me', activityId: 'correr', calendarDate: today,
+    startedAt: `${today}T08:00:00Z`, durationMinutes: 30, distanceMeters: 5000,
+    createdAt: `${today}T08:30:00Z`, updatedAt: `${today}T08:30:00Z`,
+  } as never)
+  await db.exerciseRecords.put({
+    id: 'er1', sessionId: 'ts1', exerciseId: 'press', bestWeight: 70,
+    createdAt: `${today}T10:00:00Z`,
+  } as never)
+  await db.cycleVersions.put({
+    id: 'cv1', scope: 'user', status: 'active', effectiveFrom: today,
+    createdAt: `${today}T07:00:00Z`,
+  } as never)
+}
+
+async function snapshot(): Promise<Record<string, string>> {
+  const out: Record<string, string> = {}
+  for (const t of TABLES) {
+    const rows = JSON.parse(JSON.stringify(await (db.table(t) as any).toArray()))
+    rows.sort((a: unknown, b: unknown) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    out[t] = JSON.stringify(rows)
+  }
+  return out
+}
+
+describe('Respaldo/restauración verificable (Etapa 2)', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    await db.delete()
+    await db.open()
+  })
+
+  it('exporta las 7 tablas que faltaban (R4) con sus datos', async () => {
+    await seedRepresentative()
+    const data = JSON.parse(await (await exportJSON()).text())
+    expect(data.cfWods.map((r: any) => r.id)).toContain('wod1')
+    expect(data.cfSchedule.map((r: any) => r.id)).toContain('sch1')
+    expect(data.cfResults.map((r: any) => r.id)).toContain('cf1')
+    expect(data.cfMarks.map((r: any) => r.id)).toContain('mk1')
+    expect(data.activitySessions.map((r: any) => r.id)).toContain('act1')
+    expect(data.exerciseRecords.map((r: any) => r.id)).toContain('er1')
+    expect(data.cycleVersions.map((r: any) => r.id)).toContain('cv1')
+    // Sin bump de versión: sigue siendo formato 2 / esquema 15.
+    expect(data.metadata.version).toBe(2)
+    expect(data.metadata.schemaVersion).toBe(15)
+  })
+
+  it('exportar → borrar todo → importar restaura idénticos los datos representativos', async () => {
+    await seedRepresentative()
+    const before = await snapshot()
+
+    const file = new File([await (await exportJSON()).text()], 'backup.json', { type: 'application/json' })
+
+    // Borrado total de la base (simula dispositivo nuevo / pérdida de datos).
+    await db.delete()
+    await db.open()
+    for (const t of TABLES) { expect(await (db.table(t) as any).count()).toBe(0) }
+
+    const result = await importJSON(file)
+    expect(result.success).toBe(true)
+    expect(result.errors).toEqual([])
+
+    const after = await snapshot()
+    expect(after).toEqual(before)
+
+    // Verificación puntual de valores clave (no solo conteos).
+    const profile = await db.userProfile.get('me')
+    expect(profile).toMatchObject({ displayName: 'Nico', bodyFatPct: 18.5, muscleMassKg: 34 })
+    const cf = await db.cfResults.get('cf1')
+    expect(cf).toMatchObject({ scoreText: '7:32', isBenchmark: true })
+    const act = await db.activitySessions.get('act1')
+    expect(act).toMatchObject({ durationMinutes: 30, distanceMeters: 5000 })
+  })
+})
+
+describe('Render de páginas no muta datos (Etapa 9)', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    localStorage.clear()
+    await db.delete()
+    await db.open()
+    await seedRepresentative()
+  })
+
+  it('Inicio, Calendario y Perfil dejan intactas las tablas sembradas', async () => {
+    const before = await snapshot()
+
+    render(<MemoryRouter><Inicio /></MemoryRouter>)
+    await waitFor(() => {
+      expect(screen.getByText('¡Hola, Nico!')).toBeInTheDocument()
+    })
+
+    render(<MemoryRouter><Calendario /></MemoryRouter>)
+    await waitFor(() => {
+      expect(screen.getByText('Calendario y recuperación')).toBeInTheDocument()
+    })
+    // Abrir el detalle del día dispara todas las consultas del día (incluida cfResults).
+    const btn = screen.getAllByRole('button').find(b => b.getAttribute('data-date') === today)
+    if (btn) { fireEvent.click(btn) }
+
+    render(<MemoryRouter><Perfil /></MemoryRouter>)
+    await waitFor(() => {
+      expect(screen.getByText('Datos personales')).toBeInTheDocument()
+    })
+
+    const after = await snapshot()
+    expect(after).toEqual(before)
+  }, 30000)
+})

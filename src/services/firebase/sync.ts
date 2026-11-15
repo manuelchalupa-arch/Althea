@@ -53,6 +53,10 @@ const TABLES = [
   'cfSchedule',
   'cfResults',
   'cfMarks',
+  // Historial de actividad deportiva: antes faltaba acá, así que nunca se
+  // sincronizaba (y los deletes encolados por deleteActivitySession no
+  // encontraban destino).
+  'activitySessions',
 ] as const
 
 // Tablas append-only / históricas: solo se agregan ids faltantes, jamás se pisan.
@@ -62,7 +66,7 @@ const ADD_ONLY = new Set([
   'exerciseRecords', 'nutritionDiary', 'nutritionAdherence', 'hydrationLogs',
   'bodyMeasurements', 'chatMessages', 'chatConversations', 'coachMemory',
   'decisionLog', 'painLogs', 'customExercises', 'cycleVersions',
-  'cfResults', 'cfMarks',
+  'cfResults', 'cfMarks', 'activitySessions',
 ])
 
 export interface SyncConflict { table: string; id: string; reason: 'remote-older' | 'tie-keep-local' | 'history-preserved' }
@@ -245,10 +249,13 @@ export async function syncAll(
       try {
         await deleteDoc(doc(fsdb, 'users', uid, d.table, d.docId))
         deleted += 1
+        // R1: el trazo se limpia SOLO tras confirmar el borrado remoto; si
+        // deleteDoc falla se conserva y el registro nunca "resucita" en la
+        // próxima descarga (parciales: cada trazo se evalúa por separado).
+        toClear.push(d.id)
       } catch {
-        // falla en silencio: se reintentará en el próximo sync
+        // falla (red/permiso): se conserva el trazo y se reintentará en el próximo sync
       }
-      toClear.push(d.id)
     }
   } catch {}
   await clearProcessedDeletes(toClear)

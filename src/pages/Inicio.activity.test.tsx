@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 import Inicio from './Inicio'
 import Actividad from './Actividad'
@@ -35,21 +35,26 @@ describe('Inicio — botón Actividad', () => {
     expect(btn!.className).toMatch(/bg-teal-700/)
   })
 
-  it('el botón abre la ventana modal sin navegar', async () => {
-    render(<MemoryRouter><Inicio /></MemoryRouter>)
+  it('el botón navega a /actividad (sin modal embebido)', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<Inicio />} />
+          <Route path="/actividad" element={<h1>Página Actividad</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    )
     let btn: HTMLElement | null = null
     await waitFor(() => {
       btn = screen.queryByTestId('inicio-activity-btn') ?? screen.queryByTestId('inicio-activity-btn-desktop')
       expect(btn).toBeInTheDocument()
     })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(btn!.getAttribute('href')).toBe('/actividad')
     fireEvent.click(btn!)
     await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(screen.getByText('Página Actividad')).toBeInTheDocument()
     })
-    const dialog = screen.getByRole('dialog')
-    expect(within(dialog).getAllByRole('heading', { name: 'Actividad libre' }).length).toBeGreaterThanOrEqual(1)
-    expect(within(dialog).getByRole('group', { name: /Esfuerzo percibido/ })).toBeInTheDocument()
   })
 
   it('la página /actividad continúa funcionando', async () => {

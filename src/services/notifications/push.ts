@@ -5,6 +5,10 @@
 import { db } from '@/services/storage/db'
 
 export type PushType = 'seguimiento' | 'pre-entreno' | 'agua' | 'cuestionario' | 'recuperacion' | 'comoEstas' | 'proteina' | 'entrenamiento' | 'coach'
+// Tipos del sistema unificado (R4): mismos valores que NotifType para que el
+// motor único de disparo pueda enviarlos sin casts.
+export type UnifiedPushType = 'comer' | 'preparar_habitacion' | 'otro'
+export type AnyPushType = PushType | UnifiedPushType
 
 function platformAvailable(): boolean {
   try { return typeof Notification !== 'undefined' && 'Notification' in window } catch { return false }
@@ -14,7 +18,7 @@ function permissionGranted(): boolean {
   try { return platformAvailable() && Notification.permission === 'granted' } catch { return false }
 }
 
-export async function sendNotification(_type: PushType, title: string, body: string, onClick?: () => void): Promise<boolean> {
+export async function sendNotification(_type: AnyPushType, title: string, body: string, onClick?: () => void): Promise<boolean> {
   if (!platformAvailable()) { return false }
   if (!permissionGranted()) { return false }
   try {

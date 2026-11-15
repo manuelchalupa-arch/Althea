@@ -52,8 +52,12 @@ const ok = (m) => { passes.push(m); console.log(`  [PASS] ${m}`) }
 const bad = (m) => { failures.push(m); console.log(`  [FAIL] ${m}`) }
 const block = (m) => { blocked.push(m); console.log(`  [BLOCKED] ${m}`) }
 
+// Modo emulador local (verificación sin proveedor Email/Password en staging).
+const isEmu = process.env.E2E_EMULATOR === '1'
+
 console.log('=== FIRESTORE ISOLATION E2E (staging) ===')
 console.log(`project = ${projectId || '(sin definir)'}`)
+if (isEmu) console.log('mode = EMULADOR LOCAL (auth 9099 / firestore 8080, mismas firestore.rules)')
 
 // ── Guardas de ambiente ──────────────────────────────────────────────────────
 // La lógica vive en scripts/lib/env-config.mjs (pura y con tests propios) para
@@ -68,8 +72,14 @@ if (!guard.ok) {
   process.exit(2)
 }
 
-// ── Helpers Identity Toolkit ────────────────────────────────────────────────
-const IDENTITY = 'https://identitytoolkit.googleapis.com/v1/accounts'
+// ── Endpoints ────────────────────────────────────────────────────────────────
+// Por defecto: Firestore REAL (staging). Con E2E_EMULATOR=1 apunta a los
+// emuladores locales (Auth 9099 / Firestore 8080) — misma lógica, mismas
+// reglas de firestore.rules, datos locales descartables. Usado para completar
+// la verificación cuando el proveedor Email/Password aún no está habilitado.
+const IDENTITY = isEmu
+  ? 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts'
+  : 'https://identitytoolkit.googleapis.com/v1/accounts'
 
 async function signup(email, password) {
   const res = await fetch(`${IDENTITY}:signUp?key=${apiKey}`, {
@@ -92,15 +102,17 @@ async function signIn(email, password) {
 }
 
 // ── Helpers Firestore REST ──────────────────────────────────────────────────
-const DB = 'https://firestore.googleapis.com/v1/projects'
+const DB = isEmu
+  ? 'http://127.0.0.1:8080/v1/projects'
+  : 'https://firestore.googleapis.com/v1/projects'
 const COLLECTION = '_isolation_probe'
 
-function docPath(uid, docId) {
-  return `${DB}/${projectId}/databases/(default)/documents/users/${uid}/${COLLECTION}/${docId}`
+function docPath(uid, docId, col = COLLECTION) {
+  return `${DB}/${projectId}/databases/(default)/documents/users/${uid}/${col}/${docId}`
 }
 
-async function writeDoc(token, uid, docId, value) {
-  return fetch(`${docPath(uid, docId)}?currentDocument.exists=false`, {
+async function writeDoc(token, uid, docId, value, col) {
+  return fetch(`${docPath(uid, docId, col)}?currentDocument.exists=false`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -110,19 +122,35 @@ async function writeDoc(token, uid, docId, value) {
   })
 }
 
-async function readDoc(token, uid, docId) {
-  return fetch(docPath(uid, docId), {
+async function updateDoc(token, uid, docId, value, col) {
+  return fetch(docPath(uid, docId, col), {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ fields: { marker: { stringValue: value } } }),
+  })
+}
+
+async function readDoc(token, uid, docId, col) {
+  return fetch(docPath(uid, docId, col), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+}
+
+async function deleteDoc(token, uid, docId, col) {
+  return fetch(docPath(uid, docId, col), {
+    method: 'DELETE',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
 }
 
 async function cleanup(uid, token) {
   for (const d of ['probeA', 'probeB']) {
-    await fetch(`${docPath(uid, d)}`, {
-      method: 'DELETE',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    }).catch(() => {})
+    await deleteDoc(token, uid, d).catch(() => {})
   }
+  await deleteDoc(token, uid, 'sess-1', 'activitySessions').catch(() => {})
 }
 
 // ── Prueba ──────────────────────────────────────────────────────────────────
@@ -223,7 +251,46 @@ console.log('\n[7] El intento de secuestro no alteró los datos de B')
   }
 }
 
-console.log('\n[8] Limpieza')
+console.log('\n[8] Round-trip de activitySessions: crear, leer, actualizar, borrar')
+{
+  const COL = 'activitySessions'
+  const w = await writeDoc(tokenA, uidA, 'sess-1', 'v1', COL)
+  if (w.ok) ok('activitySessions: creación permitida (A)')
+  else bad(`activitySessions: creación denegada (${w.status})`)
+
+  const r1 = await readDoc(tokenA, uidA, 'sess-1', COL)
+  if (r1.ok && (await r1.text()).includes('v1')) ok('activitySessions: descarga permitida (A)')
+  else bad(`activitySessions: descarga fallida (${r1.status})`)
+
+  const u = await updateDoc(tokenA, uidA, 'sess-1', 'v2', COL)
+  if (u.ok) ok('activitySessions: actualización permitida (A)')
+  else bad(`activitySessions: actualización denegada (${u.status})`)
+
+  const r2 = await readDoc(tokenA, uidA, 'sess-1', COL)
+  if (r2.ok && (await r2.text()).includes('v2')) ok('activitySessions: la actualización se reflejó')
+  else bad('activitySessions: la actualización no se reflejó en la descarga')
+
+  // B intenta borrar el registro de A: debe fallar y NO alterar el dato.
+  const d = await deleteDoc(tokenB, uidA, 'sess-1', COL)
+  if (d.status === 403 || d.status === 404) ok(`borrado ajeno denegado (${d.status})`)
+  else bad(`borrado ajeno: se esperaba 403/404, obtenido ${d.status}`)
+
+  const r3 = await readDoc(tokenA, uidA, 'sess-1', COL)
+  if (r3.ok && (await r3.text()).includes('v2')) ok('el borrado fallido no alteró el registro de A')
+  else bad('el borrado fallido alteró o eliminó el registro de A')
+
+  // BORRADO EXITOSO (A sobre su propio registro): traza de R1 limpia el
+  // remoto solo tras confirmar esto.
+  const dOk = await deleteDoc(tokenA, uidA, 'sess-1', COL)
+  if (dOk.ok || dOk.status === 404) ok('borrado propio confirmado')
+  else bad(`borrado propio: se esperaba 2xx/404, obtenido ${dOk.status}`)
+
+  const r4 = await readDoc(tokenA, uidA, 'sess-1', COL)
+  if (r4.status === 404) ok('el registro ya no existe tras el borrado (sin resurrección)')
+  else bad(`post-borrado: se esperaba 404, obtenido ${r4.status}`)
+}
+
+console.log('\n[9] Limpieza')
 await cleanup(uidA, tokenA)
 await cleanup(uidB, tokenB)
 console.log('  documentos de prueba eliminados')

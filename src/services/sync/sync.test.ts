@@ -10,6 +10,7 @@ import { updateRecoveryCheck } from '../recovery/recoveryService'
 import { addDiaryEntry } from '../storage/diaryStore'
 import { addHydration } from '../recovery/recoveryService'
 import { createReadySession, transitionSession } from '../training/sessionStore'
+import { saveActivitySession } from '../activity/activityService'
 
 class FakeRemote implements RemoteAdapter {
   docs = new Map<string, Record<string, unknown>>()
@@ -252,6 +253,31 @@ describe('FASE 8 — Offline-first y sync idempotente', () => {
       await removeDiaryEntry('d-del')
       const dels = await pendingDeletes()
       expect(dels.some((d) => d.table === 'nutritionDiary' && d.docId === 'd-del')).toBe(true)
+    })
+  })
+
+  describe('activitySessions (tabla que faltaba en TABLES)', () => {
+    it('se encola al guardar, sube a la nube y su download es append-only', async () => {
+      await saveActivitySession({
+        activityId: 'correr', calendarDate: todayKey(),
+        startedAt: `${todayKey()}T08:00:00.000Z`, durationMinutes: 30,
+        weightKg: 70, variantId: '6mph', sessionRpe: 3,
+      })
+      await flushEnqueue()
+      expect((await pendingOps()).some(o => o.table === 'activitySessions')).toBe(true)
+      const remote = new FakeRemote()
+      await processQueue('uid', remote)
+      expect(remote.count('activitySessions')).toBe(1)
+
+      // Download: una copia remota modificada NO pisa el local (append-only)…
+      const local = await db.activitySessions.toArray()
+      const localById = new Map(local.map((r: any, i: number) => [r.id ?? `activitySessions-${i}`, r]))
+      const stale = applyDownloadPolicy('activitySessions', [{ ...local[0], durationMinutes: 999 }], localById)
+      expect(stale.toPut).toHaveLength(0)
+      expect(stale.conflicts[0].reason).toBe('history-preserved')
+      // …pero un id que solo existe en la nube sí se descarga (multi-dispositivo).
+      const fresh = applyDownloadPolicy('activitySessions', [{ id: 'remoto-1', calendarDate: '2026-01-01' }], localById)
+      expect(fresh.toPut).toHaveLength(1)
     })
   })
 })

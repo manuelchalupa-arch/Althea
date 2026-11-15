@@ -12,6 +12,7 @@
 
 import { db } from '@/services/storage/db'
 import { currentUser } from '@/services/firebase/auth'
+import { toDateKey } from '@/utils/dates'
 import { activityCatalog, findVariant, defaultVariant, type Activity, type ActivityLevel, type ActivityModalidad, type ActivityCategory } from '@/data/activityCatalog'
 import { calculateCalorieExpenditure, calculateSessionLoad, normalizeSessionRpe, estimateMetCalories, estimateTreadmillCalories, getActivitiesByCategory, getActivitiesByModalidad, getActivitiesByIntensidad, getDefaultVariant, getVariant } from './activityDomain'
 
@@ -181,6 +182,9 @@ export async function saveActivitySession(input: SaveActivityInput): Promise<Act
   }
 
   await db.activitySessions.put(record)
+  // Mismo patrón que el resto de servicios: la cola sube el cambio sin esperar
+  // al sync completo (antes activitySessions no estaba en TABLES de syncAll).
+  import('@/services/sync/opQueue').then(({ enqueueOp }) => enqueueOp('activitySessions', record.id)).catch(() => {})
   return record
 }
 
@@ -317,7 +321,9 @@ export async function registrarSesion(
 
   const record = await saveActivitySession({
     activityId: activity.id,
-    calendarDate: startedAt.slice(0, 10),
+    // Fecha local del inicio: en ISO UTC a partir de las 21:00 (ART) el
+    // slice(0,10) caía en el día siguiente y el registro quedaba desplazado.
+    calendarDate: toDateKey(startedAt),
     startedAt,
     durationMinutes,
     distanceMeters,

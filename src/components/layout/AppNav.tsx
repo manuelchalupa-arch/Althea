@@ -21,6 +21,8 @@ const ICON_MAP: Record<string, AltheaIconName> = {
   routines: 'rutinas',
   coach: 'coach',
   profile: 'perfil',
+  recovery: 'recuperacion',
+  energy: 'actividad',
 }
 
 function toAltheaEntry(item: NavItem): AltheaNavEntry {

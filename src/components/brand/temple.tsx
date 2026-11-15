@@ -6,7 +6,8 @@ import { accentSectionForPath as navSectionForPath } from '@/components/navigati
 
 export type TempleSection =
   | 'inicio' | 'entrenar' | 'nutricion' | 'progreso' | 'mas'
-  | 'biblioteca' | 'rutina' | 'calendario' | 'recuperacion' | 'perfil' | 'coach' | 'default'
+  | 'biblioteca' | 'rutina' | 'calendario' | 'recuperacion' | 'perfil' | 'coach'
+  | 'crossfit' | 'actividad' | 'default'
 
 export type SigilKind = 'laurel' | 'athlete' | 'torso' | 'bust' | 'column' | 'arch' | 'disc'
 
@@ -22,6 +23,8 @@ const SECTION_SIGIL: Record<TempleSection, SigilKind> = {
   recuperacion: 'laurel',
   perfil: 'bust',
   coach: 'disc',
+  crossfit: 'disc',
+  actividad: 'athlete',
   default: 'column',
 }
 
@@ -41,6 +44,8 @@ export function sectionForPath(pathname: string): TempleSection {
   if (pathname.startsWith('/recuperacion')) {return 'recuperacion'}
   if (pathname.startsWith('/perfil')) {return 'perfil'}
   if (pathname.startsWith('/coach')) {return 'coach'}
+  if (pathname.startsWith('/crossfit')) {return 'crossfit'}
+  if (pathname.startsWith('/actividad')) {return 'actividad'}
   return 'default'
 }
 
@@ -53,18 +58,20 @@ export function TempleBackdrop() {
   )
 }
 
-const SECTION_TITLES: Record<TempleSection, string> = {
-  inicio: 'Panel de día',
-  entrenar: 'Entrenamiento',
+export const SECTION_TITLES: Record<TempleSection, string> = {
+  inicio: 'Inicio',
+  entrenar: 'Entrenar',
   nutricion: 'Nutrición',
   progreso: 'Progreso',
-  mas: 'Menú',
+  mas: 'Más',
   biblioteca: 'Biblioteca',
   rutina: 'Rutinas',
   calendario: 'Calendario',
   recuperacion: 'Recuperación',
   perfil: 'Perfil y configuración',
   coach: 'Coach y objetivos',
+  crossfit: 'CrossFit',
+  actividad: 'Actividad deportiva',
   default: 'Althea',
 }
 

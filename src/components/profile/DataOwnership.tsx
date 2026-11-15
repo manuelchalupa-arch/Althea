@@ -10,6 +10,7 @@ import {
   type ImportResult,
 } from '@/services/storage/export'
 import { AltheaBadge, AltheaButton, AltheaCard } from '@/components/althea'
+import { todayKey } from '@/utils/dates'
 
 /**
  * Propiedad de los datos (DEAD-001).
@@ -25,7 +26,9 @@ import { AltheaBadge, AltheaButton, AltheaCard } from '@/components/althea'
 
 type Phase = 'idle' | 'preview' | 'done'
 
-const dateStamp = () => new Date().toISOString().slice(0, 10)
+// Fecha local para el nombre del respaldo: toISOString() era UTC y a partir de
+// las 21:00 (ART) el archivo quedaba sellado con el día siguiente.
+const dateStamp = () => todayKey()
 
 export function DataOwnership() {
   const fileRef = useRef<HTMLInputElement>(null)
