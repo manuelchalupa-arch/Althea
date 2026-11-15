@@ -64,10 +64,13 @@ test.describe('AUDITORÍA VISUAL — Capturas y verificación de layout', () => 
           })
           const failedRequests: string[] = []
           p.on('requestfailed', (req) => {
-            // El splash aborta la descarga del mp4 al desmontar (ERR_ABORTED
-            // tras un 206): comportamiento normal de <video>, no un error.
-            const abortedVideo = /\.mp4$/i.test(req.url()) && req.failure()?.errorText === 'net::ERR_ABORTED'
-            if (!/firebase/i.test(req.url()) && !abortedVideo) failedRequests.push(req.url())
+            // Cancelaciones propias del navegador (el mp4 del splash al
+            // desmontar, fuentes al re-renderizar) no son errores del
+            // servidor: el texto del fallo difiere por motor
+            // (net::ERR_ABORTED / NS_BINDING_ABORTED / cancelled).
+            const err = req.failure()?.errorText ?? ''
+            const aborted = /abort|cancel/i.test(err)
+            if (!aborted && !/firebase/i.test(req.url())) failedRequests.push(req.url())
           })
 
           await p.goto(page.path)

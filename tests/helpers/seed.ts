@@ -13,8 +13,11 @@ export type SeedRows = { session?: boolean }
 export async function seedBase(page: Page, opts: SeedRows = {}) {
   await page.addInitScript(() => localStorage.setItem('althea:offlineMode', '1'))
   // 1ª carga: la app crea el esquema Dexie (trainPWA v29) y cae en /onboarding.
+  // 'load' y no 'networkidle': en Firefox el streaming del vídeo del splash
+  // nunca deja la red en idle y el waitForLoadState colgaba hasta el timeout.
+  // La siembra de abajo reintenta hasta que el esquema exista.
   await page.goto('/')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
 
   // 2ª paso: siembra en IndexedDB con reintentos hasta que el esquema exista.
   await page.evaluate(async ({ withSession, cycleSeed }) => {
