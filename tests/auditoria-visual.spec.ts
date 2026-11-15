@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { seedBase } from './helpers/seed'
 
 /**
  * AUDITORÍA VISUAL COMPLETA — Althea Dashboard
@@ -63,7 +64,10 @@ test.describe('AUDITORÍA VISUAL — Capturas y verificación de layout', () => 
           })
           const failedRequests: string[] = []
           p.on('requestfailed', (req) => {
-            if (!/firebase/i.test(req.url())) failedRequests.push(req.url())
+            // El splash aborta la descarga del mp4 al desmontar (ERR_ABORTED
+            // tras un 206): comportamiento normal de <video>, no un error.
+            const abortedVideo = /\.mp4$/i.test(req.url()) && req.failure()?.errorText === 'net::ERR_ABORTED'
+            if (!/firebase/i.test(req.url()) && !abortedVideo) failedRequests.push(req.url())
           })
 
           await p.goto(page.path)
@@ -135,27 +139,34 @@ test.describe('AUDITORÍA VISUAL — Touch targets en móvil', () => {
 test.describe('AUDITORÍA VISUAL — Página de Inicio (Dashboard)', () => {
   test.use({ viewport: { width: 1920, height: 1080 } })
 
-  test('hidratación, macros y gasto calórico visibles sin scroll', async ({ page }) => {
+  test('hidratación y gasto calórico visibles sin scroll', async ({ page }) => {
+    // Sin siembra la app cae en /onboarding: usamos el mismo seed que el
+    // resto de specs para auditar el dashboard real.
+    await seedBase(page)
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
     const viewport = page.viewportSize()!
 
-    const agua = page.getByTestId('water-bottle')
-    const macros = page.getByText(/Consumo de macronutrientes/)
+    // Rediseño UX: MacroSummary salió de Inicio; hidratación (WaterBottle)
+    // y gasto calórico son la fila 1 de prioridad.
+    const agua = page.getByTestId('water-bottle-readout')
     const gasto = page.getByTestId('inicio-gasto-calorico')
 
+    await expect(agua).toBeVisible({ timeout: 15_000 })
+    await expect(gasto).toBeVisible({ timeout: 15_000 })
+
     const aguaBox = await agua.boundingBox()
-    const macrosBox = await macros.boundingBox()
     const gastoBox = await gasto.boundingBox()
 
     const isVisible = (box: any) =>
       box && box.y >= 0 && box.y + box.height <= viewport.height + 50
 
-    expect(isVisible(aguaBox) || isVisible(macrosBox) || isVisible(gastoBox)).toBeTruthy()
+    expect(isVisible(aguaBox) || isVisible(gastoBox)).toBeTruthy()
   })
 
   test('grid de dashboard no tiene superposición ni desbordamiento', async ({ page }) => {
+    await seedBase(page)
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
