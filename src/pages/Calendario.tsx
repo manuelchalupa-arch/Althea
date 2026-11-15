@@ -287,29 +287,8 @@ export default function Calendario(){
             { icon: 'rutinas', value: Object.values(map).reduce((a,b)=>a+b, 0), label: 'Total sesiones' },
           ]} />
         </AltheaPanel>
-        <AltheaCard className="space-y-2">
-          <AltheaCardHeader icon="schedule" title="Próximas sesiones" />
-          {(cycle?.trainingDays.length ?? 0) > 0 ? (
-            <div className="space-y-1.5">
-              {cycle!.trainingDays.slice(0, 4).map((d) => (
-                <div key={d.n} className="flex justify-between items-center gap-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
-                  <span className="truncate">N°{d.n} — {d.name}</span>
-                  <span className="text-primary shrink-0">Activo</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Sin rutina activa</p>
-          )}
-        </AltheaCard>
-        <AltheaCard className="space-y-2">
-          <AltheaCardHeader icon="tips_and_updates" title="Tips rápidos" />
-          <ul className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant space-y-1.5 list-disc list-inside">
-            <li>Registrá cada sesión para progresión</li>
-            <li>Los días marcados indican rutina completada</li>
-            <li>Usá el override para sesiones movidas</li>
-          </ul>
-        </AltheaCard>
+        {/* Sin "Tips" ni lista de días de la rutina: el calendario solo
+            organiza en el tiempo; la rutina se consulta en /rutina. */}
     </>
   )
 

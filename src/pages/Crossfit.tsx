@@ -18,14 +18,19 @@ export type CrossfitSectionId =
   | 'progreso'
   | 'metodologia'
 
-const SECTIONS: { id: CrossfitSectionId; label: string }[] = [
+const PRIMARY_SECTIONS: { id: CrossfitSectionId; label: string }[] = [
   { id: 'inicio', label: 'Inicio' },
   { id: 'wod', label: 'WOD del día' },
   { id: 'programacion', label: 'Programación' },
+]
+
+// Apartados secundarios: se muestran detrás de "Más" (4 accesos visibles
+// máximo; todo sigue a un toque). Se reordenan por frecuencia de uso.
+const MORE_SECTIONS: { id: CrossfitSectionId; label: string }[] = [
   { id: 'constructor', label: 'Constructor' },
-  { id: 'biblioteca', label: 'Biblioteca' },
   { id: 'benchmarks', label: 'Benchmarks' },
   { id: 'progreso', label: 'Progreso' },
+  { id: 'biblioteca', label: 'Biblioteca' },
   { id: 'metodologia', label: 'Metodología' },
 ]
 
@@ -36,6 +41,14 @@ const SECTIONS: { id: CrossfitSectionId; label: string }[] = [
  */
 export default function Crossfit() {
   const [section, setSection] = useState<CrossfitSectionId>('inicio')
+  // null = sigue a la sección activa; true/false = decisión explícita del usuario.
+  const [showMore, setShowMore] = useState<boolean | null>(null)
+  const showRest = showMore ?? MORE_SECTIONS.some(s => s.id === section)
+
+  const goTo = (id: CrossfitSectionId) => {
+    setSection(id)
+    setShowMore(null)
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-4">
@@ -48,7 +61,7 @@ export default function Crossfit() {
 
       <nav aria-label="Apartados CrossFit" className="border-b border-outline-variant/50">
         <div role="tablist" aria-label="Apartados CrossFit" className="flex gap-1 overflow-x-auto -mx-1 px-1">
-          {SECTIONS.map((s) => {
+          {PRIMARY_SECTIONS.map((s) => {
             const active = s.id === section
             return (
               <button
@@ -59,7 +72,7 @@ export default function Crossfit() {
                 aria-selected={active}
                 aria-controls={`cf-panel-${s.id}`}
                 tabIndex={active ? 0 : -1}
-                onClick={() => setSection(s.id)}
+                onClick={() => goTo(s.id)}
                 className={`min-h-[44px] px-3 whitespace-nowrap font-label-md text-label-md tracking-wide border-b-2 -mb-px transition-colors ${
                   active
                     ? 'border-current text-on-surface font-semibold'
@@ -70,7 +83,46 @@ export default function Crossfit() {
               </button>
             )
           })}
+          <button
+            type="button"
+            aria-expanded={showRest}
+            aria-controls="cf-more-row"
+            onClick={() => setShowMore(!showRest)}
+            className={`min-h-[44px] px-3 whitespace-nowrap font-label-md text-label-md tracking-wide border-b-2 -mb-px transition-colors ${
+              showRest
+                ? 'border-current text-on-surface font-semibold'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            Más {showRest ? '▴' : '▾'}
+          </button>
         </div>
+        {showRest && (
+          <div id="cf-more-row" role="tablist" aria-label="Apartados CrossFit — más" className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-1">
+            {MORE_SECTIONS.map((s) => {
+              const active = s.id === section
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="tab"
+                  id={`cf-tab-${s.id}`}
+                  aria-selected={active}
+                  aria-controls={`cf-panel-${s.id}`}
+                  tabIndex={active ? 0 : -1}
+                  onClick={() => goTo(s.id)}
+                  className={`min-h-[44px] px-3 whitespace-nowrap font-label-md text-label-md tracking-wide border-b-2 -mb-px transition-colors ${
+                    active
+                      ? 'border-current text-on-surface font-semibold'
+                      : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </nav>
 
       <div

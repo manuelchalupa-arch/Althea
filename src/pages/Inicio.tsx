@@ -11,8 +11,7 @@ import type { CycleConfig } from '@/utils/cycle'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { WaterBottle } from '@/components/recovery/WaterBottle'
 import GymPaymentCard from '@/components/gym/GymPaymentCard'
-import { AltheaPanel, AltheaMetric, AltheaStatRow } from '@/components/althea'
-import { MacroSummary } from '@/components/nutrition/MacroSummary'
+import { AltheaPanel } from '@/components/althea'
 import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
@@ -62,7 +61,6 @@ export default function Inicio(){
   const [snoozeOpen, setSnoozeOpen] = useState(false)
   const [snoozeDays, setSnoozeDays] = useState(7)
   const [userName, setUserName] = useState('')
-  const [briefV2, setBriefV2] = useState<{progress?:{trend?:string;rate?:number};recovery?:{lastScore?:number;trend?:string};nutrition?:{tdee?:number;proteinPerKg?:number;gap?:string|null}}|null>(null)
   const [activeMethodName, setActiveMethodName] = useState<string|null>(null)
   const [showChangeDay, setShowChangeDay] = useState(false)
   const [changeReason, setChangeReason] = useState('Cambio de horarios')
@@ -178,21 +176,6 @@ export default function Inicio(){
     setPreviewName(cycle.trainingDays.find((d:any)=>d.n===n)?.name || `Día N°${n}`)
     import('@/utils/routine').then(({getDayExercises})=> getDayExercises(n, cycle).then(list=>{ if(mountedRef.current){ setPreviewList(list) } }).catch(()=>{ if(mountedRef.current){ setPreviewList([]) } }))
   },[selectedDate, cycle])
-
-  useEffect(()=>{
-    Promise.all([
-      import('@/services/ai/progressAnalyzer').then(m=> m.analyzeGlobal()),
-      import('@/services/ai/recoveryAnalyzer').then(m=> m.analyzeRecovery()),
-      import('@/services/ai/nutritionEngine').then(m=> db.userProfile.get('me').then(p=> m.analyzeNutrition(p||{}))),
-    ]).then(([prog, rec, nut])=>{
-      if (!mountedRef.current) { return }
-      setBriefV2({
-        progress: { trend: prog.trend, rate: prog.rate },
-        recovery: { lastScore: rec.lastScore ?? undefined, trend: rec.trend },
-        nutrition: { tdee: nut.tdee ?? undefined, proteinPerKg: nut.proteinPerKg ?? undefined, gap: nut.gap },
-      })
-    }).catch(()=>{})
-  },[])
 
   useEffect(()=>{
     ensureSeeded().catch(()=>{})
@@ -342,12 +325,8 @@ export default function Inicio(){
     setRoutineBlocked(false)
     setSnoozeOpen(false)
   }
-  const completedCount = Object.values(dayStatus).filter(s => s.sessionStatus === 'COMPLETED').length
-  const totalCount = Object.values(dayStatus).filter(s => s.planned).length
   // Próximo entreno pendiente de la semana (desde mañana en adelante).
   const nextWorkoutKey = weekKeys.find(k => k > todayStr && dayStatus[k]?.planned && dayStatus[k]?.sessionStatus !== 'COMPLETED') ?? null
-  const plannedRpes = exNames.map(e=> e.rpe).filter((v): v is number => typeof v === 'number' && v > 0)
-  const todayRPE = plannedRpes.length > 0 ? plannedRpes.reduce((a,b)=> a + b, 0) / plannedRpes.length : null
 
   // ── Layout único (desktop + mobile). Los 3 elementos principales
   // (hidratación, macros, mapa muscular) van en la primera fila del grid,
@@ -462,8 +441,9 @@ export default function Inicio(){
         {/* Cuota del gimnasio — tira compacta: pago, vencimiento (+1 mes real) y aviso a 5 días */}
         <GymPaymentCard />
 
-        {/* ─── FILA 1 — MÁXIMA PRIORIDAD: hidratación, macros, gasto calórico ─── */}
-        <section className="dashboard-top-grid grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {/* ─── FILA 1 — MÁXIMA PRIORIDAD: hidratación + gasto calórico ───
+             Nutrición queda en segundo plano (MacroSummary vive en /nutricion). */}
+        <section className="dashboard-top-grid grid grid-cols-1 gap-6 sm:grid-cols-2">
           {/* Hidratación — tarjeta grande y destacada */}
           <div className="domain-hydration border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
             <div className="flex items-center justify-between gap-2 min-w-0">
@@ -478,12 +458,6 @@ export default function Inicio(){
             {/* Solo visual: el registro y la configuración viven en Nutrición. */}
             <WaterBottle size="sm" allowQuickAdd />
           </div>
-
-          {isVisible('nutrition') && (
-          <div className="domain-nutrition border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
-            <MacroSummary size={170} />
-          </div>
-          )}
 
           {isVisible('training') && (
           <div data-testid="inicio-gasto-calorico" className="domain-training border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
@@ -555,66 +529,34 @@ export default function Inicio(){
               </p>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-outline-variant/30 text-on-surface-variant font-label-caps text-[10px] uppercase">
-                        <th className="py-3 px-3">Ejercicio</th>
-                        <th className="py-3 px-3 text-center">Series</th>
-                        <th className="py-3 px-3 text-center">Reps</th>
-                        <th className="py-3 px-3 text-right">Peso</th>
-                        <th className="py-3 px-3 text-right">Descanso</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-surface-bright font-body-md text-body-sm">
-                      {exNames.map((ex, i)=>{
-                        return (
-                          <tr key={ex.id} className="hover:bg-surface-container/50 transition-colors group">
-                            <td className="py-3 px-3">
-                              <div className="flex items-center gap-2.5">
-                                <span className="w-5 h-5 rounded bg-surface-container border border-secondary/30 flex items-center justify-center font-headline-sm text-[11px] text-secondary">{ROMAN[i] || i+1}</span>
-                                <div>
-                                  <p className="text-on-surface font-medium text-body-sm group-hover:text-primary transition-colors">{ex.name}</p>
-                                  {ex.muscle && <p className="font-label-caps text-[9px] text-on-surface-variant">{ex.muscle}</p>}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-3 text-center font-semibold text-on-surface">{ex.sets}</td>
-                            <td className="py-3 px-3 text-center">
-                              <span className="text-on-surface">{ex.reps || '—'}</span>
-                            </td>
-                            <td className="py-3 px-3 text-right">
-                              <span className={`font-medium ${(ex.weight ?? 0) > 0 ? 'text-secondary' : 'text-on-surface-variant italic'}`}>{(ex.weight ?? 0) > 0 ? `${ex.weight} kg` : 'sin peso'}</span>
-                            </td>
-                            <td className="py-3 px-3 text-right">
-                              <span className="text-on-surface-variant">{ex.restSec ? `${ex.restSec}s` : '90s'}</span>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                      {exNames.length === 0 && (
-                        <tr><td colSpan={5} className="py-8 text-center text-on-surface-variant text-sm">Sin ejercicios programados. <Link to="/rutina" className="text-primary underline">Configurar rutina</Link></td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                {/* Lista compacta: solo lo necesario para saber qué toca hoy.
+                    El detalle completo (series, descansos, edición) vive en /rutina. */}
+                <ul className="divide-y divide-surface-bright">
+                  {exNames.map((ex, i)=>{
+                    return (
+                      <li key={ex.id} className="flex items-center gap-2.5 py-2.5">
+                        <span className="w-5 h-5 rounded bg-surface-container border border-secondary/30 flex items-center justify-center font-headline-sm text-[11px] text-secondary shrink-0">{ROMAN[i] || i+1}</span>
+                        <p className="flex-1 min-w-0 text-on-surface font-medium text-body-sm truncate">{ex.name}</p>
+                        <span className="shrink-0 font-mono text-[12px] text-on-surface-variant">
+                          {ex.sets}×{ex.reps || '—'}{(ex.weight ?? 0) > 0 ? ` · ${ex.weight} kg` : ''}
+                        </span>
+                      </li>
+                    )
+                  })}
+                  {exNames.length === 0 && (
+                    <li className="py-8 text-center text-on-surface-variant text-sm">Sin ejercicios programados. <Link to="/rutina" className="text-primary underline">Configurar rutina</Link></li>
+                  )}
+                </ul>
                 <div className="pt-2">
                   <Link to="/rutina" className="min-h-[44px] inline-flex items-center gap-1.5 px-3 rounded-lg border border-outline-variant/60 bg-surface-container-high/60 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface hover:text-primary">
                     <SemanticIcon name="edit" size={14} /> Editar en Rutinas
                   </Link>
                 </div>
-                {exNames.length > 0 && (
-                  <AltheaStatRow className="pt-4 border-t border-surface-bright" items={[
-                    { icon: 'entrenar', value: `${Math.round(exNames.reduce((a,e)=>a+e.sets*(e.reps||8)*(e.weight||0),0)).toLocaleString('es-ES')} kg`, label: 'Volumen proyectado' },
-                    { icon: 'progreso', value: todayRPE !== null && todayRPE !== undefined && todayRPE > 0 ? `${todayRPE.toFixed(1)}/10` : '—', label: 'Intensidad media (plan)' },
-                    { icon: 'nutricion', value: `${Math.max(20, Math.round(exNames.reduce((a,e)=>a+e.sets*(e.restSec||90),0)/60 + exNames.length*3))} min`, label: 'Duración est.' },
-                  ]} />
-                )}
               </>
             ))}
           </div>
 
-          {/* Actividad libre y Registros de virtud — dos tarjetas en lg */}
+          {/* Actividad libre — acceso rápido al registro de movimiento no fuerza */}
           <div className="lg:col-span-1 space-y-6">
             {/* Actividad libre */}
             <div className="domain-training border border-outline-variant/40 rounded-2xl p-5 sm:p-6 space-y-4 min-w-0 shadow-al-sm bg-surface-container">
@@ -639,37 +581,6 @@ export default function Inicio(){
                 Actividad libre
               </Link>
             </div>
-
-            {/* Registros de virtud */}
-            <AltheaPanel className="domain-recovery p-5 shadow-al-sm border border-outline-variant/50">
-              <div className="flex items-center justify-between border-b border-outline-variant/30 pb-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <SemanticIcon name="insights" size={18} className="text-secondary" />
-                  <h3 className="font-headline-md text-title-md font-semibold text-on-surface tracking-wide">Virtud y volumen</h3>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <AltheaMetric
-                  value={briefV2?.progress?.rate !== undefined ? `${briefV2.progress.rate >= 0 ? '+' : ''}${briefV2.progress.rate.toFixed(1)}%` : 'Sin datos'}
-                  label="Sobrecarga progresiva"
-                  delta={briefV2?.progress?.rate}
-                  deltaSuffix="%"
-                />
-                <AltheaMetric
-                  value={completedCount > 0 ? completedCount : '—'}
-                  unit="días"
-                  label="Días completados"
-                />
-                <AltheaMetric
-                  value={`${totalCount > 0 ? Math.round(completedCount/totalCount*100) : 0}%`}
-                  label="Adherencia al plan"
-                />
-                <AltheaMetric
-                  value={briefV2?.recovery?.lastScore !== undefined ? (briefV2.recovery.lastScore >= 70 ? 'Áurea A+' : briefV2.recovery.lastScore >= 40 ? 'B+ Estable' : 'C Debe Descansar') : '—'}
-                  label="Recuperación"
-                />
-              </div>
-            </AltheaPanel>
           </div>
 
         </section>

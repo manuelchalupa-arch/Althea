@@ -116,6 +116,10 @@ export default function RutinaPage(){
   const [aiPreview,setAiPreview]=useState<GeneratedRoutine|null>(null)
   const [showQuestionnaire,setShowQuestionnaire]=useState(false)
   const [showPeriodization,setShowPeriodization]=useState(false)
+  // Divulgación progresiva: parámetros y herramientas avanzadas plegados por
+  // defecto (una pantalla = rutina y días; lo demás, cuando se necesita).
+  const [showConfig,setShowConfig]=useState(false)
+  const [showAdvanced,setShowAdvanced]=useState(false)
   const [versions,setVersions]=useState<RutinaData[]>([])
   const [versionNotice,setVersionNotice]=useState<string|null>(null)
   const [compareId,setCompareId]=useState<string|null>(null)
@@ -358,8 +362,15 @@ export default function RutinaPage(){
         <AltheaBadge className="ml-auto" variant={estado==='Revisar' ? 'warning' : 'primary'}>{estado} · {daysElapsed}d</AltheaBadge>
       </div>
 
-      {/* Rutina actual */}
+      {/* Configuración de la rutina — plegada por defecto: la pantalla se
+          concentra en la rutina y sus días. El DOM permanece (los inputs
+          siguen siendo localizables y editables). */}
       <AltheaCard className="space-y-2">
+        <button onClick={()=>setShowConfig(v=>!v)} aria-expanded={showConfig} className="w-full flex items-center justify-between min-h-[44px] font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+          <span>Configuración de la rutina</span>
+          <span>{showConfig ? 'Ocultar' : 'Ver'}</span>
+        </button>
+        <div className={showConfig ? 'space-y-2' : 'hidden'}>
         <div className="flex gap-3 items-center flex-wrap">
           <input value={active.name} onChange={e=> updateActive(r=> ({...r, name: e.target.value}))} aria-label="Nombre de la rutina" className="flex-1 min-w-0 bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface font-medium min-h-[48px]" />
           <div className="flex gap-2 shrink-0">
@@ -367,9 +378,6 @@ export default function RutinaPage(){
             <AltheaButton variant="secondary" onClick={()=>duplicateRoutine(active.id)} className="min-h-[44px]">Duplicar</AltheaButton>
           </div>
         </div>
-        {versionNotice && (
-          <p className="font-body-sm text-[12px] text-secondary">{versionNotice}</p>
-        )}
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><Clock size={12}/> Creada {new Date(active.createdAt).toLocaleDateString('es')} · {daysElapsed} días</div>
         <div className="flex gap-2 items-center">
           <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Período para revisar</span>
@@ -402,6 +410,7 @@ export default function RutinaPage(){
             </div>
           </div>
         )}
+        </div>
       </AltheaCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -461,6 +470,15 @@ export default function RutinaPage(){
         }}><Plus size={16}/> Agregar Día N°</AltheaButton>
       </div>
 
+      {/* Planificación avanzada — carga semanal y versiones, plegadas por
+          defecto: no saturan la consulta/edición diaria de la rutina. */}
+      <AltheaCard>
+        <button onClick={()=>setShowAdvanced(v=>!v)} aria-expanded={showAdvanced} className="w-full flex items-center justify-between min-h-[44px] font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
+          <span>Planificación avanzada — carga semanal y versiones</span>
+          <span>{showAdvanced ? 'Ocultar' : 'Ver'}</span>
+        </button>
+      </AltheaCard>
+      {showAdvanced && (<>
       {/* Asignación calendario — estado de carga por día (NORMAL/SOBRECARGA/CARGA_REDUCIDA/CARGA_CERO) */}
       <AltheaCard>
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Asignación calendario — carga semanal</div>
@@ -498,17 +516,10 @@ export default function RutinaPage(){
       </AltheaCard>
 
       <AltheaCard>
-        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant flex items-center gap-1"><History size={14}/> Historial de rutinas</div>
-        <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Rutina activa {active.name} · {daysElapsed} días. Otras {routines.length-1} guardadas intactas. Historial sesiones/setLogs conservado por rutina.</p>
-        <div className="mt-2 flex gap-1 flex-wrap">
-          {routines.map(r=> <span key={r.id} className={`px-2 py-1 rounded-full border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${r.id===activeId?'bg-primary text-on-surface border-primary':'bg-surface/60 border-outline-variant'}`}>{r.name}</span>)}
-        </div>
-      </AltheaCard>
-
-      <AltheaCard>
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">
           Versiones{active.version ? ` · actual v${active.version}` : ''}{versions.length > 0 ? ` · ${versions.length} histórica(s)` : ' · sin versiones previas'}
         </div>
+        {versionNotice && <p className="font-body-sm text-[12px] text-secondary mt-2">{versionNotice}</p>}
         {versions.length > 0 && (
           <div className="mt-2 space-y-2">
             <div className="flex gap-1 flex-wrap">
@@ -531,6 +542,7 @@ export default function RutinaPage(){
           </div>
         )}
       </AltheaCard>
+      </>)}
 
       <AltheaCard>
         <button onClick={()=>setShowPeriodization(v=>!v)} aria-expanded={showPeriodization} className="w-full flex items-center justify-between font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">

@@ -107,28 +107,28 @@ export const NAV_ITEMS: NavItem[] = [
 export interface MasGroup { title: string; items: { to: string; label: string; icon: keyof typeof ICONS }[] }
 
 export const MAS_GROUPS: MasGroup[] = [
-  { title: 'Biblioteca', items: [{ to: '/biblioteca', label: 'Biblioteca', icon: 'library' }] },
   {
     title: 'Entrenamiento',
     items: [
       { to: '/rutina', label: 'Rutinas', icon: 'routines' },
       { to: '/actividad', label: 'Actividad deportiva', icon: 'energy' },
       { to: '/calendario', label: 'Calendario', icon: 'calendar' },
+      { to: '/biblioteca', label: 'Biblioteca', icon: 'library' },
     ],
   },
   {
     title: 'Salud y progreso',
     items: [
-      { to: '/nutricion', label: 'Nutrición', icon: 'nutrition' },
-      { to: '/progreso', label: 'Progreso', icon: 'progress' },
       { to: '/recuperacion', label: 'Recuperación', icon: 'recovery' },
+      { to: '/progreso', label: 'Progreso', icon: 'progress' },
+      { to: '/nutricion', label: 'Nutrición', icon: 'nutrition' },
     ],
   },
   {
     title: 'Persona',
     items: [
-      { to: '/coach', label: 'Coach y objetivos', icon: 'coach' },
       { to: '/perfil', label: 'Perfil y configuración', icon: 'profile' },
+      { to: '/coach', label: 'Coach y objetivos', icon: 'coach' },
     ],
   },
 ]

@@ -49,8 +49,8 @@ describe('Entrenar — navegación estable 0→1→2→1→0→1 sin resets', ()
     await screen.findByLabelText('Ejercicio siguiente', undefined, { timeout: 10000 })
     expect(screen.getByLabelText('Ejercicio anterior')).toBeDisabled()
     // R6: el label 'Finalizar entrenamiento' es COHERENTE en todas las barras
-    // (puede haber varios a la vez); el intercambio Siguiente→Finalizar se
-    // verifica sobre la fila de navegación de ejercicios.
+    // y aparece UNA sola vez en pantalla (resumen lateral); la fila de
+    // navegación de ejercicios ya no lo duplica.
     const navRow = () => screen.getByLabelText('Ejercicio anterior').parentElement as HTMLElement
     expect(within(navRow()).queryByLabelText('Finalizar entrenamiento')).not.toBeInTheDocument()
 
@@ -66,19 +66,21 @@ describe('Entrenar — navegación estable 0→1→2→1→0→1 sin resets', ()
       return null
     }
 
-    // 0 → 1 → 2 (último: Finalizar reemplaza a Siguiente)
+    // 0 → 1 → 2 (el último solo deja Anterior: Siguiente desaparece y
+    // Finalizar NO se duplica en la fila)
     fireEvent.click(screen.getByLabelText('Ejercicio siguiente'))
     await waitFor(() => {
       expect(shownExercise()).toBe('remo')
     }, { timeout: 8000 })
     fireEvent.click(screen.getByLabelText('Ejercicio siguiente'))
     await waitFor(() => {
-      expect(within(navRow()).getByLabelText('Finalizar entrenamiento')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Ejercicio siguiente')).not.toBeInTheDocument()
     }, { timeout: 8000 })
     // Esperar efectos async y verificar que NO volvió a 0
     await new Promise(r => setTimeout(r, 500))
-    expect(within(navRow()).getByLabelText('Finalizar entrenamiento')).toBeInTheDocument()
+    expect(within(navRow()).queryByLabelText('Finalizar entrenamiento')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Ejercicio siguiente')).not.toBeInTheDocument()
+    expect(screen.getAllByLabelText('Finalizar entrenamiento')).toHaveLength(1)
     expect(shownExercise()).toBe('sentadilla')
 
     // 2 → 1 → 0

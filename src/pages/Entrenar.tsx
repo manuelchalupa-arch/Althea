@@ -1504,11 +1504,10 @@ const exercises: SessionEx[] = seList.map((se) => {
             <div className="px-3 pb-3 flex flex-col gap-2">
               <div className="flex gap-2">
                 <button onClick={()=>{ if(current>0){ goToExercise(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase font-bold disabled:opacity-50">‹ Anterior</button>
-                {current < exs.length-1 ? (
+                {current < exs.length-1 && (
                   <button onClick={()=>{ goToExercise(current+1) }} aria-label="Ejercicio siguiente" className="flex-1 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold"><span className="inline-flex items-center justify-center gap-2"><Check size={14}/> Siguiente ›</span></button>
-                ) : (
-                  <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex-1 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold"><span className="inline-flex items-center justify-center gap-2"><Check size={14}/> Finalizar</span></button>
                 )}
+                {/* Último ejercicio: finalizar vive SOLO en la barra inferior fija (pulgar). */}
               </div>
               {done[current] && (
                 <button onClick={()=> setDone((p)=>{ const n={...p}; delete n[current]; return n })} className="w-full min-h-[44px] rounded border border-outline-variant/40 font-label-caps text-[10px] uppercase text-outline"><span className="inline-flex items-center justify-center gap-1.5"><RotateCcw size={11}/> Desmarcar ejercicio</span></button>
@@ -1546,21 +1545,8 @@ const exercises: SessionEx[] = seList.map((se) => {
           </div>
         )}
 
-        <div className="rounded-xl border border-primary/30 bg-surface-container p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-label-caps text-[10px] uppercase text-primary tracking-wider font-semibold flex items-center gap-1.5"><SemanticIcon name="workspace_premium" size={16} className="text-[16px]" /> Resumen de virtud</span>
-            <span className="px-2 py-0.5 rounded bg-primary-container/30 text-primary font-label-caps text-[10px]">HOY</span>
-          </div>
-          <div className="flex justify-between text-[13px] text-on-surface-variant">
-            <span>Ejercicios concluidos</span>
-            <strong className="text-on-surface">{Object.keys(done).filter(k=>done[Number(k)]).length} de {exs.length}</strong>
-          </div>
-          <div className="flex justify-between text-[13px] text-on-surface-variant">
-            <span>Progreso</span>
-            <strong className="text-on-surface">{progress}%</strong>
-          </div>
-          {/* Finalizar vive en la barra inferior fija (pulgar) y en la última serie: sin duplicar acá. */}
-        </div>
+        {/* Progreso: vive en la cabecera (barra de segmentos) y en la barra
+            inferior fija — sin repetirlo en una tarjeta aparte. */}
 
         <div className="flex gap-2">
           <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant font-label-caps text-[10px] uppercase">Cancelar sesión</button>
@@ -1665,9 +1651,8 @@ const exercises: SessionEx[] = seList.map((se) => {
                 <SemanticIcon name="reorder" size={18} className="text-[18px]" />
                 <span className="hidden sm:inline">Abandonar</span>
               </button>
-              <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 min-h-[48px] px-4 py-2 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98]">
-                <Check size={14}/> <span className="hidden sm:inline">FINALIZAR</span><span className="sm:hidden">FIN</span>
-              </button>
+              {/* Finalizar: SIN duplicar en la cabecera — vive en el resumen
+                  lateral (CONFIRMAR Y GUARDAR). */}
             </div>
           </div>
           {/* Metrics row + progress bar */}
@@ -1848,21 +1833,19 @@ const exercises: SessionEx[] = seList.map((se) => {
                 )}
 
                 {/* Navegación entre ejercicios: SIEMPRE operativa. El descanso se
-                    indica en su panel propio y nunca reemplaza SIGUIENTE/FINALIZAR. */}
+                    indica en su panel propio y nunca reemplaza SIGUIENTE. */}
                 <div className="px-6 pb-4 flex flex-col gap-2">
                   <div className="flex gap-2">
                       <button onClick={()=>{ if(current>0){ goToExercise(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 py-3 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] disabled:opacity-50">
                       <span className="flex items-center justify-center gap-2">‹ Anterior</span>
                     </button>
-                    {current < exs.length-1 ? (
+                    {current < exs.length-1 && (
                       <button onClick={()=>{ goToExercise(current+1) }} aria-label="Ejercicio siguiente" className="flex-1 py-3 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
                         <span className="flex items-center justify-center gap-2"><Check size={14}/> Siguiente ›</span>
                       </button>
-                    ) : (
-                      <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex-1 py-3 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest transition-all active:scale-[0.98] shadow-sm">
-                        <span className="flex items-center justify-center gap-2"><Check size={14}/> Finalizar</span>
-                      </button>
                     )}
+                    {/* Último ejercicio: finalizar vive SOLO en el resumen
+                        lateral (CONFIRMAR Y GUARDAR) — sin duplicar acá. */}
                   </div>
                   {(restSec > 0 || restBetweenExSec > 0) && (
                     <div className="w-full flex items-center justify-center gap-2 rounded border border-secondary/40 bg-secondary-container/20 px-3 py-2 font-label-caps text-[10px] uppercase text-on-surface-variant">
@@ -2021,46 +2004,6 @@ const exercises: SessionEx[] = seList.map((se) => {
             </div>
           </div>
         </div>{/* fin grid desktop */}
-
-        {/* Fixed-bottom FINALIZAR bar — mobile only, during active session */}
-        {(sessionStatus==='READY' || sessionStatus==='IN_PROGRESS' || sessionStatus==='PAUSED' || sessionStatus==='COMPLETING') && (
-          <div
-            style={{ bottom: MOBILE_NAV_OFFSET }}
-            className="fixed left-0 right-0 z-40 md:hidden bg-surface-container/95 backdrop-blur-sm border-t border-outline-variant/50 pl-4 pr-20 py-3 flex items-center gap-2.5"
-          >
-            {restBetweenExSec > 0 ? (
-              <>
-                <button onClick={()=> restBetweenExPaused ? resumeRestBetweenEx() : pauseRestBetweenEx()} aria-label={restBetweenExPaused ? 'Reanudar descanso' : 'Pausar descanso'} className="flex-1 min-w-0 text-left">
-                  <div className="font-label-caps text-[10px] uppercase text-secondary tracking-wider">Descanso entre ejercicios</div>
-                  <div className="font-headline-md text-[24px] text-on-surface font-semibold tabular-nums leading-tight">{Math.floor(restBetweenExSec/60)}:{String(restBetweenExSec%60).padStart(2,'0')}</div>
-                </button>
-                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-4 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shrink-0">
-                  <Check size={14}/> FIN
-                </button>
-              </>
-            ) : restSec > 0 ? (
-              <>
-                <button onClick={()=> restPaused ? resumeRest() : pauseRest()} aria-label={restPaused ? 'Reanudar descanso' : 'Pausar descanso'} className="flex-1 min-w-0 text-left">
-                  <div className="font-label-caps text-[10px] uppercase text-secondary tracking-wider">{restPaused ? 'Descanso pausado' : 'Descanso en curso'}</div>
-                  <div className="font-headline-md text-[24px] text-on-surface font-semibold tabular-nums leading-tight">{Math.floor(restSec/60)}:{String(restSec%60).padStart(2,'0')}</div>
-                </button>
-                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-5 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98] shrink-0">
-                  <Check size={14}/> FIN
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="flex-1 min-w-0">
-                  <div className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Progreso</div>
-                  <div className="font-body-md text-[15px] text-on-surface font-medium">{progress}% — {Object.keys(done).filter(k=>done[Number(k)]).length}/{exs.length} ejercicios</div>
-                </div>
-                <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-5 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shadow-sm transition-all active:scale-[0.98] shrink-0">
-                  <Check size={14}/> FINALIZAR
-                </button>
-              </>
-            )}
-          </div>
-        )}
 
         {sessionModals}
       </div>

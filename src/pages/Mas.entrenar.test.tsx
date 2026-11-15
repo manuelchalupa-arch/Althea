@@ -39,7 +39,7 @@ describe('Más — acceso a Entrenar', () => {
 
   it('sin sesión activa no muestra el acceso a Entrenar', async () => {
     render(<MemoryRouter><Mas /></MemoryRouter>)
-    await screen.findByText(/rutinas registradas/, undefined, { timeout: 10000 })
+    await screen.findByText('Registradas', undefined, { timeout: 10000 })
     // deja terminar el chequeo async de sesión activa
     await new Promise((r) => setTimeout(r, 500))
     expect(entrenarLinks()).toHaveLength(0)

@@ -14,7 +14,7 @@ import BrandIcon from '@/components/brand/BrandIcon'
 import { SyncStatusCard } from '@/components/sync/SyncStatusCard'
 import { DataOwnership } from '@/components/profile/DataOwnership'
 import { IconDumbbell, IconFire, IconBody, IconHeart, IconWater, IconUtensils, IconSleep, IconClipboard, IconLightning, IconTarget, IconUser, IconShield } from '@/components/brand/FitnessIcons'
-import { AltheaButton, AltheaBadge, AltheaSelect, AltheaEmpty, AltheaPanel, AltheaMetric } from '@/components/althea'
+import { AltheaButton, AltheaBadge, AltheaSelect, AltheaEmpty, AltheaPanel } from '@/components/althea'
 import * as Gym from '@/services/exerciseGym'
 import { traditionalItems, toggleGroupExcluded, TRADITIONAL_GROUPS, type TraditionalGroupId, type TraditionalItem } from '@/data/traditionalCatalog'
 import { resolveCoachTone } from '@/services/ai/coachPersonality'
@@ -57,13 +57,6 @@ const BIBLIO_MUSCLES = [
   { value: '__all__', label: 'Todos los grupos' },
   ...TRADITIONAL_GROUPS.map(g => ({ value: g.id, label: g.label })),
 ]
-
-function imcCalc(weight: number, height: number) {
-  if (!weight || !height) {return null}
-  const v = weight / Math.pow(height / 100, 2)
-  const cat = v < 18.5 ? 'Bajo peso' : v < 25 ? 'Normopeso' : v < 30 ? 'Sobrepeso' : 'Obesidad'
-  return { value: v.toFixed(1), cat }
-}
 
 /* ─── Sección colapsable ─── */
 function Section({ title, icon, children, defaultOpen = false }: { title: string; icon?: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean }) {
@@ -418,7 +411,6 @@ export default function Perfil() {
     window.location.href = '/login'
   }
 
-  const imc = imcCalc(Number(form.weightKg), Number(form.heightCm))
   const goal = profile?.trainingGoal ? GOAL_MAP[profile.trainingGoal] : undefined
   // Canónico-primero (FASE 1M-B): la versión activa de db.cycleVersions manda;
   // el snapshot legacy profile.cycle sólo rellena cuando no hay versión.
@@ -449,13 +441,8 @@ export default function Perfil() {
             )}
           </div>
         </div>
-        {(form.weightKg || form.heightCm) && (
-          <div className="relative z-10 grid grid-cols-3 gap-4 mt-4 pt-3 border-t border-outline-variant/30">
-            {form.weightKg && <AltheaMetric value={form.weightKg} unit="kg" label="Peso" />}
-            {form.heightCm && <AltheaMetric value={form.heightCm} unit="cm" label="Altura" />}
-            {imc && <AltheaMetric value={imc.value} label="IMC" />}
-          </div>
-        )}
+        {/* Métricas (peso/altura): viven en Datos personales; el IMC, en
+            Nutrición — no se repiten en el encabezado. */}
       </AltheaPanel>
 
       {/* ═══ DATOS PERSONALES ═══ */}
@@ -598,52 +585,6 @@ export default function Perfil() {
         </div>
       </Section>
 
-      {/* ═══ EJERCICIOS EXCLUIDOS ═══ */}
-      <Section title="Secciones de la app" icon={<IconDumbbell className="w-5 h-5" />}>
-        <div className="pt-3 space-y-2">
-          <p className="font-body-md text-xs text-on-surface-variant">
-            Activa o desactiva las pestañas del menú para tener una vista más limpia. Inicio, Perfil y Más siempre quedan activos.
-          </p>
-          {TOGGLEABLE_SECTIONS.map((s) => (
-            <div key={s.icon} className="flex items-center justify-between gap-2 py-1.5">
-              <span className="font-body-md text-[15px] text-on-surface font-medium">{s.label}</span>
-              <button
-                onClick={() => toggleSection(s.icon)}
-                className={`w-10 h-6 rounded-full transition-colors relative ${isSectionVisible(s.icon) ? 'bg-primary' : 'bg-surface-container-high'}`}
-                aria-pressed={isSectionVisible(s.icon)}
-              >
-                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-on-primary shadow transition-transform ${isSectionVisible(s.icon) ? 'left-[18px]' : 'left-0.5'}`} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Ejercicios excluidos" icon={<IconDumbbell className="w-5 h-5" />}>
-        <div className="pt-3 space-y-3">
-          <p className="font-body-md text-xs text-on-surface-variant">
-            Se omiten de las recomendaciones y sustituciones del plan y del Coach.
-          </p>
-          {excluded.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {excluded.map(id => (
-                <button key={id} onClick={() => toggleExcluded(id)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[32px] rounded-full bg-surface-container-high border border-outline-variant font-body-md text-xs text-on-surface-variant hover:border-error/50 hover:text-error transition-colors">
-                  <span className="capitalize">{prettyExId(id)}</span>
-                  <SemanticIcon name="close" size={14} className="text-[14px]" />
-                </button>
-              ))}
-            </div>
-          )}
-          <AltheaButton variant="secondary" icon="library_add" fullWidth onClick={() => setShowBiblio(true)}>
-            Seleccionar ejercicios
-          </AltheaButton>
-          {excluded.length === 0 && (
-            <AltheaEmpty icon="block" title="Sin exclusiones" description="Usás todos los ejercicios de tu biblioteca en las recomendaciones." className="py-6" />
-          )}
-        </div>
-      </Section>
-
       {/* ═══ NOTIFICACIONES ═══ */}
       <Section title="Notificaciones" icon={<IconLightning className="w-5 h-5" />}>
         <div className="pt-3 space-y-3">
@@ -773,6 +714,47 @@ export default function Perfil() {
                 </button>
               ))}
             </div>
+          </div>
+          <div>
+            <div className="font-label-caps text-[10px] uppercase text-outline tracking-wider mb-2">Secciones del menú</div>
+            <p className="font-body-md text-xs text-on-surface-variant mb-2">
+              Activa o desactiva las pestañas del menú para tener una vista más limpia. Inicio, Perfil y Más siempre quedan activos.
+            </p>
+            {TOGGLEABLE_SECTIONS.map((s) => (
+              <div key={s.icon} className="flex items-center justify-between gap-2 py-1.5">
+                <span className="font-body-md text-[15px] text-on-surface font-medium">{s.label}</span>
+                <button
+                  onClick={() => toggleSection(s.icon)}
+                  className={`w-10 h-6 rounded-full transition-colors relative ${isSectionVisible(s.icon) ? 'bg-primary' : 'bg-surface-container-high'}`}
+                  aria-pressed={isSectionVisible(s.icon)}
+                >
+                  <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-on-primary shadow transition-transform ${isSectionVisible(s.icon) ? 'left-[18px]' : 'left-0.5'}`} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div>
+            <div className="font-label-caps text-[10px] uppercase text-outline tracking-wider mb-2">Ejercicios excluidos</div>
+            <p className="font-body-md text-xs text-on-surface-variant mb-2">
+              Se omiten de las recomendaciones y sustituciones del plan y del Coach.
+            </p>
+            {excluded.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {excluded.map(id => (
+                  <button key={id} onClick={() => toggleExcluded(id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[32px] rounded-full bg-surface-container-high border border-outline-variant font-body-md text-xs text-on-surface-variant hover:border-error/50 hover:text-error transition-colors">
+                    <span className="capitalize">{prettyExId(id)}</span>
+                    <SemanticIcon name="close" size={14} className="text-[14px]" />
+                  </button>
+                ))}
+              </div>
+            )}
+            <AltheaButton variant="secondary" icon="library_add" fullWidth onClick={() => setShowBiblio(true)}>
+              Seleccionar ejercicios
+            </AltheaButton>
+            {excluded.length === 0 && (
+              <AltheaEmpty icon="block" title="Sin exclusiones" description="Usás todos los ejercicios de tu biblioteca en las recomendaciones." className="py-6" />
+            )}
           </div>
         </div>
       </Section>

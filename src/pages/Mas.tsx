@@ -4,11 +4,9 @@ import { DailyRemindersConfig } from '@/components/notifications/DailyRemindersC
 import { useState, useEffect } from 'react'
 import { db } from '@/services/storage/db'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
+import { useVisibleSections } from '@/hooks/useVisibleSections'
+import { MAS_GROUPS } from '@/components/brand/icons'
 import { unifiedAllCompletedSets } from '@/services/history'
-import { calculateExercisePRs } from '@/services/training/prs'
-import { prettyExId } from '@/utils/format'
-import { calcTMB, calcTDEE, calorieGoal, proteinRange, calcIMC } from '@/utils/nutrition'
-import { resolveTrainingGoal } from '@/utils/trainingGoal'
 import { AltheaCard, AltheaCardHeader, AltheaKPICard, AltheaBadge, AltheaLoading } from '@/components/althea'
 import InstallAppButton from '@/components/install/InstallAppButton'
 import { todayKey, dayKeyOffset, toDateKey, parseLocalDateKey } from '@/utils/dates'
@@ -17,22 +15,17 @@ import { accentSectionForPath } from '@/components/navigation/sections'
 
 interface MasStats {
   sessions90d: number
-  tonnage90d: number
   sets7d: number
-  top: { name: string; orm: number }[]
   routineName?: string
   daysPerWeek?: number
-  chatCount: number
-  weightKg?: number
-  heightCm?: number
-  tdee?: number
-  protein?: number
-  carbs?: number
-  fat?: number
-  imc?: string
-  weightDiff?: number
   weekNumber?: number
-  exerciseCount: number
+}
+
+// Icono Material por clave de icono de MAS_GROUPS (la clave Althea ≠ nombre semántico).
+const GROUP_SEMANTIC_ICON: Record<string, string> = {
+  library: 'menu_book', routines: 'fitness_center', energy: 'fitness_center',
+  calendar: 'calendar_month', nutrition: 'restaurant_menu', progress: 'auto_graph',
+  recovery: 'bedtime', coach: 'forum', profile: 'badge',
 }
 
 export default function Mas(){
@@ -41,6 +34,7 @@ export default function Mas(){
   const [stats, setStats] = useState<MasStats | null>(null)
   // (D) Misma fuente de verdad que Inicio/AppNav: sesión activa no finalizada.
   const { hasActiveSession } = useActiveTrainingSession()
+  const { isVisible } = useVisibleSections()
   useEffect(() => {
     import('@/services/storage/routineStore').then(({ getAllRoutines }) =>
       getAllRoutines().then(list => setRoutineCount(list.length))
@@ -48,86 +42,38 @@ export default function Mas(){
   }, [])
 
   // Métricas reales desde Dexie; sin datos → "Sin datos" (nunca ficticios).
+  // Solo lo que ESTA pantalla muestra: Más es centro de accesos, no tablero.
+  // El detalle (récords, macros, IMC) vive en Progreso / Nutrición / Perfil.
   useEffect(() => {
     (async () => {
       try {
-        const p = await db.userProfile.get('me').catch(() => null)
-        const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
         const sets = await unifiedAllCompletedSets().catch(() => [])
         const cut90Str = dayKeyOffset(todayKey(), -90)
         const cut7Str = dayKeyOffset(todayKey(), -7)
-        const recent = sets.filter(s => toDateKey(s.createdAt) >= cut90Str)
-        const tonnage90d = recent.reduce((a, s) => a + s.weight * s.reps, 0)
         const sets7d = sets.filter(s => toDateKey(s.createdAt) >= cut7Str).length
         const sessions90d = await db.trainingSessions.where('calendarDate').aboveOrEqual(cut90Str).count().catch(() => 0)
 
-        // Top-2 1RM por ejercicio (solo grupos con peso > 0)
-        const byEx = new Map<string, { weight: number; reps: number; date: string; setRecordId: string }[]>()
-        for (const s of sets) {
-          if (s.weight <= 0 || s.reps <= 0) { continue }
-          const arr = byEx.get(s.exerciseId) || []
-          arr.push({ weight: s.weight, reps: s.reps, date: toDateKey(s.createdAt), setRecordId: '' })
-          byEx.set(s.exerciseId, arr)
-        }
-        const scored: { id: string; orm: number }[] = []
-        for (const [id, arr] of byEx) {
-          const pr = calculateExercisePRs(arr)
-          if (pr.maxEstimated1RM) { scored.push({ id, orm: pr.maxEstimated1RM.estimated1RM }) }
-        }
-        scored.sort((a, b) => b.orm - a.orm)
-        const [exRows, customs] = await Promise.all([
-          db.exercises.toArray().catch(() => [] as { id: string; name: string }[]),
-          import('@/services/training/customExercises').then(m => m.listCustomExercises().catch(() => [] as { id: string; name: string }[])),
-        ])
-        const nameOf = (id: string) =>
-          exRows.find(e => e.id === id)?.name || customs.find(c => c.id === id)?.name || prettyExId(id)
-        const top = scored.slice(0, 2).map(s => ({ name: nameOf(s.id), orm: Math.round(s.orm) }))
-
-        const prof = p
-        const w = prof?.weightKg, h = prof?.heightCm
-        let tdee: number | undefined, protein: number | undefined, carbs: number | undefined, fat: number | undefined, imc: string | undefined
-        if (w && h && prof) {
-          const tmb = calcTMB(w, h, prof.age, prof.sex)
-          const tdeeRaw = tmb !== null ? calcTDEE(tmb, prof.activityLevel || 'moderado', prof.schedule?.availableDays?.length || 3) : null
-          if (tdeeRaw !== null) {
-            tdee = Math.round(tdeeRaw)
-            const tgResolved = resolveTrainingGoal(prof)
-            const calGoal = calorieGoal(tdee, tgResolved || prof.goalPrimary) || tdee
-            const prot = proteinRange(w, tgResolved || prof.goalPrimary)
-            protein = prot?.low || Math.round(w * 1.8)
-            fat = Math.round(calGoal * 0.25 / 9)
-            carbs = Math.round((calGoal - protein * 4 - fat * 9) / 4)
-          }
-          imc = calcIMC(w, h).bmi
-        }
-        const bodies = await db.bodyMeasurements.toArray().catch(() => [])
-        const ws = bodies.map(b => Number(b.weightKg)).filter(n => !isNaN(n))
-        const weightDiff = ws.length >= 2 ? Math.round((ws[ws.length - 1] - ws[0]) * 10) / 10 : undefined
-
         let weekNumber: number | undefined
+        let routineName: string | undefined
+        let daysPerWeek: number | undefined
         try {
+          const p = await db.userProfile.get('me').catch(() => null)
+          const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+          const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
+          const [rawRoutines, activeRoutineId] = await Promise.all([
+            getAllRoutines().catch(() => []),
+            getActiveRoutineId().catch(() => null),
+          ])
+          routineName = (rawRoutines.find(r => r.id === activeRoutineId) || rawRoutines[0])?.name
           const start = ((pv?.cycle ?? p?.cycle) as { startDate?: string } | undefined)?.startDate
           if (start) {
             weekNumber = Math.max(1, Math.floor((Date.now() - parseLocalDateKey(start).getTime()) / (7 * 86400000)) + 1)
           }
+          const weekMap = ((pv?.cycle ?? p?.cycle) as { weekMap?: (number | null)[] } | undefined)?.weekMap
+          daysPerWeek = weekMap ? weekMap.filter(d => d !== null).length : undefined
         } catch { /* noop */ }
-        const exerciseCount = exRows.length + customs.length
-        const chatCount = await db.chatMessages.where('role').equals('user').count().catch(() => 0)
-        const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
-        const [rawRoutines, activeRoutineId] = await Promise.all([
-          getAllRoutines().catch(() => []),
-          getActiveRoutineId().catch(() => null),
-        ])
-        const activeRoutine = rawRoutines.find(r => r.id === activeRoutineId) || rawRoutines[0]
-        const weekMap = ((pv?.cycle ?? p?.cycle) as { weekMap?: (number | null)[] } | undefined)?.weekMap
-        const daysPerWeek = weekMap ? weekMap.filter(d => d !== null).length : undefined
 
-        setStats({
-          sessions90d, tonnage90d: Math.round(tonnage90d * 10) / 10, sets7d, top,
-          routineName: activeRoutine?.name, daysPerWeek, chatCount,
-          weightKg: w, heightCm: h, tdee, protein, carbs, fat, imc, weightDiff,
-          weekNumber, exerciseCount,
-        })
+        setStats({ sessions90d, sets7d, routineName, weekNumber, daysPerWeek })
       } catch { /* noop: las tarjetas muestran "Sin datos" */ }
     })()
   }, [])
@@ -151,17 +97,15 @@ export default function Mas(){
         <AltheaLoading lines={4} />
       ) : (
         <>
-          {/* ═══ RESUMEN ═══ */}
+          {/* ═══ RESUMEN (breve: 3 elementos, no un tablero) ═══ */}
           <section aria-label="Resumen de actividad">
-            <AltheaCardHeader title="Resumen" subtitle="Datos reales de tu registro local" icon="monitoring" />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <AltheaKPICard icon="fitness_center" label="Ejercicios" value={stats.exerciseCount} subtitle="En biblioteca" />
+            <AltheaCardHeader title="Resumen" subtitle="Tu actividad en un vistazo" icon="monitoring" />
+            <div className="grid grid-cols-2 gap-3">
+              <AltheaKPICard icon="calendar_month" label="Sesiones · 90 días" value={stats.sessions90d} subtitle={stats.sets7d ? `${stats.sets7d} series en 7 días` : 'Sin series recientes'} color="success" />
               <AltheaKPICard icon="menu_book" label="Rutinas" value={routineCount} subtitle="Registradas" />
-              <AltheaKPICard icon="auto_graph" label="Sesiones · 90 días" value={stats.sessions90d} subtitle={stats.sets7d ? `${stats.sets7d} series últimos 7 días` : 'Sin series recientes'} color="success" />
-              <AltheaKPICard icon="forum" label="Consultas al Coach" value={stats.chatCount} subtitle="Mensajes tuyos" />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <div className="mt-3">
               <AltheaCard level={2} padding="sm">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <span className="text-aux text-[11px]">Rutina activa</span>
@@ -172,78 +116,50 @@ export default function Mas(){
                   {stats.daysPerWeek !== undefined ? `${stats.daysPerWeek}× por semana` : 'Sin datos de frecuencia'}
                 </p>
               </AltheaCard>
-
-              <AltheaCard level={2} padding="sm">
-                <div className="text-aux mb-1.5">Cuerpo</div>
-                <p className="font-headline-md text-lg text-on-surface font-semibold truncate">
-                  {stats.heightCm !== undefined && stats.weightKg !== undefined ? `${stats.heightCm} cm · ${stats.weightKg} kg` : 'Sin datos corporales'}
-                </p>
-                <p className="font-body-md text-sm text-on-surface-variant mt-0.5 capitalize">
-                  {stats.imc !== undefined ? `IMC ${stats.imc}` : ''}
-                  {stats.weightDiff !== undefined ? ` · ${stats.weightDiff > 0 ? '+' : ''}${stats.weightDiff} kg` : ''}
-                </p>
-              </AltheaCard>
-
-              <AltheaCard level={2} padding="sm">
-                <div className="text-aux mb-1.5">Nutrición estimada</div>
-                <p className="font-headline-md text-lg text-on-surface font-semibold truncate">
-                  {stats.tdee !== undefined ? `${stats.tdee.toLocaleString('es-ES')} kcal` : 'Sin datos'}
-                </p>
-                <p className="font-body-md text-sm text-on-surface-variant mt-0.5">
-                  {stats.protein !== undefined ? `Proteína ${stats.protein}g · Carbos ${stats.carbs ?? '—'}g · Lípidos ${stats.fat ?? '—'}g` : 'Calculá tu perfil para estimar macros'}
-                </p>
-              </AltheaCard>
-
-              <AltheaCard level={2} padding="sm">
-                <div className="text-aux mb-1.5">Récords</div>
-                {stats.top.length > 0 ? (
-                  <div className="space-y-1">
-                    {stats.top.map(t => (
-                      <div key={t.name} className="flex items-center justify-between gap-2">
-                        <span className="font-body-md text-sm text-on-surface truncate capitalize">{t.name}</span>
-                        <span className="font-mono text-sm text-secondary font-semibold shrink-0">{t.orm} kg</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="font-headline-md text-lg text-on-surface font-semibold">Sin datos</p>
-                )}
-                <p className="font-body-md text-xs text-on-surface-variant mt-1">
-                  {stats.tonnage90d > 0 ? `${(stats.tonnage90d / 1000).toFixed(1)} t movidas en 90 días` : 'Sin tonelaje registrado'}
-                </p>
-              </AltheaCard>
             </div>
           </section>
 
-          {/* ═══ ACCESOS ═══ */}
+          {/* ═══ SECCIONES (fuente única MAS_GROUPS: mismos destinos que la barra lateral) ═══ */}
           <section aria-label="Accesos a secciones">
-            <AltheaCardHeader title="Accesos" subtitle="Todas las secciones de tu entrenamiento" icon="tune" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[
-                ...(hasActiveSession ? [{ to: '/entrenar', icon: 'tactic', name: 'Entrenar', desc: stats.routineName ? `Sesión de ${stats.routineName}` : 'Sesión de entrenamiento' }] : []),
-                { to: '/rutina', icon: 'fitness_center', name: 'Rutinas', desc: `${routineCount} rutinas registradas` },
-                { to: '/calendario', icon: 'calendar_month', name: 'Calendario', desc: `${stats.sessions90d} sesiones en 90 días` },
-                { to: '/biblioteca', icon: 'menu_book', name: 'Biblioteca', desc: `${stats.exerciseCount} ejercicios disponibles` },
-                { to: '/recuperacion', icon: 'bedtime', name: 'Recuperación', desc: 'Sueño, energía y fatiga' },
-                { to: '/coach', icon: 'forum', name: 'Coach y objetivos', desc: stats.chatCount > 0 ? `${stats.chatCount} consultas realizadas` : 'Asistente de entrenamiento' },
-                { to: '/perfil', icon: 'badge', name: 'Perfil y configuración', desc: 'Datos, preferencias y cuenta' },
-              ].map(l => (
-                <Link key={l.to} to={l.to} data-section={accentSectionForPath(l.to)} className="min-h-[72px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-xl">
-                  <AltheaCard level={2} padding="sm" hover className="h-full">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/25 flex items-center justify-center shrink-0">
-                        <SemanticIcon name={l.icon} size={20} className="text-[20px] text-accent" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-headline-md text-base text-on-surface font-semibold truncate">{l.name}</p>
-                        <p className="font-body-md text-sm text-on-surface-variant truncate">{l.desc}</p>
-                      </div>
-                      <SemanticIcon name="chevron_right" size={20} className="text-[20px] text-on-surface-variant shrink-0" />
+            <AltheaCardHeader title="Secciones" subtitle="Todo el contenido de Althea, ordenado" icon="tune" />
+            {hasActiveSession && (
+              <Link to="/entrenar" data-section={accentSectionForPath('/entrenar')} className="block min-h-[72px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-xl mb-3">
+                <AltheaCard level={2} padding="sm" hover className="h-full border-primary/40">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
+                      <SemanticIcon name="tactic" size={20} className="text-[20px] text-primary" />
                     </div>
-                  </AltheaCard>
-                </Link>
-              ))}
-            </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-headline-md text-base text-on-surface font-semibold truncate">Entrenar</p>
+                      <p className="font-body-md text-sm text-on-surface-variant truncate">Sesión en curso — continuar</p>
+                    </div>
+                    <SemanticIcon name="chevron_right" size={20} className="text-[20px] text-on-surface-variant shrink-0" />
+                  </div>
+                </AltheaCard>
+              </Link>
+            )}
+            {MAS_GROUPS.map(g => {
+              const items = g.items.filter(it => isVisible(it.icon as string))
+              if (!items.length) { return null }
+              return (
+                <div key={g.title} className="mb-3 last:mb-0">
+                  <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider mb-1.5">{g.title}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {items.map(l => (
+                      <Link key={l.to} to={l.to} data-section={accentSectionForPath(l.to)} className="min-h-[56px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-xl">
+                        <AltheaCard level={2} padding="sm" hover className="h-full">
+                          <div className="flex items-center gap-3">
+                            <SemanticIcon name={GROUP_SEMANTIC_ICON[l.icon] ?? 'apps'} size={20} className="text-[20px] text-accent shrink-0" />
+                            <p className="font-body-md text-[15px] text-on-surface font-medium flex-1 min-w-0 truncate">{l.label}</p>
+                            <SemanticIcon name="chevron_right" size={20} className="text-[20px] text-on-surface-variant shrink-0" />
+                          </div>
+                        </AltheaCard>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </section>
 
           {/* ═══ CONFIGURACIÓN GENERAL ═══ */}

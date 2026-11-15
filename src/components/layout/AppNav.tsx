@@ -3,7 +3,6 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { NAV_ITEMS, MAS_GROUPS, type NavItem } from '@/components/brand/icons'
 import { AltheaNav, type AltheaNavEntry } from '@/components/navigation/AltheaNav'
 import { AltheaIcon, type AltheaIconName } from '@/components/brand/AltheaIconRegistry'
-import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
 import { accentSectionForPath } from '@/components/navigation/sections'
 
@@ -47,7 +46,6 @@ export default function AppNav() {
       return v
     } catch { return false }
   })
-  const { hasActiveSession } = useActiveTrainingSession()
   const { isVisible } = useVisibleSections()
   const { pathname } = useLocation()
 
@@ -57,10 +55,12 @@ export default function AppNav() {
     try { document.documentElement.style.setProperty('--mobile-nav-offset', MOBILE_NAV_OFFSET) } catch { /* noop */ }
   }, [])
 
+  // Desktop: estructura amplia (primarios + módulos en la barra lateral).
   const primaryItems = NAV_ITEMS.filter(i => {
     if (!isVisible(i.icon as string)) { return false }
-    if (i.icon === 'training') {return hasActiveSession}
-    return ['home', 'nutrition', 'progress', 'crossfit'].includes(i.icon as string)
+    // Entrenar SIEMPRE visible (antes solo con sesión activa): destino
+    // principal predecible; /entrenar redirige a Inicio si no hay sesión.
+    return ['home', 'training', 'nutrition', 'progress', 'crossfit'].includes(i.icon as string)
   })
   const moreItem = NAV_ITEMS.find(i => i.icon === 'more')!
   // Deduplicar por ICONO, no por ruta: '/progreso' y '/progresos' son dos
@@ -74,7 +74,12 @@ export default function AppNav() {
 
   const primaryEntries = primaryItems.map(toAltheaEntry)
   const moduleEntries = modules.map(toAltheaEntry)
-  const mobileEntries = [...primaryItems, moreItem].map(toAltheaEntry)
+  // Móvil: MÁXIMO 4 destinos fijos (Inicio, Entrenar, CrossFit, Más).
+  // Nutrición/Progreso/etc. se alcanzan desde Más — menos ruido, una mano.
+  const mobileEntries = [
+    ...primaryItems.filter(i => ['home', 'training', 'crossfit'].includes(i.icon as string)),
+    moreItem,
+  ].map(toAltheaEntry)
 
   const toggle = () => {
     const nx = !collapsed
