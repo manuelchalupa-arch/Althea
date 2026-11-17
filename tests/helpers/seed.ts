@@ -66,14 +66,14 @@ export async function seedBase(page: Page, opts: SeedRows = {}) {
               startedAt: now, createdAt: now, updatedAt: now,
             })
             tx.objectStore('sessionExercises').put({
-              sessionExerciseId: 'qa-se1', sessionId: 'qa-s1', exerciseId: 'press', order: 0,
+              sessionExerciseId: 'qa-se1', sessionId: 'qa-s1', exerciseId: 'press', exerciseName: 'Press banca', order: 0,
               planned: true, completed: false, status: 'PENDING',
               plannedSetCount: 2, actualSetCount: 0,
               plannedSets: [{ reps: 8, weight: 70 }, { reps: 8, weight: 70 }],
               createdAt: now, updatedAt: now,
             })
             tx.objectStore('sessionExercises').put({
-              sessionExerciseId: 'qa-se2', sessionId: 'qa-s1', exerciseId: 'remo', order: 1,
+              sessionExerciseId: 'qa-se2', sessionId: 'qa-s1', exerciseId: 'remo', exerciseName: 'Remo con barra', order: 1,
               planned: true, completed: false, status: 'PENDING',
               plannedSetCount: 2, actualSetCount: 0,
               plannedSets: [{ reps: 8, weight: 60 }, { reps: 8, weight: 60 }],
