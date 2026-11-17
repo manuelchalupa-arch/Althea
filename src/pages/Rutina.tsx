@@ -141,7 +141,12 @@ async function loadRoutines(): Promise<{ list: RutinaData[]; activeId: string | 
     await migrateRoutinesFromLocalStorage()
     const list = await getAllRoutines()
     const activeId = await getActiveRoutineId()
-    if (list.length > 0) {return { list, activeId }}
+    if (list.length > 0) {
+      // Sin meta activa (o con id huérfano) la activa es la primera — el mismo
+      // fallback que usa el render al deriving `active`. `updateActive` exige un
+      // id concreto: con null hacía fn(undefined) y TODA edición reventaba.
+      return { list, activeId: list.some(r=> r.id===activeId) ? activeId : list[0].id }
+    }
   } catch {}
   const def: RutinaData = {
     id: 'r1', name: 'Rutina 1', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -469,6 +474,27 @@ export default function RutinaPage(){
     setDragging(null)
     try{ (e.target as HTMLElement).releasePointerCapture(e.pointerId) }catch{ /* noop */ }
   }
+
+  // Chromium suelta la captura del puntero cuando React reinserta la fila
+  // durante el reorden: los pointermove/pointerup posteriores apuntan a otra
+  // fila y el arrastre muere a mitad. Mientras haya arrastre activo escuchamos
+  // también en window (idempotente: onGripMove ignora si idx no cambió).
+  const gripHandlersRef = useRef({ move: (_e: React.PointerEvent) => {}, up: (_e: React.PointerEvent) => {} })
+  gripHandlersRef.current = { move: onGripMove, up: onGripUp }
+  const isDragging = dragging !== null
+  useEffect(() => {
+    if (!isDragging) { return }
+    const move = (e: PointerEvent) => gripHandlersRef.current.move(e as unknown as React.PointerEvent)
+    const up = (e: PointerEvent) => gripHandlersRef.current.up(e as unknown as React.PointerEvent)
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [isDragging])
 
   const duplicateRoutine = (id:string)=>{
     const src = routines.find(r=>r.id===id)

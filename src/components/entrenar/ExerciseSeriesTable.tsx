@@ -396,7 +396,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                         if(obsDeEstaSerie) { setObsBySet(prev=> ({ ...prev, [si]: '' })) }
                         onComplete(si, w, r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obsDeEstaSerie||undefined, loadOriginal[si], !!rModes[si])
                       }} aria-label={`Confirmar serie ${si+1}`} className="px-4 py-3 min-h-[48px] min-w-[48px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[11px] uppercase font-bold shadow-sm transition-all active:scale-95">
-                        OK
+                        Registrar
                       </button>
                     </div>
                   </td>
