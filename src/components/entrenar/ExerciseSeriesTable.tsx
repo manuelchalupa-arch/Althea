@@ -247,7 +247,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
           <thead>
               <tr className="border-b border-outline-variant/40 text-outline font-label-caps text-[9px] uppercase tracking-wider">
                 <th className="pb-2 px-1 font-semibold w-8">N.º</th>
-                <th className="pb-2 px-2 font-semibold">Última vez</th>
+                <th className="pb-2 px-2 font-semibold hidden sm:table-cell">Última vez</th>
                 <th className="pb-2 px-2 font-semibold text-center">Repeticiones</th>
                 <th className="pb-2 px-2 font-semibold text-center">{loadUnit === 'KG' ? 'Kg' : 'Lb'}</th>
                 <th className="pb-2 px-1 text-center font-semibold w-12"></th>
@@ -283,7 +283,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                       <span className="block text-[8px] font-label-caps uppercase leading-tight text-secondary/90" title={`Tipo de serie: ${planFor.setType}`}>{String(planFor.setType).replace(/_/g,' ')}</span>
                     )}
                   </td>
-                  <td className="py-2.5 px-2 text-[12px] text-on-surface-variant whitespace-nowrap">
+                  <td className="py-2.5 px-2 text-[12px] text-on-surface-variant whitespace-nowrap hidden sm:table-cell">
                     {prevSet ? (
                       <span>{prevSet.weight}kg × {prevSet.reps}</span>
                     ) : ref && !ref.isSeed ? (
@@ -306,7 +306,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                             dirtyRef.current.r.add(si)
                             setReps({...reps, [si]: v === '' ? null : Number(v)})
                           }}
-                          className={`w-full min-w-[64px] py-2.5 min-h-[48px] bg-surface-container-highest border border-outline-variant/40 rounded text-[14px] text-on-surface text-center ${rModes[si] ? 'pl-5 pr-2' : 'px-2'}`}
+                          className={`w-full min-w-[48px] py-2.5 min-h-[48px] bg-surface-container-highest border border-outline-variant/40 rounded text-[14px] text-on-surface text-center ${rModes[si] ? 'pl-5 pr-2' : 'px-2'}`}
                           inputMode="numeric"
                           aria-label={`repeticiones serie ${si+1}`}
                         />
@@ -359,7 +359,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                           setWeights((prev)=>({...prev, [si]: rounded}))
                         }}
                         onBlur={()=>{ setWeightText((prev)=>{ const n={...prev}; delete n[si]; return n }) }}
-                        className="w-full min-w-[64px] px-2 py-2.5 min-h-[48px] bg-surface-container-highest border border-outline-variant/40 rounded text-[14px] text-on-surface text-center"
+                        className="w-full min-w-[48px] px-2 py-2.5 min-h-[48px] bg-surface-container-highest border border-outline-variant/40 rounded text-[14px] text-on-surface text-center"
                         inputMode="decimal"
                         aria-label={`kilogramos serie ${si+1}`}
                       />
@@ -395,7 +395,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                         // borrador se limpia para no arrastrarlo a la siguiente.
                         if(obsDeEstaSerie) { setObsBySet(prev=> ({ ...prev, [si]: '' })) }
                         onComplete(si, w, r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obsDeEstaSerie||undefined, loadOriginal[si], !!rModes[si])
-                      }} aria-label={`Confirmar serie ${si+1}`} className="px-4 py-3 min-h-[48px] min-w-[48px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[11px] uppercase font-bold shadow-sm transition-all active:scale-95">
+                      }} aria-label={`Confirmar serie ${si+1}`} className="px-2 py-3 min-h-[48px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[10px] uppercase font-bold shadow-sm transition-all active:scale-95">
                         Registrar
                       </button>
                     </div>

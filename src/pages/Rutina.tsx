@@ -324,8 +324,9 @@ export default function RutinaPage(){
     }
     const next = [...routines, data]
     setRoutines(next); setActiveId(data.id); saveRoutines(next, data.id); setNewName(''); setShowNew(false); setNewReviewDate(addDaysToKey(todayKey(),30))
-    // Rutina simplificada: abre el formulario manual en el primer día.
+    // Cada modalidad abre su forma de carga en el primer día: manual o selector.
     if(newMode==='simplificada'){ setManualFor(data.cycle.trainingDays[0]?.n ?? 1) }
+    else { setPickerFor(data.cycle.trainingDays[0]?.n ?? 1) }
   }
 
   // Agrega un ejercicio desde el formulario simplificado. Reutiliza un custom
@@ -718,10 +719,10 @@ export default function RutinaPage(){
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <div className="font-body-md text-sm text-on-surface font-medium truncate">{label}</div>
-                          {it.supersetId && <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary/15 border border-secondary/40 font-label-caps text-[9px] text-secondary uppercase font-semibold">SS {(it.supersetOrder ?? 0)+1}/{blkN}</span>}
                         </div>
                         <div className="flex items-center gap-1 flex-wrap">
                           <span className={`font-label-md text-[11px] font-semibold uppercase tracking-widest ${isStr ? 'text-[var(--althea-stretch)]' : 'text-on-surface-variant'}`}>{it.sets || 0} series{isStr ? ' · estiramiento' : ''}</span>
+                          {it.supersetId && <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary/15 border border-secondary/40 font-label-caps text-[9px] text-secondary uppercase font-semibold">SS {(it.supersetOrder ?? 0)+1}/{blkN}</span>}
                           <button type="button" onClick={()=>toggleSS(d.n, idx)} aria-label={`Superserie ${label}`} aria-pressed={!!it.supersetId || !!inDraft} className={`min-h-[44px] px-2 rounded border font-label-caps text-[10px] uppercase font-bold ${it.supersetId ? 'bg-secondary/20 border-secondary/50 text-secondary' : inDraft ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>SS</button>
                           <button type="button" onClick={()=>moveExercise(d.n, idx, -1)} aria-label={`Subir ${label}`} className="w-11 h-11 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><ChevronUp size={16}/></button>
                           <button type="button" onClick={()=>moveExercise(d.n, idx, 1)} aria-label={`Bajar ${label}`} className="w-11 h-11 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><ChevronDown size={16}/></button>
@@ -895,6 +896,7 @@ export default function RutinaPage(){
                 const data: RutinaData = { id: uuid(), name: newName.trim(), createdAt: createdISO2, updatedAt: createdISO2, rotationDays:30, reviewDate: newReviewDate || defaultReviewDate(createdISO2, 30), cycle: DEFAULT_CYCLE, dayExercises:{}}
                 const next=[...routines,data]; setRoutines(next); setActiveId(data.id); saveRoutines(next,data.id); setNewName(''); setShowNew(false); setNewReviewDate(addDaysToKey(todayKey(),30))
                 if(newMode==='simplificada'){ setManualFor(data.cycle.trainingDays[0]?.n ?? 1) }
+                else { setPickerFor(data.cycle.trainingDays[0]?.n ?? 1) }
               }}>Crear rutina</AltheaButton>
             </div>
             {routines.length>=MAX_ROUTINES && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-error">Tenés {MAX_ROUTINES} rutinas guardadas. Para crear otra, eliminá una.</p>}
