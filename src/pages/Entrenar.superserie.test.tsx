@@ -1,0 +1,153 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import '@testing-library/jest-dom'
+import { MemoryRouter } from 'react-router-dom'
+import { db } from '@/services/storage/db'
+import { todayKey } from '@/utils/dates'
+
+vi.mock('@/services/exerciseGym', () => ({
+  fetchAll: async () => ({ exercises: [] }),
+  fetchByMuscle: async () => ({ exercises: [] }),
+  fetchOne: async () => null,
+  cacheSet: () => {},
+  cacheGet: () => null,
+}))
+
+import Entrenar from './Entrenar'
+
+type Seed = { exId: string; name: string; sets: number; reps: number; weight: number; supersetId?: string | null; supersetOrder?: number | null; restSec?: number }
+
+async function startSession(exercises: Seed[]) {
+  const { createReadySession, transitionSession } = await import('@/services/training/sessionStore')
+  const created = await createReadySession({
+    calendarDate: todayKey(), routineId: 'r1', routineName: 'Rutina',
+    plannedDay: 1, plannedDayName: 'Piernas', actualDay: 1, actualDayName: 'Piernas',
+    exercises: exercises as never,
+  })
+  await transitionSession(created.sessionId, 'IN_PROGRESS')
+  return created.sessionId
+}
+
+const answerNo = async () => {
+  const prompt = await screen.findByTestId('pain-prompt', undefined, { timeout: 10000 })
+  expect(prompt).toBeInTheDocument()
+  fireEvent.click(screen.getByLabelText('No sentí dolor'))
+}
+
+const currentBadge = () => screen.getByText(/EJERCICIO \d+ DE \d+/).textContent || ''
+const expectCurrent = async (n: number, total: number) => {
+  await waitFor(() => expect(currentBadge()).toContain(`EJERCICIO ${n} DE ${total}`), { timeout: 10000 })
+}
+
+describe('Entrenar — superseries', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    await Promise.all(db.tables.map((t) => t.clear()))
+    localStorage.clear()
+  })
+
+  it('bloque de 2 con 2 rondas: alterna A1→B1→A2→B2, descansos etiquetados y dolor al cerrar el bloque', async () => {
+    const sid = await startSession([
+      { exId: 'a', name: 'Ej A', sets: 2, reps: 8, weight: 60, supersetId: 'ss1', supersetOrder: 0 },
+      { exId: 'b', name: 'Ej B', sets: 2, reps: 8, weight: 60, supersetId: 'ss1', supersetOrder: 1, restSec: 60 },
+      { exId: 'c', name: 'Ej C', sets: 1, reps: 8, weight: 60 },
+    ])
+    render(<MemoryRouter><Entrenar /></MemoryRouter>)
+    await screen.findByLabelText('kilogramos serie 1', undefined, { timeout: 10000 })
+
+    // A1: badge de bloque visible; al terminar la serie pasa a B (no al siguiente suelto).
+    expect(screen.getByText('SUPERSERIE 1/2')).toBeInTheDocument()
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    // Descanso de transición dentro del bloque (label propio).
+    await screen.findAllByText(/DESCANSO SUPERSERIE/i, undefined, { timeout: 10000 })
+    await expectCurrent(2, 3)
+    expect(screen.getByText('SUPERSERIE 2/2')).toBeInTheDocument()
+    // Sin consulta de dolor a mitad de bloque.
+    expect(screen.queryByTestId('pain-prompt')).not.toBeInTheDocument()
+
+    // B1 → fin de ronda: vuelve a A (queda serie 2) con descanso de bloque.
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await screen.findAllByText(/DESCANSO DE BLOQUE/i, undefined, { timeout: 10000 })
+    await expectCurrent(1, 3)
+    expect(screen.queryByTestId('pain-prompt')).not.toBeInTheDocument()
+
+    // A2 → siguiente ronda en B.
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 2', undefined, { timeout: 10000 }))
+    await expectCurrent(2, 3)
+
+    // B2 → bloque completo: una consulta por ejercicio del bloque, en orden A→B.
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 2', undefined, { timeout: 10000 }))
+    await answerNo()
+    await waitFor(() => expect(screen.getByText(/Terminaste Ej B/)).toBeInTheDocument(), { timeout: 10000 })
+    await answerNo()
+    // Respondidas ambas → avanza al ejercicio suelto siguiente.
+    await expectCurrent(3, 3)
+
+    // Series asociadas al ejercicio correcto (id de bloque en la sesión).
+    const ses = (await db.trainingSessions.get(sid)) as never as { exercises?: { exId: string; supersetId?: string | null }[] } | undefined
+    void ses
+    const records = await db.setRecords.toArray()
+    expect(records.filter((r) => r.exerciseId === 'a')).toHaveLength(2)
+    expect(records.filter((r) => r.exerciseId === 'b')).toHaveLength(2)
+    const { getSessionExercises } = await import('@/services/training/sessionStore')
+    const ses2 = await getSessionExercises(sid)
+    expect(ses2.find((e) => e.exerciseId === 'a')?.supersetId).toBe('ss1')
+    expect(ses2.find((e) => e.exerciseId === 'b')?.supersetId).toBe('ss1')
+    expect(ses2.find((e) => e.exerciseId === 'c')?.supersetId).toBeFalsy()
+  }, 60000)
+
+  it('bloque de 3: A→B→C en ronda y una consulta por integrante al cerrar', async () => {
+    await startSession([
+      { exId: 'a', name: 'Ej A', sets: 1, reps: 8, weight: 60, supersetId: 'ss3', supersetOrder: 0 },
+      { exId: 'b', name: 'Ej B', sets: 1, reps: 8, weight: 60, supersetId: 'ss3', supersetOrder: 1 },
+      { exId: 'c', name: 'Ej C', sets: 1, reps: 8, weight: 60, supersetId: 'ss3', supersetOrder: 2 },
+      { exId: 'd', name: 'Ej D', sets: 1, reps: 8, weight: 60 },
+    ])
+    render(<MemoryRouter><Entrenar /></MemoryRouter>)
+    await screen.findByLabelText('kilogramos serie 1', undefined, { timeout: 10000 })
+
+    expect(screen.getByText('SUPERSERIE 1/3')).toBeInTheDocument()
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(2, 4)
+    expect(screen.getByText('SUPERSERIE 2/3')).toBeInTheDocument()
+    expect(screen.queryByTestId('pain-prompt')).not.toBeInTheDocument()
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(3, 4)
+    expect(screen.getByText('SUPERSERIE 3/3')).toBeInTheDocument()
+    expect(screen.queryByTestId('pain-prompt')).not.toBeInTheDocument()
+    // Fin de bloque: consultas A, B y C en orden, luego el suelto D.
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await answerNo()
+    await waitFor(() => expect(screen.getByText(/Terminaste Ej B/)).toBeInTheDocument(), { timeout: 10000 })
+    await answerNo()
+    await waitFor(() => expect(screen.getByText(/Terminaste Ej C/)).toBeInTheDocument(), { timeout: 10000 })
+    await answerNo()
+    await expectCurrent(4, 4)
+  }, 60000)
+
+  it('bloque de 4+: alterna los 4 antes de repetir y cierra con 4 consultas', async () => {
+    await startSession([
+      { exId: 'a', name: 'Ej A', sets: 1, reps: 8, weight: 60, supersetId: 'ss4', supersetOrder: 0 },
+      { exId: 'b', name: 'Ej B', sets: 1, reps: 8, weight: 60, supersetId: 'ss4', supersetOrder: 1 },
+      { exId: 'c', name: 'Ej C', sets: 1, reps: 8, weight: 60, supersetId: 'ss4', supersetOrder: 2 },
+      { exId: 'd', name: 'Ej D', sets: 1, reps: 8, weight: 60, supersetId: 'ss4', supersetOrder: 3 },
+    ])
+    render(<MemoryRouter><Entrenar /></MemoryRouter>)
+    await screen.findByLabelText('kilogramos serie 1', undefined, { timeout: 10000 })
+
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(2, 4)
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(3, 4)
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(4, 4)
+    // Cierre del bloque: 4 consultas en orden.
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    for (const name of ['Ej A', 'Ej B', 'Ej C', 'Ej D']) {
+      await waitFor(() => expect(screen.getByText(`Terminaste ${name}`)).toBeInTheDocument(), { timeout: 10000 })
+      await answerNo()
+    }
+    // Último ejercicio de la sesión: sin destino siguiente, sin error.
+    await waitFor(() => expect(screen.queryByTestId('pain-prompt')).not.toBeInTheDocument(), { timeout: 10000 })
+  }, 60000)
+})

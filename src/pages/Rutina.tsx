@@ -1,10 +1,10 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
 import type { Exercise } from '@/types'
 import { DEFAULT_CYCLE, type CycleConfig, type LoadState, LOAD_STATE_LABEL, LOAD_STATE_COLOR, getWeekLoads } from '@/utils/cycle'
 import { v4 as uuid } from 'uuid'
-import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye, Sparkles, X, Check, RefreshCw } from 'lucide-react'
+import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye, Sparkles, X, Check, RefreshCw, ChevronUp, ChevronDown, GripVertical } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { IconDumbbell, IconFire, IconLightning, IconBody, IconTarget } from '@/components/brand/FitnessIcons'
 import { AltheaCard, AltheaBadge, AltheaButton, AltheaEmpty, AltheaLoading, StatusTag, AltheaPanel, AltheaStatRow } from '@/components/althea'
@@ -20,6 +20,64 @@ import BibliotecaCustomForm from './BibliotecaCustomForm'
 import { PeriodizationEditor } from '@/components/recovery/PeriodizationEditor'
 import { MAX_ROUTINES } from '@/services/storage/routineStore'
 import { todayKey, addDaysToKey, toDateKey, daysBetween } from '@/utils/dates'
+import { normFold } from '@/utils/format'
+
+// ── Rutina simplificada ─────────────────────────────────────────────────────
+// Vocabulario en español: claves de MUSCLE_ALIASES (muscleVocabulary) — el
+// Atlas y Progreso resuelven sin traducción ni categorías duplicadas.
+const SIMPLIFIED_MUSCLES: { value: string; label: string }[] = [
+  { value: 'pectorales', label: 'Pectorales' },
+  { value: 'dorsales', label: 'Dorsales' },
+  { value: 'trapecios', label: 'Trapecios' },
+  { value: 'deltoides anterior', label: 'Deltoides anterior' },
+  { value: 'deltoides lateral', label: 'Deltoides lateral' },
+  { value: 'deltoides posterior', label: 'Deltoides posterior' },
+  { value: 'biceps', label: 'Bíceps' },
+  { value: 'triceps', label: 'Tríceps' },
+  { value: 'braquiorradial', label: 'Braquiorradial' },
+  { value: 'antebrazos', label: 'Antebrazos' },
+  { value: 'abdominales', label: 'Abdominales' },
+  { value: 'oblicuos', label: 'Oblicuos' },
+  { value: 'lumbar', label: 'Lumbar' },
+  { value: 'gluteos', label: 'Glúteos' },
+  { value: 'cuadriceps', label: 'Cuádriceps' },
+  { value: 'isquiotibiales', label: 'Isquiotibiales' },
+  { value: 'aductores', label: 'Aductores' },
+  { value: 'abductores', label: 'Abductores' },
+  { value: 'pantorrillas', label: 'Gemelos y sóleo' },
+]
+const SIMPLIFIED_BODY_PART: Record<string, string> = {
+  pectorales: 'chest', dorsales: 'back', trapecios: 'back', lumbar: 'back',
+  'deltoides anterior': 'arms', 'deltoides lateral': 'arms', 'deltoides posterior': 'arms',
+  biceps: 'arms', triceps: 'arms', braquiorradial: 'arms', antebrazos: 'arms',
+  abdominales: 'core', oblicuos: 'core',
+  gluteos: 'legs', cuadriceps: 'legs', isquiotibiales: 'legs',
+  aductores: 'legs', abductores: 'legs', pantorrillas: 'legs',
+}
+
+// Límites del bloque contiguo de superserie que contiene p (null = suelto).
+function ssBounds(arr: { supersetId?: string | null }[], p: number): [number, number] {
+  const id = arr[p]?.supersetId
+  if (!id) { return [p, p] }
+  let s = p, e = p
+  while (s > 0 && arr[s - 1].supersetId === id) { s-- }
+  while (e < arr.length - 1 && arr[e + 1].supersetId === id) { e++ }
+  return [s, e]
+}
+// Renumera el orden dentro de cada run contiguo de bloques (0-based).
+function renumberRuns<T extends { supersetId?: string | null; supersetOrder?: number | null }>(arr: T[]): T[] {
+  const out = [...arr]
+  let i = 0
+  while (i < out.length) {
+    const id = out[i].supersetId
+    if (!id) { i++; continue }
+    let j = i
+    while (j + 1 < out.length && out[j + 1].supersetId === id) { j++ }
+    for (let k = i; k <= j; k++) { out[k] = { ...out[k], supersetOrder: k - i } }
+    i = j + 1
+  }
+  return out
+}
 
 const WEEK_LABELS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
 
@@ -44,6 +102,10 @@ type RutinaDayExercise = {
   /** Plan POR SERIE: fuente de verdad cuando existe. */
   series?: RutinaSeriesPlan[]
   gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string; restSec?:number; restBetweenExercisesSec?:number; seriesType?:string; tempo?:string; rir?:number; rpe?:number; notes?:string; routineExerciseId?:string
+  /** Superserie (aditivo): bloque y orden dentro del bloque. */
+  supersetId?:string | null; supersetOrder?:number | null
+  /** Músculo secundario del ejercicio simplificado (opcional). */
+  secondaryMuscle?:string | null
 }
 type RutinaData = {
   id: string
@@ -97,6 +159,7 @@ async function saveRoutines(list: RutinaData[], activeId: string | null){
 
 export default function RutinaPage(){
   const [exercises,setExercises]=useState<Exercise[]>([])
+  const [customs,setCustoms]=useState<{id:string; name:string; origin?:string}[]>([])
   const [routines,setRoutines]=useState<RutinaData[]>([])
   const [activeId,setActiveId]=useState<string | null>(null)
   const [, setRoutinesLoaded] = useState(false)
@@ -104,6 +167,15 @@ export default function RutinaPage(){
   const [pickerFor,setPickerFor]=useState<number|null>(null)
   const [addingStretch,setAddingStretch]=useState(false)
   const [showNew,setShowNew]=useState(false)
+  // Modalidad al crear: asistida (selector inteligente) o simplificada (manual).
+  const [newMode,setNewMode]=useState<'asistida'|'simplificada'>('asistida')
+  // Formulario "Rutina simplificada" abierto para un día (null = cerrado).
+  const [manualFor,setManualFor]=useState<number|null>(null)
+  // Borrador de selección para crear un bloque de superserie en un día.
+  const [ssDraft,setSsDraft]=useState<{dayN:number; idxs:number[]}|null>(null)
+  // Arrastre táctil (grip): índice actual mientras se arrastra.
+  const dragRef=useRef<{dayN:number; idx:number}|null>(null)
+  const [dragging,setDragging]=useState<number|null>(null)
   const [editingEx,setEditingEx]=useState<{dayN:number; idx:number} | null>(null)
   // (E) Fecha de revisión al crear la rutina (configurable; vacío = creación + 30 días)
   const [newReviewDate,setNewReviewDate]=useState(()=>addDaysToKey(todayKey(),30))
@@ -137,6 +209,7 @@ export default function RutinaPage(){
   useEffect(()=>{
     ensureSeeded().then(async()=>{
       const ex = await db.exercises.toArray(); setExercises(ex)
+      db.customExercises.toArray().then(cs=> setCustoms(cs.map(c=>({id:c.id, name:c.name, origin:c.origin})))).catch(()=>{})
       // Load routines from Dexie (with migration from localStorage)
       const { list, activeId: aid } = await loadRoutines()
       setRoutines(list); setActiveId(aid); setRoutinesLoaded(true); loadVersions(aid)
@@ -164,14 +237,20 @@ export default function RutinaPage(){
     } else {setRotationRec(null)}
   },[activeId, active])
 
+  // Secuencia de guardados: si llega un clic nuevo mientras el eco async de un
+  // clic anterior todavía corre, el viejo NO escribe (evita pisar el estado).
+  const saveSeq = useRef(0)
   const updateActive = (fn:(r:RutinaData)=>RutinaData)=>{
+    const seq = ++saveSeq.current
     const changed = {...fn(routines.find(r=>r.id===activeId) as RutinaData), updatedAt: new Date().toISOString()}
     const next = routines.map(r=> r.id===activeId ? changed : r)
     setRoutines(next)
     // Versionado (ET13): si la rutina ya fue usada y cambió, se archiva vN.
     import('@/services/storage/routineStore').then(async ({ saveRoutineVersioned }) => {
+      if (seq !== saveSeq.current) { return }
       try {
         const { saved } = await saveRoutineVersioned(changed as never)
+        if (seq !== saveSeq.current) { return }
         const version = (saved as unknown as { version?: number }).version
         if (version) {
           const withV = next.map(r=> r.id===activeId ? {...r, version} : r)
@@ -182,8 +261,9 @@ export default function RutinaPage(){
           return
         }
       } catch { /* noop */ }
+      if (seq !== saveSeq.current) { return }
       saveRoutines(next, activeId)
-    }).catch(()=> saveRoutines(next, activeId))
+    }).catch(()=> { if (seq === saveSeq.current) { saveRoutines(next, activeId) } })
   }
   // ---- Plan POR SERIE: cada serie guarda sus propias reps/weight (C) -------
   const seriesRowsOf = (it: RutinaDayExercise): RutinaSeriesPlan[] =>
@@ -239,7 +319,157 @@ export default function RutinaPage(){
     }
     const next = [...routines, data]
     setRoutines(next); setActiveId(data.id); saveRoutines(next, data.id); setNewName(''); setShowNew(false); setNewReviewDate(addDaysToKey(todayKey(),30))
+    // Rutina simplificada: abre el formulario manual en el primer día.
+    if(newMode==='simplificada'){ setManualFor(data.cycle.trainingDays[0]?.n ?? 1) }
   }
+
+  // Agrega un ejercicio desde el formulario simplificado. Reutiliza un custom
+  // existente con el mismo nombre (sin duplicar) o crea uno nuevo.
+  const addManualExercise = async (dayN:number, d:{name:string; sets:number; reps:number; weight:number|null; restSec:number; muscle:string; secondary:string|null}): Promise<boolean> => {
+    const { createCustomExercise, updateCustomExercise } = await import('@/services/training/customExercises')
+    const { DuplicateExerciseError } = await import('@/services/training/exerciseDuplicates')
+    let exId = ''
+    const customs = await db.customExercises.toArray().catch(()=> [])
+    const found = customs.find(c=> !c.archived && normFold(c.name)===normFold(d.name))
+    const pcts = d.secondary ? { primaryPct:70, secondaryPcts:[30] } : { primaryPct:100, secondaryPcts:[] as number[] }
+    if(found){
+      // Reutilización: actualiza la atribución muscular a lo elegido ahora.
+      await updateCustomExercise(found.id, { muscle:d.muscle, secondaryMuscles: d.secondary?[d.secondary]:[], ...pcts }, { confirmDuplicate:true })
+      exId = found.id
+    } else {
+      try{
+        const c = await createCustomExercise({
+          name:d.name, description:'Creado desde la rutina simplificada',
+          bodyPart: SIMPLIFIED_BODY_PART[d.muscle] ?? 'core',
+          muscle:d.muscle, secondaryMuscles: d.secondary?[d.secondary]:[],
+          ...pcts, category:'strength', equipment:'other',
+        })
+        exId = c.id
+      }catch(e){
+        if(e instanceof DuplicateExerciseError){ exId = e.matches[0]?.id ?? '' }
+        else { throw e }
+      }
+    }
+    if(!exId){ return false }
+    db.customExercises.toArray().then(cs=> setCustoms(cs.map(c=>({id:c.id, name:c.name, origin:c.origin})))).catch(()=>{})
+    updateActive(r=> {
+      const item: RutinaDayExercise = {
+        id: uuid(), exId, sets:d.sets, reps:d.reps, weight:d.weight,
+        name:d.name, muscle:d.muscle, secondaryMuscle:d.secondary,
+        restSec:d.restSec, restBetweenExercisesSec:d.restSec,
+        series: Array.from({length:d.sets},()=>({ reps:d.reps, weight:d.weight })),
+      }
+      return {...r, dayExercises:{...r.dayExercises, [dayN]:[...(r.dayExercises[dayN]||[]), item]}}
+    })
+    return true
+  }
+
+  // Chip SS: si el ejercicio ya está en bloque, lo saca (y disuelve si quedan
+  // menos de 2); si no, alterna su selección en el borrador del día.
+  const toggleSS = (dayN:number, idx:number) => {
+    const arr = active?.dayExercises[dayN]||[]
+    const it = arr[idx]
+    if(!it) {return}
+    if(it.supersetId){
+      updateActive(r=>{
+        const a=[...(r.dayExercises[dayN]||[])]
+        const id=a[idx].supersetId as string
+        const [,e]=ssBounds(a, idx)
+        const item={...a[idx], supersetId:null, supersetOrder:null}
+        const rest=[...a.slice(0,idx), ...a.slice(idx+1)]
+        rest.splice(e, 0, item) // queda justo después del bloque: no lo parte
+        let out=renumberRuns(rest)
+        if(out.filter(x=>x.supersetId===id).length < 2){
+          out=out.map(x=> x.supersetId===id ? {...x, supersetId:null, supersetOrder:null} : x)
+        }
+        return {...r, dayExercises:{...r.dayExercises, [dayN]:out}}
+      })
+      return
+    }
+    setSsDraft(prev=>{
+      if(!prev || prev.dayN!==dayN) {return {dayN, idxs:[idx]}}
+      return prev.idxs.includes(idx) ? {...prev, idxs:prev.idxs.filter(i=>i!==idx)} : {...prev, idxs:[...prev.idxs, idx]}
+    })
+  }
+
+  // Crea el bloque: los seleccionados se vuelven contiguos en la posición del
+  // primero y reciben un supersetId común (2, 3, 4+ sin límite).
+  const createSSBlock = () => {
+    if(!ssDraft || ssDraft.idxs.length<2 || !active) {return}
+    const dayN=ssDraft.dayN
+    const sel=[...ssDraft.idxs].sort((a,b)=>a-b)
+    updateActive(r=>{
+      const arr=[...(r.dayExercises[dayN]||[])]
+      const items=sel.filter(i=> i>=0 && i<arr.length && !arr[i].supersetId).map(i=>arr[i])
+      if(items.length<2) {return r}
+      const id=uuid()
+      const rest=arr.filter((_,i)=> !sel.includes(i))
+      const at=Math.min(sel[0], rest.length)
+      rest.splice(at, 0, ...items)
+      const out=renumberRuns(rest.map((x,i)=> i>=at && i<at+items.length ? {...x, supersetId:id, supersetOrder:0} : x))
+      return {...r, dayExercises:{...r.dayExercises, [dayN]:out}}
+    })
+    setSsDraft(null)
+  }
+
+  // Reordenar respetando bloques: la unidad es el bloque contiguo completo;
+  // dentro de un bloque se reordenan sus integrantes (no se separan).
+  // `until`: (drag) avanza en pasos hasta que la posición sea `until` dentro
+  // de UNA sola actualización de estado (no se acumulan cierres stale).
+  const moveExercise = (dayN:number, idx:number, dir:-1|1, until?:number) => {
+    updateActive(r=>{
+      let arr=[...(r.dayExercises[dayN]||[])]
+      if(idx<0 || idx>=arr.length) {return r}
+      let pos=idx
+      const steps = until===undefined ? 1 : Math.abs(until-idx)
+      for(let k=0;k<steps;k++){
+        // Llegó (o se pasó, al saltar un bloque): no sigue en esa dirección.
+        if(until!==undefined && (dir===1 ? pos>=until : pos<=until)) {break}
+        const [s,e]=ssBounds(arr, pos)
+        const within = dir===-1 ? pos>s : pos<e
+        if(within){
+          const j=pos+dir
+          const tmp=arr[pos]; arr[pos]=arr[j]; arr[j]=tmp
+          pos=j
+          continue
+        }
+        const t = dir===-1 ? s-1 : e+1
+        if(t<0 || t>=arr.length) {break}
+        const [ts,te]=ssBounds(arr, t)
+        const A=arr.slice(s,e+1), B=arr.slice(ts,te+1)
+        arr = dir===-1
+          ? [...arr.slice(0,ts), ...A, ...B, ...arr.slice(e+1)]
+          : [...arr.slice(0,s), ...B, ...A, ...arr.slice(te+1)]
+        pos = dir===-1 ? pos-(te-ts+1) : pos+(te-ts+1)
+      }
+      return {...r, dayExercises:{...r.dayExercises, [dayN]:renumberRuns(arr)}}
+    })
+  }
+
+  // Arrastre táctil desde el grip: al cruzar otra fila, mueve la unidad.
+  const onGripDown = (dayN:number, idx:number) => (e: React.PointerEvent) => {
+    e.preventDefault()
+    dragRef.current = {dayN, idx}
+    setDragging(idx)
+    try{ (e.target as HTMLElement).setPointerCapture(e.pointerId) }catch{ /* noop */ }
+  }
+  const onGripMove = (e: React.PointerEvent) => {
+    const d = dragRef.current
+    if(!d) {return}
+    const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-exrow]') as HTMLElement | null
+    if(!el) {return}
+    const dayN = Number(el.dataset.day), idx = Number(el.dataset.idx)
+    if(dayN!==d.dayN || !Number.isFinite(idx) || idx===d.idx) {return}
+    // Hasta la fila objetivo en una sola actualización (sin cerrar stale).
+    moveExercise(d.dayN, d.idx, idx>d.idx ? 1 : -1, idx)
+    d.idx = idx
+  }
+  const onGripUp = (e: React.PointerEvent) => {
+    dragRef.current = null
+    setDragging(null)
+    try{ (e.target as HTMLElement).releasePointerCapture(e.pointerId) }catch{ /* noop */ }
+  }
+
   const duplicateRoutine = (id:string)=>{
     const src = routines.find(r=>r.id===id)
     if(!src) {return}
@@ -303,6 +533,11 @@ export default function RutinaPage(){
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={()=>setShowNew(false)}>
             <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md p-4 space-y-3">
               <h3 className="font-headline-lg text-base font-semibold text-on-surface">Crear nueva rutina</h3>
+              <div className="flex gap-2" role="group" aria-label="Modalidad de rutina">
+                <button type="button" aria-pressed={newMode==='asistida'} onClick={()=>setNewMode('asistida')} className={`flex-1 min-h-[48px] rounded border font-label-caps text-[10px] uppercase font-bold ${newMode==='asistida' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>Rutina asistida</button>
+                <button type="button" aria-pressed={newMode==='simplificada'} onClick={()=>setNewMode('simplificada')} className={`flex-1 min-h-[48px] rounded border font-label-caps text-[10px] uppercase font-bold ${newMode==='simplificada' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>Rutina simplificada</button>
+              </div>
+              <p className="font-body-sm text-[12px] text-on-surface-variant">{newMode==='asistida' ? 'Armás la rutina con el selector inteligente de ejercicios.' : 'Ejercicios manuales: nombre, series, reps, peso, descanso y músculo.'}</p>
               <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nombre: Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
               <label className="block space-y-1">
                 <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fecha de revisión</span>
@@ -431,26 +666,46 @@ export default function RutinaPage(){
                 </div>
                 <AltheaButton size="sm" className="shrink-0" onClick={()=>setPickerFor(d.n)}><Plus size={14}/> Ejercicio</AltheaButton>
                 <AltheaButton size="sm" variant="secondary" className="shrink-0" onClick={()=>{ setAddingStretch(true); setPickerFor(d.n) }}><Plus size={14}/> Estiramiento</AltheaButton>
+                <AltheaButton size="sm" variant="secondary" className="shrink-0" onClick={()=>setManualFor(d.n)}><Plus size={14}/> Manual</AltheaButton>
               </div>
               <div className="flex items-center gap-2">
                 <StatusTag status="planned" />
                 <span className="font-body-md text-xs text-on-surface-variant">{exs.length} ejercicio{exs.length===1?'':'s'} planificado{exs.length===1?'':'s'} · objetivo {exs.reduce((a,e)=>a+(e.sets||0),0)} series</span>
               </div>
               <div className="space-y-2">
+                {ssDraft?.dayN===d.n && ssDraft.idxs.length>0 && (
+                  <div className="rounded border border-secondary/40 bg-secondary-container/15 p-2 flex items-center gap-2 flex-wrap">
+                    <span className="font-label-caps text-[10px] uppercase text-secondary">Superserie: {ssDraft.idxs.length} seleccionado{ssDraft.idxs.length===1?'':'s'}</span>
+                    <button type="button" disabled={ssDraft.idxs.length<2} onClick={createSSBlock} className="min-h-[44px] px-3 rounded bg-secondary text-on-surface font-label-caps text-[10px] uppercase font-bold disabled:opacity-50">Crear bloque</button>
+                    <button type="button" onClick={()=>setSsDraft(null)} className="min-h-[44px] px-3 rounded border border-outline-variant text-on-surface-variant font-label-caps text-[10px] uppercase">Cancelar</button>
+                  </div>
+                )}
                 {exs.map((it,idx)=>{
                   const ex = exercises.find(e=>e.id===it.exId)
                   const isStr = (it as { isStretch?: boolean }).isStretch
+                  const blkN = it.supersetId ? exs.filter(x=>x.supersetId===it.supersetId).length : 0
+                  const inDraft = ssDraft?.dayN===d.n && ssDraft.idxs.includes(idx)
+                  const label = ex?.name || it.name || it.exId
                   return (
-                    <div key={it.id} className={`rounded border p-3 flex items-center justify-between gap-3 ${isStr ? 'bg-[var(--althea-stretch)]/10 border-[var(--althea-stretch)]/40' : 'bg-surface/60 border-outline-variant'}`}>
-                      <div className="min-w-0">
-                        <div className="font-body-md text-sm text-on-surface font-medium truncate">{ex?.name || it.name || it.exId}</div>
-                        <div className={`font-label-md text-[11px] font-semibold uppercase tracking-widest ${isStr ? 'text-[var(--althea-stretch)]' : 'text-on-surface-variant'}`}>{it.sets || 0} series{isStr ? ' · estiramiento' : ''}</div>
+                    <div key={it.id} data-exrow data-day={d.n} data-idx={idx} className={`rounded border p-2 flex items-center gap-2 ${isStr ? 'bg-[var(--althea-stretch)]/10 border-[var(--althea-stretch)]/40' : 'bg-surface/60 border-outline-variant'} ${dragging===idx ? 'opacity-60' : ''}`}>
+                      <button onPointerDown={onGripDown(d.n, idx)} onPointerMove={onGripMove} onPointerUp={onGripUp} onPointerCancel={onGripUp} aria-label={`Reordenar ${label}`} title="Arrastrar para reordenar" className="shrink-0 w-11 h-11 rounded flex items-center justify-center text-on-surface-variant touch-none cursor-grab active:cursor-grabbing hover:bg-surface-container-high"><GripVertical size={16}/></button>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="font-body-md text-sm text-on-surface font-medium truncate">{label}</div>
+                          {it.supersetId && <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary/15 border border-secondary/40 font-label-caps text-[9px] text-secondary uppercase font-semibold">SS {(it.supersetOrder ?? 0)+1}/{blkN}</span>}
+                        </div>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className={`font-label-md text-[11px] font-semibold uppercase tracking-widest ${isStr ? 'text-[var(--althea-stretch)]' : 'text-on-surface-variant'}`}>{it.sets || 0} series{isStr ? ' · estiramiento' : ''}</span>
+                          <button type="button" onClick={()=>toggleSS(d.n, idx)} aria-label={`Superserie ${label}`} aria-pressed={!!it.supersetId || !!inDraft} className={`min-h-[44px] px-2 rounded border font-label-caps text-[10px] uppercase font-bold ${it.supersetId ? 'bg-secondary/20 border-secondary/50 text-secondary' : inDraft ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>SS</button>
+                          <button type="button" onClick={()=>moveExercise(d.n, idx, -1)} aria-label={`Subir ${label}`} className="w-11 h-11 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><ChevronUp size={16}/></button>
+                          <button type="button" onClick={()=>moveExercise(d.n, idx, 1)} aria-label={`Bajar ${label}`} className="w-11 h-11 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><ChevronDown size={16}/></button>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={()=>setEditingEx({dayN:d.n, idx})} aria-label={`Editar ${ex?.name || it.name || it.exId}`} className={`px-3 py-1.5 rounded-lg border font-label-caps text-[10px] uppercase font-bold min-h-[36px] ${isStr ? 'bg-[var(--althea-stretch)]/15 border-[var(--althea-stretch)]/40 text-[var(--althea-stretch)]' : 'bg-primary/15 border-primary/40 text-primary'}`}>Editar</button>
+                        <button onClick={()=>setEditingEx({dayN:d.n, idx})} aria-label={`Editar ${label}`} className={`px-3 py-1.5 rounded-lg border font-label-caps text-[10px] uppercase font-bold min-h-[44px] ${isStr ? 'bg-[var(--althea-stretch)]/15 border-[var(--althea-stretch)]/40 text-[var(--althea-stretch)]' : 'bg-primary/15 border-primary/40 text-primary'}`}>Editar</button>
                         <button onClick={()=>{
                           updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [d.n]: (r.dayExercises[d.n]||[]).filter((_,i)=>i!==idx)}}))
-                        }} aria-label={`Quitar ${ex?.name || it.name || it.exId}`} className="text-on-surface-variant min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 size={14}/></button>
+                        }} aria-label={`Quitar ${label}`} className="text-on-surface-variant min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 size={14}/></button>
                       </div>
                     </div>
                   )
@@ -593,6 +848,11 @@ export default function RutinaPage(){
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={()=>setShowNew(false)}>
           <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md p-4 space-y-3">
             <h3 className="font-headline-lg text-base font-semibold text-on-surface">Crear nueva rutina</h3>
+            <div className="flex gap-2" role="group" aria-label="Modalidad de rutina">
+              <button type="button" aria-pressed={newMode==='asistida'} onClick={()=>setNewMode('asistida')} className={`flex-1 min-h-[48px] rounded border font-label-caps text-[10px] uppercase font-bold ${newMode==='asistida' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>Rutina asistida</button>
+              <button type="button" aria-pressed={newMode==='simplificada'} onClick={()=>setNewMode('simplificada')} className={`flex-1 min-h-[48px] rounded border font-label-caps text-[10px] uppercase font-bold ${newMode==='simplificada' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>Rutina simplificada</button>
+            </div>
+            <p className="font-body-sm text-[12px] text-on-surface-variant">{newMode==='asistida' ? 'Armás la rutina con el selector inteligente de ejercicios.' : 'Ejercicios manuales: nombre, series, reps, peso, descanso y músculo.'}</p>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nombre:</p>
             <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
             <label className="block space-y-1">
@@ -608,11 +868,20 @@ export default function RutinaPage(){
                 const createdISO2 = new Date().toISOString()
                 const data: RutinaData = { id: uuid(), name: newName.trim(), createdAt: createdISO2, updatedAt: createdISO2, rotationDays:30, reviewDate: newReviewDate || defaultReviewDate(createdISO2, 30), cycle: DEFAULT_CYCLE, dayExercises:{}}
                 const next=[...routines,data]; setRoutines(next); setActiveId(data.id); saveRoutines(next,data.id); setNewName(''); setShowNew(false); setNewReviewDate(addDaysToKey(todayKey(),30))
+                if(newMode==='simplificada'){ setManualFor(data.cycle.trainingDays[0]?.n ?? 1) }
               }}>Crear rutina</AltheaButton>
             </div>
             {routines.length>=MAX_ROUTINES && <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-error">Tenés {MAX_ROUTINES} rutinas guardadas. Para crear otra, eliminá una.</p>}
           </div>
         </div>
+      )}
+
+      {manualFor!==null && (
+        <SimplifiedForm
+          dayN={manualFor}
+          onAdd={addManualExercise}
+          onClose={()=>setManualFor(null)}
+        />
       )}
 
       {pickerFor!==null && (
@@ -646,7 +915,7 @@ export default function RutinaPage(){
       {editingEx && (() => {
         const editIt = (active.dayExercises[editingEx.dayN] || [])[editingEx.idx]
         if (!editIt) { return null }
-        const ex = exercises.find(e => e.id === editIt.exId)
+        const ex = exercises.find(e => e.id === editIt.exId) || customs.find(e => e.id === editIt.exId)
         const dayN = editingEx.dayN
         const idx = editingEx.idx
         return (
@@ -702,6 +971,58 @@ export default function RutinaPage(){
                   })}
                 </div>
               </div>
+              {/* Atribución muscular — solo ejercicios custom (editable después;
+                  se refleja en db.customExercises para el Atlas de Progreso). */}
+              {ex && (ex as { origin?: string }).origin === 'USER_CREATED' && (() => {
+                const opts = editIt.muscle && !SIMPLIFIED_MUSCLES.some(m => m.value === editIt.muscle)
+                  ? [...SIMPLIFIED_MUSCLES, { value: editIt.muscle, label: editIt.muscle }]
+                  : SIMPLIFIED_MUSCLES
+                const patchCustom = (patch: { muscle?: string; secondaryMuscles?: string[]; primaryPct?: number; secondaryPcts?: number[] }) => {
+                  import('@/services/training/customExercises').then(({ updateCustomExercise }) =>
+                    updateCustomExercise(ex.id, patch, { confirmDuplicate: true }).catch(() => { /* atribución best-effort */ })
+                  ).catch(() => { /* noop */ })
+                }
+                const secOpts = editIt.secondaryMuscle && !SIMPLIFIED_MUSCLES.some(m => m.value === editIt.secondaryMuscle)
+                  ? [...SIMPLIFIED_MUSCLES.filter(m => m.value !== editIt.muscle), { value: editIt.secondaryMuscle, label: editIt.secondaryMuscle }]
+                  : SIMPLIFIED_MUSCLES.filter(m => m.value !== editIt.muscle)
+                return (
+                  <div className="border-t border-outline-variant/40 pt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label className="block space-y-1">
+                      <span className="font-label-caps text-[10px] uppercase tracking-wider text-outline">Músculo principal</span>
+                      <select value={editIt.muscle ?? ''} onChange={e => {
+                        const v = e.target.value
+                        const clearSec = editIt.secondaryMuscle === v
+                        updateActive(r => {
+                          const a = [...(r.dayExercises[dayN] || [])]
+                          a[idx] = { ...a[idx], muscle: v, ...(clearSec ? { secondaryMuscle: null } : {}) }
+                          return { ...r, dayExercises: { ...r.dayExercises, [dayN]: a } }
+                        })
+                        patchCustom({ muscle: v, ...(clearSec ? { secondaryMuscles: [], primaryPct: 100, secondaryPcts: [] } : {}) })
+                      }} aria-label="Músculo principal" className="w-full bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface min-h-[48px]">
+                        <option value="">Sin asignar</option>
+                        {opts.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="block space-y-1">
+                      <span className="font-label-caps text-[10px] uppercase tracking-wider text-outline">Músculo secundario</span>
+                      <select value={editIt.secondaryMuscle ?? ''} onChange={e => {
+                        const v = e.target.value
+                        updateActive(r => {
+                          const a = [...(r.dayExercises[dayN] || [])]
+                          a[idx] = { ...a[idx], secondaryMuscle: v || null }
+                          return { ...r, dayExercises: { ...r.dayExercises, [dayN]: a } }
+                        })
+                        patchCustom(v
+                          ? { secondaryMuscles: [v], primaryPct: 70, secondaryPcts: [30] }
+                          : { secondaryMuscles: [], primaryPct: 100, secondaryPcts: [] })
+                      }} aria-label="Músculo secundario" className="w-full bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface min-h-[48px]">
+                        <option value="">Ninguno</option>
+                        {secOpts.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                )
+              })()}
               <div className="flex justify-end">
                 <button onClick={() => setEditingEx(null)} className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-label-caps text-[10px] uppercase font-bold transition-colors min-h-[36px]">Guardar y cerrar</button>
               </div>
@@ -787,6 +1108,90 @@ export default function RutinaPage(){
           onClose={()=>setShowQuestionnaire(false)}
         />
       )}
+    </div>
+  )
+}
+
+// Formulario "Rutina simplificada": alta rápida de ejercicios manuales.
+// Se mantiene abierto tras guardar para agregar varios sin recargar.
+function SimplifiedForm({ dayN, onAdd, onClose }:{ dayN:number; onAdd:(dayN:number, d:{name:string; sets:number; reps:number; weight:number|null; restSec:number; muscle:string; secondary:string|null})=>Promise<boolean>; onClose:()=>void }){
+  const [name,setName]=useState('')
+  const [sets,setSets]=useState(3)
+  const [reps,setReps]=useState(10)
+  const [weight,setWeight]=useState('')
+  const [rest,setRest]=useState(120)
+  const [muscle,setMuscle]=useState('')
+  const [secondary,setSecondary]=useState('')
+  const [saving,setSaving]=useState(false)
+  const [msg,setMsg]=useState<string|null>(null)
+
+  const save = async ()=>{
+    if(!name.trim()){ setMsg('Ingresá un nombre'); return }
+    if(!muscle){ setMsg('Elegí el músculo principal'); return }
+    if(secondary && secondary===muscle){ setMsg('El secundario debe ser distinto del principal'); return }
+    setSaving(true); setMsg(null)
+    try{
+      const ok = await onAdd(dayN, {
+        name:name.trim(), sets:Math.max(1,Math.min(20,Number(sets)||1)), reps:Math.max(1,Math.min(100,Number(reps)||1)),
+        weight: weight.trim()==='' ? null : Number(weight),
+        restSec: Math.max(0, Math.min(600, Number(rest)||0)),
+        muscle, secondary: secondary||null,
+      })
+      if(ok){ setMsg(`"${name.trim()}" agregado al Día N°${dayN}.`); setName(''); setWeight('') }
+      else { setMsg('No se pudo agregar: ya existe un ejercicio con ese nombre en la biblioteca.') }
+    }catch(e){ setMsg(e instanceof Error ? e.message : 'No se pudo agregar el ejercicio') }
+    finally{ setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} role="dialog" aria-label="Rutina simplificada" className="bg-surface/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-md max-h-[90vh] overflow-auto p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-headline-lg text-base font-semibold text-on-surface">Rutina simplificada — Día N°{dayN}</h3>
+          <button onClick={onClose} aria-label="Cerrar formulario" className="w-11 h-11 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"><X size={16}/></button>
+        </div>
+        <label className="block space-y-1">
+          <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nombre del ejercicio *</span>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ej: Press plano con mancuernas" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block space-y-1">
+            <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Series</span>
+            <input type="number" min={1} max={20} value={sets} onChange={e=>setSets(Number(e.target.value))} className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
+          </label>
+          <label className="block space-y-1">
+            <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Reps</span>
+            <input type="number" min={1} max={100} value={reps} onChange={e=>setReps(Number(e.target.value))} className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
+          </label>
+          <label className="block space-y-1">
+            <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Peso (kg, vacío = sin peso)</span>
+            <input type="number" min={0} step="0.5" value={weight} onChange={e=>setWeight(e.target.value)} placeholder="—" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
+          </label>
+          <label className="block space-y-1">
+            <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Descanso (s)</span>
+            <input type="number" min={0} max={600} step="15" value={rest} onChange={e=>setRest(Number(e.target.value))} className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
+          </label>
+        </div>
+        <label className="block space-y-1">
+          <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Músculo principal *</span>
+          <select value={muscle} onChange={e=>{ setMuscle(e.target.value); if(secondary===e.target.value){setSecondary('')} }} required aria-label="Músculo principal" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]">
+            <option value="">Elegir músculo…</option>
+            {SIMPLIFIED_MUSCLES.map(m=> <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        </label>
+        <label className="block space-y-1">
+          <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Músculo secundario (opcional)</span>
+          <select value={secondary} onChange={e=>setSecondary(e.target.value)} aria-label="Músculo secundario" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]">
+            <option value="">Ninguno</option>
+            {SIMPLIFIED_MUSCLES.filter(m=> m.value!==muscle).map(m=> <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        </label>
+        {msg && <p role="status" className="font-body-sm text-[12px] text-secondary">{msg}</p>}
+        <div className="flex gap-2">
+          <AltheaButton variant="secondary" fullWidth onClick={onClose}>Listo</AltheaButton>
+          <AltheaButton fullWidth onClick={save} disabled={saving}>{saving ? 'Agregando…' : 'Agregar ejercicio'}</AltheaButton>
+        </div>
+      </div>
     </div>
   )
 }
@@ -918,7 +1323,10 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
     <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[9999] p-0 sm:p-4 althea-modal" onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border-t sm:border border-outline-variant rounded-t-2xl sm:rounded-2xl w-full max-w-lg lg:max-w-2xl max-h-[92dvh] overflow-auto p-3 sm:p-4 space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio</h3>
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio</h3>
+            <span className="shrink-0 px-1.5 py-0.5 rounded bg-primary/10 border border-primary/40 font-label-caps text-[9px] text-primary uppercase font-semibold">Rutina asistida</span>
+          </div>
           <button type="button" onClick={()=>setShowCreate(true)} className="shrink-0 px-3 min-h-[40px] rounded bg-primary text-on-primary font-label-md text-[12px] font-semibold">+ Crear ejercicio</button>
         </div>
         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Día: <b>{dayName}</b> → {muscles.map(m=> displayMuscle(m)).join(' + ')} <span className="text-on-surface-variant">({muscles.join(', ')})</span></div>

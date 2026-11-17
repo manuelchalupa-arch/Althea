@@ -99,6 +99,9 @@ export interface PlannedExerciseInput {
   restSec?: number; restBetweenExercisesSec?: number; seriesType?: string; tempo?: string;
   rir?: number; rpe?: number; notes?: string;
   plannedSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
+  /** Superserie (aditivo): id del bloque y orden dentro de él. */
+  supersetId?: string | null;
+  supersetOrder?: number | null;
 }
 
 // Crea READY. Si ya hay sesión activa, la recupera (no duplica, §10).
@@ -154,6 +157,8 @@ export async function createSession(input: {
       targetRir: p.rir,
       targetRpe: p.rpe,
       notes: p.notes,
+      supersetId: p.supersetId ?? null,
+      supersetOrder: p.supersetOrder ?? null,
       createdAt: now, updatedAt: now,
     };
     await db.sessionExercises.put(se);
@@ -502,6 +507,9 @@ export interface ActiveSession {
     rir?: number; rpe?: number; notes?: string;
     /** Plan por serie (reps/weight propios de cada serie) si la rutina lo define. */
     plannedSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
+    /** Superserie (aditivo): bloque y orden dentro del bloque. */
+    supersetId?: string | null;
+    supersetOrder?: number | null;
   }>;
   sessionStatus: SessionStatus;
   statusHistory: Array<{ status: SessionStatus; at: string }>;

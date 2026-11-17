@@ -71,11 +71,13 @@ describe('Entrenar — OK, descanso y finalizado sin bloqueos', () => {
     expect(after.disabled).toBe(false)
     expect(screen.queryByText('Editar')).not.toBeInTheDocument()
 
-    // Al completar el ejercicio, el descanso entre ejercicios se inicia DESPUÉS
-    // de persistir la serie (la pantalla aún espera updateSession y getSetRecords)
-    // y se guarda en restTimerState. Se espera esa escritura para que no caiga
-    // durante el test siguiente, cuando beforeEach ya limpió las tablas: ese
-    // descanso heredado bloquea el avance y deja "Anterior" deshabilitado.
+    // Al completar el ejercicio aparece la consulta de dolor (una sola vez,
+    // antes del siguiente). El descanso entre ejercicios se inicia RECIÉN al
+    // responder, y se guarda en restTimerState para no caer durante el test
+    // siguiente (beforeEach limpia las tablas; ese descanso heredado bloquea
+    // el avance y deja "Anterior" deshabilitado).
+    await screen.findByTestId('pain-prompt', undefined, { timeout: 10000 })
+    fireEvent.click(screen.getByLabelText('No sentí dolor'))
     await waitFor(async () => {
       expect(await db.restTimerState.get('between-exercises')).toBeTruthy()
     }, { timeout: 10000 })

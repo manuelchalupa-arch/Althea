@@ -28,6 +28,9 @@ export type RoutineDayExercise = {
   /** Notas del ejercicio en la rutina. */
   notes?: string
   routineExerciseId?: string
+  /** Superserie (aditivo): id del bloque y orden dentro del bloque. */
+  supersetId?: string | null
+  supersetOrder?: number | null
 }
 
 export type RoutineData = {

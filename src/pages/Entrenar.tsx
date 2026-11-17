@@ -1,4 +1,4 @@
-﻿import SemanticIcon from '../components/ui/SemanticIcon';
+import SemanticIcon from '../components/ui/SemanticIcon';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
@@ -15,6 +15,7 @@ import { Check, AlertTriangle, RotateCcw } from 'lucide-react'
 import RestTimerOverlay from '@/components/entrenar/RestTimerOverlay'
 
 import ResultPanel from '@/components/entrenar/ResultPanel'
+import ExercisePainPrompt from '@/components/entrenar/ExercisePainPrompt'
 import ExerciseSeriesTable from '@/components/entrenar/ExerciseSeriesTable'
 import { ModifyModal, ViewerModal, SwapModal, SkipReasonModal, CancelModal, AbandonModal, AddExtraModal, FinishModal } from '@/components/entrenar/SessionModals'
 import { MOBILE_NAV_OFFSET } from '@/components/layout/AppNav'
@@ -36,7 +37,7 @@ import PainToggle from '@/features/training/components/PainToggle'
 import { VariantPicker } from '@/features/training/components/VariantPicker'
 import { todayKey, toDateKey, daysBetween } from '@/utils/dates'
 
-type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number|null; muscle?:string; gifUrl?:string; imageDataUrl?:string; swappedFrom?:string; replaced?:boolean; extra?:boolean; plannedSets?:number; plannedSetsDetail?: { order:number; reps:number; weight:number|null }[]; plannedSetValues?: Array<{ order: number; reps: number; weight: number|null; setType?: import('@/services/training/domain').SetType }>; seriesType?:string; restSec?:number; tempo?:string; rir?:number; rpe?:number; notes?:string; seId?:string }
+type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number|null; muscle?:string; gifUrl?:string; imageDataUrl?:string; swappedFrom?:string; replaced?:boolean; extra?:boolean; plannedSets?:number; plannedSetsDetail?: { order:number; reps:number; weight:number|null }[]; plannedSetValues?: Array<{ order: number; reps: number; weight: number|null; setType?: import('@/services/training/domain').SetType }>; seriesType?:string; restSec?:number; tempo?:string; rir?:number; rpe?:number; notes?:string; seId?:string; supersetId?:string|null; supersetOrder?:number|null }
 
 export default function Entrenar(){
   const today = todayKey()
@@ -125,6 +126,8 @@ const exercises: SessionEx[] = seList.map((se) => {
           swappedFrom: se.replacement?.originalExerciseId,
           replaced: se.status === 'REPLACED',
           extra: se.status === 'EXTRA',
+          supersetId: se.supersetId ?? null,
+          supersetOrder: se.supersetOrder ?? null,
         }
       })
     await init(exercises, seList)
@@ -288,7 +291,17 @@ const exercises: SessionEx[] = seList.map((se) => {
   // Variant picker state
   const [showVariantPicker,setShowVariantPicker]=useState(false)
   const [variantContext,setVariantContext]=useState<VariantContext | null>(null)
-  
+
+  // Simplificación: secundarios plegados tras un acceso discreto "Más".
+  const [showMore,setShowMore]=useState(false)
+  // Consulta de dolor POST-ejercicio: cola de índices pendientes (una sola
+  // vez por ejercicio; en superserie, al cerrar el bloque completo).
+  const [painQueue,setPainQueue]=useState<number[]>([])
+  const painAskedRef=useRef<Set<string>>(new Set())
+  const pendingAdvanceRef=useRef<number|null>(null)
+  // Tipo de descanso entre ejercicios: 'ex' habitual → 'ss' dentro de bloque → 'block' fin de ronda.
+  const [restBetweenKind,setRestBetweenKind]=useState<'ex'|'ss'|'block'>('ex')
+
   // Pain toggle state
 
   const load = async () => {
@@ -438,11 +451,13 @@ const exercises: SessionEx[] = seList.map((se) => {
   // posición en la sesión (reload/offline la recupera) y actualiza el coach.
   // Nunca reconstruye la sesión ni toca series.
   // BLOQUEO: no se puede avanzar hacia adelante si hay un descanso activo (entre series o entre ejercicios).
-  const goToExercise = (nextIdx:number)=>{
+  const goToExercise = (nextIdx:number, force=false)=>{
     if(nextIdx<0 || nextIdx>=exs.length) {return}
     const forward = nextIdx>current
     // Si hay descanso activo (entre series O entre ejercicios), bloquear navegación hacia adelante
-    if(forward && (restSec > 0 || restBetweenExSec > 0)) {return}
+    // Con una consulta de dolor pendiente hay que responder antes de seguir.
+    if(!force && painQueue.length>0) {return}
+    if(!force && forward && (restSec > 0 || restBetweenExSec > 0)) {return}
     setCurrent(nextIdx)
     nextCoach(nextIdx)
     const sid = sessionId
@@ -450,6 +465,80 @@ const exercises: SessionEx[] = seList.map((se) => {
       import('@/services/training/sessionStore').then(({ updateSession }) =>
         updateSession(sid, { currentExerciseIndex: nextIdx }).catch(()=>null)
       ).catch(()=>{})
+    }
+  }
+
+  // Indice del ejercicio de superserie al que pertenece i (null = suelto).
+  const supersetBlock = (i:number): number[] | null => {
+    const id = exs[i]?.supersetId
+    if(!id) {return null}
+    const blk = exs.map((e,j)=>({e,j}))
+      .filter(x=> x.e.supersetId===id)
+      .sort((a,b)=> (a.e.supersetOrder ?? 0)-(b.e.supersetOrder ?? 0))
+      .map(x=> x.j)
+    return blk.length>=2 ? blk : null
+  }
+
+  // ¿El ejercicio j todavía tiene series pendientes? (registros = fuente de verdad)
+  const hasPendingSets = async (j:number): Promise<boolean> => {
+    if(done[j]) {return false}
+    const planned = exs[j]?.plannedSets ?? exs[j]?.sets ?? 0
+    const sid = seIdByIndex[j]
+    if(!sid) {return !done[j]}
+    const rs = await import('@/services/training/sessionStore').then(({ getSetRecords }) => getSetRecords(sid)).catch(()=>[])
+    const doneN = rs.filter(x=> x.status==='COMPLETED' || x.status==='SKIPPED').length
+    return doneN < planned
+  }
+
+  // Pide la(s) consulta(s) de dolor pendiente(s) y define a dónde seguir
+  // cuando el usuario responda. Una sola vez por ejercicio.
+  const queuePain = (idxs:number[]) => {
+    const fresh = idxs.filter(i=> !painAskedRef.current.has(exs[i]?.exId || ''))
+    if(fresh.length===0) {return}
+    fresh.forEach(i=> painAskedRef.current.add(exs[i]?.exId || ''))
+    const blk = supersetBlock(fresh[0])
+    let target: number | null = null
+    if(blk){
+      const after = Math.max(...blk)+1
+      target = after < exs.length ? after : null
+    } else {
+      target = fresh[0]+1 < exs.length ? fresh[0]+1 : null
+    }
+    pendingAdvanceRef.current = target
+    setPainQueue(prev=> [...prev, ...fresh.filter(i=> !prev.includes(i))])
+    if(fresh[0] !== current) { setCurrent(fresh[0]) }
+  }
+
+  // Tras responder la última consulta: arrancar el descanso y pasar al siguiente.
+  const handlePainAnswered = ()=>{
+    const rest = painQueue[0] !== undefined ? painQueue : []
+    const next = rest.slice(1)
+    if(next.length>0){
+      setPainQueue(next)
+      setCurrent(next[0])
+      const sid = sessionId
+      if(sid){
+        import('@/services/training/sessionStore').then(({ updateSession }) =>
+          updateSession(sid, { currentExerciseIndex: next[0] }).catch(()=>null)
+        ).catch(()=>{})
+      }
+      return
+    }
+    setPainQueue([])
+    const target = pendingAdvanceRef.current
+    pendingAdvanceRef.current = null
+    if(target!==null && target < exs.length){
+      const nextEx = exs[target]
+      const d = (nextEx?.restBetweenExercisesSec && nextEx.restBetweenExercisesSec > 0) ? nextEx.restBetweenExercisesSec : 120
+      setRestBetweenKind('ex')
+      startRestBetweenEx(d)
+      setCurrent(target)
+      const sid = sessionId
+      if(sid){
+        import('@/services/training/sessionStore').then(({ updateSession }) =>
+          updateSession(sid, { currentExerciseIndex: target }).catch(()=>null)
+        ).catch(()=>{})
+      }
     }
   }
 
@@ -537,14 +626,49 @@ const exercises: SessionEx[] = seList.map((se) => {
     const recs = await getSetRecords(seId).catch(()=>[])
     const plannedCount = exs[current]?.plannedSets ?? cur.sets
     const doneCount = recs.filter(x=> x.status==='COMPLETED').length
-    if(doneCount>=plannedCount && plannedCount>0){
+    const isExDone = doneCount>=plannedCount && plannedCount>0
+    const blk = supersetBlock(current)
+    if(blk){
+      // SUPERSSERIE: alterna los ejercicios del bloque en orden (A1→B1→C1),
+      // descanso al fin de la ronda, y la consulta de dolor al cerrar el bloque.
+      if(isExDone){
+        setDone({...done, [current]: true})
+      saveDecision({ date: today, type:'accept', exercise: cur.name, reason: coach?.reason, contextSnapshot:{weight:weightOrNull,reps:r}})
+        try{ if(navigator.vibrate) {navigator.vibrate(12)} }catch{ /* noop */ }
+      }
+      const pos = blk.indexOf(current)
+      const forward: number[] = []
+      for(const j of blk.slice(pos+1)){ if(await hasPendingSets(j)) {forward.push(j)} }
+      if(forward.length>0){
+        const nextJ = forward[0]
+        const d = exs[nextJ]?.restSec ?? 0 // descanso entre ejercicios del bloque (0 = directo)
+        if(d>0){ setRestBetweenKind('ss'); startRestBetweenEx(d) }
+        goToExercise(nextJ, true)
+      } else {
+        const before: number[] = []
+        for(const j of blk.slice(0,pos)){ if(await hasPendingSets(j)) {before.push(j)} }
+        if(before.length>0){
+          const d = exs[before[0]]?.restBetweenExercisesSec ?? 120 // fin de ronda
+          setRestBetweenKind('block'); startRestBetweenEx(d)
+          goToExercise(before[0], true)
+        } else if(!isExDone){
+          startRest(restForExercise) // le quedan series a este ejercicio
+        } else {
+          queuePain(blk) // bloque completo: una consulta por ejercicio del bloque
+        }
+      }
+    } else if(isExDone){
       setDone({...done, [current]: true})
       saveDecision({ date: today, type:'accept', exercise: cur.name, reason: coach?.reason, contextSnapshot:{weight:weightOrNull,reps:r}})
       try{ if(navigator.vibrate) {navigator.vibrate(12)} }catch{ /* noop */ }
-      // Ejercicio completado: iniciar descanso entre ejercicios si hay siguiente ejercicio
-      if(current < exs.length - 1) {
+      // Ejercicio terminado: consultar dolor UNA vez, antes del siguiente.
+      // El descanso y el avance se resuelven cuando el usuario responde.
+      if(!painAskedRef.current.has(cur.exId)){
+        queuePain([current])
+      } else if(current < exs.length - 1) {
         const nextEx = exs[current + 1]
         const restBetweenEx = (nextEx?.restBetweenExercisesSec && nextEx.restBetweenExercisesSec > 0) ? nextEx.restBetweenExercisesSec : 120
+        setRestBetweenKind('ex')
         startRestBetweenEx(restBetweenEx)
       }
     } else if (setIdx < plannedCount - 1) {
@@ -884,8 +1008,12 @@ const exercises: SessionEx[] = seList.map((se) => {
 
   // Cierre atomico COMPLETING -> COMPLETED/PARTIAL. Si falla el guardado NO finaliza.
   // Cierre atomico COMPLETING -> COMPLETED/PARTIAL (§17: si falla, queda COMPLETING y reintentable).
+  // Guard anti doble finalización: el clic repetido (o dos confirmaciones en
+  // paralelo) no re-ejecuta el guardado mientras está en vuelo.
+  const finishingRef = useRef(false)
   const confirmFinish = async () => {
-    if(isSaving) {return}
+    if(isSaving || finishingRef.current) {return}
+    finishingRef.current = true
     setIsSaving(true)
     setFinishError('')
     try{
@@ -900,12 +1028,22 @@ const exercises: SessionEx[] = seList.map((se) => {
       if(!sess){
         // Recuperacion: crea la sesion desde lo visible para no perder el trabajo
         if(!routineId || exs.length===0) {throw new Error('Sin sesión activa: recargá la pestaña Entrenamiento antes de finalizar.')}
-        const created = await store.createSession({ routineId, routineName: rutinaName||'Rutina', plannedDay: plannedDayN, plannedDayName: plannedName||null, actualDay: actualDayN, actualDayName: dayName||null, calendarDate: today, weekNumber, plannedExercises: exs.map(x=>({exId:x.exId,name:x.name,sets:x.plannedSets??x.sets,reps:x.reps,weight:x.weight,muscle:x.muscle,gifUrl:x.gifUrl, plannedSets: x.plannedSetValues?.map((p,k)=>({ order: p.order ?? (k+1), reps: p.reps, weight: p.weight ?? null }))})) })
+        const created = await store.createSession({ routineId, routineName: rutinaName||'Rutina', plannedDay: plannedDayN, plannedDayName: plannedName||null, actualDay: actualDayN, actualDayName: dayName||null, calendarDate: today, weekNumber, plannedExercises: exs.map(x=>({exId:x.exId,name:x.name,sets:x.plannedSets??x.sets,reps:x.reps,weight:x.weight,muscle:x.muscle,gifUrl:x.gifUrl, supersetId:x.supersetId ?? null, supersetOrder:x.supersetOrder ?? null, plannedSets: x.plannedSetValues?.map((p,k)=>({ order: p.order ?? (k+1), reps: p.reps, weight: p.weight ?? null }))})) })
         sess = await store.transitionSession(created.sessionId,'IN_PROGRESS')
         setSession(sess); setSessionId(sess.sessionId)
       }
       // Asegurar COMPLETING de forma idempotente antes de cerrar
       const fresh0 = await store.getSession(sess.sessionId).catch(()=>null)
+      // Doble finalización: si la sesión ya está finalizada, no se repite el
+      // guardado; se limpia el estado activo y se vuelve a Inicio.
+      if(fresh0 && (store.FINAL_STATES as string[]).includes(fresh0.sessionStatus)){
+        try{ await store.clearActiveSession() }catch{ /* noop */ }
+        localStorage.removeItem(`session:active:${today}`)
+        setSessionStatus(fresh0.sessionStatus)
+        setShowFinishModal(false); setIsSaving(false)
+        navigate('/', { replace: true })
+        return
+      }
       if(fresh0 && (fresh0.sessionStatus==='IN_PROGRESS'||fresh0.sessionStatus==='PAUSED'||fresh0.sessionStatus==='READY')){
         sess = await store.transitionSession(sess.sessionId,'COMPLETING'); setSession(sess); setSessionStatus('COMPLETING')
       } else if(fresh0 && fresh0.sessionStatus!=='COMPLETING'){
@@ -1009,7 +1147,10 @@ const exercises: SessionEx[] = seList.map((se) => {
       setShowFinishModal(false)
       setIsSaving(false)
       saveDecision({ date: today, type: status==='COMPLETED'?'accept':'skip', exercise: `Sesión ${rutinaName}`, reason: `Finalizada ${status} — Ej ${s.completedEx}/${s.plannedEx} (${s.exPct}%), Series ${s.completedSets}/${s.plannedSets} (${s.setPct}%)`, contextSnapshot:{} })
+      // Guardado local confirmado → regreso automático a Inicio (sin reload).
+      navigate('/', { replace: true })
     }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'Error al guardar. Reintentá sin perder datos.'); setIsSaving(false) }
+    finally{ finishingRef.current = false }
   }
 
   const localAdoptResumeSession = async (sess: { sessionId: string }, andFinish: boolean) => {
@@ -1136,7 +1277,11 @@ const exercises: SessionEx[] = seList.map((se) => {
     const plannedCount = exs[current]?.plannedSets ?? 0
     if(recs.filter(x=> x.status==='COMPLETED').length + recs.filter(x=> x.status==='SKIPPED').length >= plannedCount && plannedCount>0){
       const allSkipped = recs.length>0 && recs.every(x=> x.status==='SKIPPED')
-      if(!allSkipped) {setDone({ ...done, [current]: true })}
+      if(!allSkipped) {
+        setDone({ ...done, [current]: true })
+        // Ejercicio terminado (con saltos): consultar dolor antes del siguiente.
+        if(!supersetBlock(current) && !painAskedRef.current.has(exs[current]?.exId || '')) { queuePain([current]) }
+      }
     }
   }
 
@@ -1336,6 +1481,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   )
 
   // Presentación mobile "Gym Mode": mismo estado, mismos handlers, misma sesión.
+  const curBlock = supersetBlock(current)
   if (isMobile) {
     return (
       <div className="space-y-2">
@@ -1375,11 +1521,23 @@ const exercises: SessionEx[] = seList.map((se) => {
           </button>
         ) : null}
 
+        {painQueue.length>0 && exs[painQueue[0]] && (
+          <ExercisePainPrompt
+            // key: cada ejercicio de la cola monta una instancia nueva (si no,
+            // la anterior conserva answer='no' y no pinta los botones).
+            key={exs[painQueue[0]].exId}
+            exerciseId={exs[painQueue[0]].exId}
+            exerciseName={exs[painQueue[0]].name}
+            onAnswered={handlePainAnswered}
+          />
+        )}
+
         {cur && (
           <div className="domain-training rounded-xl border border-secondary/40 bg-surface-container-low/70 backdrop-blur-md overflow-hidden">
             <div className="p-3 border-b border-outline-variant/30 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2 py-0.5 rounded bg-accent/10 border border-accent/40 font-label-caps text-[10px] text-accent uppercase font-semibold">EJERCICIO {current+1} DE {exs.length}</span>
+                {curBlock && <span className="px-2 py-0.5 rounded bg-secondary/10 border border-secondary/40 font-label-caps text-[10px] text-secondary uppercase font-semibold">SUPERSERIE {(cur.supersetOrder ?? 0)+1}/{curBlock.length}</span>}
                 <span className="text-outline text-[12px]">• {cur.sets} series</span>
                 {done[current] && <span className="px-2 py-0.5 rounded bg-accent/15 border border-accent/40 font-label-caps text-[10px] text-accent uppercase font-semibold">Completado</span>}
                 {cur.replaced && <span className="px-2 py-0.5 rounded bg-tertiary/15 border border-tertiary/40 font-label-caps text-[10px] text-tertiary uppercase font-semibold">Reemplazado</span>}
@@ -1397,6 +1555,17 @@ const exercises: SessionEx[] = seList.map((se) => {
               </div>
             </div>
 
+            {safetyAlert && (
+              <div className={`mx-3 mt-3 rounded border p-3 flex items-start gap-2 ${safetyAlert.severity==='critical' ? 'bg-error/10 border-error' : 'bg-secondary-container/20 border-secondary/30'}`}>
+                <AlertTriangle size={14} className={`mt-0.5 shrink-0 ${safetyAlert.severity==='critical'?'text-error':'text-secondary'}`}/>
+                <div className="text-[13px] text-on-surface">
+                  <span className="font-medium">{safetyAlert.message}</span>
+                  {safetyAlert.referral && <span className="font-label-caps text-[10px] uppercase text-on-surface-variant"> Consultá con {safetyAlert.referral}.</span>}
+                </div>
+              </div>
+            )}
+
+            {showMore && (<>
             <div className="px-3 py-2.5 bg-surface-container border-b border-outline-variant/30 flex items-center gap-2.5">
               <SemanticIcon name="lightbulb" className="text-secondary shrink-0" />
               <p className="text-[12px] text-on-surface-variant min-w-0">
@@ -1420,17 +1589,9 @@ const exercises: SessionEx[] = seList.map((se) => {
                 </div>
               </div>
             )}
+            </>)}
 
-            {safetyAlert && (
-              <div className={`mx-3 mt-3 rounded border p-3 flex items-start gap-2 ${safetyAlert.severity==='critical' ? 'bg-error/10 border-error' : 'bg-secondary-container/20 border-secondary/30'}`}>
-                <AlertTriangle size={14} className={`mt-0.5 shrink-0 ${safetyAlert.severity==='critical'?'text-error':'text-secondary'}`}/>
-                <div className="text-[13px] text-on-surface">
-                  <span className="font-medium">{safetyAlert.message}</span>
-                  {safetyAlert.referral && <span className="font-label-caps text-[10px] uppercase text-on-surface-variant"> Consultá con {safetyAlert.referral}.</span>}
-                </div>
-              </div>
-            )}
-
+            {showMore && (
             <div className="px-3 py-2">
               <PainToggle
                 sessionId={sessionId}
@@ -1450,6 +1611,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                 }}
               />
             </div>
+            )}
 
             <div className="p-3">
               <ExerciseSeriesTable
@@ -1470,9 +1632,9 @@ const exercises: SessionEx[] = seList.map((se) => {
               />
             </div>
 
-            {!done[current] && (
+            {!done[current] && showMore && (
               <div className="px-3 pb-3 flex gap-2">
-                {/* Móvil: solo agregar ejercicio; modificar/saltar viven en la tabla de series. */}
+                {/* Móvil: secundario; modificar vive en la tabla de series. */}
                 <button onClick={openAddExtra} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Agregar ejercicio</button>
               </div>
             )}
@@ -1482,7 +1644,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                 {restBetweenExSec > 0 || restBetweenExFlash ? (
                   <>
                     <button onClick={()=> restBetweenExPaused ? resumeRestBetweenEx() : pauseRestBetweenEx()} aria-label={restBetweenExPaused?'Reanudar descanso':'Pausar descanso'} className="font-metric-mobile text-[32px] leading-none font-semibold text-on-surface tabular-nums">{Math.floor(restBetweenExSec/60)}:{String(restBetweenExSec%60).padStart(2,'0')}</button>
-                    <span className="font-label-caps text-[10px] text-secondary tracking-widest">{restBetweenExPaused ? 'PAUSADO' : 'DESCANSO ENTRE EJERCICIOS'}</span>
+                    <span className="font-label-caps text-[10px] text-secondary tracking-widest">{restBetweenExPaused ? 'PAUSADO' : (restBetweenKind==='block' ? 'DESCANSO DE BLOQUE' : restBetweenKind==='ss' ? 'DESCANSO SUPERSERIE' : 'DESCANSO ENTRE EJERCICIOS')}</span>
                     <div className="ml-auto flex gap-1.5">
                       <button onClick={()=>adjustRestBetweenEx(-15)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant text-[13px] text-on-surface-variant">-15s</button>
                       <button onClick={()=>adjustRestBetweenEx(30)} className="min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant text-[13px] text-on-surface-variant">+30s</button>
@@ -1502,6 +1664,9 @@ const exercises: SessionEx[] = seList.map((se) => {
             )}
 
             <div className="px-3 pb-3 flex flex-col gap-2">
+              {!done[current] && (
+                <button onClick={handleSkipWithReason} className="w-full min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Saltar</button>
+              )}
               <div className="flex gap-2">
                 <button onClick={()=>{ if(current>0){ goToExercise(current-1) } }} disabled={current===0} aria-label="Ejercicio anterior" className="flex-1 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase font-bold disabled:opacity-50">‹ Anterior</button>
                 {current < exs.length-1 && (
@@ -1509,17 +1674,22 @@ const exercises: SessionEx[] = seList.map((se) => {
                 )}
                 {/* Último ejercicio: finalizar vive SOLO en la barra inferior fija (pulgar). */}
               </div>
-              {done[current] && (
+              {done[current] && showMore && (
                 <button onClick={()=> setDone((p)=>{ const n={...p}; delete n[current]; return n })} className="w-full min-h-[44px] rounded border border-outline-variant/40 font-label-caps text-[10px] uppercase text-outline"><span className="inline-flex items-center justify-center gap-1.5"><RotateCcw size={11}/> Desmarcar ejercicio</span></button>
               )}
             </div>
 
+            {showMore && (
             <div className="mx-3 mb-3 rounded bg-secondary-container/20 border border-secondary/30 p-2 flex gap-2 text-[12px] text-on-surface-variant">
               <AlertTriangle size={14} className="text-secondary mt-0.5 shrink-0"/> Si hay dolor importante, detené y consultá profesional. Podés saltar el ejercicio.
             </div>
+            )}
           </div>
         )}
 
+        <button onClick={()=>setShowMore(v=>!v)} aria-expanded={showMore} aria-label="Más opciones de la sesión" className="w-full min-h-[44px] rounded border border-outline-variant/40 font-label-caps text-[10px] uppercase text-on-surface-variant">{showMore ? '- Menos opciones' : '⋯ Más opciones'}</button>
+
+        {showMore && (<>
         {coach && (
           <div className="rounded-xl border border-secondary/30 bg-surface-container-high/40 p-3">
             <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider block">Voz del Mentor</span>
@@ -1552,6 +1722,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant font-label-caps text-[10px] uppercase">Cancelar sesión</button>
           <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant font-label-caps text-[10px] uppercase">Abandonar</button>
         </div>
+        </>)}
 
         <div style={{ height: MOBILE_NAV_OFFSET }} aria-hidden="true"></div>
 
@@ -1561,7 +1732,7 @@ const exercises: SessionEx[] = seList.map((se) => {
             {restBetweenExSec > 0 ? (
               <>
                 <button onClick={()=> restBetweenExPaused ? resumeRestBetweenEx() : pauseRestBetweenEx()} aria-label={restBetweenExPaused ? 'Reanudar descanso' : 'Pausar descanso'} className="flex-1 min-w-0 text-left">
-                  <div className="font-label-caps text-[10px] uppercase text-secondary tracking-wider">Descanso entre ejercicios</div>
+                  <div className="font-label-caps text-[10px] uppercase text-secondary tracking-wider">{restBetweenKind==='block' ? 'Descanso de bloque' : restBetweenKind==='ss' ? 'Descanso superserie' : 'Descanso entre ejercicios'}</div>
                   <div className="font-metric-mobile text-[24px] text-on-surface font-semibold tabular-nums leading-tight">{Math.floor(restBetweenExSec/60)}:{String(restBetweenExSec%60).padStart(2,'0')}</div>
                 </button>
                 <button onClick={openFinishModal} aria-label="Finalizar entrenamiento" className="flex items-center gap-1.5 px-4 py-2.5 min-h-[48px] rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest shrink-0"><Check size={14}/> FIN</button>
@@ -1621,6 +1792,7 @@ const exercises: SessionEx[] = seList.map((se) => {
               <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
                 {dayName}
               </h1>
+              {showMore && (
               <button onClick={async()=>{
                 const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
                 const raw = await getAllRoutines()
@@ -1641,7 +1813,9 @@ const exercises: SessionEx[] = seList.map((se) => {
                   }
                 }
               }} className="hidden md:inline-flex items-center min-h-[48px] font-body-sm text-[13px] text-accent underline mt-1">Cambiar día de entrenamiento</button>
+              )}
             </div>
+            {showMore && (
             <div className="flex items-center gap-2.5">
               <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
                 <SemanticIcon name="swap_horiz" size={18} className="text-[18px]" />
@@ -1654,6 +1828,7 @@ const exercises: SessionEx[] = seList.map((se) => {
               {/* Finalizar: SIN duplicar en la cabecera — vive en el resumen
                   lateral (CONFIRMAR Y GUARDAR). */}
             </div>
+            )}
           </div>
           {/* Metrics row + progress bar */}
           <div className="mt-6 pt-5 border-t border-outline-variant/30 grid grid-cols-1 md:grid-cols-4 gap-4 items-center relative z-10">
@@ -1676,6 +1851,15 @@ const exercises: SessionEx[] = seList.map((se) => {
             {exs.map((_,i)=> <div key={i} className={`h-full rounded-full transition-all ${done[i]?'bg-primary': i===current?'bg-secondary animate-pulse':'bg-surface-container-high'}`} style={{flex:1}} />)}
           </div>
         </AltheaPanel>
+
+        {painQueue.length>0 && exs[painQueue[0]] && (
+          <ExercisePainPrompt
+            key={exs[painQueue[0]].exId}
+            exerciseId={exs[painQueue[0]].exId}
+            exerciseName={exs[painQueue[0]].name}
+            onAnswered={handlePainAnswered}
+          />
+        )}
 
         {(restFlash && restSec===0) || (restBetweenExFlash && restBetweenExSec===0) ? (
           <button onClick={()=> { if(restFlash) {dismissFlash()} if(restBetweenExFlash) {dismissFlashBetweenEx()} }} className="w-full flex items-center justify-center gap-2 font-body-md text-[15px] text-on-surface st-completed border rounded p-2 fade-in">
@@ -1703,6 +1887,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                         <span className="px-2 py-0.5 rounded bg-primary-container/20 border border-primary/40 font-label-caps text-[10px] text-primary uppercase font-semibold">
                           EJERCICIO {current+1} DE {exs.length}
                         </span>
+                        {curBlock && <span className="px-2 py-0.5 rounded bg-secondary/10 border border-secondary/40 font-label-caps text-[10px] text-secondary uppercase font-semibold">SUPERSERIE {(cur.supersetOrder ?? 0)+1}/{curBlock.length}</span>}
                         <span className="text-outline text-[13px]">• {cur.sets} series</span>
                         {done[current] && (
                           <span className="px-2 py-0.5 rounded bg-primary/15 border border-primary/40 font-label-caps text-[10px] text-primary uppercase font-semibold">Completado</span>
@@ -1743,6 +1928,20 @@ const exercises: SessionEx[] = seList.map((se) => {
                   </div>
                 </div>
 
+                {/* Safety Alert */}
+                {safetyAlert && (
+                  <div className={`mx-6 mt-4 rounded border p-3 flex items-start gap-2 ${
+                    safetyAlert.severity==='critical' ? 'bg-error/10 border-error' : 'bg-secondary-container/20 border-secondary/30'
+                  }`}>
+                    <AlertTriangle size={14} className={`mt-0.5 ${safetyAlert.severity==='critical'?'text-error':'text-secondary'}`}/>
+                    <div className="font-body-md text-[15px] text-on-surface">
+                      <span className="font-medium">{safetyAlert.message}</span>
+                      {safetyAlert.referral && <span className="font-label-caps text-[10px] uppercase text-on-surface-variant"> Consultá con {safetyAlert.referral}.</span>}
+                    </div>
+                  </div>
+                )}
+
+                {showMore && (<>
                 {/* Architectural Cue — Coach */}
                 <div className="px-6 py-3 bg-surface-container border-b border-outline-variant/30 flex items-center gap-3">
                   <SemanticIcon name="lightbulb" className="text-secondary" />
@@ -1769,19 +1968,6 @@ const exercises: SessionEx[] = seList.map((se) => {
                   </div>
                 )}
 
-                {/* Safety Alert */}
-                {safetyAlert && (
-                  <div className={`mx-6 mt-4 rounded border p-3 flex items-start gap-2 ${
-                    safetyAlert.severity==='critical' ? 'bg-error/10 border-error' : 'bg-secondary-container/20 border-secondary/30'
-                  }`}>
-                    <AlertTriangle size={14} className={`mt-0.5 ${safetyAlert.severity==='critical'?'text-error':'text-secondary'}`}/>
-                    <div className="font-body-md text-[15px] text-on-surface">
-                      <span className="font-medium">{safetyAlert.message}</span>
-                      {safetyAlert.referral && <span className="font-label-caps text-[10px] uppercase text-on-surface-variant"> Consultá con {safetyAlert.referral}.</span>}
-                    </div>
-                  </div>
-                )}
-
                 {/* Pain Toggle — registrar dolor/molestia para este ejercicio */}
                 {cur && (
                   <PainToggle
@@ -1802,6 +1988,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                     }}
                   />
                 )}
+                </>)}
 
                 {/* Series Data Table */}
                 <div className="p-6">
@@ -1823,12 +2010,15 @@ const exercises: SessionEx[] = seList.map((se) => {
                   />
                 </div>
 
-                {/* Modify + Skip buttons */}
+                {/* Modify + Skip buttons: Saltar siempre visible; Modificar/Extra
+                    viven en el acceso discreto (Más opciones). */}
                 {!done[current] && (
                   <div className="px-6 pb-4 flex gap-2">
-                    <button onClick={()=>{ setMod({weight:cur.weight ?? 0,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
                     <button onClick={handleSkipWithReason} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Saltar</button>
-                    <button onClick={openAddExtra} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Extra</button>
+                    {showMore && (<>
+                    <button onClick={()=>{ setMod({weight:cur.weight ?? 0,reps:cur.reps,sets:cur.sets, seriesType:'Normal'}); setShowModify(true)}} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Modificar</button>
+                      <button onClick={openAddExtra} className="flex-1 py-2 min-h-[48px] rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant transition-colors hover:border-secondary/40">Extra</button>
+                    </>)}
                   </div>
                 )}
 
@@ -1852,21 +2042,25 @@ const exercises: SessionEx[] = seList.map((se) => {
                       <span>{restBetweenExSec > 0 ? 'Descanso entre ejercicios' : 'Descanso activo'} {Math.floor((restBetweenExSec > 0 ? restBetweenExSec : restSec)/60)}:{String((restBetweenExSec > 0 ? restBetweenExSec : restSec)%60).padStart(2,'0')}</span>
                     </div>
                   )}
-                  {done[current] && (
+                  {done[current] && showMore && (
                     <button onClick={()=> setDone((p)=>{ const n={...p}; delete n[current]; return n })} className="w-full py-1.5 min-h-[48px] rounded border border-outline-variant/40 font-label-caps text-[10px] uppercase text-outline hover:text-on-surface-variant hover:border-outline-variant transition-colors">
                       <span className="flex items-center justify-center gap-1.5"><RotateCcw size={11}/> Desmarcar ejercicio</span>
                     </button>
                   )}
                 </div>
 
+                {showMore && (
                 <div className="mx-6 mb-6 rounded bg-secondary-container/20 border border-secondary/30 p-2 flex gap-2 font-body-sm text-[13px] text-on-surface-variant">
                   <AlertTriangle size={14} className="text-secondary mt-0.5 shrink-0"/> Si hay dolor importante, detené y consultá profesional. Podés saltar el ejercicio.
                 </div>
+                )}
               </div>
             )}
 
+            <button onClick={()=>setShowMore(v=>!v)} aria-expanded={showMore} aria-label="Más opciones de la sesión" className="w-full min-h-[44px] rounded border border-outline-variant/40 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/40">{showMore ? '- Menos opciones' : '⋯ Más opciones'}</button>
+
             {/* Upcoming Exercises */}
-            {exs.filter((_,i)=> i > current && !done[i]).length > 0 && (
+            {showMore && exs.filter((_,i)=> i > current && !done[i]).length > 0 && (
               <div>
                 <h3 className="font-label-caps text-[10px] uppercase text-outline tracking-wider mb-3">SIGUIENTES EJERCICIOS</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1903,7 +2097,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                   <div className="w-full flex items-center justify-between pb-3 border-b border-outline-variant/30 mb-5">
                     <span className="font-label-caps text-[10px] uppercase text-secondary font-semibold tracking-wider flex items-center gap-1.5">
                       <SemanticIcon name="hourglass_top" size={16} className="text-[16px]" />
-                      {restBetweenExSec > 0 || restBetweenExFlash ? 'DESCANSO ENTRE EJERCICIOS' : 'RELOJ DE RECUPERACIÓN'}
+                      {restBetweenExSec > 0 || restBetweenExFlash ? (restBetweenKind==='block' ? 'DESCANSO DE BLOQUE' : restBetweenKind==='ss' ? 'DESCANSO SUPERSERIE' : 'DESCANSO ENTRE EJERCICIOS') : 'RELOJ DE RECUPERACIÓN'}
                     </span>
                   </div>
                   {/* Circular Timer SVG */}
@@ -1926,7 +2120,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                           <button onClick={()=> restBetweenExPaused ? resumeRestBetweenEx() : pauseRestBetweenEx()} aria-label={restBetweenExPaused?'Reanudar descanso':'Pausar descanso'} className="text-[44px] leading-none font-semibold text-on-surface font-mono tracking-tight bg-transparent border-none cursor-pointer hover:text-secondary transition-colors">
                             {Math.floor(restBetweenExSec/60)}:{String(restBetweenExSec%60).padStart(2,'0')}
                           </button>
-                          <span className="font-label-caps text-[10px] text-secondary tracking-widest mt-1">{restBetweenExPaused ? 'PAUSADO' : 'DESCANSO ENTRE EJERCICIOS'}</span>
+                          <span className="font-label-caps text-[10px] text-secondary tracking-widest mt-1">{restBetweenExPaused ? 'PAUSADO' : (restBetweenKind==='block' ? 'DESCANSO DE BLOQUE' : restBetweenKind==='ss' ? 'DESCANSO SUPERSERIE' : 'DESCANSO ENTRE EJERCICIOS')}</span>
                         </>
                       ) : (
                         <>
@@ -1956,7 +2150,7 @@ const exercises: SessionEx[] = seList.map((se) => {
               )}
 
              {/* Oracular Coach */}
-            {coach && (
+            {showMore && coach && (
               <div className="bg-surface-container-high/40 border border-secondary/30 rounded-xl p-5 relative overflow-hidden">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-secondary-container/60 border border-secondary/40 flex items-center justify-center text-secondary shrink-0 mt-0.5">

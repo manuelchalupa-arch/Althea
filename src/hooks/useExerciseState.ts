@@ -25,6 +25,8 @@ interface SessionEx {
   rpe?: number
   notes?: string
   seId?: string
+  supersetId?: string | null
+  supersetOrder?: number | null
 }
 
 interface UseExerciseStateOptions {

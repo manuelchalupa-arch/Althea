@@ -25,6 +25,9 @@ export type DayEx = {
   rpe?: number
   notes?: string
   routineExerciseId?: string
+  /** Superserie (aditivo): bloque y orden dentro del bloque. */
+  supersetId?: string | null
+  supersetOrder?: number | null
 }
 
 export async function getDayExercises(dayN:number | null, _cycle: CycleConfig): Promise<DayEx[]> {
@@ -58,6 +61,8 @@ export async function getDayExercises(dayN:number | null, _cycle: CycleConfig): 
           restSec: it.restSec, seriesType: it.seriesType,
           tempo: it.tempo, rir: it.rir, rpe: it.rpe, notes: it.notes,
           routineExerciseId: it.routineExerciseId ?? it.id,
+          supersetId: it.supersetId ?? null,
+          supersetOrder: it.supersetOrder ?? null,
         })
       }
       return results

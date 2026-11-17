@@ -133,6 +133,10 @@ export interface SessionExercise {
   targetRpe?: number;
   /** Notas de la rutina para este ejercicio. */
   notes?: string;
+  /** Superserie: id del bloque (aditivo; sin él, ejercicio suelto). */
+  supersetId?: string | null;
+  /** Posición dentro del bloque de superserie (0-based, orden de ejecución). */
+  supersetOrder?: number | null;
   actualSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
   replacement?: ExerciseReplacement;
   negatives?: NegativeSet;

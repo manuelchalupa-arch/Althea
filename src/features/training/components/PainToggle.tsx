@@ -14,7 +14,7 @@ const PAIN_LEVELS: { value: PainLevel; label: string; color: string }[] = [
   { value: 'severe', label: 'Severo', color: 'bg-error/20 text-error border-error/30' },
 ]
 
-const BODY_ZONES = [
+export const BODY_ZONES = [
   'cuello', 'hombro izquierdo', 'hombro derecho', 'brazo izquierdo', 'brazo derecho',
   'antebrazo izquierdo', 'antebrazo derecho', 'muñeca izquierda', 'muñeca derecha',
   'pecho', 'espalda alta', 'espalda baja', 'lumbar', 'abdomen',
