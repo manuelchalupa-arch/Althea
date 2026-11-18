@@ -1,19 +1,19 @@
-2026-11-18T00:52:23.628Z  Login: "Continuar sin cuenta"
-2026-11-18T00:52:23.735Z  Onboarding 1/7: objetivo = Ganar masa muscular
-2026-11-18T00:52:23.818Z  Onboarding 2/7: experiencia = Intermedio
-2026-11-18T00:52:23.983Z  Onboarding 3/7: días = Lun, Mié, Vie
-2026-11-18T00:52:24.124Z  Onboarding 4/7: equipamiento = Barra, Mancuernas, Máquinas
-2026-11-18T00:52:24.255Z  Onboarding 5-6/7: horario y coach por defecto
-2026-11-18T00:52:24.369Z  Onboarding 7/7 completado → Inicio con perfil Nico
-2026-11-18T00:52:24.522Z  Navegación: Más → Rutinas
-2026-11-18T00:52:25.038Z  Rutinas → Nueva rutina: diálogo con "Rutina asistida" y "Rutina simplificada"
-2026-11-18T00:52:25.759Z  Simplificada: nombre libre + formulario manual abierto
-2026-11-18T00:52:25.866Z  Formulario manual abierto para el Día N°2 (el de hoy)
-2026-11-18T00:52:31.726Z  Simplificada guardada: 4 ejercicios con controles SS, subir/bajar y grip
-2026-11-18T00:52:32.124Z  Reorden por botón: Bajar Press banca
-2026-11-18T00:52:33.261Z  Reorden por arrastre del grip: Peso muerto 3→0
-2026-11-18T00:52:42.443Z  Recarga: el orden reordenado persiste
-2026-11-18T00:52:43.407Z  Superserie: 4 ejercicios seleccionados → bloque SS 1/4 … SS 4/4
-2026-11-18T00:52:43.534Z  Recarga: el bloque de 4 persiste
-2026-11-18T00:52:52.759Z  Inicio → Comenzar → Entrenar: Registrar, modo R y series visibles
-2026-11-18T00:52:53.412Z  Asistida: crear rutina abre el selector inteligente (badge "Rutina asistida")
+2026-11-18T01:48:05.075Z  Login: "Continuar sin cuenta"
+2026-11-18T01:48:05.269Z  Onboarding 1/7: objetivo = Ganar masa muscular
+2026-11-18T01:48:05.350Z  Onboarding 2/7: experiencia = Intermedio
+2026-11-18T01:48:05.483Z  Onboarding 3/7: días = Lun, Mié, Vie
+2026-11-18T01:48:05.642Z  Onboarding 4/7: equipamiento = Barra, Mancuernas, Máquinas
+2026-11-18T01:48:05.743Z  Onboarding 5-6/7: horario y coach por defecto
+2026-11-18T01:48:05.966Z  Onboarding 7/7 completado → Inicio con perfil Nico
+2026-11-18T01:48:06.105Z  Navegación: Más → Rutinas
+2026-11-18T01:48:06.606Z  Rutinas → Nueva rutina: diálogo con "Rutina asistida" y "Rutina simplificada"
+2026-11-18T01:48:07.338Z  Simplificada: nombre libre + formulario manual abierto
+2026-11-18T01:48:07.423Z  Formulario manual abierto para el Día N°2 (el de hoy)
+2026-11-18T01:48:13.304Z  Simplificada guardada: 4 ejercicios con controles SS, subir/bajar y grip
+2026-11-18T01:48:13.709Z  Reorden por botón: Bajar Press banca
+2026-11-18T01:48:14.897Z  Reorden por arrastre del grip: Peso muerto 3→0
+2026-11-18T01:48:24.102Z  Recarga: el orden reordenado persiste
+2026-11-18T01:48:25.127Z  Superserie: 4 ejercicios seleccionados → bloque SS 1/4 … SS 4/4
+2026-11-18T01:48:25.271Z  Recarga: el bloque de 4 persiste
+2026-11-18T01:48:34.465Z  Inicio → Comenzar → Entrenar: Registrar, modo R y series visibles
+2026-11-18T01:48:35.132Z  Asistida: crear rutina abre el selector inteligente (badge "Rutina asistida")

@@ -13,6 +13,7 @@ import { weekdayOfKey } from '@/utils/dates'
 import { ErrorBoundary, EntrenarErrorBoundary, NutricionErrorBoundary, CoachErrorBoundary, ProgresoErrorBoundary } from '@/components/ErrorBoundary'
 import { SplashScreen, isMobileSplashConsumedThisDocument, MOBILE_SPLASH_BREAKPOINT } from '@/components/SplashScreen'
 import { accentSectionForPath } from '@/components/navigation/sections'
+import { confirmAndUpdate } from '@/services/pwa/manualUpdate'
 
 // Lazy load all pages to reduce initial bundle size
 const Inicio = lazy(() => import('@/pages/Inicio'))
@@ -230,16 +231,24 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
   }, [navigate])
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      // AutoUpdate: cuando un SW nuevo toma el control de una app que ya
-      // estaba corriendo, recarga sola para servir el HTML nuevo (el HTML
-      // cacheado viejo traía la CSP vieja y rompía el retorno de Google).
-      const hadController = !!navigator.serviceWorker.controller
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        setUpdateReady(true)
-        if (hadController) { window.location.reload() }
-      })
+    // La app NO se recarga sola: un SW nuevo queda esperando y solo se aplica
+    // al presionar ⟳ (confirmAndUpdate). Aquí solo se detecta para el aviso.
+    if (!('serviceWorker' in navigator)) { return }
+    let alive = true
+    const check = () => {
+      navigator.serviceWorker.getRegistration().then(async (reg) => {
+        if (!reg) { return }
+        await reg.update().catch(() => {})
+        if (alive) { setUpdateReady(!!reg.waiting) }
+      }).catch(() => {})
     }
+    check()
+    const onVisible = () => { if (document.visibilityState === 'visible') { check() } }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { alive = false; document.removeEventListener('visibilitychange', onVisible) }
+  }, [])
+
+  useEffect(() => {
     // Gate de onboarding: recién cuando la sesión y el restore quedaron
     // resueltos (authChecked). Antes, un dispositivo nuevo parecía "sin datos"
     // y mandaba al usuario a reconfigurar un perfil que ya existe en la nube.
@@ -299,7 +308,18 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
         </Suspense>
       )}
       {!hideNav && <FeedbackFab/>}
-      {updateReady && <div style={{ top: 'calc(var(--safe-top) + 0.5rem)' }} className="fixed left-2 right-2 z-50 bg-tertiary text-on-tertiary text-sm p-3 rounded-xl text-center shadow-al-md">Nueva versión disponible — recargá la app</div>}
+      {updateReady && (
+        <div role="status" style={{ top: 'calc(var(--safe-top) + 0.5rem)' }} className="fixed left-2 right-2 z-50 flex items-center justify-center gap-3 bg-tertiary text-on-tertiary text-sm p-2.5 rounded-xl shadow-al-md">
+          <span>Nueva versión disponible</span>
+          <button
+            type="button"
+            onClick={confirmAndUpdate}
+            aria-label="Actualizar ahora"
+            title="Actualizar ahora"
+            className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-on-tertiary/15 hover:bg-on-tertiary/25 transition-colors font-bold text-lg"
+          >⟳</button>
+        </div>
+      )}
       <OnlineBanner/>
       </RequiredActionGate>
     </div>

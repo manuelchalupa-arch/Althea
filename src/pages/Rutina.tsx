@@ -303,6 +303,40 @@ export default function RutinaPage(){
     if(!ex) {return}
     writeSeries(dayN, idx, seriesRowsOf(ex).filter((_,i)=> i!==row))
   }
+  // Campos de la tarjeta: series, reps y peso del ejercicio. Reps/peso se
+  // aplican a todas las series (el detalle por serie vive en el editor).
+  const setExerciseSets = (dayN:number, idx:number, raw:string)=>{
+    const n = Math.max(1, Number(raw) || 1)
+    updateActive(r=>{
+      const a=[...(r.dayExercises[dayN]||[])]
+      const cur=a[idx]
+      if(!cur) {return r}
+      const prev = seriesRowsOf(cur)
+      const series = Array.from({length:n}, (_,k)=> prev[k] ?? {reps:cur.reps, weight:cur.weight ?? null})
+      a[idx]={...cur, sets:n, series}
+      return {...r, dayExercises:{...r.dayExercises, [dayN]:a}}
+    })
+  }
+  const setExerciseReps = (dayN:number, idx:number, raw:string)=>{
+    const reps = Number(raw)
+    updateActive(r=>{
+      const a=[...(r.dayExercises[dayN]||[])]
+      const cur=a[idx]
+      if(!cur) {return r}
+      a[idx]={...cur, reps, series: Array.isArray(cur.series) ? cur.series.map(s=>({...s, reps})) : cur.series}
+      return {...r, dayExercises:{...r.dayExercises, [dayN]:a}}
+    })
+  }
+  const setExerciseWeight = (dayN:number, idx:number, raw:string)=>{
+    const weight = raw === '' ? null : Number(raw)
+    updateActive(r=>{
+      const a=[...(r.dayExercises[dayN]||[])]
+      const cur=a[idx]
+      if(!cur) {return r}
+      a[idx]={...cur, weight, series: Array.isArray(cur.series) ? cur.series.map(s=>({...s, weight})) : cur.series}
+      return {...r, dayExercises:{...r.dayExercises, [dayN]:a}}
+    })
+  }
 
   const setActive = (id:string)=>{
     setActiveId(id)
@@ -692,7 +726,7 @@ export default function RutinaPage(){
                   }} aria-label={`Nombre del día N°${d.n}`} className="bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
                 </div>
                 <AltheaButton size="sm" className="shrink-0" onClick={()=>setPickerFor(d.n)}><Plus size={14}/> Ejercicio</AltheaButton>
-                <AltheaButton size="sm" variant="secondary" className="shrink-0" onClick={()=>{ setAddingStretch(true); setPickerFor(d.n) }}><Plus size={14}/> Estiramiento</AltheaButton>
+                <AltheaButton size="sm" variant="secondary" className="shrink-0" aria-label="Agregar estiramiento" title="Agregar estiramiento" onClick={()=>{ setAddingStretch(true); setPickerFor(d.n) }}><Plus size={14}/> <span className="hidden md:inline">Estiramiento</span><span className="md:hidden">E</span></AltheaButton>
                 <AltheaButton size="sm" variant="secondary" className="shrink-0" onClick={()=>setManualFor(d.n)}><Plus size={14}/> Manual</AltheaButton>
               </div>
               <div className="flex items-center gap-2">
@@ -714,25 +748,41 @@ export default function RutinaPage(){
                   const inDraft = ssDraft?.dayN===d.n && ssDraft.idxs.includes(idx)
                   const label = ex?.name || it.name || it.exId
                   return (
-                    <div key={it.id} data-exrow data-day={d.n} data-idx={idx} className={`rounded border p-2 flex items-center gap-2 ${isStr ? 'bg-[var(--althea-stretch)]/10 border-[var(--althea-stretch)]/40' : 'bg-surface/60 border-outline-variant'} ${dragging===idx ? 'opacity-60' : ''}`}>
-                      <button onPointerDown={onGripDown(d.n, idx)} onPointerMove={onGripMove} onPointerUp={onGripUp} onPointerCancel={onGripUp} aria-label={`Reordenar ${label}`} title="Arrastrar para reordenar" className="shrink-0 w-11 h-11 rounded flex items-center justify-center text-on-surface-variant touch-none cursor-grab active:cursor-grabbing hover:bg-surface-container-high"><GripVertical size={16}/></button>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <div className="font-body-md text-sm text-on-surface font-medium truncate">{label}</div>
+                    <div key={it.id} data-exrow data-day={d.n} data-idx={idx} className={`rounded border p-2 space-y-1.5 ${isStr ? 'bg-[var(--althea-stretch)]/10 border-[var(--althea-stretch)]/40' : 'bg-surface/60 border-outline-variant'} ${dragging===idx ? 'opacity-60' : ''}`}>
+                      <div className="flex items-start gap-1">
+                        <button onPointerDown={onGripDown(d.n, idx)} onPointerMove={onGripMove} onPointerUp={onGripUp} onPointerCancel={onGripUp} aria-label={`Reordenar ${label}`} title="Arrastrar para reordenar" className="shrink-0 w-9 h-9 rounded flex items-center justify-center text-on-surface-variant touch-none cursor-grab active:cursor-grabbing hover:bg-surface-container-high"><GripVertical size={16}/></button>
+                        <div className="min-w-0 flex-1 pt-1.5">
+                          <div className="font-body-md text-sm text-on-surface font-medium truncate" title={label}>{label}</div>
+                          {(isStr || it.supersetId) && (
+                            <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                              {isStr && <span className="font-label-caps text-[9px] uppercase tracking-wider text-[var(--althea-stretch)]">Estiramiento</span>}
+                              {it.supersetId && <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary/15 border border-secondary/40 font-label-caps text-[9px] text-secondary uppercase font-semibold">SS {(it.supersetOrder ?? 0)+1}/{blkN}</span>}
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className={`font-label-md text-[11px] font-semibold uppercase tracking-widest ${isStr ? 'text-[var(--althea-stretch)]' : 'text-on-surface-variant'}`}>{it.sets || 0} series{isStr ? ' · estiramiento' : ''}</span>
-                          {it.supersetId && <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary/15 border border-secondary/40 font-label-caps text-[9px] text-secondary uppercase font-semibold">SS {(it.supersetOrder ?? 0)+1}/{blkN}</span>}
-                          <button type="button" onClick={()=>toggleSS(d.n, idx)} aria-label={`Superserie ${label}`} aria-pressed={!!it.supersetId || !!inDraft} className={`min-h-[44px] px-2 rounded border font-label-caps text-[10px] uppercase font-bold ${it.supersetId ? 'bg-secondary/20 border-secondary/50 text-secondary' : inDraft ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>SS</button>
-                          <button type="button" onClick={()=>moveExercise(d.n, idx, -1)} aria-label={`Subir ${label}`} className="w-11 h-11 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><ChevronUp size={16}/></button>
-                          <button type="button" onClick={()=>moveExercise(d.n, idx, 1)} aria-label={`Bajar ${label}`} className="w-11 h-11 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><ChevronDown size={16}/></button>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={()=>setEditingEx({dayN:d.n, idx})} aria-label={`Editar ${label}`} className={`px-3 py-1.5 rounded-lg border font-label-caps text-[10px] uppercase font-bold min-h-[44px] ${isStr ? 'bg-[var(--althea-stretch)]/15 border-[var(--althea-stretch)]/40 text-[var(--althea-stretch)]' : 'bg-primary/15 border-primary/40 text-primary'}`}>Editar</button>
+                        <button onClick={()=>setEditingEx({dayN:d.n, idx})} aria-label={`Editar ${label}`} title="Editar" className={`shrink-0 px-2.5 rounded-lg border font-label-caps text-[10px] uppercase font-bold min-h-[44px] ${isStr ? 'bg-[var(--althea-stretch)]/15 border-[var(--althea-stretch)]/40 text-[var(--althea-stretch)]' : 'bg-primary/15 border-primary/40 text-primary'}`}>Editar</button>
                         <button onClick={()=>{
                           updateActive(r=> ({...r, dayExercises: {...r.dayExercises, [d.n]: (r.dayExercises[d.n]||[]).filter((_,i)=>i!==idx)}}))
-                        }} aria-label={`Quitar ${label}`} className="text-on-surface-variant min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 size={14}/></button>
+                        }} aria-label={`Quitar ${label}`} title="Quitar" className="text-on-surface-variant min-h-[44px] min-w-[44px] flex items-center justify-center"><Trash2 size={14}/></button>
+                      </div>
+                      <div className="grid grid-cols-[1fr_1.2fr_1fr] gap-1.5">
+                        <label className="block min-w-0">
+                          <span className="block font-label-caps text-[9px] uppercase tracking-normal text-on-surface-variant mb-0.5 whitespace-nowrap">Series</span>
+                          <input type="number" min={1} value={it.sets || 1} onChange={e=>setExerciseSets(d.n, idx, e.target.value)} aria-label={`Series de ${label}`} title="Series" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[40px] font-body-md text-sm text-on-surface text-center" />
+                        </label>
+                        <label className="block min-w-0">
+                          <span className="block font-label-caps text-[9px] uppercase tracking-normal text-on-surface-variant mb-0.5 whitespace-nowrap">Repeticiones</span>
+                          <input type="number" min={0} value={it.reps} onChange={e=>setExerciseReps(d.n, idx, e.target.value)} aria-label={`Repeticiones de ${label}`} title="Repeticiones" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[40px] font-body-md text-sm text-on-surface text-center" />
+                        </label>
+                        <label className="block min-w-0">
+                          <span className="block font-label-caps text-[9px] uppercase tracking-normal text-on-surface-variant mb-0.5 whitespace-nowrap">Peso</span>
+                          <input type="number" step="0.5" value={it.weight ?? ''} onChange={e=>setExerciseWeight(d.n, idx, e.target.value)} aria-label={`Peso de ${label}`} title="Peso" placeholder="—" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg px-2 py-2 min-h-[40px] font-body-md text-sm text-on-surface text-center" />
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button type="button" onClick={()=>toggleSS(d.n, idx)} aria-label={`Superserie ${label}`} aria-pressed={!!it.supersetId || !!inDraft} title="Superserie" className={`min-h-[36px] px-2.5 rounded border font-label-caps text-[10px] uppercase font-bold ${it.supersetId ? 'bg-secondary/20 border-secondary/50 text-secondary' : inDraft ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>SS</button>
+                        <button type="button" onClick={()=>moveExercise(d.n, idx, -1)} aria-label={`Subir ${label}`} title="Subir" className="w-10 h-9 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><ChevronUp size={16}/></button>
+                        <button type="button" onClick={()=>moveExercise(d.n, idx, 1)} aria-label={`Bajar ${label}`} title="Bajar" className="w-10 h-9 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><ChevronDown size={16}/></button>
                       </div>
                     </div>
                   )
@@ -951,33 +1001,21 @@ export default function RutinaPage(){
             <div onClick={e => e.stopPropagation()} className="bg-surface/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-auto p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-headline-lg text-base font-semibold text-on-surface">{ex?.name || editIt.name || editIt.exId}</h3>
-                <button onClick={() => setEditingEx(null)} aria-label="Cerrar" className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors"><Trash2 size={14}/></button>
+                <button onClick={() => setEditingEx(null)} aria-label="Cerrar" title="Cerrar" className="w-11 h-11 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors"><X size={18}/></button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
-                <input type="number" value={editIt.sets} onChange={e => {
-                  updateActive(r => {
-                    const a = [...(r.dayExercises[dayN] || [])]
-                    const cur = { ...a[idx] }
-                    const n = Math.max(1, Number(e.target.value) || 1)
-                    const prev = Array.isArray(cur.series) && cur.series.length ? cur.series : Array.from({ length: cur.sets || 1 }, () => ({ reps: cur.reps, weight: cur.weight ?? null }))
-                    const next = Array.from({ length: n }, (_, k) => prev[k] ?? { reps: cur.reps, weight: cur.weight ?? null })
-                    a[idx] = { ...cur, sets: n, series: next }
-                    return { ...r, dayExercises: { ...r.dayExercises, [dayN]: a } }
-                  })
-                }} aria-label="Series" className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Series" />
-                <input type="number" value={editIt.reps} onChange={e => {
-                  updateActive(r => {
-                    const a = [...(r.dayExercises[dayN] || [])]
-                    const cur = { ...a[idx] }
-                    const reps = Number(e.target.value)
-                    a[idx] = { ...cur, reps, series: Array.isArray(cur.series) ? cur.series.map(s => ({ ...s, reps })) : cur.series }
-                    return { ...r, dayExercises: { ...r.dayExercises, [dayN]: a } }
-                  })
-                }} aria-label="Repeticiones" className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Reps" />
-                <input type="number" value={editIt.weight ?? ''} onChange={e => {
-                  const v = e.target.value === '' ? null : Number(e.target.value)
-                  updateActive(r => { const a = [...(r.dayExercises[dayN] || [])]; a[idx] = { ...a[idx], weight: v, series: Array.isArray(a[idx].series) ? a[idx].series!.map(s => ({ ...s, weight: v })) : a[idx].series }; return { ...r, dayExercises: { ...r.dayExercises, [dayN]: a } } })
-                }} aria-label="Peso" className="bg-surface border border-outline-variant rounded-lg p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant min-h-[48px]" placeholder="Peso" />
+              <div className="grid grid-cols-3 gap-2">
+                <label className="block min-w-0">
+                  <span className="block font-label-caps text-[10px] uppercase tracking-wider text-on-surface-variant mb-1">Series</span>
+                  <input type="number" min={1} value={editIt.sets} onChange={e => setExerciseSets(dayN, idx, e.target.value)} aria-label="Series" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface text-center min-h-[48px]" />
+                </label>
+                <label className="block min-w-0">
+                  <span className="block font-label-caps text-[10px] uppercase tracking-wider text-on-surface-variant mb-1">Repeticiones</span>
+                  <input type="number" min={0} value={editIt.reps} onChange={e => setExerciseReps(dayN, idx, e.target.value)} aria-label="Repeticiones" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface text-center min-h-[48px]" />
+                </label>
+                <label className="block min-w-0">
+                  <span className="block font-label-caps text-[10px] uppercase tracking-wider text-on-surface-variant mb-1">Peso</span>
+                  <input type="number" step="0.5" value={editIt.weight ?? ''} onChange={e => setExerciseWeight(dayN, idx, e.target.value)} aria-label="Peso" placeholder="—" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface text-center min-h-[48px]" />
+                </label>
               </div>
               {/* Plan por serie */}
               <div className="border-t border-outline-variant/40 pt-2">
@@ -986,6 +1024,12 @@ export default function RutinaPage(){
                   <button onClick={() => addSeriesRow(dayN, idx)} aria-label="Agregar serie" className="rounded border border-outline-variant/60 px-2 py-1 min-h-[32px] font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-secondary/50 hover:text-on-surface">+ Serie</button>
                 </div>
                 <div className="mt-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-label-caps text-[9px] uppercase tracking-wider text-outline">
+                    <span className="w-12 shrink-0">Serie</span>
+                    <span className="flex-1">Reps</span>
+                    <span className="flex-1">Peso</span>
+                    <span className="w-10 shrink-0" aria-hidden="true" />
+                  </div>
                   {seriesRowsOf(editIt).map((s, si) => {
                     const label = ex?.name || editIt.name || editIt.exId
                     return (

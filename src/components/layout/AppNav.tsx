@@ -74,10 +74,10 @@ export default function AppNav() {
 
   const primaryEntries = primaryItems.map(toAltheaEntry)
   const moduleEntries = modules.map(toAltheaEntry)
-  // Móvil: MÁXIMO 4 destinos fijos (Inicio, Entrenar, CrossFit, Más).
-  // Nutrición/Progreso/etc. se alcanzan desde Más — menos ruido, una mano.
+  // Móvil: 5 destinos fijos. CrossFit va inmediatamente después de Nutrición;
+  // Progreso/Calendario/etc. se alcanzan desde Más.
   const mobileEntries = [
-    ...primaryItems.filter(i => ['home', 'training', 'crossfit'].includes(i.icon as string)),
+    ...primaryItems.filter(i => ['home', 'training', 'nutrition', 'crossfit'].includes(i.icon as string)),
     moreItem,
   ].map(toAltheaEntry)
 

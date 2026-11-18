@@ -1,7 +1,9 @@
 import { useLocation, useNavigate } from 'react-router-dom'
+import { RefreshCw } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 import { AltheaAvatar } from './AltheaAvatar'
 import { IconChatBubble } from './FitnessIcons'
+import { confirmAndUpdate } from '@/services/pwa/manualUpdate'
 import { accentSectionForPath as navSectionForPath } from '@/components/navigation/sections'
 
 export type TempleSection =
@@ -109,6 +111,15 @@ export function AppHeader() {
           <AltheaAvatar context="avatar" size={36} alt="Perfil" />
         </button>
         <ThemeToggle />
+        <button
+          type="button"
+          onClick={confirmAndUpdate}
+          aria-label="Buscar actualización y recargar"
+          title="Actualizar la app"
+          className="inline-flex items-center justify-center w-11 h-11 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
+        >
+          <RefreshCw className="w-5 h-5" />
+        </button>
         <button
           type="button"
           onClick={() => window.dispatchEvent(new Event('althea:open-chat'))}

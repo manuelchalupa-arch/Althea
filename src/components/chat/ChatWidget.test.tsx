@@ -19,7 +19,7 @@ describe('Chat — contraste y sin tecnicismos', () => {
     const { fireEvent } = await import('@testing-library/react')
     fireEvent.click(screen.getByLabelText('Abrir chat'))
     await waitFor(() => {
-      expect(screen.getByLabelText('Cerrar')).toBeInTheDocument()
+      expect(screen.getByLabelText('Cerrar ventana del chat')).toBeInTheDocument()
     })
     const text = document.body.textContent || ''
     expect(text).not.toContain('VITE_GROQ_API_KEY')
@@ -36,9 +36,9 @@ describe('Chat — contraste y sin tecnicismos', () => {
     )
     fireEvent.click(screen.getByLabelText('Abrir chat'))
     await waitFor(() => {
-      expect(screen.getByLabelText('Cerrar chat')).toBeInTheDocument()
+      expect(screen.getByLabelText('Cerrar ventana del chat')).toBeInTheDocument()
     })
-    expect(screen.getByLabelText('Borrar historial')).toBeInTheDocument()
+    expect(screen.getByLabelText('Borrar conversación')).toBeInTheDocument()
     expect(screen.getByLabelText('Enviar mensaje')).toBeInTheDocument()
     expect(screen.getByLabelText('Mensaje para el Coach')).toBeInTheDocument()
   })

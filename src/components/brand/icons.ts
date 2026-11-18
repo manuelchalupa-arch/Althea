@@ -97,8 +97,8 @@ export interface NavItem { to: string; label: string; icon: keyof typeof ICONS; 
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Inicio', icon: 'home' },
   { to: '/entrenar', label: 'Entrenar', icon: 'training', priority: true },
-  { to: '/crossfit', label: 'CrossFit', icon: 'crossfit', priority: true },
   { to: '/nutricion', label: 'Nutrición', icon: 'nutrition' },
+  { to: '/crossfit', label: 'CrossFit', icon: 'crossfit', priority: true },
   { to: '/progreso', label: 'Progreso', icon: 'progress' },
   { to: '/calendario', label: 'Calendario', icon: 'calendar' },
   { to: '/mas', label: 'Más', icon: 'more' },
@@ -111,6 +111,7 @@ export const MAS_GROUPS: MasGroup[] = [
     title: 'Entrenamiento',
     items: [
       { to: '/rutina', label: 'Rutinas', icon: 'routines' },
+      { to: '/crossfit', label: 'CrossFit', icon: 'crossfit' },
       { to: '/actividad', label: 'Actividad deportiva', icon: 'energy' },
       { to: '/calendario', label: 'Calendario', icon: 'calendar' },
       { to: '/biblioteca', label: 'Biblioteca', icon: 'library' },

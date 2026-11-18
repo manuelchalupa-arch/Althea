@@ -206,7 +206,7 @@ test('recorrido visual: modalidades, simplificada, superserie, reorden y entrena
   await page.getByRole('button', { name: /Comenzar entrenamiento/i }).first().click()
   await expect(page).toHaveURL(/\/entrenar/)
   await expect(page.locator('button[aria-label="Confirmar serie 1"]')).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByText(/Registrar/i).first()).toBeVisible()
+  await expect(page.locator('button[aria-label="Confirmar serie 1"]')).toHaveAttribute('title', 'Registrar serie')
   await expect(page.locator('input[aria-label="modo R serie 1"]')).toBeVisible()
   // El control esencial no puede quedar fuera del viewport en un teléfono de 390 px.
   const reg = await page.locator('button[aria-label="Confirmar serie 1"]').boundingBox()

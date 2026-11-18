@@ -76,14 +76,17 @@ export default function ChatWidget() {
   }
 
   const handleClearHistory = async () => {
+    if (messages.length === 0) { return }
+    if (!window.confirm('¿Borrar toda la conversación con el Coach? Esta acción no se puede deshacer.')) { return }
     try {
       const convId = conversationId ?? await getActiveConversation('coach')
       const { clearConversation } = await import('@/services/ai/chatHistory')
       await clearConversation(convId)
       setMessages([])
       setConversationId(null)
+      setError(null)
     } catch {
-      setError('No se pudo borrar el historial')
+      setError('No se pudo borrar la conversación')
     }
   }
 
@@ -179,7 +182,7 @@ export default function ChatWidget() {
 
       {open && (
         <div className="fixed inset-0 z-40 flex items-end justify-end p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:p-8 md:pb-8 pointer-events-none">
-          <div className="relative w-full max-w-lg mx-4 pt-8 pb-8 bg-surface rounded-3xl border border-outline-variant shadow-xl overflow-hidden">
+          <div className="relative w-full max-w-lg mx-4 pt-8 pb-8 bg-surface rounded-3xl border border-outline-variant shadow-xl overflow-hidden pointer-events-auto">
             <button onClick={() => setOpen(false)} className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface">
               <X size={24} />
             </button>
@@ -261,7 +264,7 @@ export default function ChatWidget() {
 
       {openChat && (
         <div className="fixed inset-0 z-40 flex items-end justify-end p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:p-8 md:pb-8 pointer-events-none">
-          <div className="relative w-full max-w-md mx-4 pt-8 pb-8 bg-surface rounded-3xl border border-outline-variant shadow-xl overflow-hidden">
+          <div className="relative w-full max-w-md mx-4 pt-8 pb-8 bg-surface rounded-3xl border border-outline-variant shadow-xl overflow-hidden pointer-events-auto">
             <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant bg-surface">
               <div className="flex items-center gap-2">
                 <span className="w-7 h-7 rounded-full overflow-hidden shrink-0">
@@ -275,10 +278,10 @@ export default function ChatWidget() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={handleClearHistory} aria-label="Borrar historial" className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition">
+                <button onClick={handleClearHistory} disabled={messages.length === 0} aria-label="Borrar conversación" title="Borrar conversación" className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-error transition disabled:opacity-40">
                   <Trash2 size={18} />
                 </button>
-                <button onClick={() => setOpenChat(false)} aria-label="Cerrar" className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-on-surface hover:bg-surface-container-low transition">
+                <button onClick={() => setOpenChat(false)} aria-label="Cerrar ventana del chat" title="Cerrar chat" className="p-2.5 min-w-[44px] min-h-[44px] rounded-lg text-on-surface hover:bg-surface-container-low transition">
                   <X size={18} />
                 </button>
               </div>

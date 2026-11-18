@@ -395,8 +395,9 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                         // borrador se limpia para no arrastrarlo a la siguiente.
                         if(obsDeEstaSerie) { setObsBySet(prev=> ({ ...prev, [si]: '' })) }
                         onComplete(si, w, r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obsDeEstaSerie||undefined, loadOriginal[si], !!rModes[si])
-                      }} aria-label={`Confirmar serie ${si+1}`} className="px-2 py-3 min-h-[48px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[10px] uppercase font-bold shadow-sm transition-all active:scale-95">
-                        Registrar
+                      }} aria-label={`Confirmar serie ${si+1}`} title="Registrar serie" className="px-2 py-3 min-h-[48px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[10px] uppercase font-bold shadow-sm transition-all active:scale-95">
+                        <span className="sm:hidden">R</span>
+                        <span className="hidden sm:inline">Registrar</span>
                       </button>
                     </div>
                   </td>

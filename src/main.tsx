@@ -12,7 +12,8 @@ import './styles/althea-mobile-stitch.css'
 import('@/services/training/migrate').then(async ({ migrateLegacyTrainingData, wasMigratedV5 }) => {
   try { if (!wasMigratedV5()) {await migrateLegacyTrainingData()} } catch { /* noop */ }
 })
-// PWA register handled by vite-plugin-pwa auto
+// Registro manual del SW (injectRegister: false): un SW nuevo espera y solo
+// se activa al presionar el botón ⟳ del encabezado. Sin recargas automáticas.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(()=>{})

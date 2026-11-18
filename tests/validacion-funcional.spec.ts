@@ -201,7 +201,7 @@ test.describe('Validación funcional A–F (390×844)', () => {
     await expect(page.getByText('Serie 0/2', { exact: true })).toBeVisible()
     const confirm1 = page.locator('button[aria-label="Confirmar serie 1"]')
     await expect(confirm1).toBeVisible()
-    await expect(confirm1).toContainText('Registrar')
+    await expect(confirm1).toHaveAttribute('title', 'Registrar serie')
     await expect(page.getByRole('button', { name: 'Saltar', exact: true }).first()).toBeVisible()
     const rBox = page.locator('input[aria-label="modo R serie 1"]')
     await expect(rBox).toBeVisible()

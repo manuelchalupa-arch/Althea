@@ -119,10 +119,12 @@
 
 /* ============================ BASE ============================ */
 * { -webkit-tap-highlight-color: transparent; }
-html { scrollbar-gutter: stable; background: var(--c-background); }
+/* Sin pull-to-refresh: deslizar solo desplaza la pantalla. La app se
+   actualiza únicamente con el botón ⟳ del encabezado. */
+html { scrollbar-gutter: stable; background: var(--c-background); overscroll-behavior-y: none; }
 body {
   margin: 0;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: none;
   background: var(--c-background);
   color: var(--c-on-surface);
   font-family: var(--font-body);

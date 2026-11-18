@@ -25,7 +25,7 @@ interface MasStats {
 const GROUP_SEMANTIC_ICON: Record<string, string> = {
   library: 'menu_book', routines: 'fitness_center', energy: 'fitness_center',
   calendar: 'calendar_month', nutrition: 'restaurant_menu', progress: 'auto_graph',
-  recovery: 'bedtime', coach: 'forum', profile: 'badge',
+  recovery: 'bedtime', coach: 'forum', profile: 'badge', crossfit: 'local_fire_department',
 }
 
 export default function Mas(){

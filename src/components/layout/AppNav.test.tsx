@@ -9,7 +9,7 @@ import AppNav from './AppNav'
 
 const EXERCISES = [{ exId: 'press', name: 'Press', sets: 1, reps: 8, weight: 80 }]
 
-describe('AppNav — móvil: 4 destinos fijos (Inicio, Entrenar, CrossFit, Más)', () => {
+describe('AppNav — móvil: 5 destinos fijos (Inicio, Entrenar, Nutrición, CrossFit, Más)', () => {
   beforeEach(async () => {
     try { await db.delete() } catch {}
     try { await db.open() } catch {}
@@ -30,12 +30,12 @@ describe('AppNav — móvil: 4 destinos fijos (Inicio, Entrenar, CrossFit, Más)
     await waitFor(() => {
       expect(screen.getAllByLabelText('Entrenar').length).toBeGreaterThan(0)
     }, { timeout: 8000 })
-    // Móvil: exactamente 4 destinos (Inicio, Entrenar, CrossFit, Más).
+    // Móvil: exactamente 5 destinos, con CrossFit junto a Nutrición.
     const mobileBar = document.querySelector('nav[aria-label="Navegación principal"].md\\:hidden')
       ?? document.querySelector('nav.md\\:hidden')
     expect(mobileBar).not.toBeNull()
     const labels = Array.from(mobileBar!.querySelectorAll('a')).map(a => a.getAttribute('aria-label'))
-    expect(labels).toEqual(['Inicio', 'Entrenar', 'CrossFit', 'Más'])
+    expect(labels).toEqual(['Inicio', 'Entrenar', 'Nutrición', 'CrossFit', 'Más'])
     // Desktop conserva estructura amplia (módulos en la barra lateral).
     expect(screen.getAllByLabelText('Nutrición').length).toBeGreaterThan(0)
     expect(screen.getAllByLabelText('Progreso').length).toBeGreaterThan(0)

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter } from 'react-router-dom'
 import { db } from '@/services/storage/db'
@@ -166,6 +166,25 @@ describe('Rutina — superseries y reordenamiento', () => {
 
     await waitFor(() => expect(domOrder()).toEqual(['Ej B', 'Ej C', 'Ej A']), { timeout: 10000 })
     expect(await dbOrder()).toEqual(['Ej B', 'Ej C', 'Ej A'])
+  }, 60000)
+
+  it('la tarjeta del ejercicio rotula Series, Repeticiones y Peso y edita el plan', async () => {
+    await seedRoutine([{ name: 'Ej A' }])
+    render(<MemoryRouter><Rutina /></MemoryRouter>)
+    await waitFor(() => expect(domOrder()[0]).toBe('Ej A'), { timeout: 10000 })
+
+    const row = rowOf('Ej A')
+    expect(within(row).getByText('Series')).toBeInTheDocument()
+    expect(within(row).getByText('Repeticiones')).toBeInTheDocument()
+    expect(within(row).getByText('Peso')).toBeInTheDocument()
+
+    fireEvent.change(within(row).getByLabelText('Series de Ej A'), { target: { value: '4' } })
+    await waitFor(async () => {
+      const l = await getAllRoutines()
+      const ex = l[0]?.dayExercises[1]?.[0]
+      expect(ex?.sets).toBe(4)
+      expect(ex?.series).toHaveLength(4)
+    }, { timeout: 10000 })
   }, 60000)
 
   it('reordenar la rutina no altera una sesión ya iniciada', async () => {

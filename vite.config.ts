@@ -8,7 +8,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': un SW nuevo espera hasta que el usuario presione ⟳.
+      // injectRegister: false evita el registerSW.js automático (que recargaba
+      // la app sola); el registro manual vive en src/main.tsx.
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'icons/*.png', 'icons/*.svg', 'assets/icons/**/*.png'],
       manifest: false,
       workbox: {
