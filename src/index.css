@@ -51,7 +51,7 @@
   --text-leading-normal: 1.55;
 
   /* ---- Radios ---- */
-  --althea-radius-xl: 0px;
+  --althea-radius-xl: 24px;
 
   /* ---- Espaciado — escala 4px respirable ---- */
   --althea-space-xs: 4px;
@@ -62,10 +62,10 @@
   --althea-space-2xl: 40px;
   --althea-space-3xl: 56px;
 
-  /* ---- Sombras neo-brutalistas: offset duro sin blur (estilo Komi) ---- */
-  --althea-shadow-sm: 4px 4px 0 #171512;
-  --althea-shadow-md: 6px 6px 0 #171512;
-  --althea-shadow-lg: 8px 8px 0 #171512;
+  /* ---- Sombras: elevación suave en capas (sin offset duro) ---- */
+  --althea-shadow-sm: 0 1px 2px rgba(24, 20, 14, 0.05), 0 2px 6px -3px rgba(24, 20, 14, 0.10);
+  --althea-shadow-md: 0 2px 4px rgba(24, 20, 14, 0.05), 0 10px 24px -14px rgba(24, 20, 14, 0.35);
+  --althea-shadow-lg: 0 4px 8px rgba(24, 20, 14, 0.05), 0 24px 56px -24px rgba(24, 20, 14, 0.45);
 
   /* ---- Botón principal: rojo Komi, idéntico en claro y oscuro ---- */
 
@@ -109,9 +109,9 @@
 
 
 
-  --althea-shadow-sm: 4px 4px 0 #000000;
-  --althea-shadow-md: 6px 6px 0 #000000;
-  --althea-shadow-lg: 8px 8px 0 #000000;
+  --althea-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 8px -4px rgba(0, 0, 0, 0.6);
+  --althea-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 12px 28px -14px rgba(0, 0, 0, 0.8);
+  --althea-shadow-lg: 0 4px 10px rgba(0, 0, 0, 0.45), 0 28px 64px -26px rgba(0, 0, 0, 0.9);
 
   /* Vetas de granito: muy discretas, apenas perceptibles sobre el negro. */
   --althea-marble-sheen: rgba(238, 241, 237, 0.05);
@@ -168,7 +168,7 @@ html[data-textscale="l"] { font-size: 112.5%; }
 .domain-hydration.domain-hydration,
 .domain-recovery.domain-recovery,
 .domain-training.domain-training {
-  border-top-width: 8px;
+  border-top-width: 4px;
   border-top-style: solid;
   min-width: 0;
 }
@@ -285,54 +285,53 @@ html[data-chat-open] .fab-feedback { display: none; }
    importa despues en src/main.tsx. No volver a declarar un nombre aqui. */
 .px-safe { padding-left: var(--safe-left); padding-right: var(--safe-right); }
 
-/* ============================ BOTONES (Komi) ============================ */
+/* ============================ BOTONES ============================ */
 .btn-primary,
 .btn-secondary,
 .btn-ghost,
 .btn-danger {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   font-family: var(--font-display); font-weight: 800;
-  letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.9375rem;
-  border-radius: var(--althea-radius-md); padding: 11px 16px;
-  border: 3px solid transparent; cursor: pointer;
+  letter-spacing: 0.05em; text-transform: uppercase; font-size: 0.9375rem;
+  border-radius: var(--althea-radius-md); padding: 10px 18px;
+  border: 1px solid transparent; cursor: pointer;
   transition: transform 0.12s ease-out, background-color 0.16s ease-out, border-color 0.16s ease-out, box-shadow 0.16s ease-out, opacity 0.16s ease-out;
-  min-height: 52px;
-  box-shadow: var(--althea-shadow-sm);
+  min-height: 48px;
 }
 .btn-primary {
   background: var(--althea-btn-primary); color: var(--althea-btn-primary-text);
   border-color: var(--althea-btn-primary-border);
+  box-shadow: 0 2px 6px -2px color-mix(in srgb, var(--althea-btn-primary) 45%, transparent);
 }
-.btn-primary:hover { background: var(--althea-btn-primary-hover); }
+.btn-primary:hover { background: var(--althea-btn-primary-hover); border-color: var(--althea-btn-primary-hover); }
 .btn-secondary {
-  background: var(--althea-btn-dark); color: var(--althea-btn-dark-text);
-  border-color: var(--althea-btn-dark-border);
+  background: var(--c-surface); color: var(--c-on-surface);
+  border-color: var(--althea-outline-strong);
+  box-shadow: var(--althea-shadow-sm);
 }
-.btn-secondary:hover { background: var(--althea-btn-dark-hover); border-color: var(--althea-btn-dark-hover); }
-.btn-ghost { background: var(--althea-btn-dark); color: var(--althea-btn-dark-text); border-color: var(--althea-btn-dark-border); }
-.btn-ghost:hover { background: var(--althea-btn-dark-hover); }
+.btn-secondary:hover { background: var(--c-surface-container-low); border-color: var(--c-outline); }
+.btn-ghost { background: transparent; color: var(--c-on-surface); border-color: transparent; }
+.btn-ghost:hover { background: var(--c-surface-container-low); }
 .btn-danger {
   background: var(--althea-btn-danger); color: var(--althea-btn-danger-text);
-  border-color: #171512;
+  border-color: var(--althea-btn-danger);
 }
 .btn-danger:hover { background: color-mix(in srgb, var(--althea-btn-danger) 88%, black); }
-.btn-primary:active, .btn-secondary:active, .btn-ghost:active, .btn-danger:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--althea-btn-dark-border); }
+.btn-primary:active, .btn-secondary:active, .btn-ghost:active, .btn-danger:active { transform: translateY(1px); }
 .btn-primary:disabled, .btn-secondary:disabled, .btn-ghost:disabled, .btn-danger:disabled {
   background: var(--c-surface-container-high);
   color: var(--c-on-surface-variant);
-  border-color: var(--c-outline-variant);
+  border-color: transparent;
   opacity: 1; cursor: not-allowed; transform: none; box-shadow: none;
 }
 
 /* ============================================================
-   BOTONES SIEMPRE OSCUROS — regla de producto
-   Todo <button> (y label-action de archivo) con fondo claro o
-   amarillo de la paleta pasa a grafito obsidiana con texto
-   claro, en modo claro y en oscuro. Atrapa también las
-   variantes con opacidad (bg-primary-container/30, etc.) y las
-   clases hover:*, sin tocar tarjetas, chips de estado ni
-   badges (no son <button>). Los botones primary (verde) y
-   danger (rojo) ya son oscuros y quedan fuera de estas reglas.
+   BOTONES NEUTROS — regla de producto
+   Todo <button> (y label-action de archivo) que venía con fondo
+   claro/amarillo pasa a superficie + línea de 1px, en claro y en
+   oscuro, para que los CTA (rojo) sean lo único que grita.
+   Atrapa también las variantes con opacidad y las clases hover:*,
+   sin tocar tarjetas, chips de estado ni badges (no son <button>).
    ============================================================ */
 button[class*="bg-surface"],
 button[class*="bg-white"],
@@ -347,14 +346,13 @@ label[class*="bg-surface"],
 label[class*="bg-primary-container"],
 label[class*="bg-secondary-container"],
 label[class*="bg-tertiary"] {
-  background: var(--althea-btn-dark) !important;
-  color: var(--althea-btn-dark-text) !important;
-  border-color: var(--althea-btn-dark-border) !important;
+  background: var(--c-surface) !important;
+  color: var(--c-on-surface) !important;
+  border-color: var(--althea-outline) !important;
 }
 /* Texto de botones con fondo sólido primario/secundario: siempre claro
-   (nunca texto oscuro sobre fondo verde). Los tintes (bg-primary/20, etc.)
-   quedan fuera: conservan su text-primary/text-secondary del JSX, que sí
-   contrasta con el fondo translúcido en ambos temas. */
+   (nunca texto oscuro sobre rojo). Los tintes (bg-primary/20, etc.)
+   quedan fuera: conservan su text-primary del JSX, que contrasta. */
 button[class*="bg-primary"]:not([class*="bg-primary-container"]):not([class*="bg-primary/"]) { color: var(--c-on-primary) !important; }
 button[class*="bg-secondary"]:not([class*="bg-secondary-container"]):not([class*="bg-secondary/"]) { color: var(--c-on-secondary) !important; }
 @media (hover: hover) and (pointer: fine) {
@@ -371,7 +369,8 @@ button[class*="bg-secondary"]:not([class*="bg-secondary-container"]):not([class*
   label[class*="bg-primary-container"]:hover,
   label[class*="bg-secondary-container"]:hover,
   label[class*="bg-tertiary"]:hover {
-    filter: brightness(1.25);
+    background: var(--c-surface-container-low) !important;
+    border-color: var(--c-outline) !important;
   }
 }
 
@@ -390,10 +389,8 @@ button.is-active:not(:disabled):not(.althea-seg button),
 .althea-chip.is-active {
   background: rgb(var(--althea-accent-rgb)) !important;
   color: var(--althea-accent-on) !important;
-  border-color: var(--c-outline) !important;
-  outline: 2px solid var(--c-outline) !important;
-  outline-offset: 2px;
-  box-shadow: var(--althea-shadow-sm) !important;
+  border-color: rgb(var(--althea-accent-rgb)) !important;
+  box-shadow: 0 2px 8px -2px rgb(var(--althea-accent-rgb) / 0.45) !important;
 }
 /* Tilde de selección. Los botones que ya comunican el estado con un
    icono propio se marcan con .no-check para no duplicar la tilde. */
@@ -414,20 +411,22 @@ button.is-active:not(:disabled):not(.althea-seg button):not(.no-check)::after,
 @layer components {
 .input {
   background: var(--c-surface);
-  border: 3px solid var(--c-outline);
+  border: 1px solid var(--althea-outline-strong);
   border-radius: var(--althea-radius-md);
   color: var(--c-on-surface);
-  padding: 10px 12px; width: 100%;
+  padding: 11px 14px; width: 100%; min-height: 48px;
   transition: border-color 0.16s ease-out, box-shadow 0.16s ease-out;
 }
 }
 .input::placeholder { color: var(--c-on-surface-variant); }
 .input:hover { border-color: var(--c-outline); }
 .input:focus {
-  outline: 3px solid #245DAB; outline-offset: 2px; border-color: var(--c-outline);
+  outline: 2px solid rgb(var(--althea-accent-rgb) / 0.55);
+  outline-offset: 1px;
+  border-color: rgb(var(--althea-accent-rgb));
 }
 .input:disabled, select:disabled { color: var(--c-on-surface); background: var(--c-surface-container); cursor: not-allowed; }
-.input[aria-invalid="true"], .input.input-error { border-color: var(--c-error); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-error) 12%, transparent); }
+.input[aria-invalid="true"], .input.input-error { border-color: var(--c-error); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-error) 14%, transparent); }
 
 /* ============================ FECHA / HORA ============================
    Contraste y tamaño táctil garantizados, también en móvil: el selector
@@ -436,14 +435,14 @@ input[type="date"],
 input[type="time"] {
   color: var(--c-on-surface);
   background-color: var(--c-surface);
-  min-height: 52px;
+  min-height: 48px;
   width: 100%;
   max-width: 100%;
   font-size: 1rem;
   color-scheme: light;
-  border: 3px solid var(--c-outline);
+  border: 1px solid var(--althea-outline-strong);
   border-radius: var(--althea-radius-md);
-  padding: 10px 12px;
+  padding: 10px 14px;
 }
 /* La tarjeta de gimnasio va en una fila: el date no debe ocupar todo el ancho. */
 [data-testid="gym-card"] input[type="date"] { width: auto; min-width: 150px; }
@@ -505,49 +504,52 @@ input, select, textarea { max-width: 100%; }
 /* ============================ CHIPS / SEGMENTADO / TABS ============================ */
 .althea-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  border-radius: var(--althea-radius-md);
-  border: 3px solid var(--althea-btn-dark-border);
-  background: var(--althea-btn-dark);
-  color: var(--althea-btn-dark-text);
-  padding: 7px 13px; font-size: 0.9375rem; font-weight: 700;
+  border-radius: var(--althea-radius-pill);
+  border: 1px solid var(--althea-outline-strong);
+  background: var(--c-surface);
+  color: var(--c-on-surface);
+  padding: 8px 14px; font-size: 0.9375rem; font-weight: 600;
   cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.althea-chip:hover { background: var(--althea-btn-dark-hover); border-color: var(--althea-btn-dark-hover); }
-.althea-chip.is-active { font-weight: 800; }
+.althea-chip:hover { background: var(--c-surface-container-low); border-color: var(--c-outline); }
+.althea-chip.is-active { font-weight: 700; }
 /* Pestañas/chips: un paso más grandes y por encima de la escala de tarjetas. */
 .althea-chip.althea-chip { font-size: 0.9375rem; }
 
 .althea-seg {
   display: inline-flex; gap: 2px; padding: 3px;
-  background: var(--c-surface-container); border: 3px solid var(--c-outline-variant);
-  border-radius: var(--althea-radius-md);
+  background: var(--c-surface-container-low); border: 1px solid var(--althea-outline);
+  border-radius: var(--althea-radius-pill);
 }
 .althea-seg button {
   border: 0; background: transparent; color: var(--c-on-surface-variant);
-  font-family: var(--font-display); font-size: 1rem; font-weight: 800; text-transform: uppercase;
+  font-family: var(--font-display); font-size: 0.9375rem; font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 7px 12px; border-radius: calc(var(--althea-radius-md) - 3px);
+  padding: 8px 14px; border-radius: var(--althea-radius-pill);
   cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 .althea-seg button:hover { color: var(--c-on-surface); }
 .althea-seg button[aria-selected="true"], .althea-seg button.is-active {
-  background: var(--c-primary); color: #FFFFFF;
+  background: rgb(var(--althea-accent-rgb)); color: var(--althea-accent-on);
   font-weight: 800;
 }
 
-.althea-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 3px solid var(--c-outline-variant); overflow-x: auto; scrollbar-width: none; }
+.althea-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--althea-outline); overflow-x: auto; scrollbar-width: none; }
 .althea-tabs::-webkit-scrollbar { display: none; }
 .althea-tab {
-  position: relative; border: 3px solid transparent; background: transparent;
+  position: relative; border: 0; border-radius: var(--althea-radius-sm) var(--althea-radius-sm) 0 0; background: transparent;
   color: var(--c-on-surface-variant); font-family: var(--font-display);
-  font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
-  padding: 8px 14px;
+  font-size: 0.9375rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 10px 14px;
   cursor: pointer; white-space: nowrap; transition: color 0.15s ease, background-color 0.15s ease;
 }
-.althea-tab:hover { color: var(--c-on-surface); }
+.althea-tab:hover { color: var(--c-on-surface); background: var(--c-surface-container-low); }
 .althea-tab[aria-selected="true"], .althea-tab.is-active {
-  background: var(--c-primary); color: #FFFFFF; border-color: var(--c-outline);
-  box-shadow: var(--althea-shadow-sm);
+  background: transparent; color: rgb(var(--althea-accent-rgb));
+}
+.althea-tab[aria-selected="true"]::after, .althea-tab.is-active::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;
+  background: rgb(var(--althea-accent-rgb)); border-radius: 2px;
 }
 
 /* ============================ TABLAS ============================ */
@@ -581,17 +583,17 @@ input, select, textarea { max-width: 100%; }
 .althea-drawer {
   position: fixed; z-index: 70; top: 0; right: 0; height: 100dvh; width: min(92vw, 420px);
   background: var(--c-surface); color: var(--c-on-surface);
-  border-left: 1px solid var(--c-outline-variant);
+  border-left: 1px solid var(--althea-outline);
   box-shadow: var(--althea-shadow-lg);
   animation: drawer-in 0.24s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex; flex-direction: column;
 }
-.althea-drawer--left { right: auto; left: 0; border-left: 0; border-right: 1px solid var(--c-outline-variant); animation-name: drawer-in-l; }
+.althea-drawer--left { right: auto; left: 0; border-left: 0; border-right: 1px solid var(--althea-outline); animation-name: drawer-in-l; }
 .althea-sheet {
   position: fixed; z-index: 70; left: 0; right: 0; bottom: 0;
   max-height: 88vh; overflow: auto;
   background: var(--c-surface); color: var(--c-on-surface);
-  border-top: 1px solid var(--c-outline-variant); border-radius: var(--althea-radius-xl) var(--althea-radius-xl) 0 0;
+  border-top: 1px solid var(--althea-outline); border-radius: var(--althea-radius-xl) var(--althea-radius-xl) 0 0;
   box-shadow: var(--althea-shadow-lg);
   animation: sheet-up 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -619,8 +621,8 @@ input, select, textarea { max-width: 100%; }
 .temple-backdrop {
   position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
   background:
-    radial-gradient(1200px 600px at 85% -10%, color-mix(in srgb, rgb(var(--althea-accent-rgb) / 0.45), transparent), transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, color-mix(in srgb, rgb(var(--althea-accent-rgb) / 0.30), transparent), transparent 55%),
+    radial-gradient(1100px 560px at 85% -10%, color-mix(in srgb, rgb(var(--althea-accent-rgb) / 0.16), transparent), transparent 62%),
+    radial-gradient(900px 500px at -10% 110%, color-mix(in srgb, rgb(var(--althea-accent-rgb) / 0.10), transparent), transparent 58%),
     var(--c-background);
 }
 .temple-backdrop::before,
@@ -653,12 +655,13 @@ input, select, textarea { max-width: 100%; }
 .theme-toggle-btn {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 10px; border-radius: var(--althea-radius-pill);
-  border: 1px solid var(--althea-btn-dark-border);
-  background: var(--althea-btn-dark);
-  color: var(--althea-btn-dark-text);
-  transition: all 0.2s ease; cursor: pointer;
+  border: 1px solid var(--althea-outline);
+  background: var(--c-surface);
+  color: var(--c-on-surface);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
 }
-.theme-toggle-btn:hover { background: var(--althea-btn-dark-hover); color: var(--althea-btn-dark-text); }
+.theme-toggle-btn:hover { background: var(--c-surface-container-low); border-color: var(--c-outline); color: var(--c-on-surface); }
 .theme-toggle-btn .icon-sun, .theme-toggle-btn .icon-moon { font-size: 17px; transition: transform 0.2s ease; }
 .theme-toggle-btn:hover .icon-sun { transform: rotate(12deg); }
 .theme-toggle-btn:hover .icon-moon { transform: rotate(-12deg); }
@@ -690,16 +693,16 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
    paleta sin modificarlos.
    ============================================================ */
 :root {
-  --c-background-rgb: 242 239 227;
-  --c-surface-rgb: 242 239 227;
-  --c-surface-dim-rgb: 248 245 233;
-  --c-surface-bright-rgb: 234 230 216;
-  --c-surface-container-lowest-rgb: 242 239 227;
-  --c-surface-container-low-rgb: 248 245 233;
-  --c-surface-container-rgb: 234 230 216;
-  --c-surface-container-high-rgb: 234 230 216;
-  --c-surface-container-highest-rgb: 234 230 216;
-  --c-surface-variant-rgb: 248 245 233;
+  --c-background-rgb: 243 240 229;
+  --c-surface-rgb: 251 250 244;
+  --c-surface-dim-rgb: 246 243 233;
+  --c-surface-bright-rgb: 255 255 255;
+  --c-surface-container-lowest-rgb: 248 245 236;
+  --c-surface-container-low-rgb: 248 245 236;
+  --c-surface-container-rgb: 251 250 244;
+  --c-surface-container-high-rgb: 240 236 223;
+  --c-surface-container-highest-rgb: 234 229 214;
+  --c-surface-variant-rgb: 246 243 233;
   --c-primary-rgb: 217 39 53;
   --c-primary-container-rgb: 246 216 219;
   --c-primary-fixed-rgb: 246 216 219;
@@ -724,29 +727,28 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --c-error-container-rgb: 185 31 43;
   --c-on-error-rgb: 255 255 255;
   --c-on-error-container-rgb: 255 255 255;
-  --c-outline-rgb: 23 21 18;
-  --c-outline-variant-rgb: 23 21 18;
+  --c-outline-rgb: 201 194 174;
+  --c-outline-variant-rgb: 226 221 206;
   --c-on-surface-rgb: 23 21 18;
-  /* 92 88 80 (no 98 94 85): con la atenuación global de 0.9 (index.css:935)
-     el gris anterior daba 4.26–4.49 de contraste sobre fondos claros (AA pide 4.5). */
-  --c-on-surface-variant-rgb: 92 88 80;
+  /* 94 89 79: AA (4.5) sobre papel y sobre tarjeta, aun con la atenuación 0.9. */
+  --c-on-surface-variant-rgb: 94 89 79;
   --c-on-background-rgb: 23 21 18;
-  --c-inverse-surface-rgb: 248 245 233;
+  --c-inverse-surface-rgb: 28 26 21;
   --c-inverse-primary-rgb: 217 39 53;
-  --c-inverse-on-surface-rgb: 23 21 18;
+  --c-inverse-on-surface-rgb: 244 240 228;
   --c-macro-carbs-rgb: 201 138 62;
   --c-macro-protein-rgb: 142 59 59;
   --c-macro-fat-rgb: 201 166 62;
-  --c-background: #F2EFE3;
-  --c-surface: #F2EFE3;
-  --c-surface-dim: #F8F5E9;
-  --c-surface-bright: #EAE6D8;
-  --c-surface-container-lowest: #F2EFE3;
-  --c-surface-container-low: #F8F5E9;
-  --c-surface-container: #EAE6D8;
-  --c-surface-container-high: #EAE6D8;
-  --c-surface-container-highest: #EAE6D8;
-  --c-surface-variant: #F8F5E9;
+  --c-background: #F3F0E5;
+  --c-surface: #FBFAF4;
+  --c-surface-dim: #F6F3E9;
+  --c-surface-bright: #FFFFFF;
+  --c-surface-container-lowest: #F8F5EC;
+  --c-surface-container-low: #F8F5EC;
+  --c-surface-container: #FBFAF4;
+  --c-surface-container-high: #F0ECDF;
+  --c-surface-container-highest: #EAE5D6;
+  --c-surface-variant: #F6F3E9;
   --c-primary: #D92735;
   --c-primary-container: #F6D8DB;
   --c-primary-fixed: #F6D8DB;
@@ -771,44 +773,44 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --c-error-container: #B91F2B;
   --c-on-error: #FFFFFF;
   --c-on-error-container: #FFFFFF;
-  --c-outline: #171512;
-  --c-outline-variant: #171512;
+  --c-outline: #C9C2AE;
+  --c-outline-variant: #E2DDCE;
   --c-on-surface: #171512;
-  --c-on-surface-variant: #5C5850;
+  --c-on-surface-variant: #5E594F;
   --c-on-background: #171512;
-  --c-inverse-surface: #F8F5E9;
+  --c-inverse-surface: #1C1A15;
   --c-inverse-primary: #D92735;
-  --c-inverse-on-surface: #171512;
+  --c-inverse-on-surface: #F4F0E4;
   --c-macro-carbs: #C98A3E;
   --c-macro-protein: #8E3B3B;
   --c-macro-fat: #C9A63E;
   --althea-btn-primary: #D92735;
   --althea-btn-primary-hover: #B91F2B;
-  --althea-btn-primary-border: #171512;
+  --althea-btn-primary-border: #D92735;
   --althea-btn-primary-text: #FFFFFF;
-  --althea-vein: rgba(23, 21, 18, 0.08);
-  --althea-vein-strong: rgba(23, 21, 18, 0.14);
-  --althea-border: 3px solid #171512;
-  --althea-border-strong: 4px solid #171512;
-  --veil-color: rgba(242, 239, 227, 0.82);
-  --card-bg: #F8F5E9;
-  --card-border: #171512;
-  --card-shadow: 8px 8px 0 #171512;
+  --althea-vein: rgba(23, 21, 18, 0.05);
+  --althea-vein-strong: rgba(23, 21, 18, 0.09);
+  --althea-border: 1px solid var(--althea-outline);
+  --althea-border-strong: 1px solid var(--althea-outline-strong);
+  --veil-color: rgba(23, 21, 18, 0.42);
+  --card-bg: #FBFAF4;
+  --card-border: var(--althea-outline);
+  --card-shadow: var(--althea-shadow-sm);
   --font-display: 'Barlow Condensed', Impact, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
 }
 
 .dark {
-  --c-background-rgb: 23 21 18;
-  --c-surface-rgb: 23 21 18;
-  --c-surface-dim-rgb: 31 28 23;
-  --c-surface-bright-rgb: 40 36 29;
-  --c-surface-container-lowest-rgb: 23 21 18;
-  --c-surface-container-low-rgb: 31 28 23;
+  --c-background-rgb: 20 18 15;
+  --c-surface-rgb: 28 26 21;
+  --c-surface-dim-rgb: 35 32 26;
+  --c-surface-bright-rgb: 44 40 33;
+  --c-surface-container-lowest-rgb: 28 26 21;
+  --c-surface-container-low-rgb: 35 32 26;
   --c-surface-container-rgb: 40 36 29;
-  --c-surface-container-high-rgb: 40 36 29;
-  --c-surface-container-highest-rgb: 40 36 29;
-  --c-surface-variant-rgb: 31 28 23;
+  --c-surface-container-high-rgb: 46 42 34;
+  --c-surface-container-highest-rgb: 52 47 38;
+  --c-surface-variant-rgb: 40 36 29;
   --c-primary-rgb: 217 39 53;
   --c-primary-container-rgb: 122 34 41;
   --c-primary-fixed-rgb: 122 34 41;
@@ -833,27 +835,27 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --c-error-container-rgb: 229 66 79;
   --c-on-error-rgb: 255 255 255;
   --c-on-error-container-rgb: 255 255 255;
-  --c-outline-rgb: 242 239 227;
-  --c-outline-variant-rgb: 242 239 227;
-  --c-on-surface-rgb: 242 239 227;
-  --c-on-surface-variant-rgb: 163 158 146;
-  --c-on-background-rgb: 242 239 227;
-  --c-inverse-surface-rgb: 242 239 227;
+  --c-outline-rgb: 90 82 68;
+  --c-outline-variant-rgb: 59 53 43;
+  --c-on-surface-rgb: 244 240 228;
+  --c-on-surface-variant-rgb: 173 167 154;
+  --c-on-background-rgb: 244 240 228;
+  --c-inverse-surface-rgb: 251 250 244;
   --c-inverse-primary-rgb: 217 39 53;
   --c-inverse-on-surface-rgb: 23 21 18;
   --c-macro-carbs-rgb: 217 160 92;
   --c-macro-protein-rgb: 178 93 93;
   --c-macro-fat-rgb: 214 192 102;
-  --c-background: #171512;
-  --c-surface: #171512;
-  --c-surface-dim: #1F1C17;
-  --c-surface-bright: #28241D;
-  --c-surface-container-lowest: #171512;
-  --c-surface-container-low: #1F1C17;
+  --c-background: #14120F;
+  --c-surface: #1C1A15;
+  --c-surface-dim: #23201A;
+  --c-surface-bright: #2C2821;
+  --c-surface-container-lowest: #1C1A15;
+  --c-surface-container-low: #23201A;
   --c-surface-container: #28241D;
-  --c-surface-container-high: #28241D;
-  --c-surface-container-highest: #28241D;
-  --c-surface-variant: #1F1C17;
+  --c-surface-container-high: #2E2A22;
+  --c-surface-container-highest: #342F26;
+  --c-surface-variant: #28241D;
   --c-primary: #D92735;
   --c-primary-container: #7A2229;
   --c-primary-fixed: #7A2229;
@@ -878,12 +880,12 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --c-error-container: #E5424F;
   --c-on-error: #FFFFFF;
   --c-on-error-container: #FFFFFF;
-  --c-outline: #F2EFE3;
-  --c-outline-variant: #F2EFE3;
-  --c-on-surface: #F2EFE3;
-  --c-on-surface-variant: #A39E92;
-  --c-on-background: #F2EFE3;
-  --c-inverse-surface: #F2EFE3;
+  --c-outline: #5A5244;
+  --c-outline-variant: #3B352B;
+  --c-on-surface: #F4F0E4;
+  --c-on-surface-variant: #ADA79A;
+  --c-on-background: #F4F0E4;
+  --c-inverse-surface: #FBFAF4;
   --c-inverse-primary: #D92735;
   --c-inverse-on-surface: #171512;
   --c-macro-carbs: #D9A05C;
@@ -891,20 +893,20 @@ input:disabled, select:disabled { color: var(--c-on-surface); background: var(--
   --c-macro-fat: #D6C066;
   --althea-btn-primary: #D92735;
   --althea-btn-primary-hover: #E5424F;
-  --althea-btn-primary-border: #F2EFE3;
+  --althea-btn-primary-border: #D92735;
   --althea-btn-primary-text: #FFFFFF;
-  --althea-btn-dark: #28241D;
-  --althea-btn-dark-hover: #353027;
-  --althea-btn-dark-text: #F2EFE3;
-  --althea-btn-dark-border: #F2EFE3;
-  --althea-vein: rgba(242, 239, 227, 0.06);
-  --althea-vein-strong: rgba(242, 239, 227, 0.10);
-  --althea-border: 3px solid #F2EFE3;
-  --althea-border-strong: 4px solid #F2EFE3;
-  --veil-color: rgba(23, 21, 18, 0.84);
-  --card-bg: #1F1C17;
-  --card-border: #F2EFE3;
-  --card-shadow: 8px 8px 0 #000000;
+  --althea-btn-dark: #2C2821;
+  --althea-btn-dark-hover: #3A352B;
+  --althea-btn-dark-text: #F4F0E4;
+  --althea-btn-dark-border: #3B352B;
+  --althea-vein: rgba(242, 239, 227, 0.04);
+  --althea-vein-strong: rgba(242, 239, 227, 0.08);
+  --althea-border: 1px solid var(--althea-outline);
+  --althea-border-strong: 1px solid var(--althea-outline-strong);
+  --veil-color: rgba(10, 9, 7, 0.62);
+  --card-bg: #1C1A15;
+  --card-border: var(--althea-outline);
+  --card-shadow: var(--althea-shadow-sm);
   --font-display: 'Barlow Condensed', Impact, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
 }

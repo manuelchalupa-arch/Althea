@@ -1,0 +1,27 @@
+onboarding completado (Nico, 80 kg, 175 cm)
+390 inicio
+390 rutina
+390 nutricion
+390 progreso
+390 crossfit
+390 biblioteca
+390 perfil
+390 mas
+390 inicio (oscuro)
+360px inicio: sin desborde
+360px rutina: sin desborde
+375px inicio: sin desborde
+375px rutina: sin desborde
+390px inicio: sin desborde
+390px rutina: sin desborde
+412px inicio: sin desborde
+412px rutina: sin desborde
+430px inicio: sin desborde
+430px rutina: sin desborde
+768px inicio: sin desborde
+768px rutina: sin desborde
+1366px inicio: sin desborde
+1366px rutina: sin desborde
+1440px inicio: sin desborde
+1440px rutina: sin desborde
+táctil: todos los destinos de nav ≥44px

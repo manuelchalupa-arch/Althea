@@ -191,16 +191,17 @@
   align-items: center;
   gap: var(--althea-space-1);
   background: var(--althea-surface-2);
+  border: 1px solid var(--althea-outline);
   border-radius: var(--althea-radius-pill);
-  padding: 4px;
+  padding: 3px;
   width: fit-content;
 }
 
 .althea-toolbar__item {
   font-family: var(--althea-font-ui);
-  font-size: var(--althea-fs-body-md);
-  font-weight: 700;
-  color: var(--althea-on-surface);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--althea-on-surface-muted);
   background: none;
   border: none;
   border-radius: var(--althea-radius-pill);
@@ -210,49 +211,47 @@
               color var(--althea-duration-fast) var(--althea-ease-standard);
 }
 @media (hover: hover) and (pointer: fine) {
-  .althea-toolbar__item:hover { background: var(--althea-surface-container-high); color: var(--althea-on-surface); }
+  .althea-toolbar__item:hover { background: var(--althea-surface-3); color: var(--althea-on-surface); }
 }
 .althea-toolbar__item[aria-selected='true'] {
-  background: var(--althea-primary);
-  color: var(--althea-on-primary);
-  outline: 2px solid var(--althea-outline);
-  outline-offset: 1px;
-  box-shadow: var(--althea-shadow-sm);
+  background: rgb(var(--althea-accent-rgb));
+  color: var(--althea-accent-on);
 }
 .althea-toolbar__item:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ============ BOTONES ============ */
 .althea-btn {
   font-family: var(--althea-font-display);
-  font-size: var(--althea-fs-body-md);
+  font-size: 1rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-radius: var(--althea-radius-md);
   padding: 10px 18px;
-  border: var(--althea-border-width) solid transparent;
+  min-height: 48px;
+  border: 1px solid transparent;
   cursor: pointer;
-  box-shadow: var(--althea-shadow-sm);
   transition: background-color var(--althea-duration-fast) var(--althea-ease-standard),
               border-color var(--althea-duration-fast) var(--althea-ease-standard),
               transform var(--althea-duration-press) var(--althea-ease-out);
 }
-.althea-btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--althea-btn-dark-border); }
+.althea-btn:active { transform: translateY(1px); }
 .althea-btn-primary {
   background: var(--althea-primary);
   color: var(--althea-on-primary);
-  border-color: var(--althea-on-surface);
+  border-color: var(--althea-primary);
+  box-shadow: 0 2px 8px -3px color-mix(in srgb, var(--althea-primary) 55%, transparent);
 }
 @media (hover: hover) and (pointer: fine) {
-  .althea-btn-primary:hover { background: var(--althea-primary-hover); }
+  .althea-btn-primary:hover { filter: brightness(0.94); }
   }
 .althea-btn-secondary {
-  background: var(--althea-btn-dark);
-  border-color: var(--althea-btn-dark-border);
-  color: var(--althea-btn-dark-text);
+  background: var(--althea-surface);
+  border-color: var(--althea-outline-strong);
+  color: var(--althea-on-surface);
 }
 @media (hover: hover) and (pointer: fine) {
-  .althea-btn-secondary:hover { background: var(--althea-btn-dark-hover); border-color: var(--althea-btn-dark-hover); }
+  .althea-btn-secondary:hover { background: var(--althea-surface-2); border-color: var(--althea-outline-strong); }
 }
 
 /* ============ NAVEGACIÓN ============ */
@@ -260,11 +259,11 @@
   display: flex;
   align-items: center;
   gap: var(--althea-space-3);
-  padding: 10px var(--althea-space-3);
+  padding: 9px var(--althea-space-3);
   border-radius: var(--althea-radius-md);
   color: var(--althea-on-surface-muted);
   font-family: var(--althea-font-ui);
-  font-size: var(--althea-fs-body-md);
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: background-color var(--althea-duration-fast) var(--althea-ease-standard),
@@ -275,12 +274,10 @@
 }
 .althea-nav-item:active { transform: scale(0.98); transition: transform var(--althea-duration-press) var(--althea-ease-out); }
 .althea-nav-item[aria-current='page'] {
-  background: rgb(var(--althea-accent-rgb));
-  color: var(--althea-accent-on);
+  background: rgb(var(--althea-accent-rgb) / 0.12);
+  color: rgb(var(--althea-accent-rgb));
   font-weight: 800;
-  outline: 2px solid var(--althea-outline);
-  outline-offset: 1px;
-  box-shadow: var(--althea-shadow-sm);
+  box-shadow: inset 3px 0 0 rgb(var(--althea-accent-rgb));
 }
 .althea-nav-item[data-disabled='true'] { opacity: 0.4; pointer-events: none; }
 
