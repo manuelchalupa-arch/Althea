@@ -383,32 +383,32 @@ export default function Inicio(){
                 <p className="font-label-caps text-[10px] text-secondary mt-1">Cambiado: original N.º {rawAgenda.n} {rawAgenda.name}</p>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 w-full lg:w-auto shrink-0">
               <button onClick={()=> setShowCalendarPopover(!showCalendarPopover)}
                 aria-label="Ver la semana"
-                className="flex items-center gap-2 px-3 py-1.5 min-h-[44px] rounded-xl bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
-                <SemanticIcon name="date_range" size={16} className="text-outline" />
-                <span className="font-medium text-body-sm">Semana {Math.max(1, Math.floor(daysBetween((cycle as CycleConfig).startDate || todayStr, todayStr) / 7) + 1)}</span>
+                className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-2 py-1.5 min-h-[44px] min-w-0 rounded-xl bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
+                <SemanticIcon name="date_range" size={16} className="text-outline shrink-0" ariaHidden />
+                <span className="font-medium text-[12px] sm:text-body-sm truncate">Semana {Math.max(1, Math.floor(daysBetween((cycle as CycleConfig).startDate || todayStr, todayStr) / 7) + 1)}</span>
               </button>
               <button onClick={()=> setShowChangeDay(true)}
                 data-testid="inicio-change-day-hero"
                 aria-label="Cambiar el entrenamiento de hoy"
-                className="flex items-center gap-2 px-3 py-1.5 min-h-[44px] min-w-[44px] rounded-xl bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
-                <SemanticIcon name="swap_horiz" size={16} className="text-outline" />
-                <span className="font-medium text-body-sm">Cambiar</span>
+                className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-2 py-1.5 min-h-[44px] min-w-0 rounded-xl bg-surface-container border border-outline-variant/40 text-body-sm text-on-surface hover:border-primary/40 transition-colors cursor-pointer">
+                <SemanticIcon name="swap_horiz" size={16} className="text-outline shrink-0" ariaHidden />
+                <span className="font-medium text-[12px] sm:text-body-sm truncate">Cambiar</span>
               </button>
               {todayCompleted && (
-                <span data-testid="inicio-day-done" className="flex items-center gap-2 px-4 py-1.5 min-h-[44px] rounded-xl bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[11px] uppercase font-bold">
-                  <SemanticIcon name="check_circle" size={17} />
-                  Sesión completada
+                <span data-testid="inicio-day-done" className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-2 py-1.5 min-h-[44px] min-w-0 rounded-xl bg-primary-container/40 border border-primary/40 text-primary font-label-caps text-[10px] sm:text-[11px] uppercase font-bold text-center">
+                  <SemanticIcon name="check_circle" size={17} className="shrink-0" />
+                  <span className="truncate">Sesión completada</span>
                 </span>
               )}
               {(!isRest || hasActiveSession) && !todayCompleted && <button onClick={()=>{ startOrContinueTraining() }}
                 data-testid="inicio-hero-cta"
                 aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
-                className="btn-primary px-4 py-1.5 min-h-[44px]">
-              <SemanticIcon name="electric_bolt" size={17} />
-              <span className="tracking-wide uppercase font-semibold text-[12px]">{hasActiveSession ? 'Continuar' : 'Comenzar'}</span>
+                className="btn-primary flex-1 lg:flex-none justify-center min-w-0 px-2 gap-1.5 min-h-[44px]">
+              <SemanticIcon name="electric_bolt" size={17} className="shrink-0" />
+              <span className="tracking-wide uppercase font-semibold text-[11px] sm:text-[12px] truncate">{hasActiveSession ? 'Continuar' : 'Comenzar'}</span>
 </button>
           }
             </div>
@@ -672,7 +672,7 @@ export default function Inicio(){
       {/* Footer */}
       <footer className="pt-4 pb-6 text-center space-y-3 mt-4">
         <p className="font-label-caps text-[10px] tracking-widest text-on-surface-variant uppercase">
-          ALTHEA · PALAESTRA DE ARETE
+          ALTHEA · ENTRENAMIENTO Y NUTRICIÓN
         </p>
       </footer>
 

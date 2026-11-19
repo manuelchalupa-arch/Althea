@@ -88,25 +88,51 @@ export async function prepareUnifiedContext(text: string): Promise<UnifiedContex
  * Instruye a citar con [id] sólo las fuentes entregadas.
  */
 export function buildUnifiedSystemPrompt(ctx: UnifiedContext): string {
-  const rules = `Especialización: ${ctx.intent} (confianza ${ctx.intentResult.confidence}).
-
-EVIDENCIA RECUPERADA (única permitida para fundamentar):
-${ctx.evidence.length > 0 ? ctx.evidence.map((h, i) => {
-  const claims = h.matchedClaims.length > 0
-    ? h.matchedClaims.map(c => `  - ${c}`).join('\n')
-    : '  - (sin fragmentos citables; usar solo el título/nivel de evidencia)'
-  return `[${i + 1}] ${h.source.title} — ${h.source.organization} (${h.source.evidence})
+  const evidenceList = ctx.evidence.length > 0
+    ? ctx.evidence.map((h) => {
+        const claims = h.matchedClaims.length > 0
+          ? h.matchedClaims.map(c => `  - ${c}`).join('\n')
+          : '  - (sin fragmentos citables)'
+        return `[${h.source.id}] ${h.source.title} — ${h.source.organization} (${h.source.evidence})
     Cita: ${h.source.citationLabel}${h.source.url ? `\n    URL: ${h.source.url}` : ''}
 ${claims}`
-}).join('\n\n') : 'Sin evidencia disponible para esta consulta.'}
+      }).join('\n\n')
+    : 'Sin evidencia recuperada para esta consulta.'
 
-REGLAS DE EVIDENCIA:
-- Solo podés apoyarte en las fuentes listadas arriba. Si algo no está ahí, decí
-  que no tenés evidencia para eso: NO inventes estudios, cifras ni fuentes.
-- Cuando uses una afirmación de esas fuentes, cerrá el párrafo con su marca
-  [1], [2]… en el mismo orden en que las listé.
-- Si no usaste ninguna fuente, no cites ninguna.
-- Los datos del usuario son datos propios, no necesitan cita.`
+  const rules = `TIPO DE CONSULTA: ${ctx.intent} (confianza ${ctx.intentResult.confidence}).
+
+DOS FUENTES DE CONOCIMIENTO — no las mezcles sin distinguirlas:
+
+1) DATOS DEL USUARIO (abajo, en CONTEXTO REAL DEL USUARIO)
+- Son los únicos datos personales válidos. Usalos solo si la pregunta los necesita.
+- Si la pregunta pide un dato que NO está en ese contexto, decí que no está
+  registrado y ofrecé cargarlo. NUNCA estimes, completes ni inventes un dato.
+- No personalices una pregunta general: si alguien pregunta "¿cuántas series
+  conviene?", no respondas con sus datos personales salvo que los pida.
+
+2) CONOCIMIENTO GENERAL Y CIENTÍFICO
+- Podés responder con conocimiento establecido de fisiología del ejercicio,
+  entrenamiento, nutrición, recuperación y salud (consenso tipo ACSM, ISSN,
+  OMS). Aunque no haya evidencia listada, respondé: es tu conocimiento general.
+- Presentalo como información general: "En general…", "La evidencia actual…".
+- NO inventes estudios, autores, años, cifras exactas ni URLs. Si un dato es
+  discutido o incierto, decilo. Si no sabés, decilo.
+- Diferenciá el origen en la redacción: "Según tus registros…" para lo personal
+  y "En general…" para lo científico. Cuando la pregunta mezcla ambos, primero
+  lo general y después lo que aplica a sus datos reales.
+
+EVIDENCIA RECUPERADA (opcional, para fundamentar):
+${evidenceList}
+
+REGLAS DE CITAS:
+- Si usás una afirmación de la evidencia de arriba, citá con el ID EXACTO entre
+  corchetes, por ejemplo [${ctx.evidence[0]?.source.id ?? 'method-hipertrofia'}].
+- Si usás conocimiento general sin evidencia, no inventes citas ni marques nada.
+- No escribas markers de fuentes que no estén en la lista.
+
+FORMATO:
+- Español rioplatense, claro y directo. Máximo 3-4 oraciones salvo que pidan detalle.
+- Ante dolor, lesión o síntoma, recomendá consultar a un profesional de salud.`
 
   const contextBlock = buildContextBlock(ctx)
 
@@ -180,7 +206,11 @@ export function validateUnifiedAnswer(rawText: string, hits: EvidenceHit[]): { t
   const index = new Map<string, number>()
 
   let text = rawText.replace(MARKER_RE, (_full, id: string) => {
-    const source = allowed.get(id.toLowerCase())
+    const key = id.toLowerCase()
+    // El modelo puede citar con el id de la fuente ([method-x]) o con el
+    // número de orden de la evidencia ([1]). Ambas formas son válidas.
+    const numeric = /^\d+$/.test(key) ? hits[Number(key) - 1]?.source : undefined
+    const source = allowed.get(key) ?? numeric
     if (!source) { return '' }
     if (!index.has(source.id)) {
       used.push(source)

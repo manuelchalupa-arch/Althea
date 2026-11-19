@@ -95,6 +95,21 @@ export async function streamChat(
       return
     }
 
+    // Algunos proxies devuelven la respuesta completa como JSON en vez de SSE.
+    const contentType = (res.headers.get('content-type') || '').toLowerCase()
+    if (contentType.includes('application/json')) {
+      const data = await res.json().catch(() => null)
+      const content: string = data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.delta?.content ?? ''
+      if (!content.trim()) {
+        callbacks.onError('El Coach no devolvió respuesta. Probá de nuevo.')
+        return
+      }
+      callbacks.onToken(content)
+      await callbacks.onDone(content)
+      recordRequest(content.length)
+      return
+    }
+
     const reader = res.body?.getReader()
     if (!reader) {
       callbacks.onError('No se pudo leer la respuesta')
@@ -105,6 +120,22 @@ export async function streamChat(
     let fullText = ''
     let buffer = ''
 
+    const consume = (line: string) => {
+      const trimmed = line.trim()
+      // SSE: acepta "data: {...}" y "data:{...}" (el espacio no es obligatorio).
+      if (!trimmed.startsWith('data:')) {return}
+      const data = trimmed.slice(5).trimStart()
+      if (!data || data === '[DONE]') {return}
+      try {
+        const parsed = JSON.parse(data)
+        const token = parsed.choices?.[0]?.delta?.content
+        if (token) {
+          fullText += token
+          callbacks.onToken(token)
+        }
+      } catch { /* línea malformada: se ignora */ }
+    }
+
     while (true) {
       const { done, value } = await reader.read()
       if (done) {break}
@@ -112,26 +143,18 @@ export async function streamChat(
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() || ''
+      for (const line of lines) { consume(line) }
+    }
+    // Última línea sin salto final.
+    if (buffer) { consume(buffer) }
 
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed || !trimmed.startsWith('data: ')) {continue}
-        const data = trimmed.slice(6)
-        if (data === '[DONE]') {continue}
-
-        try {
-          const parsed = JSON.parse(data)
-          const token = parsed.choices?.[0]?.delta?.content
-          if (token) {
-            fullText += token
-            callbacks.onToken(token)
-          }
-        } catch { /* skip malformed lines */ }
-      }
+    if (!fullText.trim()) {
+      callbacks.onError('El Coach no devolvió respuesta. Probá de nuevo.')
+      return
     }
 
-    callbacks.onDone(fullText)
-    recordRequest(fullText.length)
+    await callbacks.onDone(fullText)
+    recordRequest(fullText.trim().length)
   } catch (e: any) {
     callbacks.onError(e?.message || 'Error de conexión con Groq')
   }

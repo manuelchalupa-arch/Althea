@@ -129,8 +129,8 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
           <h3 className="font-headline-lg text-base font-semibold text-on-surface">¿A qué hora?</h3>
           <TimePickerModal value={time} onChange={setTime} onClose={() => {}} />
           <div className="flex gap-2 mt-2">
-            <button onClick={() => setStep('type')} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Atrás</button>
-            <button onClick={handleAdd} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Agregar</button>
+            <button onClick={() => setStep('type')} className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant"><SemanticIcon name="chevron_left" size={16} ariaHidden />Atrás</button>
+            <button onClick={handleAdd} className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold"><SemanticIcon name="add" size={16} ariaHidden />Agregar</button>
           </div>
         </div>
       </div>
@@ -154,7 +154,7 @@ function AddNotifModal({ onAdd, onClose }: { onAdd: (cfg: NotifConfig) => void; 
           <input value={customTitle} onChange={e => setCustomTitle(e.target.value)} placeholder="¿Qué quieres recordar?"
             className="w-full bg-surface-container-high/50 border border-outline-variant rounded-xl p-3 font-body-md text-[15px] text-on-surface" autoFocus />
         )}
-        <button onClick={() => setStep('time')} className="w-full py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold">Siguiente</button>
+        <button onClick={() => setStep('time')} className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold"><SemanticIcon name="chevron_right" size={16} ariaHidden />Siguiente</button>
       </div>
     </div>
   )
@@ -487,8 +487,8 @@ export default function Perfil() {
               <input value={form.allergies} onChange={e => setForm({ ...form, allergies: e.target.value })} placeholder="Ej: frutos secos" className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-[15px] text-on-surface" />
             </label>
             <div className="flex gap-2">
-              <button onClick={() => setEditing(false)} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[12px] uppercase text-on-surface-variant">Cancelar</button>
-              <button onClick={saveProfile} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[12px] uppercase font-bold">Guardar</button>
+              <button onClick={() => setEditing(false)} className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[12px] uppercase text-on-surface-variant"><SemanticIcon name="close" size={16} ariaHidden />Cancelar</button>
+              <button onClick={saveProfile} className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 min-h-[48px] rounded-lg bg-primary text-on-primary font-label-caps text-[12px] uppercase font-bold"><SemanticIcon name="done" size={16} ariaHidden />Guardar</button>
             </div>
           </div>
         ) : (
@@ -511,7 +511,8 @@ export default function Perfil() {
                 {form.allergies && <div className="flex justify-between"><span className="text-on-surface-variant">Alergias</span><span className="text-on-surface font-medium text-right max-w-[60%] truncate">{form.allergies}</span></div>}
               </div>
             )}
-            <button onClick={() => setEditing(true)} disabled={!profileLoaded} className="w-full py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-primary/50 transition-colors mt-2 disabled:opacity-60">
+            <button onClick={() => setEditing(true)} disabled={!profileLoaded} className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant hover:border-primary/50 transition-colors mt-2 disabled:opacity-60">
+              <SemanticIcon name="edit_square" size={16} ariaHidden />
               {profileLoaded ? 'Editar datos' : 'Cargando…'}
             </button>
           </div>
@@ -778,11 +779,13 @@ export default function Perfil() {
 
         <button onClick={() => setShowLogout(true)}
           className="btn-secondary w-full min-h-[48px]">
+          <SemanticIcon name="logout" size={18} ariaHidden />
           Cerrar sesión
         </button>
 
         <button onClick={() => setShowDelete(true)}
           className="btn-danger w-full min-h-[48px]">
+          <SemanticIcon name="delete" size={18} ariaHidden />
           Eliminar cuenta
         </button>
       </div>
@@ -867,8 +870,8 @@ export default function Perfil() {
             <h3 className="font-headline-lg text-base font-semibold text-on-surface text-center">¿Cerrar sesión?</h3>
             <p className="text-sm text-on-surface-variant text-center">Tus datos locales se conservan.</p>
             <div className="flex gap-2">
-              <button onClick={() => setShowLogout(false)} className="btn-secondary flex-1 min-h-[48px]">Cancelar</button>
-              <button onClick={handleLogout} className="btn-primary flex-1 min-h-[48px]">Cerrar sesión</button>
+              <button onClick={() => setShowLogout(false)} className="btn-secondary flex-1 min-h-[48px]"><SemanticIcon name="close" size={16} ariaHidden />Cancelar</button>
+              <button onClick={handleLogout} className="btn-primary flex-1 min-h-[48px]"><SemanticIcon name="logout" size={16} ariaHidden />Cerrar sesión</button>
             </div>
           </div>
         </div>
@@ -882,8 +885,8 @@ export default function Perfil() {
             <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder='Escribí "ELIMINAR"'
               className="w-full bg-surface-container-high/50 border border-error/40 rounded-xl p-3 font-body-md text-[15px] text-on-surface text-center" />
             <div className="flex gap-2">
-              <button onClick={() => { setShowDelete(false); setDeleteConfirm('') }} className="btn-secondary flex-1 min-h-[48px]">Cancelar</button>
-              <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'ELIMINAR'} className="btn-danger flex-1 min-h-[48px]">Eliminar</button>
+              <button onClick={() => { setShowDelete(false); setDeleteConfirm('') }} className="btn-secondary flex-1 min-h-[48px]"><SemanticIcon name="close" size={16} ariaHidden />Cancelar</button>
+              <button onClick={handleDeleteAccount} disabled={deleteConfirm !== 'ELIMINAR'} className="btn-danger flex-1 min-h-[48px]"><SemanticIcon name="delete" size={16} ariaHidden />Eliminar</button>
             </div>
           </div>
         </div>

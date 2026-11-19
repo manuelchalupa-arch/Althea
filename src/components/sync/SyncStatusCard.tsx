@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import SemanticIcon from '@/components/ui/SemanticIcon'
 import { pendingCount, errorCount } from '@/services/sync/opQueue'
 import { lastSyncAt } from '@/services/firebase/sync'
 
@@ -108,8 +109,9 @@ export function SyncStatusCard() {
       <button
         onClick={syncNow}
         disabled={syncing}
-        className="w-full py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface disabled:opacity-50 min-h-[48px]"
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface disabled:opacity-50 min-h-[48px]"
       >
+        <SemanticIcon name="sync" size={16} className={syncing ? 'animate-spin' : undefined} ariaHidden />
         {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
       </button>
       {message && <p className="font-body-sm text-[12px] text-on-surface-variant">{message}</p>}

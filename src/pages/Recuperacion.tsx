@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { RefreshCw } from 'lucide-react'
+import SemanticIcon from '@/components/ui/SemanticIcon'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { db } from '@/services/storage/db'
 import { AltheaCard, AltheaCardHeader, AltheaBadge, AltheaButton, AltheaLoading, AltheaEmpty, AltheaMetric, AltheaStatRow } from '@/components/althea'
@@ -162,7 +163,10 @@ export default function Recuperacion() {
   if (isMobile) {
     return (
       <div className="space-y-2">
-        <h1 className="font-headline-lg text-xl font-semibold text-on-surface">Recuperación</h1>
+        <div className="flex items-center gap-2">
+          <SemanticIcon name="bedtime" size={22} className="text-tertiary shrink-0" ariaHidden />
+          <h1 className="font-headline-lg text-xl font-semibold text-on-surface">Recuperación</h1>
+        </div>
 
         <AltheaCard level={2} className="domain-recovery">
           <AltheaCardHeader
@@ -302,7 +306,10 @@ export default function Recuperacion() {
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 sm:px-5 xl:px-10 2xl:px-12 pb-24 w-full mx-auto space-y-4">
-      <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Recuperación</h1>
+      <div className="flex items-center gap-2">
+        <SemanticIcon name="bedtime" size={22} className="text-tertiary shrink-0" ariaHidden />
+        <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Recuperación</h1>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-8 space-y-4">
           <AltheaCard level={2} className="domain-recovery">

@@ -6,6 +6,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   Award,
+  BadgeCheck,
   Ban,
   BarChart3,
   BellRing,
@@ -43,6 +44,7 @@ import {
   LucideIcon,
   MessageCircle,
   MessagesSquare,
+  Moon,
   MoreHorizontal,
   Pause,
   Pencil,
@@ -56,11 +58,14 @@ import {
   Settings,
   SlidersHorizontal,
   Sparkles,
+  Target,
   Thermometer,
   Timer,
   Trash2,
+  TrendingDown,
   TrendingUp,
   Utensils,
+  Wheat,
   X,
   Zap,
 } from 'lucide-react'
@@ -154,6 +159,14 @@ const SEMANTIC_ICONS: Record<string, LucideIcon> = {
   block: Ban,
   picture_as_pdf: FileText,
   rutinas: Dumbbell,
+  // Nombres pedidos por pantallas que quedaban sin ícono.
+  bedtime: Moon,
+  badge: BadgeCheck,
+  tactic: Target,
+  trending_down: TrendingDown,
+  grain: Wheat,
+  logout: ArrowUpRight,
+  sync: RotateCw,
 } as Record<string, LucideIcon>
 
 export default function SemanticIcon({

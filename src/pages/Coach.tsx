@@ -181,6 +181,8 @@ export default function Coach() {
   const [retryText, setRetryText] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // Evita doble envío por doble clic/toque antes de que React actualice el estado.
+  const sendLockRef = useRef(false)
   const [usage, setUsage] = useState(() => getUsage())
   const [resetInfo] = useState(() => getResetInfo())
   // FASE 2 S6 · tono efectivo del Coach (canónico), para no mostrar en el
@@ -264,6 +266,7 @@ export default function Coach() {
         source: reply.source, sources: reply.sourcesUsed.map(s => s.id),
       })
       setMessages(prev => [...prev, assistantMsg])
+      setRetryText(null)
     } catch {
       setError('El Coach no pudo responder ahora. Revisá tu conexión y probá de nuevo.')
       setRetryText(text)
@@ -276,7 +279,7 @@ export default function Coach() {
   }
 
   const runChat = async (text: string, opts?: { forceLocal?: boolean }) => {
-    if (streaming || sending || !conversationId) { return }
+    if (streaming || sending || !conversationId || !chatReady) { return }
     setError(null)
     setRetryText(null)
     if (!available || opts?.forceLocal) {
@@ -303,18 +306,30 @@ export default function Coach() {
         {
           onToken: (token) => setStreamText(prev => prev + token),
           onDone: async (fullText) => {
-            setStreaming(false)
-            setSending(false)
-            setStreamText('')
-            setUsage(getUsage())
-            // Validator: solo fuentes recuperadas y citadas quedan registradas.
-            const validated = validateUnifiedAnswer(fullText, prep.evidence)
-            const assistantMsg = await saveMessage({
-              conversationId, role: 'assistant', content: validated.text,
-              createdAt: new Date().toISOString(), source: 'groq',
-              sources: validated.sourcesUsed.map(s => s.id),
-            })
-            setMessages(prev => [...prev, assistantMsg])
+            try {
+              // Validator: solo fuentes recuperadas y citadas quedan registradas.
+              const validated = validateUnifiedAnswer(fullText, prep.evidence)
+              if (!validated.text.trim()) {
+                // Sin texto útil: respuesta local con datos reales, nunca burbuja vacía.
+                await runLocalReply(text)
+                return
+              }
+              const assistantMsg = await saveMessage({
+                conversationId, role: 'assistant', content: validated.text,
+                createdAt: new Date().toISOString(), source: 'groq',
+                sources: validated.sourcesUsed.map(s => s.id),
+              })
+              setMessages(prev => [...prev, assistantMsg])
+              setRetryText(null)
+            } catch {
+              setError('No pude guardar la respuesta del Coach. Probá de nuevo.')
+              setRetryText(text)
+            } finally {
+              setStreaming(false)
+              setSending(false)
+              setStreamText('')
+              setUsage(getUsage())
+            }
           },
           onError: async () => {
             await runLocalReply(text)
@@ -329,13 +344,23 @@ export default function Coach() {
 
   const sendMessage = async (raw: string) => {
     const text = raw.trim()
-    if (!text || streaming || sending || !conversationId) { return }
+    if (!text || streaming || sending || !chatReady || !conversationId || sendLockRef.current) { return }
+    sendLockRef.current = true
+    setError(null)
     setInput('')
-    const userMsg = await saveMessage({
-      conversationId, role: 'user', content: text, createdAt: new Date().toISOString(),
-    })
-    setMessages(prev => [...prev, userMsg])
-    await runChat(text)
+    try {
+      const userMsg = await saveMessage({
+        conversationId, role: 'user', content: text, createdAt: new Date().toISOString(),
+      })
+      setMessages(prev => [...prev, userMsg])
+      await runChat(text)
+    } catch {
+      // No se perdió nada: el texto vuelve al campo y el usuario reintenta.
+      setError('No se pudo enviar el mensaje. Probá de nuevo.')
+      setInput(text)
+    } finally {
+      sendLockRef.current = false
+    }
   }
 
   const retry = async () => {
@@ -417,7 +442,7 @@ export default function Coach() {
                         <button
                           key={a.label}
                           onClick={() => sendMessage(a.prompt)}
-                          disabled={streaming || sending}
+                          disabled={!chatReady || streaming || sending}
                           className="inline-flex items-center gap-2 min-h-[48px] px-3.5 rounded-full border border-outline-variant bg-surface-container-low hover:bg-surface-container-high text-on-surface font-body-md text-xs disabled:opacity-50 transition"
                         >
                           <SemanticIcon name={a.icon} size={16} className="text-[16px] text-primary" ariaHidden />
@@ -515,7 +540,7 @@ export default function Coach() {
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={available ? 'Escribí tu mensaje…' : 'Modo local — respondo con tus datos'}
+                  placeholder={!chatReady ? 'Cargando tu historial…' : available ? 'Escribí tu mensaje…' : 'Modo local — respondo con tus datos'}
                   disabled={streaming || sending}
                   maxLength={500}
                   aria-label="Mensaje para el Coach"
@@ -523,7 +548,7 @@ export default function Coach() {
                 />
                 <button
                   type="submit"
-                  disabled={!input.trim() || streaming || sending}
+                  disabled={!chatReady || !input.trim() || streaming || sending}
                   aria-label="Enviar mensaje"
                   className="w-12 h-12 shrink-0 rounded-xl bg-primary text-on-primary flex items-center justify-center disabled:opacity-40 transition hover:brightness-110"
                 >
