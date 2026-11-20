@@ -11,6 +11,7 @@ import type { CycleConfig } from '@/utils/cycle'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { WaterBottle } from '@/components/recovery/WaterBottle'
 import GymPaymentCard from '@/components/gym/GymPaymentCard'
+import ScienceTip from '@/components/home/ScienceTip'
 import { AltheaPanel } from '@/components/althea'
 import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
@@ -278,7 +279,7 @@ export default function Inicio(){
         plannedDayName: rawAgenda.name ?? null,
         actualDay: n ?? null,
         actualDayName: agenda.name ?? null,
-        exercises: list.map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl, routineExerciseId: x.routineExerciseId, restSec: x.restSec, seriesType: x.seriesType, tempo: x.tempo, rir: x.rir, rpe: x.rpe, notes: x.notes, supersetId: x.supersetId ?? null, supersetOrder: x.supersetOrder ?? null, plannedSets: x.series?.length ? x.series.map((s:any, k:number)=>({ order: k+1, reps: s.reps, weight: s.weight ?? null })) : undefined })),
+        exercises: list.map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl, routineExerciseId: x.routineExerciseId, restSec: x.restSec, restBetweenExercisesSec: x.restBetweenExercisesSec, transitionRestSec: x.transitionRestSec, seriesType: x.seriesType, tempo: x.tempo, rir: x.rir, rpe: x.rpe, notes: x.notes, supersetId: x.supersetId ?? null, supersetOrder: x.supersetOrder ?? null, plannedSets: x.series?.length ? x.series.map((s:any, k:number)=>({ order: k+1, reps: s.reps, weight: s.weight ?? null })) : undefined })),
         plannedMuscleGroups: [...new Set(list.map((x:any)=> x.muscle).filter((m:any): m is string => typeof m === 'string' && m.length > 0))],
         dayChangeReason: changed?.changeReason || (isOverridden ? 'Cambio de día desde Inicio' : undefined),
         dayChangeComment: changed?.changeComment,
@@ -490,6 +491,9 @@ export default function Inicio(){
           </div>
           )}
         </section>
+
+        {/* Consejo científico breve: uno por día, con fuente. */}
+        <ScienceTip isRestDay={isRest} />
 
         {/* ─── FILA 2 — SECUNDARIA: entrenamiento, actividad, registros ─── */}
         <section className="dashboard-secondary-grid grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">

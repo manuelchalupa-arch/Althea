@@ -20,6 +20,7 @@ interface SessionEx {
   seriesType?: string
   restSec?: number
   restBetweenExercisesSec?: number
+  transitionRestSec?: number
   tempo?: string
   rir?: number
   rpe?: number

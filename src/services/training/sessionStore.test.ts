@@ -387,3 +387,46 @@ describe('US2 — T017/T018 Integridad (doble click, historial, offline)', () =>
     expect(result.compatible).toBe(false)
   })
 })
+
+describe('Superseries — persistencia y omisión', () => {
+  beforeEach(async () => {
+    localStorage.clear()
+    for (const t of ['trainingSessions','sessionExercises','setRecords','sessionEvents']) {
+      await db.table(t).clear().catch(() => null)
+    }
+  })
+
+  it('loadActiveSession conserva bloque, orden y transición de cada ejercicio', async () => {
+    const { loadActiveSession } = await import('./sessionStore')
+    const s = await createSession({
+      routineId: 'r1', routineName: 'R', plannedDay: 1, actualDay: 1,
+      calendarDate: todayKey(),
+      plannedExercises: [
+        { exId: 'curl-barra', name: 'Curl barra', sets: 3, reps: 10, weight: 20, supersetId: 'ss1', supersetOrder: 0, transitionRestSec: 20 },
+        { exId: 'curl-polea', name: 'Curl polea', sets: 3, reps: 10, weight: 15, supersetId: 'ss1', supersetOrder: 1, transitionRestSec: 20 },
+      ],
+    })
+    const active = await loadActiveSession()
+    expect(active?.sessionId).toBe(s.sessionId)
+    expect(active?.exercises.map(e => [e.exId, e.supersetId, e.supersetOrder, e.transitionRestSec])).toEqual([
+      ['curl-barra', 'ss1', 0, 20],
+      ['curl-polea', 'ss1', 1, 20],
+    ])
+  })
+
+  it('saltar un ejercicio conserva las series hechas y marca las pendientes como omitidas', async () => {
+    const s = await createSession({
+      routineId: 'r1', routineName: 'R', plannedDay: 1, actualDay: 1,
+      calendarDate: todayKey(),
+      plannedExercises: [{ exId: 'curl-barra', name: 'Curl barra', sets: 3, reps: 10, weight: 20, supersetId: 'ss1', supersetOrder: 0 }],
+    })
+    await transitionSession(s.sessionId, 'IN_PROGRESS')
+    const [se] = await getSessionExercises(s.sessionId)
+    await confirmSetRecord({ sessionId: s.sessionId, sessionExerciseId: se.sessionExerciseId, exerciseId: se.exerciseId, order: 1, actualReps: 10, actualWeight: 20 })
+    await skipSessionExercise(se.sessionExerciseId, 'molestia')
+    const recs = await getSetRecords(se.sessionExerciseId)
+    expect(recs.filter(r => r.status === 'COMPLETED')).toHaveLength(1)
+    expect(recs.filter(r => r.status === 'SKIPPED')).toHaveLength(2)
+    expect((await db.sessionExercises.get(se.sessionExerciseId))?.status).toBe('SKIPPED')
+  })
+})

@@ -17,6 +17,19 @@ export interface UserWants {
   daysPerWeek: number
   focus: string
   injuryNote: string
+  /** Pedido libre en lenguaje natural: la IA interpreta prioridades, ejercicios, equipo, etc. */
+  description?: string
+}
+
+/** Días mencionados explícitamente en el pedido libre ("4 días", "cuatro veces"). */
+export function detectDaysMention(description: string): number | null {
+  const text = (description || '').toLowerCase()
+  if (!text.trim()) {return null}
+  const words: Record<string, number> = { dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7 }
+  const m = text.match(/(\d+)\s*(d[ií]as?|veces|sesiones)/) || text.match(/(dos|tres|cuatro|cinco|seis|siete)\s*(d[ií]as?|veces|sesiones)/)
+  if (!m) {return null}
+  const n = Number(m[1]) || words[m[1]] || 0
+  return n >= 2 && n <= 7 ? n : null
 }
 
 export interface GeneratedRoutine {
@@ -31,10 +44,14 @@ export interface GeneratedRoutine {
   dayExercises: Record<number, {
     id: string; exId: string; sets: number; reps: number; weight: number;
     gifUrl?: string; name?: string; muscle?: string;
+    restSec?: number; transitionRestSec?: number;
+    supersetId?: string | null; supersetOrder?: number | null;
   }[]>
   explanation: {
     goal: string; method: string; distribution: string; intensity: string;
     progression: string; keyFeatures: string[];
+    /** Prioridades interpretadas del pedido libre (ej. "piernas"). */
+    priorities?: string[];
   }
 }
 
@@ -195,12 +212,16 @@ function buildPrompt(ctx: {
   const s = ctx.style
   const today = todayKey()
   const time = p.sessionDurationMin || p.schedule?.sessionDurationMin || 60
+  const description = (wants.description || '').trim()
 
   const exLines = Object.entries(ctx.exercises)
     .map(([m, exs]) => `${m}:${exs.map(e => `${e.id}|${e.name}|${e.eq}`).join(';')}`)
     .join('\n')
 
-  return `Eres un entrenador personal experto. Genera una rutina de entrenamiento en formato JSON.
+  return `Eres un entrenador personal experto en fuerza e hipertrofia. Genera una rutina de entrenamiento en formato JSON.
+
+PEDIDO DEL USUARIO (texto libre, interpretalo literalmente):
+${description || '(sin pedido libre; usá los datos estructurados de abajo)'}
 
 DATOS DEL USUARIO:
 Edad: ${p.age || '?'} años, Sexo: ${p.sex || '?'} ${p.weightKg || '?'}kg, ${p.heightCm || '?'}cm
@@ -216,16 +237,27 @@ Ejercicios excluidos: ${(p.excludedExercises || []).join(', ') || 'ninguno'}
 Estilo coaching: ${ctx.methodName} (${s?.tone || 'ABUELITOS'}, riesgo ${s ? Math.round(s.riskLevel * 100) : 50}%)
 Historial: ${ctx.history || 'sin historial'}
 
-EJERCICIOS DISPONIBLES (usa solo estos IDs):
+CÓMO INTERPRETAR EL PEDIDO LIBRE:
+- Un músculo "poco desarrollado" o "débil" es una PRIORIDAD del usuario, no un diagnóstico: dale más volumen semanal y mejor frecuencia, sin abandonar el resto del cuerpo.
+- Respetá los ejercicios que pidió incluir y NO incluyas los que rechazó (ni variantes equivalentes del mismo movimiento).
+- Adaptá el volumen a experiencia, duración de sesión e historial: principiante 2-3 series por ejercicio, intermedio 3-4, avanzado 4-5. No impongas 10-20 series semanales a todos.
+- Contá el trabajo indirecto: no sumes volumen de un músculo como si cada ejercicio solo lo trabajara él.
+- Progresión gradual y criterios de esfuerzo (RIR 2-3 en la mayoría de las series), sin porcentajes rígidos iguales para todos.
+- Si el pedido menciona dolor o una lesión, no des indicaciones terapéuticas: evitá los movimientos que puedan agravarlo y dejá la consulta profesional en la explicación.
+- Podés agrupar 2 o 3 ejercicios en superserie SOLO si tiene sentido para el objetivo, el tiempo y la recuperación: usá el mismo "supersetId" (ej. "ss1") en esos ejercicios y "supersetOrder" 0,1,2. Dejá el resto sin supersetId.
+
+EJERCICIOS DISPONIBLES (usá exclusivamente estos IDs exactos):
 ${exLines}
 
 INSTRUCCIONES:
-1. Elige ejercicios SOLO de la lista anterior. Usa el ID exacto.
-2. Respeta equipamiento, lesiones y ejercicios excluidos.
-3. Calcula cargas según historial. Si no hay historial, pon 0.
-4. Genera ${wants.daysPerWeek} días de entrenamiento.
+1. Elegí ejercicios SOLO de la lista anterior. Usá el ID exacto. Nunca inventes IDs.
+2. Respetá equipamiento, lesiones y ejercicios excluidos.
+3. Calculá cargas según historial. Si no hay historial, poné 0.
+4. Generá ${wants.daysPerWeek} días de entrenamiento y distribuí el volumen según las prioridades.
 5. weekMap: 7 valores (Dom=0,Lun=1,Mar=2,Mié=3,Jue=4,Vie=5,Sáb=6). null=descanso, N=número de día.
-6. gifUrl siempre: ${GYM_BASE}/api/es/exercises/{muscle}/{slug}.gif
+6. gifUrl: ${GYM_BASE}/api/es/exercises/{muscle}/{slug}.gif
+7. "priorities": lista breve de las prioridades que interpretaste (ej. ["piernas","brazos"]).
+8. No hagas preguntas en la respuesta: si un dato falta, usá los valores de arriba.
 
 Responde SOLO con este JSON (sin explicaciones, sin markdown):
 {
@@ -260,6 +292,7 @@ Responde SOLO con este JSON (sin explicaciones, sin markdown):
     "distribution": "Distribución semanal",
     "intensity": "Nivel de intensidad",
     "progression": "Cómo progresar",
+    "priorities": ["piernas"],
     "keyFeatures": ["Característica 1", "Característica 2"]
   }
 }`
@@ -370,18 +403,84 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
     if (!d.name) {d.name = `Día ${d.n}`}
   }
 
-  // Assign local IDs and normalize exercises
+  // Catálogo real disponible: todo ID que no esté acá se descarta. Nunca se
+  // guardan identificadores inventados por la IA.
+  const catalog = new Map<string, { name: string; muscle: string }>()
+  for (const [muscle, list] of Object.entries(ctx.exercises)) {
+    for (const e of list) {catalog.set(e.id, { name: e.name, muscle })}
+  }
+  const excluded = new Set<string>((ctx.profile?.excludedExercises || []) as string[])
+  const resolveCatalog = (raw: any): { id: string; name: string; muscle: string } | null => {
+    const id = String(raw?.exId || raw?.id || '').trim()
+    const direct = catalog.get(id)
+    if (direct && !excluded.has(id)) {return { id, ...direct }}
+    const wanted = String(raw?.name || '').toLowerCase().trim()
+    if (wanted) {
+      for (const [cid, c] of catalog) {
+        if (!excluded.has(cid) && (c.name.toLowerCase() === wanted || c.name.toLowerCase().includes(wanted))) {
+          return { id: cid, ...c }
+        }
+      }
+    }
+    return null
+  }
+
+  const { parseDayMuscles } = await import('@/utils/muscleMap')
   for (const dayN of Object.keys(parsed.dayExercises)) {
-    parsed.dayExercises[Number(dayN)] = (parsed.dayExercises[Number(dayN)] || []).map((ex: any) => ({
-      id: uid(),
-      exId: ex.exId || ex.id || '',
-      name: ex.name || ex.exId || '',
-      muscle: ex.muscle || '',
-      sets: Math.max(1, Math.min(10, Number(ex.sets) || 3)),
-      reps: Math.max(1, Math.min(30, Number(ex.reps) || 10)),
-      weight: Math.max(0, Number(ex.weight) || 0),
-      gifUrl: ex.gifUrl || ''
-    }))
+    const rawList: any[] = Array.isArray(parsed.dayExercises[Number(dayN)]) ? parsed.dayExercises[Number(dayN)] : []
+    const seen = new Set<string>()
+    const normalized: any[] = []
+    for (const raw of rawList) {
+      const hit = resolveCatalog(raw)
+      if (!hit || seen.has(hit.id)) {continue}
+      seen.add(hit.id)
+      normalized.push({
+        id: uid(),
+        exId: hit.id,
+        name: hit.name,
+        muscle: hit.muscle,
+        sets: Math.max(1, Math.min(10, Number(raw.sets) || 3)),
+        reps: Math.max(1, Math.min(30, Number(raw.reps) || 10)),
+        weight: Math.max(0, Number(raw.weight) || 0),
+        gifUrl: raw.gifUrl || `${GYM_BASE}/api/es/exercises/${hit.id}.gif`,
+        restSec: Number(raw.restSec) > 0 ? Number(raw.restSec) : undefined,
+        supersetId: raw.supersetId ? String(raw.supersetId) : undefined,
+        supersetOrder: raw.supersetId ? Number(raw.supersetOrder) || 0 : undefined,
+      })
+    }
+    // Garantiza un mínimo de ejercicios reales por día tomando del catálogo
+    // del grupo muscular del día (o de cualquier grupo como último recurso).
+    if (normalized.length < 3) {
+      const day = parsed.cycle.trainingDays.find((d: any) => d.n === Number(dayN))
+      const muscles = parseDayMuscles(day?.name || '')
+      const pool = [...muscles.flatMap((m: string) => ctx.exercises[m] || []), ...catalog.values()]
+      for (const c of pool as Array<{ id: string; name: string; muscle: string }>) {
+        if (normalized.length >= 3) {break}
+        if (seen.has(c.id) || excluded.has(c.id)) {continue}
+        seen.add(c.id)
+        normalized.push({ id: uid(), exId: c.id, name: c.name, muscle: c.muscle, sets: 3, reps: 10, weight: 0, gifUrl: `${GYM_BASE}/api/es/exercises/${c.id}.gif` })
+      }
+    }
+    // Superseries: solo bloques con 2+ integrantes reales del mismo día.
+    const byBlock = new Map<string, any[]>()
+    for (const ex of normalized) {
+      if (!ex.supersetId) {continue}
+      const list = byBlock.get(ex.supersetId) || []
+      list.push(ex); byBlock.set(ex.supersetId, list)
+    }
+    const validBlocks = new Set([...byBlock.entries()].filter(([, list]) => list.length >= 2).map(([id]) => id))
+    let order = 0
+    for (const ex of normalized) {
+      if (ex.supersetId && validBlocks.has(ex.supersetId)) {
+        ex.supersetId = `ss-${dayN}-${ex.supersetId}`
+        ex.supersetOrder = order++
+        ex.transitionRestSec = 15
+      } else {
+        ex.supersetId = null
+        ex.supersetOrder = null
+      }
+    }
+    parsed.dayExercises[Number(dayN)] = normalized
   }
 
   // Fill missing explanation
@@ -394,6 +493,13 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
       progression: 'Aumentar carga o repeticiones cada semana',
       keyFeatures: ['Personalizada por IA', 'Basada en tu perfil', 'Ejercicios verificados']
     }
+  }
+
+  // Sin ningún ejercicio válido del catálogo no hay rutina utilizable.
+  const totalExercises = Object.values(parsed.dayExercises)
+    .reduce((acc: number, list: any) => acc + (Array.isArray(list) ? list.length : 0), 0)
+  if (totalExercises === 0) {
+    throw new Error('La IA no devolvió ejercicios del catálogo.')
   }
 
     return parsed as GeneratedRoutine

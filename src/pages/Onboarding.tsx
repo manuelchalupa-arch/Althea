@@ -433,7 +433,7 @@ export default function Onboarding(){
                   <div id="ob-sexo" className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant mb-1.5">Sexo</div>
                   <div className="flex gap-1.5" role="group" aria-labelledby="ob-sexo">
                     {(['M', 'F', 'X'] as const).map(s => (
-                      <button key={s} type="button" onClick={() => setSexo(s)} aria-pressed={sexo === s} className={`flex-1 min-w-[44px] min-h-[44px] py-2.5 rounded-lg border font-body-md text-sm ${sexo === s ? 'bg-primary border-primary text-on-primary font-bold' : 'bg-surface-container-low/90 border-outline-variant text-on-surface'}`}>{SEX_LABEL[s]}</button>
+                      <button key={s} type="button" onClick={() => setSexo(s)} aria-pressed={sexo === s} aria-label={`Sexo ${SEX_LABEL[s]}`} title={SEX_LABEL[s]} className={`flex-1 min-w-[44px] min-h-[44px] py-2.5 rounded-lg border font-body-md text-sm font-semibold ${sexo === s ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface'}`}>{s}</button>
                     ))}
                   </div>
                 </div>

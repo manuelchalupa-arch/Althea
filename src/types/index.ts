@@ -155,6 +155,8 @@ export interface UserProfile {
   activeNutritionMethod?: string
   healthConditions?: string[]
   sessionDurationMin?: number
+  /** Objetivos nutricionales calculados + historial de cambios. Aditivo. */
+  nutritionPlan?: import('@/services/nutrition/nutritionPlanStore').NutritionPlanRecord
 }
 export interface BodyMeasurement { id: string; localDate: string; weightKg?: number; heightCm?: number; bodyFatPct?: number; muscleMassKg?: number; chestCm?: number; waistCm?: number; hipCm?: number; createdAt: string; isDemo?: boolean }
 export interface WeeklySequence { id: string; cycleId: string; weekNumber: number; startDate: string; plannedDays: number[]; completedDays: number[]; partialDays?: number[]; createdAt: string }

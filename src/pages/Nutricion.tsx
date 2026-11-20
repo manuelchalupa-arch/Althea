@@ -17,6 +17,8 @@ import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersio
 import type { CycleConfig } from '@/utils/cycle'
 import { calcIMC, calcTMB, calcTDEE } from '@/utils/nutrition'
 import { macroStatus, computeTotals, filterEntriesByDay, getMacroGoals, type MacroGoals, type MacroStatus, type MacroTotals } from '@/services/nutrition/macroService'
+import { loadNutritionPlan, macroGoalsFromPlan } from '@/services/nutrition/nutritionPlanStore'
+import NutritionGoalsPanel from '@/components/nutrition/NutritionGoalsPanel'
 import { getNutritionMethod } from '@/services/ai/nutritionMethodsDB'
 import type { NutritionMethodId } from '@/services/ai/nutritionMethods'
 import type { UserProfile, BodyMeasurement } from '@/types'
@@ -72,6 +74,9 @@ export default function Nutricion() {
   const [composerVersion, setComposerVersion] = useState(0)
 
   const [composerNotice, setComposerNotice] = useState<string | null>(null)
+  // El registro de comidas es opcional y está colapsado: el objetivo y el
+  // resumen del día van primero. Editar una comida lo abre.
+  const [composerOpen, setComposerOpen] = useState(false)
 
   const isMobile = useIsMobile()
 
@@ -113,10 +118,16 @@ export default function Nutricion() {
       const daySessions = await db.trainingSessions.where('calendarDate').equals(date).toArray().catch(() => [])
       setTodayVolume(daySessions.reduce((a, s) => a + Number(s.totalVolume || 0), 0))
 
-      // Objetivos: motor nutricional existente, sin valores inventados
-      const personalized = Boolean(p?.weightKg && p?.heightCm)
-      setGoalsPersonalized(personalized)
-      setGoals(personalized ? await getMacroGoals() : FALLBACK_GOALS)
+      // Objetivos: el plan calculado manda; si no existe, motor previo sin inventar valores
+      const planRecord = await loadNutritionPlan().catch(() => null)
+      if (planRecord) {
+        setGoalsPersonalized(true)
+        setGoals(macroGoalsFromPlan(planRecord.current))
+      } else {
+        const personalized = Boolean(p?.weightKg && p?.heightCm)
+        setGoalsPersonalized(personalized)
+        setGoals(personalized ? await getMacroGoals() : FALLBACK_GOALS)
+      }
 
       if (p) {
         const activeMethod = p.activeNutritionMethod as NutritionMethodId | undefined
@@ -272,6 +283,7 @@ export default function Nutricion() {
     }
     setEditing({ id: entry.id, draft: d, mealLabel: entry.mealType || 'Comida' })
     setDraft(d)
+    setComposerOpen(true)
   }
 
   const removeEntry = (id: string) => {
@@ -374,6 +386,9 @@ export default function Nutricion() {
           </div>
         </div>
 
+        {/* Objetivo nutricional calculado (cuestionario + historial) */}
+        <NutritionGoalsPanel profile={perfil} date={activeDate} onSaved={() => { loadData(activeDate).catch(() => {}) }} />
+
         {/* Hero calórico del día */}
         <section className="domain-nutrition rounded-xl border border-outline-variant/40 bg-surface-container p-3 space-y-2.5">
           <div className="flex items-end justify-between gap-3">
@@ -433,7 +448,12 @@ export default function Nutricion() {
           </div>
         </section>
 
-        {/* Registrar comida */}
+        {/* Registrar comida (opcional, colapsado) */}
+        {!composerOpen && !editing ? (
+          <AltheaButton variant="secondary" fullWidth className="min-h-[48px]" icon="add" onClick={() => setComposerOpen(true)}>
+            Registrar una comida
+          </AltheaButton>
+        ) : (
         <AltheaCard level={2} className="domain-nutrition space-y-3">
           <div>
             <h2 className="text-title-md text-on-surface font-semibold">{editing ? 'Editar comida' : 'Registrar una comida'}</h2>
@@ -451,7 +471,11 @@ export default function Nutricion() {
             isEditing={!!editing}
             saving={saving}
           />
+          <button onClick={() => { setComposerOpen(false); setDraft(null); setEditing(null) }} className="w-full min-h-[44px] rounded border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant">
+            Ocultar registro
+          </button>
         </AltheaCard>
+        )}
 
         {/* Comidas del día */}
         <AltheaSection
@@ -650,6 +674,9 @@ export default function Nutricion() {
         </div>
       </div>
 
+      {/* 2 — OBJETIVO NUTRICIONAL CALCULADO */}
+      <NutritionGoalsPanel profile={perfil} date={activeDate} onSaved={() => { loadData(activeDate).catch(() => {}) }} />
+
       {/* 2 — TABLA: objetivo diario vs consumo diario */}
       <AltheaCard level={2} className="domain-nutrition overflow-hidden">
         <div className="overflow-x-auto" role="region" aria-label="Resumen de objetivo y consumo diario" tabIndex={0}>
@@ -725,7 +752,12 @@ export default function Nutricion() {
         </div>
       </AltheaCard>
 
-      {/* 3 — ENTRADA DE COMIDA */}
+      {/* 3 — ENTRADA DE COMIDA (opcional, colapsada) */}
+      {!composerOpen && !editing ? (
+        <AltheaButton variant="secondary" fullWidth className="min-h-[48px]" icon="add" onClick={() => setComposerOpen(true)}>
+          Registrar una comida
+        </AltheaButton>
+      ) : (
       <AltheaCard level={2} className="domain-nutrition space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -754,7 +786,11 @@ export default function Nutricion() {
           isEditing={!!editing}
           saving={saving}
         />
+        <button onClick={() => { setComposerOpen(false); setDraft(null); setEditing(null) }} className="w-full min-h-[44px] rounded border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant">
+          Ocultar registro
+        </button>
       </AltheaCard>
+      )}
 
       {/* 4 — COMIDAS DEL DÍA */}
       <AltheaSection

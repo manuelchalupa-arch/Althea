@@ -37,7 +37,7 @@ import PainToggle from '@/features/training/components/PainToggle'
 import { VariantPicker } from '@/features/training/components/VariantPicker'
 import { todayKey, toDateKey, daysBetween } from '@/utils/dates'
 
-type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number|null; muscle?:string; gifUrl?:string; imageDataUrl?:string; swappedFrom?:string; replaced?:boolean; extra?:boolean; plannedSets?:number; plannedSetsDetail?: { order:number; reps:number; weight:number|null }[]; plannedSetValues?: Array<{ order: number; reps: number; weight: number|null; setType?: import('@/services/training/domain').SetType }>; seriesType?:string; restSec?:number; tempo?:string; rir?:number; rpe?:number; notes?:string; seId?:string; supersetId?:string|null; supersetOrder?:number|null }
+type SessionEx = { exId:string; name:string; sets:number; reps:number; weight:number|null; muscle?:string; gifUrl?:string; imageDataUrl?:string; swappedFrom?:string; replaced?:boolean; extra?:boolean; plannedSets?:number; plannedSetsDetail?: { order:number; reps:number; weight:number|null }[]; plannedSetValues?: Array<{ order: number; reps: number; weight: number|null; setType?: import('@/services/training/domain').SetType }>; seriesType?:string; restSec?:number; restBetweenExercisesSec?:number; transitionRestSec?:number; tempo?:string; rir?:number; rpe?:number; notes?:string; seId?:string; supersetId?:string|null; supersetOrder?:number|null }
 
 export default function Entrenar(){
   const today = todayKey()
@@ -119,6 +119,8 @@ const exercises: SessionEx[] = seList.map((se) => {
           seId: se.sessionExerciseId,
           seriesType: se.seriesType,
           restSec: se.restSec,
+          restBetweenExercisesSec: se.restBetweenExercisesSec,
+          transitionRestSec: se.transitionRestSec,
           tempo: se.tempo,
           rir: se.targetRir,
           rpe: se.targetRpe,
@@ -445,6 +447,9 @@ const exercises: SessionEx[] = seList.map((se) => {
   const defaultRest = methodIdRef.current ? (getMethod(methodIdRef.current)?.defaults.restSeconds ?? 90) : 90
   // Descanso REAL del ejercicio: si la rutina definió uno, manda sobre el default del método.
   const restForExercise = (cur?.restSec && cur.restSec > 0) ? cur.restSec : defaultRest
+  const restBetweenMax = restBetweenKind==='ss'
+    ? (cur?.transitionRestSec ?? 15)
+    : (cur?.restBetweenExercisesSec ?? cur?.restSec ?? 120)
   const doneInCur = (logs[current] || []).filter((l: unknown) => !!l && (l as { status?: string }).status === 'COMPLETED').length
 
   // Navegación entre ejercicios: solo cambia el índice visible, persiste la
@@ -641,14 +646,18 @@ const exercises: SessionEx[] = seList.map((se) => {
       for(const j of blk.slice(pos+1)){ if(await hasPendingSets(j)) {forward.push(j)} }
       if(forward.length>0){
         const nextJ = forward[0]
-        const d = exs[nextJ]?.restSec ?? 0 // descanso entre ejercicios del bloque (0 = directo)
+        // Transición CORTA dentro del bloque: el descanso principal queda para
+        // el cierre de ronda. `transitionRestSec` es configurable (def. 15 s).
+        const d = exs[nextJ]?.transitionRestSec ?? 15
         if(d>0){ setRestBetweenKind('ss'); startRestBetweenEx(d) }
         goToExercise(nextJ, true)
       } else {
         const before: number[] = []
         for(const j of blk.slice(0,pos)){ if(await hasPendingSets(j)) {before.push(j)} }
         if(before.length>0){
-          const d = exs[before[0]]?.restBetweenExercisesSec ?? 120 // fin de ronda
+          const first = exs[before[0]]
+          // Descanso principal al cerrar la ronda: usa el descanso configurado.
+          const d = first?.restBetweenExercisesSec ?? first?.restSec ?? 120
           setRestBetweenKind('block'); startRestBetweenEx(d)
           goToExercise(before[0], true)
         } else if(!isExDone){
@@ -879,6 +888,25 @@ const exercises: SessionEx[] = seList.map((se) => {
     try{ localStorage.removeItem(`exstate:${today}:${cur.exId}`) }catch{ /* noop */ }
     setShowSkipReason(false)
     setSkipReason('')
+    // En superserie, saltar un integrante sigue la secuencia del bloque
+    // (con transición corta), nunca salta al siguiente suelto del día.
+    const blk = supersetBlock(current)
+    if(blk){
+      const pos = blk.indexOf(current)
+      const forward: number[] = []
+      for(const j of blk.slice(pos+1)){ if(await hasPendingSets(j)) {forward.push(j)} }
+      if(forward.length>0){ goToExercise(forward[0], true); return }
+      const before: number[] = []
+      for(const j of blk.slice(0,pos)){ if(await hasPendingSets(j)) {before.push(j)} }
+      if(before.length>0){
+        const d = exs[before[0]]?.transitionRestSec ?? 15
+        if(d>0){ setRestBetweenKind('ss'); startRestBetweenEx(d) }
+        goToExercise(before[0], true); return
+      }
+      const after = Math.max(...blk)+1
+      if(after < exs.length) { goToExercise(after, true) }
+      return
+    }
     if(current < exs.length-1) { goToExercise(current+1) }
     // si era el ultimo, el usuario finaliza con el boton FINALIZAR ENTRENAMIENTO
   }
@@ -1028,7 +1056,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       if(!sess){
         // Recuperacion: crea la sesion desde lo visible para no perder el trabajo
         if(!routineId || exs.length===0) {throw new Error('Sin sesión activa: recargá la pestaña Entrenamiento antes de finalizar.')}
-        const created = await store.createSession({ routineId, routineName: rutinaName||'Rutina', plannedDay: plannedDayN, plannedDayName: plannedName||null, actualDay: actualDayN, actualDayName: dayName||null, calendarDate: today, weekNumber, plannedExercises: exs.map(x=>({exId:x.exId,name:x.name,sets:x.plannedSets??x.sets,reps:x.reps,weight:x.weight,muscle:x.muscle,gifUrl:x.gifUrl, supersetId:x.supersetId ?? null, supersetOrder:x.supersetOrder ?? null, plannedSets: x.plannedSetValues?.map((p,k)=>({ order: p.order ?? (k+1), reps: p.reps, weight: p.weight ?? null }))})) })
+        const created = await store.createSession({ routineId, routineName: rutinaName||'Rutina', plannedDay: plannedDayN, plannedDayName: plannedName||null, actualDay: actualDayN, actualDayName: dayName||null, calendarDate: today, weekNumber, plannedExercises: exs.map(x=>({exId:x.exId,name:x.name,sets:x.plannedSets??x.sets,reps:x.reps,weight:x.weight,muscle:x.muscle,gifUrl:x.gifUrl, restSec:x.restSec, restBetweenExercisesSec:x.restBetweenExercisesSec, transitionRestSec:x.transitionRestSec, supersetId:x.supersetId ?? null, supersetOrder:x.supersetOrder ?? null, plannedSets: x.plannedSetValues?.map((p,k)=>({ order: p.order ?? (k+1), reps: p.reps, weight: p.weight ?? null }))})) })
         sess = await store.transitionSession(created.sessionId,'IN_PROGRESS')
         setSession(sess); setSessionId(sess.sessionId)
       }
@@ -2106,7 +2134,7 @@ const exercises: SessionEx[] = seList.map((se) => {
                       <circle className="text-surface-container-highest" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeWidth="6" />
                       {restBetweenExSec > 0 || restBetweenExFlash ? (
                         <>
-                          <circle className="text-secondary transition-all duration-1000" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeDasharray={440} strokeDashoffset={440 - (440 * restBetweenExSec / Math.max((cur?.restBetweenExercisesSec ?? 120), 1))} strokeLinecap="round" strokeWidth="6" />
+                          <circle className="text-secondary transition-all duration-1000" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" strokeDasharray={440} strokeDashoffset={440 - (440 * restBetweenExSec / Math.max(restBetweenMax, 1))} strokeLinecap="round" strokeWidth="6" />
                         </>
                       ) : (
                         <>

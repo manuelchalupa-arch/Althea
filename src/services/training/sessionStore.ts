@@ -96,7 +96,7 @@ export interface PlannedExerciseInput {
   exId: string; name: string; sets: number; reps: number; weight: number | null;
   muscle?: string; gifUrl?: string; routineExerciseId?: string;
   /** Objetivos de planificación que vienen desde la rutina. */
-  restSec?: number; restBetweenExercisesSec?: number; seriesType?: string; tempo?: string;
+  restSec?: number; restBetweenExercisesSec?: number; transitionRestSec?: number; seriesType?: string; tempo?: string;
   rir?: number; rpe?: number; notes?: string;
   plannedSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
   /** Superserie (aditivo): id del bloque y orden dentro de él. */
@@ -152,6 +152,7 @@ export async function createSession(input: {
       plannedSets: plan,
       restSec: p.restSec,
       restBetweenExercisesSec: p.restBetweenExercisesSec,
+      transitionRestSec: p.transitionRestSec,
       seriesType: resolveSetType(p.seriesType),
       tempo: p.tempo,
       targetRir: p.rir,
@@ -403,7 +404,14 @@ export async function skipSessionExercise(sessionExerciseId: string, reason: str
   const se = await db.sessionExercises.get(sessionExerciseId).catch(() => null) as SessionExercise | null;
   if (!se) {throw new Error('SessionExercise inexistente');}
   const now = new Date().toISOString();
-  await db.sessionExercises.put({ ...se, status: 'SKIPPED', completed: false, skipReason: reason, skipComment: comment, updatedAt: now });
+  // Las series YA registradas se conservan; las pendientes quedan omitidas
+  // para que el motor no vuelva a proponerlas en rondas posteriores.
+  const sets = await db.setRecords.where('sessionExerciseId').equals(sessionExerciseId).toArray().catch(() => []) as SetRecord[];
+  for (const rec of sets) {
+    if (rec.status === 'COMPLETED') {continue;}
+    await db.setRecords.put({ ...rec, status: 'SKIPPED', updatedAt: now });
+  }
+  await db.sessionExercises.put({ ...se, status: se.status === 'COMPLETED' ? 'COMPLETED' : 'SKIPPED', completed: se.status === 'COMPLETED', skipReason: reason, skipComment: comment, updatedAt: now });
   await logEvent(se.sessionId, 'EXERCISE_SKIPPED', { metadata: { sessionExerciseId, reason, comment } });
 }
 
@@ -503,7 +511,7 @@ export interface ActiveSession {
     exId: string; name: string; sets: number; reps: number; weight: number | null;
     muscle?: string; gifUrl?: string; imageDataUrl?: string;
     routineExerciseId?: string;
-    restSec?: number; restBetweenExercisesSec?: number; seriesType?: string; tempo?: string;
+    restSec?: number; restBetweenExercisesSec?: number; transitionRestSec?: number; seriesType?: string; tempo?: string;
     rir?: number; rpe?: number; notes?: string;
     /** Plan por serie (reps/weight propios de cada serie) si la rutina lo define. */
     plannedSets?: Array<{ order: number; reps: number; weight: number | null; setType?: SetType }>;
@@ -542,8 +550,11 @@ async function exercisesOf(sessionId: string): Promise<ActiveSession['exercises'
       exId: r.exerciseId, name: r.exerciseName ?? r.exerciseId,
       sets: r.plannedSets?.length ?? 0,
       reps: r.plannedSets?.[0]?.reps ?? 0, weight: r.plannedSets?.[0]?.weight ?? null,
-      restSec: r.restSec, restBetweenExercisesSec: r.restBetweenExercisesSec, seriesType: r.seriesType, tempo: r.tempo,
+      restSec: r.restSec, restBetweenExercisesSec: r.restBetweenExercisesSec,
+      transitionRestSec: r.transitionRestSec, seriesType: r.seriesType, tempo: r.tempo,
       rir: r.targetRir, rpe: r.targetRpe, notes: r.notes,
+      supersetId: r.supersetId ?? null,
+      supersetOrder: r.supersetOrder ?? null,
       plannedSets: (r.plannedSets ?? []).map((s) => ({ order: s.order, reps: s.reps, weight: s.weight ?? null, setType: s.setType })),
     }));
 }

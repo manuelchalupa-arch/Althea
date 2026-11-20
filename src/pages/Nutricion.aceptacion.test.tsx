@@ -18,6 +18,11 @@ import Nutricion from './Nutricion'
 
 const renderPage = () => render(<MemoryRouter><Nutricion /></MemoryRouter>)
 
+/** El registro de comidas está colapsado: se abre por el botón real. */
+async function abrirRegistro(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /Registrar una comida/i }))
+}
+
 const num = (testid: string) =>
   Number((screen.getByTestId(testid).textContent ?? '').replace(/[^\d]/g, ''))
 
@@ -58,6 +63,7 @@ describe('Nutrición — aceptación funcional (flujo real)', () => {
   it('1) buscar “avena” distingue la seca de la cocida', async () => {
     const user = userEvent.setup()
     renderPage()
+    await abrirRegistro(user)
     await screen.findByText('Todavía no registraste comidas hoy')
 
     await user.type(screen.getByLabelText('Buscar alimento'), 'avena')
@@ -75,6 +81,7 @@ describe('Nutrición — aceptación funcional (flujo real)', () => {
   it('2) buscar “porotos” distingue las variantes (seco ≠ hervido)', async () => {
     const user = userEvent.setup()
     renderPage()
+    await abrirRegistro(user)
     await screen.findByText('Todavía no registraste comidas hoy')
 
     await user.type(screen.getByLabelText('Buscar alimento'), 'porotos')
@@ -89,6 +96,7 @@ describe('Nutrición — aceptación funcional (flujo real)', () => {
   it('3) buscar “leche” muestra opciones por tipo y en mililitros', async () => {
     const user = userEvent.setup()
     renderPage()
+    await abrirRegistro(user)
     await screen.findByText('Todavía no registraste comidas hoy')
 
     await user.type(screen.getByLabelText('Buscar alimento'), 'leche')
@@ -105,6 +113,7 @@ describe('Nutrición — aceptación funcional (flujo real)', () => {
   it('4) un alimento inexistente ofrece crearlo manualmente', async () => {
     const user = userEvent.setup()
     renderPage()
+    await abrirRegistro(user)
     await screen.findByText('Todavía no registraste comidas hoy')
 
     await user.type(screen.getByLabelText('Buscar alimento'), 'zzkk alimento raro yy')
@@ -115,6 +124,7 @@ describe('Nutrición — aceptación funcional (flujo real)', () => {
   it('5-6-8) crear un alimento, usarlo en una comida, escalar los 4 macros y verlo en el resumen', async () => {
     const user = userEvent.setup()
     renderPage()
+    await abrirRegistro(user)
     await screen.findByText('Todavía no registraste comidas hoy')
 
     const food = await crearAlimento(user, { nombre: 'Yogur de coco', kcal: '200', p: '10', c: '20', g: '5' })
@@ -148,6 +158,7 @@ describe('Nutrición — aceptación funcional (flujo real)', () => {
   it('7) el alimento personalizado sigue disponible tras recargar la aplicación', async () => {
     const user = userEvent.setup()
     const { unmount } = renderPage()
+    await abrirRegistro(user)
     await screen.findByText('Todavía no registraste comidas hoy')
     await crearAlimento(user, { nombre: 'Yogur de coco', kcal: '200', p: '10', c: '20', g: '5' })
 
@@ -155,6 +166,7 @@ describe('Nutrición — aceptación funcional (flujo real)', () => {
     unmount()
     clearExtraFoods()
     renderPage()
+    await abrirRegistro(user)
     await screen.findByTestId('summary-table')
 
     await user.type(screen.getByLabelText('Buscar alimento'), 'yogur de coco')
@@ -165,6 +177,7 @@ describe('Nutrición — aceptación funcional (flujo real)', () => {
   it('9) editar o eliminar un alimento personalizado no altera los registros históricos', async () => {
     const user = userEvent.setup()
     renderPage()
+    await abrirRegistro(user)
     await screen.findByText('Todavía no registraste comidas hoy')
 
     const food = await crearAlimento(user, { nombre: 'Yogur de coco', kcal: '200', p: '10', c: '20', g: '5' })

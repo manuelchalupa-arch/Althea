@@ -19,6 +19,10 @@ export type RoutineDayExercise = {
   name?: string
   muscle?: string
   restSec?: number
+  /** Descanso principal al cerrar la ronda del bloque o pasar al siguiente ejercicio. */
+  restBetweenExercisesSec?: number
+  /** Transición corta entre ejercicios del mismo bloque de superserie (por defecto 15 s). */
+  transitionRestSec?: number
   seriesType?: string
   /** Tempo planificado (texto, ej. "3-1-1"). */
   tempo?: string

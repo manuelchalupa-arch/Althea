@@ -124,6 +124,8 @@ export interface SessionExercise {
   restSec?: number;
   /** Descanso planificado ENTRE EJERCICIOS (segundos). Viene de la rutina. Se aplica al terminar este ejercicio y pasar al siguiente. */
   restBetweenExercisesSec?: number;
+  /** Transición corta al pasar al siguiente ejercicio DENTRO del mismo bloque de superserie (segundos). */
+  transitionRestSec?: number;
   /** Tipo de serie planificado a nivel ejercicio (resumen; cada serie lleva su propio setType). */
   seriesType?: SetType;
   /** Tempo planificado (ej. "3-1-1"). Texto, no se interpreta. */

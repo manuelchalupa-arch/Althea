@@ -19,6 +19,8 @@ export type DayEx = {
   imageDataUrl?: string
   exId: string
   restSec?: number
+  restBetweenExercisesSec?: number
+  transitionRestSec?: number
   seriesType?: string
   tempo?: string
   rir?: number
@@ -58,7 +60,8 @@ export async function getDayExercises(dayN:number | null, _cycle: CycleConfig): 
           sets: it.series?.length || it.sets, reps: it.reps, weight,
           series: it.series?.length ? it.series : undefined,
           muscle: ex?.groupMain || it.muscle, gifUrl: it.gifUrl, imageDataUrl: undefined,
-          restSec: it.restSec, seriesType: it.seriesType,
+          restSec: it.restSec, restBetweenExercisesSec: it.restBetweenExercisesSec,
+          transitionRestSec: it.transitionRestSec, seriesType: it.seriesType,
           tempo: it.tempo, rir: it.rir, rpe: it.rpe, notes: it.notes,
           routineExerciseId: it.routineExerciseId ?? it.id,
           supersetId: it.supersetId ?? null,

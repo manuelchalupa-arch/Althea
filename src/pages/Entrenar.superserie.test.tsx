@@ -125,8 +125,7 @@ describe('Entrenar — superseries', () => {
     await expectCurrent(4, 4)
   }, 60000)
 
-  it('bloque de 4+: alterna los 4 antes de repetir y cierra con 4 consultas', async () => {
-    await startSession([
+  it('bloque de 4+: alterna los 4 antes de repetir y cierra con 4 consultas', async () => {    await startSession([
       { exId: 'a', name: 'Ej A', sets: 1, reps: 8, weight: 60, supersetId: 'ss4', supersetOrder: 0 },
       { exId: 'b', name: 'Ej B', sets: 1, reps: 8, weight: 60, supersetId: 'ss4', supersetOrder: 1 },
       { exId: 'c', name: 'Ej C', sets: 1, reps: 8, weight: 60, supersetId: 'ss4', supersetOrder: 2 },
@@ -149,5 +148,62 @@ describe('Entrenar — superseries', () => {
     }
     // Último ejercicio de la sesión: sin destino siguiente, sin error.
     await waitFor(() => expect(screen.queryByTestId('pain-prompt')).not.toBeInTheDocument(), { timeout: 10000 })
+  }, 60000)
+
+  it('3 ejercicios × 3 series: A1→B1→C1→descanso→A2→B2→C2→descanso→A3→B3→C3', async () => {
+    await startSession([
+      { exId: 'a', name: 'Curl barra', sets: 3, reps: 10, weight: 20, supersetId: 'ss3x3', supersetOrder: 0 },
+      { exId: 'b', name: 'Curl polea', sets: 3, reps: 10, weight: 15, supersetId: 'ss3x3', supersetOrder: 1 },
+      { exId: 'c', name: 'Curl mancuerna', sets: 3, reps: 10, weight: 12, supersetId: 'ss3x3', supersetOrder: 2 },
+    ])
+    render(<MemoryRouter><Entrenar /></MemoryRouter>)
+    await screen.findByLabelText('kilogramos serie 1', undefined, { timeout: 10000 })
+
+    const expectedOrder = [1, 2, 3, 1, 2, 3, 1, 2, 3]
+    for (let step = 0; step < expectedOrder.length; step++) {
+      await expectCurrent(expectedOrder[step], 3)
+      const setN = Math.floor(step / 3) + 1
+      fireEvent.click(await screen.findByLabelText(`Confirmar serie ${setN}`, undefined, { timeout: 10000 }))
+      // Al cerrar cada ronda (C1 y C2) se abre el descanso principal del bloque.
+      if (expectedOrder[step] === 3 && step < expectedOrder.length - 1) {
+        await screen.findAllByText(/DESCANSO DE BLOQUE/i, undefined, { timeout: 10000 })
+      }
+    }
+    // Bloque completo: consultas A, B y C en orden (misma lógica de cierre).
+    for (const name of ['Curl barra', 'Curl polea', 'Curl mancuerna']) {
+      await waitFor(() => expect(screen.getByText(`Terminaste ${name}`)).toBeInTheDocument(), { timeout: 10000 })
+      await answerNo()
+    }
+  }, 90000)
+
+  it('saltar un integrante avanza dentro del bloque y no lo repite en la ronda siguiente', async () => {
+    const sid = await startSession([
+      { exId: 'a', name: 'Ej A', sets: 3, reps: 8, weight: 60, supersetId: 'sss', supersetOrder: 0 },
+      { exId: 'b', name: 'Ej B', sets: 3, reps: 8, weight: 60, supersetId: 'sss', supersetOrder: 1 },
+      { exId: 'c', name: 'Ej C', sets: 3, reps: 8, weight: 60, supersetId: 'sss', supersetOrder: 2 },
+    ])
+    render(<MemoryRouter><Entrenar /></MemoryRouter>)
+    await screen.findByLabelText('kilogramos serie 1', undefined, { timeout: 10000 })
+
+    // A1 → B
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(2, 3)
+    // Se salta B: sus series pendientes quedan omitidas.
+    fireEvent.click(screen.getAllByText('Saltar')[0])
+    fireEvent.click(await screen.findByText('Confirmar salto'))
+    await expectCurrent(3, 3)
+    // C1 cierra la ronda → vuelve a A (B no tiene series pendientes).
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(1, 3)
+    // A2 salta directamente a C2: el bloque nunca vuelve a B.
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 2', undefined, { timeout: 10000 }))
+    await expectCurrent(3, 3)
+
+    const { getSessionExercises, getSetRecords } = await import('@/services/training/sessionStore')
+    const ses = await getSessionExercises(sid)
+    const b = ses.find(e => e.exerciseId === 'b')
+    const recs = await getSetRecords(b!.sessionExerciseId)
+    expect(recs.every(r => r.status === 'SKIPPED')).toBe(true)
+    expect(b?.status).toBe('SKIPPED')
   }, 60000)
 })

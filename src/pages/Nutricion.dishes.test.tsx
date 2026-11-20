@@ -35,8 +35,14 @@ const PERFIL = {
   updatedAt: new Date().toISOString(),
 } as never
 
+/** El registro de comidas está colapsado: se abre por el botón real. */
+async function abrirRegistro(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /Registrar una comida/i }))
+}
+
 /** Registra un plato por el flujo real de la pantalla: texto -> interpretar -> guardar. */
 async function registrarPlato(user: ReturnType<typeof userEvent.setup>, texto: string) {
+  await abrirRegistro(user)
   await user.type(screen.getByLabelText('Qué vas a comer'), texto)
   await user.click(screen.getByRole('button', { name: /Interpretar/i }))
   await screen.findByTestId('dish-review')
@@ -98,6 +104,7 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
   it('escribir un plato muestra el desglose antes de guardar y recién ahí lo registra', async () => {
     const user = userEvent.setup()
     renderPage()
+    await abrirRegistro(user)
     await screen.findByText('Todavía no registraste comidas hoy')
     const expected = interpretDish('fideos con boloñesa')!
 

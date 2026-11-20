@@ -168,7 +168,7 @@ export function useTrainingSession({
         plannedDayName: plannedName,
         actualDay: n,
         actualDayName: dayName,
-        exercises: list.map(x => ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl, supersetId: x.supersetId ?? null, supersetOrder: x.supersetOrder ?? null })),
+        exercises: list.map(x => ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl, restSec: x.restSec, restBetweenExercisesSec: x.restBetweenExercisesSec, transitionRestSec: x.transitionRestSec, seriesType: x.seriesType, tempo: x.tempo, rir: x.rir, rpe: x.rpe, notes: x.notes, supersetId: x.supersetId ?? null, supersetOrder: x.supersetOrder ?? null })),
         dayChangeReason: changed?.changeReason || (plannedDayN !== actualDayN ? 'Cambio de día' : undefined),
         dayChangeComment: changed?.changeComment,
         weekNumber,

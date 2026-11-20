@@ -8,7 +8,7 @@ import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye, Spa
 import BrandIcon from '@/components/brand/BrandIcon'
 import { IconDumbbell, IconFire, IconLightning, IconBody, IconTarget } from '@/components/brand/FitnessIcons'
 import { AltheaCard, AltheaBadge, AltheaButton, AltheaEmpty, AltheaLoading, StatusTag, AltheaPanel, AltheaStatRow } from '@/components/althea'
-import { generateRoutineWithAI, isRoutineAIAvailable, type GeneratedRoutine, type UserWants } from '@/services/ai/routineBuilderIA'
+import { generateRoutineWithAI, isRoutineAIAvailable, detectDaysMention, type GeneratedRoutine, type UserWants } from '@/services/ai/routineBuilderIA'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { getActiveVersion, getCanonicalMethodId, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
@@ -101,7 +101,7 @@ type RutinaDayExercise = {
   weight:number | null;
   /** Plan POR SERIE: fuente de verdad cuando existe. */
   series?: RutinaSeriesPlan[]
-  gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string; restSec?:number; restBetweenExercisesSec?:number; seriesType?:string; tempo?:string; rir?:number; rpe?:number; notes?:string; routineExerciseId?:string
+  gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string; restSec?:number; restBetweenExercisesSec?:number; transitionRestSec?:number; seriesType?:string; tempo?:string; rir?:number; rpe?:number; notes?:string; routineExerciseId?:string
   /** Superserie (aditivo): bloque y orden dentro del bloque. */
   supersetId?:string | null; supersetOrder?:number | null
   /** Músculo secundario del ejercicio simplificado (opcional). */
@@ -1017,7 +1017,20 @@ export default function RutinaPage(){
                   <input type="number" step="0.5" value={editIt.weight ?? ''} onChange={e => setExerciseWeight(dayN, idx, e.target.value)} aria-label="Peso" placeholder="—" className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface text-center min-h-[48px]" />
                 </label>
               </div>
-              {/* Plan por serie */}
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block min-w-0">
+                  <span className="block font-label-caps text-[10px] uppercase tracking-wider text-on-surface-variant mb-1">Transición en superserie (s)</span>
+                  <input type="number" min={0} max={120} step={5} value={editIt.transitionRestSec ?? 15} aria-label="Transición entre ejercicios de la superserie" onChange={e => {
+                    const v = Math.max(0, Math.min(120, Number(e.target.value) || 0))
+                    updateActive(r => {
+                      const a = [...(r.dayExercises[dayN] || [])]
+                      a[idx] = { ...a[idx], transitionRestSec: v }
+                      return { ...r, dayExercises: { ...r.dayExercises, [dayN]: a } }
+                    })
+                  }} className="w-full min-w-0 bg-surface border border-outline-variant rounded-lg p-2 font-body-md text-sm text-on-surface text-center min-h-[48px]" />
+                </label>
+                <p className="self-end font-body-sm text-[11px] text-on-surface-variant pb-2">Se usa solo al pasar de un ejercicio a otro dentro del mismo bloque; el descanso principal queda para el cierre de ronda.</p>
+              </div>
               <div className="border-t border-outline-variant/40 pt-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-label-caps text-[10px] uppercase tracking-wider text-outline">Plan por serie</span>
@@ -1636,6 +1649,11 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
                         <div className="font-body-md text-sm text-on-surface truncate">{ex.name || ex.exId}</div>
                         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle || '—'} · {ex.sets}×{ex.reps}{ex.weight > 0 ? ` · ${ex.weight}kg` : ''}</div>
                       </div>
+                      {ex.supersetId && (
+                        <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary/15 border border-secondary/40 font-label-caps text-[9px] uppercase text-secondary">
+                          SS {(ex.supersetOrder ?? 0) + 1}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1654,6 +1672,9 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
               {routine.explanation.distribution && <p className="font-body-md text-sm text-on-surface"><span className="font-medium">Distribución:</span> {routine.explanation.distribution}</p>}
               {routine.explanation.intensity && <p className="font-body-md text-sm text-on-surface"><span className="font-medium">Intensidad:</span> {routine.explanation.intensity}</p>}
               {routine.explanation.progression && <p className="font-body-md text-sm text-on-surface"><span className="font-medium">Progresión:</span> {routine.explanation.progression}</p>}
+              {routine.explanation.priorities && routine.explanation.priorities.length > 0 && (
+                <p className="font-body-md text-sm text-on-surface"><span className="font-medium">Prioridades:</span> {routine.explanation.priorities.join(', ')}</p>
+              )}
             </div>
             {routine.explanation.keyFeatures?.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
@@ -1685,6 +1706,18 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
   const [days,setDays]=useState(4)
   const [focus,setFocus]=useState('general')
   const [injury,setInjury]=useState('')
+  const [description,setDescription]=useState('')
+  const [conflict,setConflict]=useState<number|null>(null)
+
+  const submit = (daysPerWeek:number) => {
+    onGenerate({ goal, daysPerWeek, focus, injuryNote: injury, description: description.trim() })
+  }
+  // Solo se pregunta si el texto contradice lo elegido: cambia la rutina.
+  const requestGenerate = () => {
+    const mentioned = detectDaysMention(description)
+    if (mentioned && mentioned !== days) { setConflict(mentioned); return }
+    submit(days)
+  }
 
   const goals = [
     { id:'hipertrofia', label:'Hipertrofia', desc:'Más músculo y tamaño', icon:<IconDumbbell className="w-5 h-5" /> },
@@ -1745,6 +1778,11 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
                 </button>
               ))}
             </div>
+            <label className="block space-y-1 pt-1">
+              <span className="font-body-md text-sm text-on-surface font-medium">Contalo con tus palabras (opcional)</span>
+              <textarea value={description} onChange={e=>setDescription(e.target.value)} rows={4} aria-label="Describí la rutina que querés" placeholder="Ej: Quiero 4 días para ganar masa muscular. Tengo las piernas poco desarrolladas y quiero priorizarlas, también mejorar los brazos. Quiero incluir sentadillas y press de banca. No quiero burpees ni correr. Tengo experiencia intermedia y una hora por sesión." className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface resize-y min-h-[96px]"/>
+              <span className="block font-body-sm text-[11px] text-on-surface-variant">La IA interpreta objetivo, prioridades, ejercicios que querés o rechazás, equipamiento y tiempo. Si falta un dato que cambia la rutina, te preguntamos antes de generarla.</span>
+            </label>
           </div>
         )}
 
@@ -1795,19 +1833,29 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
 
         {/* Summary + actions */}
         <div className="sticky bottom-0 bg-surface/80 backdrop-blur-md border-t border-outline-variant p-4 space-y-3">
+          {conflict && (
+            <div className="rounded border border-secondary/50 bg-secondary/10 p-3 space-y-2">
+              <p className="font-body-md text-sm text-on-surface">En tu pedido indicás {conflict} días y elegiste {days}. ¿Con cuál armo la rutina?</p>
+              <div className="flex gap-2">
+                <button onClick={()=>{ setConflict(null); setDays(conflict); submit(conflict) }} className="flex-1 py-2 rounded border border-primary bg-primary/20 font-body-md text-sm text-on-surface">Usar {conflict} días</button>
+                <button onClick={()=>{ setConflict(null); submit(days) }} className="flex-1 py-2 rounded border border-outline-variant bg-surface font-body-md text-sm text-on-surface">Mantener {days}</button>
+              </div>
+            </div>
+          )}
           {step===3 && (
             <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant space-y-1">
               <div><span className="font-medium font-body-md text-sm text-on-surface">Objetivo:</span> {GOAL_MAP[goal]}</div>
               <div><span className="font-medium font-body-md text-sm text-on-surface">Días:</span> {days}/semana</div>
               <div><span className="font-medium font-body-md text-sm text-on-surface">Enfoque:</span> {focuses.find(f=>f.id===focus)?.label}</div>
               {injury && <div><span className="font-medium font-body-md text-sm text-on-surface">Lesión:</span> {injury}</div>}
+              {description.trim() && <div className="normal-case tracking-normal font-body-sm text-[11px] text-on-surface-variant"><span className="font-medium font-body-md text-sm text-on-surface">Pedido:</span> {description.trim()}</div>}
             </div>
           )}
           <div className="flex gap-2">
             {step > 0 && <button onClick={()=>setStep(step-1)} className="py-3 px-4 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Atrás</button>}
             <button onClick={onClose} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
             {canNext && <button onClick={()=>setStep(step+1)} className="flex-1 py-3 rounded bg-primary text-on-surface font-medium">Siguiente</button>}
-            {canGenerate && <button onClick={()=>onGenerate({ goal, daysPerWeek: days, focus, injuryNote: injury })} className="flex-1 py-3 rounded bg-gradient-to-r from-primary to-secondary text-on-primary font-medium flex items-center justify-center gap-1"><Sparkles size={14}/> Generar rutina</button>}
+            {canGenerate && <button onClick={requestGenerate} className="flex-1 py-3 rounded bg-gradient-to-r from-primary to-secondary text-on-primary font-medium flex items-center justify-center gap-1"><Sparkles size={14}/> Generar rutina</button>}
           </div>
         </div>
       </div>
