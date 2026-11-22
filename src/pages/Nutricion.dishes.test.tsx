@@ -10,9 +10,8 @@ import { interpretDish } from '@/services/nutrition/recipeInterpreter'
 import Nutricion from './Nutricion'
 import fuenteNutricion from './Nutricion.tsx?raw'
 
-// Reestructuración de la pantalla de Nutrición: entrada textual, círculo central,
-// tabla objetivo/consumo, CRUD de comidas, y todo el flujo funciona sin ningún
-// proveedor externo configurado.
+// Pantalla de Nutrición: la carga es directa por macro (gramos) y no hay
+// registro de comidas. Todo funciona sin proveedores externos.
 
 const renderPage = () => render(<MemoryRouter><Nutricion /></MemoryRouter>)
 
@@ -34,21 +33,6 @@ const PERFIL = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 } as never
-
-/** El registro de comidas está colapsado: se abre por el botón real. */
-async function abrirRegistro(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: /Registrar una comida/i }))
-}
-
-/** Registra un plato por el flujo real de la pantalla: texto -> interpretar -> guardar. */
-async function registrarPlato(user: ReturnType<typeof userEvent.setup>, texto: string) {
-  await abrirRegistro(user)
-  await user.type(screen.getByLabelText('Qué vas a comer'), texto)
-  await user.click(screen.getByRole('button', { name: /Interpretar/i }))
-  await screen.findByTestId('dish-review')
-  await user.click(screen.getByTestId('dish-save'))
-  await waitFor(() => expect(screen.queryByTestId('dish-review')).not.toBeInTheDocument())
-}
 
 /** número que se ve en un elemento con testid (los miles van con punto) */
 const num = (testid: string) =>
@@ -74,12 +58,15 @@ const carbPct = () => {
   return 0
 }
 
-const kcalGuardada = async () => {
-  const e = await db.nutritionDiary.toCollection().first()
-  return e!.macros.calories
+/** Escribe gramos en el input del macro y guarda al salir del campo. */
+async function cargarMacro(user: ReturnType<typeof userEvent.setup>, label: string, gramos: string) {
+  const input = await screen.findByLabelText(`${label} en gramos`)
+  await user.clear(input)
+  if (gramos !== '') { await user.type(input, gramos) }
+  await user.tab()
 }
 
-describe('Nutrición — flujo de comidas sin proveedores externos', () => {
+describe('Nutrición — carga directa de macros sin proveedores externos', () => {
   beforeEach(async () => {
     // Se vacían las tablas en vez de cerrar Dexie: la pantalla deja consultas en
     // vuelo al desmontar y cerrarla aqui las convertia en rechazos sin manejar.
@@ -101,36 +88,87 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
     expect(carbPct()).toBe(0)
   })
 
-  it('escribir un plato muestra el desglose antes de guardar y recién ahí lo registra', async () => {
+  it('carga proteínas, carbohidratos y grasas por separado en gramos', async () => {
     const user = userEvent.setup()
     renderPage()
-    await abrirRegistro(user)
-    await screen.findByText('Todavía no registraste comidas hoy')
-    const expected = interpretDish('fideos con boloñesa')!
+    await screen.findByTestId('summary-table')
 
-    await user.type(screen.getByLabelText('Qué vas a comer'), 'fideos con boloñesa')
-    await user.click(screen.getByRole('button', { name: /Interpretar/i }))
+    await cargarMacro(user, 'Proteínas', '150')
+    await waitFor(() => expect(texto('consumed-protein')).toContain('150 g'))
 
-    // revisión con ingredientes, cantidades y el descargo de estimación
-    const review = await screen.findByTestId('dish-review')
-    expect(within(review).getByText('Fideos')).toBeInTheDocument()
-    expect(within(review).getByText('Carne picada')).toBeInTheDocument()
-    expect(screen.getByText('Estimación nutricional. Podés ajustar ingredientes o cantidades.')).toBeInTheDocument()
-    expect(num('dish-total-calories')).toBe(Math.round(expected.totals.calories))
+    await cargarMacro(user, 'Carbohidratos', '200')
+    await cargarMacro(user, 'Grasas', '60')
 
-    // todavía NO está guardado
+    await waitFor(() => {
+      expect(texto('consumed-carbs')).toContain('200 g')
+      expect(texto('consumed-fat')).toContain('60 g')
+    })
+
+    // 150*4 + 200*4 + 60*9 = 1940 kcal
+    await waitFor(() => expect(num('consumed-calories')).toBe(1940))
+    expect(await db.nutritionDiary.count()).toBe(3)
+    expect(await db.nutritionDiary.get(`macro-proteins-${todayKey()}`)).toBeTruthy()
+  })
+
+  it('la carga directa no se lista como comida real', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByTestId('summary-table')
+    await cargarMacro(user, 'Proteínas', '120')
+
+    await waitFor(() => expect(texto('consumed-protein')).toContain('120 g'))
+    // Sigue sin comidas: los macros cargados no son un plato.
     expect(screen.getByText('Todavía no registraste comidas hoy')).toBeInTheDocument()
-    expect(await db.nutritionDiary.count()).toBe(0)
+    expect(screen.queryByTestId('day-meals')).not.toBeInTheDocument()
+  })
 
-    await user.click(screen.getByTestId('dish-save'))
+  it('editar gramos actualiza la misma entrada y 0 la elimina', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByTestId('summary-table')
 
-    await waitFor(() => expect(screen.queryByText('Todavía no registraste comidas hoy')).not.toBeInTheDocument())
-    const meals = await screen.findByTestId('day-meals')
-    expect(within(meals).getByText(/Fideos con boloñesa/)).toBeInTheDocument()
-    expect(num('meal-kcal')).toBe(Math.round(expected.totals.calories))
+    await cargarMacro(user, 'Carbohidratos', '180')
+    await waitFor(() => expect(texto('consumed-carbs')).toContain('180 g'))
+    const id = `macro-carbs-${todayKey()}`
+    const antes = await db.nutritionDiary.get(id)
+    expect(antes).toBeTruthy()
+
+    await cargarMacro(user, 'Carbohidratos', '250')
+    await waitFor(async () => {
+      const after = await db.nutritionDiary.get(id)
+      expect(after!.macros.carbs).toBe(250)
+    })
     expect(await db.nutritionDiary.count()).toBe(1)
-    // el compositor vuelve a limpio para la próxima comida
-    expect(screen.queryByTestId('dish-review')).not.toBeInTheDocument()
+
+    await cargarMacro(user, 'Carbohidratos', '0')
+    await waitFor(async () => expect(await db.nutritionDiary.get(id)).toBeUndefined())
+    expect(texto('consumed-carbs')).toContain('0 g')
+  })
+
+  it('eliminar una comida histórica la saca de la lista, del círculo y de Dexie', async () => {
+    const user = userEvent.setup()
+    await addDiaryEntry({
+      id: 'historica-1',
+      date: todayKey(),
+      name: 'Yogur con banana',
+      mealType: 'Desayuno',
+      servingLabel: '1 bowl',
+      amount: 250,
+      unit: 'g',
+      macros: { calories: 300, proteins: 15, carbs: 40, fats: 8 },
+      addedAt: new Date().toISOString(),
+    })
+    renderPage()
+    const meals = await screen.findByTestId('day-meals')
+    expect(screen.getByText('Yogur con banana')).toBeInTheDocument()
+    expect(carbPct()).toBeGreaterThan(0)
+
+    await user.click(within(meals).getByLabelText(/^Eliminar /))
+
+    await waitFor(() => expect(screen.getByText('Todavía no registraste comidas hoy')).toBeInTheDocument())
+    expect(await db.nutritionDiary.get('historica-1')).toBeUndefined()
+    expect(carbPct()).toBe(0)
+    expect(texto('consumed-carbs')).toContain('0 g')
   })
 
   it('funciona sin ninguna credencial externa y sin cliente de API nutricional', async () => {
@@ -146,70 +184,13 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
     expect(Object.keys(servicios).filter((p) => /codulia|nutritionApi|ninjaService|foodProvider/i.test(p))).toEqual([])
     expect(fuenteNutricion).not.toMatch(/nutricion-api-arg|codulia|x-api-key/i)
 
-    // Y aun asi, la composicion se resuelve localmente con datos reales.
+    // Y la interpretación local de alimentos sigue disponible para históricos.
     const plato = interpretDish('100 g de pechuga de pollo')
     expect(plato).not.toBeNull()
     expect(plato!.ingredients.length).toBeGreaterThan(0)
     expect(plato!.totals.proteins).toBeGreaterThan(0)
     expect(plato!.totals.calories).toBeGreaterThan(0)
-    expect(plato!.totals.fats).toBeGreaterThanOrEqual(0)
     expect(plato!.ingredients.some((i) => /pollo/i.test(i.label))).toBe(true)
-  })
-
-  it('editar una cantidad recalcula los macros y "Guardar cambios" actualiza la comida', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await screen.findByText('Todavía no registraste comidas hoy')
-    await registrarPlato(user, 'fideos con boloñesa')
-    const antes = await kcalGuardada()
-
-    const meals = await screen.findByTestId('day-meals')
-    await user.click(within(meals).getByLabelText(/^Editar /))
-
-    // el compositor vuelve precargado y en modo edición
-    await screen.findByTestId('dish-review')
-    expect(texto('dish-save')).toContain('Guardar cambios')
-    const input = screen.getByLabelText('Cantidad en gramos de Fideos') as HTMLInputElement
-    expect(input.value).toBe('180')
-
-    await user.clear(input)
-    await user.type(input, '360')
-
-    // recálculo inmediato: duplicar los fideos sube el total de la comida
-    const fideos = interpretDish('360 g de fideos')!
-    const totalEsperado = fideos.totals.calories +
-      interpretDish('fideos con boloñesa')!.totals.calories - interpretDish('180 g de fideos')!.totals.calories
-    await waitFor(() => expect(num('dish-total-calories')).toBe(Math.round(totalEsperado)))
-
-    await user.click(screen.getByTestId('dish-save'))
-    await waitFor(async () => expect(Math.round(await kcalGuardada())).toBe(Math.round(totalEsperado)))
-
-    const stored = await db.nutritionDiary.toCollection().first()
-    expect(stored!.ingredients!.find(i => i.label === 'Fideos')!.grams).toBe(360)
-    // el total guardado coincide con la suma de los ingredientes
-    const suma = stored!.ingredients!.reduce((a, i) => a + i.calories, 0)
-    expect(Math.round(suma)).toBe(Math.round(stored!.macros.calories))
-    // editar no crea una segunda comida
-    expect(await db.nutritionDiary.count()).toBe(1)
-    expect(Math.round(stored!.macros.calories)).toBeGreaterThan(Math.round(antes))
-  })
-
-  it('eliminar una comida la saca de la lista, del círculo y de Dexie', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await screen.findByText('Todavía no registraste comidas hoy')
-    await registrarPlato(user, 'yogur con banana')
-
-    const meals = await screen.findByTestId('day-meals')
-    expect(carbPct()).toBeGreaterThan(0)
-    expect(texto('consumed-carbs')).not.toContain('0 g')
-
-    await user.click(within(meals).getByLabelText(/^Eliminar /))
-
-    await waitFor(() => expect(screen.getByText('Todavía no registraste comidas hoy')).toBeInTheDocument())
-    expect(await db.nutritionDiary.count()).toBe(0)
-    expect(carbPct()).toBe(0)
-    expect(texto('consumed-carbs')).toContain('0 g')
   })
 
   it('usa los objetivos reales del perfil, no las metas de referencia', async () => {
@@ -255,18 +236,18 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
     // la comida de ayer está guardada pero no cuenta para el consumo de hoy
     expect(texto('consumed-carbs')).toContain('0 g')
     expect(carbPct()).toBe(0)
+    expect(screen.getByText('Todavía no registraste comidas hoy')).toBeInTheDocument()
   })
 
-  it('el círculo y la tabla leen los mismos totales que el registro guardado', async () => {
+  it('el círculo y la tabla leen los mismos totales que la carga directa', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByText('Todavía no registraste comidas hoy')
-    await registrarPlato(user, 'pollo con puré')
+    await screen.findByTestId('summary-table')
+    await cargarMacro(user, 'Grasas', '50')
 
-    const kcal = Math.round(await kcalGuardada())
-    expect(num('consumed-calories')).toBe(kcal)
+    await waitFor(() => expect(num('consumed-calories')).toBe(450))
     const centro = (document.querySelector('.althea-plate__kcal')?.textContent ?? '').replace(/\D/g, '')
-    expect(centro).toBe(kcal.toLocaleString('es-AR').replace(/\D/g, ''))
+    expect(centro).toBe('450')
   })
 
   it('superar el objetivo diario se avisa en la tabla sin romper el círculo', async () => {
@@ -274,16 +255,16 @@ describe('Nutrición — flujo de comidas sin proveedores externos', () => {
     const { getMacroGoals } = await import('@/services/nutrition/macroService')
     const goals = await getMacroGoals()
 
-    // Un único registro real que ya pasa el objetivo de calorías y grasas.
+    // Una carga directa que ya pasa el objetivo de grasas.
     await addDiaryEntry({
-      id: 'muy-grasa',
+      id: `macro-fats-${todayKey()}`,
       date: todayKey(),
-      name: 'Frejol con manteca',
-      mealType: 'Almuerzo',
-      servingLabel: 'plato',
-      amount: 400,
+      name: 'Carga directa · grasas',
+      mealType: 'Carga directa',
+      servingLabel: `${goals.fat + 30} g`,
+      amount: goals.fat + 30,
       unit: 'g',
-      macros: { calories: goals.calories + 100, proteins: 24, carbs: 90, fats: goals.fat + 30 },
+      macros: { calories: goals.calories + 100, proteins: 0, carbs: 0, fats: goals.fat + 30 },
       addedAt: new Date().toISOString(),
     })
 

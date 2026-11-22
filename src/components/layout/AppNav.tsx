@@ -4,6 +4,7 @@ import { NAV_ITEMS, MAS_GROUPS, type NavItem } from '@/components/brand/icons'
 import { AltheaNav, type AltheaNavEntry } from '@/components/navigation/AltheaNav'
 import { AltheaIcon, type AltheaIconName } from '@/components/brand/AltheaIconRegistry'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
+import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { accentSectionForPath } from '@/components/navigation/sections'
 
 export const MOBILE_NAV_OFFSET = 'calc(env(safe-area-inset-bottom, 0px) + 74px)'
@@ -47,6 +48,7 @@ export default function AppNav() {
     } catch { return false }
   })
   const { isVisible } = useVisibleSections()
+  const { hasActiveSession } = useActiveTrainingSession()
   const { pathname } = useLocation()
 
   // Publica el offset de la barra móvil como variable CSS para que los FAB
@@ -58,9 +60,10 @@ export default function AppNav() {
   // Desktop: estructura amplia (primarios + módulos en la barra lateral).
   const primaryItems = NAV_ITEMS.filter(i => {
     if (!isVisible(i.icon as string)) { return false }
-    // Entrenar SIEMPRE visible (antes solo con sesión activa): destino
-    // principal predecible; /entrenar redirige a Inicio si no hay sesión.
-    return ['home', 'training', 'nutrition', 'progress', 'crossfit'].includes(i.icon as string)
+    // Entrenar es un destino de sesión: solo aparece mientras hay una sesión
+    // activa. La entrada única es Inicio → Comenzar.
+    if (i.icon === 'training') { return hasActiveSession }
+    return ['home', 'nutrition', 'progress', 'crossfit'].includes(i.icon as string)
   })
   const moreItem = NAV_ITEMS.find(i => i.icon === 'more')!
   // Deduplicar por ICONO, no por ruta: '/progreso' y '/progresos' son dos

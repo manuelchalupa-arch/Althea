@@ -629,7 +629,7 @@ export default function RutinaPage(){
               <span className="font-body-md text-base text-on-surface-variant">{active.rotationDays} días de rotación</span>
             </div>
           <button onClick={()=>setSelectorOpen(!selectorOpen)} aria-expanded={selectorOpen} className="mt-1 w-full flex items-center justify-between bg-surface/60 backdrop-blur-sm border border-outline-variant rounded-xl p-3 font-body-md text-base text-on-surface min-h-[48px]">
-            <span className="font-medium">{active.name}</span>
+            <span className="font-medium text-left whitespace-normal break-words min-w-0">{active.name}</span>
             <span className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">▼</span>
           </button>
         </div>
@@ -725,9 +725,9 @@ export default function RutinaPage(){
                     updateActive(r=> ({...r, cycle: {...r.cycle, trainingDays: r.cycle.trainingDays.map(x=> x.n===d.n? {...x, name:e.target.value}:x)}}))
                   }} aria-label={`Nombre del día N°${d.n}`} className="bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]" />
                 </div>
-                <AltheaButton size="sm" className="shrink-0" onClick={()=>setPickerFor(d.n)}><Plus size={14}/> Ejercicio</AltheaButton>
-                <AltheaButton size="sm" variant="secondary" className="shrink-0" aria-label="Agregar estiramiento" title="Agregar estiramiento" onClick={()=>{ setAddingStretch(true); setPickerFor(d.n) }}><Plus size={14}/> <span className="hidden md:inline">Estiramiento</span><span className="md:hidden">E</span></AltheaButton>
-                <AltheaButton size="sm" variant="secondary" className="shrink-0" onClick={()=>setManualFor(d.n)}><Plus size={14}/> Manual</AltheaButton>
+                <AltheaButton size="sm" className="shrink-0 !px-2 !py-1 !min-h-[44px] text-[11px]" onClick={()=>setPickerFor(d.n)}><Plus size={14}/> Ejercicios</AltheaButton>
+                <AltheaButton size="sm" variant="secondary" className="shrink-0 !px-2 !py-1 !min-h-[44px] text-[11px]" aria-label="Agregar estiramiento" title="Agregar estiramiento" onClick={()=>{ setAddingStretch(true); setPickerFor(d.n) }}><Plus size={14}/> <span className="hidden md:inline">Estiramiento</span><span className="md:hidden">E</span></AltheaButton>
+                <AltheaButton size="sm" variant="secondary" className="shrink-0 !px-2 !py-1 !min-h-[44px] text-[11px]" onClick={()=>setManualFor(d.n)}><Plus size={14}/> Manual</AltheaButton>
               </div>
               <div className="flex items-center gap-2">
                 <StatusTag status="planned" />
@@ -752,7 +752,7 @@ export default function RutinaPage(){
                       <div className="flex items-start gap-1">
                         <button onPointerDown={onGripDown(d.n, idx)} onPointerMove={onGripMove} onPointerUp={onGripUp} onPointerCancel={onGripUp} aria-label={`Reordenar ${label}`} title="Arrastrar para reordenar" className="shrink-0 w-9 h-9 rounded flex items-center justify-center text-on-surface-variant touch-none cursor-grab active:cursor-grabbing hover:bg-surface-container-high"><GripVertical size={16}/></button>
                         <div className="min-w-0 flex-1 pt-1.5">
-                          <div className="font-body-md text-sm text-on-surface font-medium truncate" title={label}>{label}</div>
+                          <div className="font-body-md text-sm text-on-surface font-medium whitespace-normal break-words" title={label}>{label}</div>
                           {(isStr || it.supersetId) && (
                             <div className="flex items-center gap-1 flex-wrap mt-0.5">
                               {isStr && <span className="font-label-caps text-[9px] uppercase tracking-wider text-[var(--althea-stretch)]">Estiramiento</span>}
@@ -783,6 +783,7 @@ export default function RutinaPage(){
                         <button type="button" onClick={()=>toggleSS(d.n, idx)} aria-label={`Superserie ${label}`} aria-pressed={!!it.supersetId || !!inDraft} title="Superserie" className={`min-h-[36px] px-2.5 rounded border font-label-caps text-[10px] uppercase font-bold ${it.supersetId ? 'bg-secondary/20 border-secondary/50 text-secondary' : inDraft ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-surface-container border-outline-variant text-on-surface-variant'}`}>SS</button>
                         <button type="button" onClick={()=>moveExercise(d.n, idx, -1)} aria-label={`Subir ${label}`} title="Subir" className="w-10 h-9 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><ChevronUp size={16}/></button>
                         <button type="button" onClick={()=>moveExercise(d.n, idx, 1)} aria-label={`Bajar ${label}`} title="Bajar" className="w-10 h-9 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><ChevronDown size={16}/></button>
+                        <button type="button" onClick={()=>setViewer((ex || { id: it.exId, slug: it.exId, name: label, muscle: it.muscle || '', bodyPart: '', equipment: '', category: '', secondaryMuscles: [], instructions: [], file: '', gifUrl: it.gifUrl || '', imageDataUrl: it.imageDataUrl }) as unknown as Gym.Exercise)} aria-label={`Ver demo de ${label}`} title="Ver demo" className="ml-auto w-10 h-9 rounded border border-outline-variant bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"><Eye size={16}/></button>
                       </div>
                     </div>
                   )
@@ -1486,7 +1487,7 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
                   </div>
                   <div className="p-3 min-w-0">
                     <div className="font-body-md text-sm text-on-surface font-medium flex items-center gap-2 flex-wrap">
-                      <span className="truncate">{ex.name}</span>
+                      <span className="whitespace-normal break-words">{ex.name}</span>
                       {ex.origin==='USER_CREATED' ? <AltheaBadge variant="secondary" className="shrink-0 text-[10px]">Mío</AltheaBadge> : null}
                       {isExisting ? <AltheaBadge variant="outline" className="shrink-0 text-[10px]">En este día</AltheaBadge> : null}
                     </div>
@@ -1523,7 +1524,7 @@ function IntelligentPicker({dayN, dayName, existingIds, initialPurpose = 'conven
   )
 }
 
-function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClose:()=>void; onAdd:()=>void}){
+function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClose:()=>void; onAdd?:()=>void}){
   const [err,setErr]=useState(false)
   const [loading,setLoading]=useState(true)
   return (
@@ -1549,8 +1550,8 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
               />
             ) : (
               <div className="text-center p-6">
-                <p className="font-body-md text-sm text-on-surface">No se pudo cargar la animación.</p>
-                <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Podés continuar agregando el ejercicio a la rutina.</p>
+                <p className="font-body-md text-sm text-on-surface">Sin demo disponible</p>
+                <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Este ejercicio no tiene animación cargada.</p>
               </div>
             )}
           </div>
@@ -1562,7 +1563,7 @@ function ExerciseViewer({exercise, onClose, onAdd}:{exercise:Gym.Exercise; onClo
               </ol>
             </div>
           )}
-          <AltheaButton fullWidth size="lg" onClick={onAdd}>AGREGAR A RUTINA</AltheaButton>
+          {onAdd && <AltheaButton fullWidth size="lg" onClick={onAdd}>AGREGAR A RUTINA</AltheaButton>}
         </div>
       </div>
     </div>
@@ -1646,7 +1647,7 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
                     <div key={i} className="flex items-center gap-2 bg-surface/60 rounded-lg p-2 border border-outline-variant">
                       <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant w-5">{i+1}.</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-body-md text-sm text-on-surface truncate">{ex.name || ex.exId}</div>
+                        <div className="font-body-md text-sm text-on-surface whitespace-normal break-words">{ex.name || ex.exId}</div>
                         <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle || '—'} · {ex.sets}×{ex.reps}{ex.weight > 0 ? ` · ${ex.weight}kg` : ''}</div>
                       </div>
                       {ex.supersetId && (

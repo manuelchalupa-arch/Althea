@@ -17,7 +17,7 @@ import RestTimerOverlay from '@/components/entrenar/RestTimerOverlay'
 import ResultPanel from '@/components/entrenar/ResultPanel'
 import ExercisePainPrompt from '@/components/entrenar/ExercisePainPrompt'
 import ExerciseSeriesTable from '@/components/entrenar/ExerciseSeriesTable'
-import { ModifyModal, ViewerModal, SwapModal, SkipReasonModal, CancelModal, AbandonModal, AddExtraModal, FinishModal } from '@/components/entrenar/SessionModals'
+import { ModifyModal, ViewerModal, SwapModal, SkipReasonModal, CancelModal, AbandonModal, AddExtraModal, FinishModal, EarlyFinishModal } from '@/components/entrenar/SessionModals'
 import { MOBILE_NAV_OFFSET } from '@/components/layout/AppNav'
 import { AltheaPanel, AltheaMetric } from '@/components/althea'
 
@@ -258,6 +258,8 @@ const exercises: SessionEx[] = seList.map((se) => {
   const [safetyAlert,setSafetyAlert]=useState<{severity:'info'|'warning'|'critical'; message:string; referral?:string}|null>(null)
   // Estados para FINALIZAR ENTRENAMIENTO + máquina de estados
   const [showFinishModal,setShowFinishModal]=useState(false)
+  const [showEarlyFinish,setShowEarlyFinish]=useState(false)
+  const [earlyFinishComment,setEarlyFinishComment]=useState('')
   
   const finishingAt=useRef(0)
   const [finishSurvey,setFinishSurvey]=useState<Record<string,any>>({
@@ -1039,7 +1041,9 @@ const exercises: SessionEx[] = seList.map((se) => {
   // Guard anti doble finalización: el clic repetido (o dos confirmaciones en
   // paralelo) no re-ejecuta el guardado mientras está en vuelo.
   const finishingRef = useRef(false)
-  const confirmFinish = async () => {
+  // `opts` permite el cierre anticipado: motivo único para todos los pendientes
+  // y sin cuestionario (los valores por defecto de la encuesta son válidos).
+  const confirmFinish = async (opts?: { pendingReason?: string; pendingComment?: string; surveyComment?: string }) => {
     if(isSaving || finishingRef.current) {return}
     finishingRef.current = true
     setIsSaving(true)
@@ -1083,13 +1087,16 @@ const exercises: SessionEx[] = seList.map((se) => {
       const s = computeSummary()
       for(const i of s.pendingIdx){
         const pr = pendingReasons[i]
-        if(!pr || !pr.reason){ setFinishError(`Falta motivo para "${exs[i]?.name || 'ejercicio'}".`); setIsSaving(false); return }
+        const reason = opts?.pendingReason ?? pr?.reason
+        if(!reason){ setFinishError(`Falta motivo para "${exs[i]?.name || 'ejercicio'}".`); setIsSaving(false); return }
       }
       // pendientes declarados -> SKIPPED con motivo (conserva series hechas, §6)
       for(const i of s.pendingIdx){
         const seId = seIdByIndex[i]
         const pr = pendingReasons[i]
-        if(seId) {await store.skipSessionExercise(seId, pr.reason, pr.comment || undefined).catch(()=>null)}
+        const reason = opts?.pendingReason ?? pr?.reason
+        const comment = opts?.pendingComment ?? pr?.comment
+        if(seId && reason) {await store.skipSessionExercise(seId, reason, comment || undefined).catch(()=>null)}
       }
       const { validateSurvey } = await import('@/services/training/domain')
       const fs = finishSurvey || {}
@@ -1099,7 +1106,7 @@ const exercises: SessionEx[] = seList.map((se) => {
         pain: Number(fs.pain ?? 0),
         painZone: String(fs.painZone || ''),
         painDetail: String(fs.painDetail || ''),
-        comment: String(fs.comment || ''),
+        comment: String(opts?.surveyComment ?? fs.comment ?? ''),
       }
       const surveyErrs = validateSurvey(surveyInput)
       if(surveyErrs.length>0){ setFinishError('Encuesta incompleta: ' + surveyErrs.join(', ')); setIsSaving(false); return }
@@ -1123,7 +1130,7 @@ const exercises: SessionEx[] = seList.map((se) => {
         plannedSets: comp.plannedSets, completedSets: comp.completedSets,
         totalReps: vol.reps, totalVolume: vol.volume,
         actualMuscleGroups: Array.from(new Set(exs.map(e=> e.muscle || 'general'))),
-        generalObservation: String(fs.comment || ''),
+        generalObservation: String(opts?.surveyComment ?? fs.comment ?? ''),
         surveyId: survey.surveyId,
         dayChange: (changed?.changeReason || sess.dayChange?.reason) ? { reason: changed?.changeReason || sess.dayChange?.reason || '', comment: changed?.changeComment ?? sess.dayChange?.comment, at: new Date().toISOString() } : sess.dayChange,
       })
@@ -1179,6 +1186,19 @@ const exercises: SessionEx[] = seList.map((se) => {
       navigate('/', { replace: true })
     }catch(e: unknown){ setFinishError(e instanceof Error ? e.message : 'Error al guardar. Reintentá sin perder datos.'); setIsSaving(false) }
     finally{ finishingRef.current = false }
+  }
+
+  // Cierre anticipado: guarda lo realizado, marca lo restante como no
+  // realizado y deja la sesión PARTIAL. No muestra el cuestionario completo.
+  const confirmEarlyFinish = async () => {
+    setShowEarlyFinish(false)
+    setFinishSurvey(prev => ({ ...prev, comment: earlyFinishComment }))
+    await confirmFinish({
+      pendingReason: 'Finalización anticipada',
+      pendingComment: earlyFinishComment,
+      surveyComment: earlyFinishComment,
+    })
+    setEarlyFinishComment('')
   }
 
   const localAdoptResumeSession = async (sess: { sessionId: string }, andFinish: boolean) => {
@@ -1425,12 +1445,7 @@ const exercises: SessionEx[] = seList.map((se) => {
   if(exs.length===0) {return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 w-full mx-auto sm:px-5 xl:px-10 2xl:px-12 space-y-4">
       <p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios todavía.</p>
-      <div className="flex flex-wrap gap-2">
-        {session? <button onClick={()=>{ void openAddExtra() }} className="px-4 py-2 rounded bg-primary text-on-primary">Agregar o crear ejercicio</button> : null}
-        <button onClick={()=>{ navigate('/') }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Ir a Inicio</button>
-        <button onClick={()=>{ navigate('/rutina') }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Configurar rutina</button>
-        <button onClick={()=>{ navigate('/biblioteca') }} className="px-4 py-2 rounded bg-surface-container border border-outline-variant">Ver biblioteca</button>
-      </div>
+      {session? <button onClick={()=>{ void openAddExtra() }} className="px-4 py-2 rounded bg-primary text-on-primary">Agregar o crear ejercicio</button> : null}
       <AddExtraModal show={showAddEx} onClose={()=>setShowAddEx(false)} options={addExOptions} reason={addExReason} setReason={setAddExReason} comment={addExComment} setComment={setAddExComment} onAdd={(opt)=>{ void confirmAddExtra(opt) }} onCreate={createCustomForSession} />
     </div>
   )}
@@ -1492,6 +1507,8 @@ const exercises: SessionEx[] = seList.map((se) => {
       <CancelModal show={showCancel} onClose={()=>setShowCancel(false)} reason={cancelReason} setReason={setCancelReason} comment={cancelComment} setComment={setCancelComment} onConfirm={confirmCancel} />
 
       <AbandonModal show={showAbandon} onClose={()=>setShowAbandon(false)} reason={abandonReason} setReason={setAbandonReason} comment={abandonComment} setComment={setAbandonComment} onConfirm={confirmAbandon} />
+
+      <EarlyFinishModal show={showEarlyFinish} onClose={()=>setShowEarlyFinish(false)} comment={earlyFinishComment} setComment={setEarlyFinishComment} onConfirm={confirmEarlyFinish} isSaving={isSaving} />
 
       <AddExtraModal show={showAddEx} onClose={()=>setShowAddEx(false)} options={addExOptions} reason={addExReason} setReason={setAddExReason} comment={addExComment} setComment={setAddExComment} onAdd={confirmAddExtra} onCreate={createCustomForSession} />
       <FinishModal show={showFinishModal} onClose={()=>setShowFinishModal(false)} summary={computeSummary()} rutinaName={rutinaName} weekNumber={weekNumber} plannedDayN={plannedDayN} plannedName={plannedName} actualDayN={actualDayN} dayName={dayName} exs={exs} logs={logs} pendingReasons={pendingReasons} setPendingReasons={setPendingReasons} skipReasons={skipReasons} musclePct={musclePct} volumeAlerts={volumeAlerts} progressLines={progressLines} finishSurvey={finishSurvey} setFinishSurvey={setFinishSurvey} finishError={finishError} isSaving={isSaving} onConfirm={confirmFinish} session={session} sessionId={sessionId} setSession={setSession} setSessionStatus={setSessionStatus} />
@@ -1578,8 +1595,11 @@ const exercises: SessionEx[] = seList.map((se) => {
                 <span className="px-2 py-0.5 rounded-full bg-secondary-container/20 border border-secondary/30 font-label-caps text-[10px] text-secondary uppercase">Serie {Math.min(doneInCur, cur.sets)}/{cur.sets}</span>
                 {lastExec && lastExec.date && <span className="px-2 py-0.5 rounded-full bg-surface-container-high/50 border border-outline-variant/40 font-label-caps text-[10px] text-on-surface-variant uppercase">Última {lastExec.date}</span>}
               </div>
-              <div className="flex gap-2 pt-1">
-                {/* Móvil: sin botones secundarios (Ver/Cambiar); solo entrenar. */}
+              <div className="flex gap-2 pt-1 justify-end">
+                <button onClick={openViewer} aria-label="Ver GIF del ejercicio" className="inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded bg-surface-container border border-outline-variant text-secondary font-label-caps text-[10px] uppercase">
+                  <SemanticIcon name="visibility" size={18} className="text-[18px]" />
+                  Ver ejercicio
+                </button>
               </div>
             </div>
 
@@ -1733,7 +1753,7 @@ const exercises: SessionEx[] = seList.map((se) => {
               return (
                 <button key={origIdx} onClick={()=>{ goToExercise(origIdx) }} className="w-full min-h-[44px] text-left flex items-center justify-between gap-2 py-1.5 border-b border-outline-variant/20 last:border-0">
                   <span className="min-w-0">
-                    <span className="block text-[13px] text-on-surface truncate">SIGUIENTE · EJERCICIO {fi+2} · {ex.name}</span>
+                    <span className="block text-[13px] text-on-surface">SIGUIENTE · EJERCICIO {fi+2} · {ex.name}</span>
                     <span className="block font-label-caps text-[9px] text-outline">{ex.sets}×{ex.reps} · {ex.weight ?? 0}kg</span>
                   </span>
                   <SemanticIcon name="arrow_forward" size={18} className="text-secondary text-[18px] shrink-0" />
@@ -1750,6 +1770,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           <button aria-label="Cancelar sesión" onClick={openCancelModal} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant font-label-caps text-[10px] uppercase">Cancelar sesión</button>
           <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex-1 min-h-[44px] rounded bg-surface-container border border-outline-variant text-on-surface-variant font-label-caps text-[10px] uppercase">Abandonar</button>
         </div>
+        <button aria-label="Finalizar sesión anticipadamente" onClick={()=>{ setEarlyFinishComment(''); setShowEarlyFinish(true) }} className="w-full min-h-[44px] rounded bg-surface-container border border-secondary/40 text-secondary font-label-caps text-[10px] uppercase">Finalizar sesión anticipadamente</button>
         </>)}
 
         <div style={{ height: MOBILE_NAV_OFFSET }} aria-hidden="true"></div>
@@ -1852,6 +1873,10 @@ const exercises: SessionEx[] = seList.map((se) => {
               <button aria-label="Abandonar sesión" onClick={()=>{ setAbandonReason(''); setAbandonComment(''); setShowAbandon(true) }} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-outline-variant text-on-surface-variant hover:text-secondary hover:border-secondary/40 font-label-md text-[14px] transition-colors">
                 <SemanticIcon name="reorder" size={18} className="text-[18px]" />
                 <span className="hidden sm:inline">Abandonar</span>
+              </button>
+              <button aria-label="Finalizar sesión anticipadamente" onClick={()=>{ setEarlyFinishComment(''); setShowEarlyFinish(true) }} className="flex items-center gap-1.5 min-h-[48px] px-3 py-1.5 rounded bg-surface-container border border-secondary/40 text-secondary hover:border-secondary/60 font-label-md text-[14px] transition-colors">
+                <SemanticIcon name="check_circle" size={18} className="text-[18px]" />
+                <span className="hidden sm:inline">Finalizar anticipadamente</span>
               </button>
               {/* Finalizar: SIN duplicar en la cabecera — vive en el resumen
                   lateral (CONFIRMAR Y GUARDAR). */}

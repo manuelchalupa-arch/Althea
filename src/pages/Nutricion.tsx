@@ -11,7 +11,6 @@ import {
   migrateDiaryFromLocalStorage,
   migrateAdherenceFromLocalStorage,
   type DiaryEntry,
-  type DiaryIngredientRecord,
 } from '@/services/storage/diaryStore'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import type { CycleConfig } from '@/utils/cycle'
@@ -23,16 +22,14 @@ import { getNutritionMethod } from '@/services/ai/nutritionMethodsDB'
 import type { NutritionMethodId } from '@/services/ai/nutritionMethods'
 import type { UserProfile, BodyMeasurement } from '@/types'
 import { checkNutritionSafety, type NutritionSafetyAlert } from '@/services/ai/nutritionSafety'
-import { buildNutritionSuggestions } from '@/services/ai/nutritionEngine'
+import { buildMacroSuggestions, type MacroSuggestion } from '@/services/ai/nutritionEngine'
 import { recordAdherence, getAdherenceTrend, type AdherenceRecord } from '@/services/ai/adherenceTracker'
-import { AlertTriangle, Pencil, Trash2 } from 'lucide-react'
+import { AlertTriangle, Trash2 } from 'lucide-react'
 import { AltheaCard, AltheaBadge, AltheaProgress, AltheaButton, AltheaSection, AltheaEmpty, AltheaLoading } from '@/components/althea'
   import { HydrationBottle, HydrationQuickAdd } from '@/components/nutrition/HydrationBottle'
 import { BottleConfigEditor } from '@/components/recovery/BottleConfigEditor'
 import { MacroPlate } from '@/components/nutrition/MacroPlate'
 import { getBottleDailySummary, getCalculatedHydrationGoal, getBottleConfigs, completeBottle, addHydrationMl, type BottleConfig } from '@/services/recovery/hydrationBottles'
-import { DishComposer, type DishSavePayload } from '@/components/nutrition/DishComposer'
-import { dishFromEntry, type DishDraft } from '@/services/nutrition/recipeInterpreter'
 import { loadCustomFoods } from '@/services/storage/customFoodStore'
 import { todayKey, weekdayOfKey } from '@/utils/dates'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -42,6 +39,21 @@ type PageStatus = 'loading' | 'ready' | 'error'
 /** Metas de referencia: solo se usan si el usuario no cargó peso y altura.
  *  No son datos del usuario, la pantalla lo aclara. */
 const FALLBACK_GOALS: MacroGoals = { calories: 2200, protein: 150, carbs: 250, fat: 70 }
+
+/** Carga directa: una entrada por macro y día, id determinístico para
+ *  sobrescribirla al editar. No se lista como comida real. */
+const DIRECT_MACRO_MEAL = 'Carga directa'
+type DirectMacroKey = 'proteins' | 'carbs' | 'fats'
+const DIRECT_MACRO_KEYS: DirectMacroKey[] = ['proteins', 'carbs', 'fats']
+const directMacroId = (key: DirectMacroKey, date: string) => `macro-${key}-${date}`
+const isDirectMacroEntry = (e: DiaryEntry) => e.mealType === DIRECT_MACRO_MEAL
+const MACRO_KCAL_PER_GRAM: Record<DirectMacroKey, number> = { proteins: 4, carbs: 4, fats: 9 }
+
+const DIRECT_MACRO_FIELDS: { key: DirectMacroKey; label: string; color: string }[] = [
+  { key: 'proteins', label: 'Proteínas', color: 'var(--althea-protein)' },
+  { key: 'carbs', label: 'Carbohidratos', color: 'var(--althea-primary)' },
+  { key: 'fats', label: 'Grasas', color: 'var(--althea-fat)' },
+]
 
 export default function Nutricion() {
   const [activeDate, setActiveDate] = useState(todayKey())
@@ -53,9 +65,6 @@ export default function Nutricion() {
   const [goals, setGoals] = useState<MacroGoals>(FALLBACK_GOALS)
   const [goalsPersonalized, setGoalsPersonalized] = useState(false)
   const [todayTraining, setTodayTraining] = useState<{ name: string; exercises: string[] } | null>(null)
-  const [suggHydration, setSuggHydration] = useState<number | null>(null)
-  const [suggRecovery, setSuggRecovery] = useState<number | null>(null)
-  const [todayVolume, setTodayVolume] = useState(0)
   const [status, setStatus] = useState<PageStatus>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -66,17 +75,9 @@ export default function Nutricion() {
   const [hydrationBusy, setHydrationBusy] = useState(false)
   const [hydrationError, setHydrationError] = useState<string | null>(null)
 
-  // Flujo de comida
-  const [draft, setDraft] = useState<DishDraft | null>(null)
-  const [editing, setEditing] = useState<{ id: string; draft: DishDraft; mealLabel: string } | null>(null)
-  const [saving, setSaving] = useState(false)
-  /** cambia al guardar para que el compositor vuelva a su estado inicial */
-  const [composerVersion, setComposerVersion] = useState(0)
-
-  const [composerNotice, setComposerNotice] = useState<string | null>(null)
-  // El registro de comidas es opcional y está colapsado: el objetivo y el
-  // resumen del día van primero. Editar una comida lo abre.
-  const [composerOpen, setComposerOpen] = useState(false)
+  // Carga directa de macros (gramos): una entrada por macro y día.
+  const [macroDraft, setMacroDraft] = useState<Record<DirectMacroKey, string>>({ proteins: '', carbs: '', fats: '' })
+  const [macroNotice, setMacroNotice] = useState<string | null>(null)
 
   const isMobile = useIsMobile()
 
@@ -109,14 +110,6 @@ export default function Nutricion() {
       setPesoEvo(bodies.sort((a, b) => a.localDate.localeCompare(b.localDate)).slice(-30))
 
       await loadDay(date)
-
-      // Señales para sugerencias (solo lectura; nunca se registran como consumo)
-      const hydLogs = await db.hydrationLogs.where('localDate').equals(date).toArray().catch(() => [])
-      setSuggHydration(hydLogs.length ? hydLogs.reduce((a, b) => a + Number(b.amountMl || 0), 0) : null)
-      const rec = await db.recoveryChecks.get(date).catch(() => null)
-      setSuggRecovery(typeof rec?.score === 'number' ? rec.score : null)
-      const daySessions = await db.trainingSessions.where('calendarDate').equals(date).toArray().catch(() => [])
-      setTodayVolume(daySessions.reduce((a, s) => a + Number(s.totalVolume || 0), 0))
 
       // Objetivos: el plan calculado manda; si no existe, motor previo sin inventar valores
       const planRecord = await loadNutritionPlan().catch(() => null)
@@ -211,6 +204,8 @@ export default function Nutricion() {
 
   // --- Totales del día: solo las comidas del día local actual ---
   const dayEntries = useMemo(() => filterEntriesByDay(diaryEntries, activeDate), [diaryEntries, activeDate])
+  // Los registros de carga directa suman a los totales, pero no son comidas.
+  const mealEntries = useMemo(() => dayEntries.filter(e => !isDirectMacroEntry(e)), [dayEntries])
   const totals = useMemo<MacroTotals>(() => computeTotals(dayEntries), [dayEntries])
 
   const calPct = goals.calories > 0 ? Math.min(100, (totals.calories / goals.calories) * 100) : 0
@@ -220,75 +215,55 @@ export default function Nutricion() {
   const fatStatus = macroStatus(totals.fat, goals.fat)
   const remainingCalories = Math.max(0, goals.calories - totals.calories)
 
-  const toRecords = (ingredients: DishSavePayload['ingredients']): DiaryIngredientRecord[] =>
-    ingredients.map(i => ({
-      foodId: i.foodId,
-      label: i.label,
-      grams: i.grams,
-      calories: i.macros.calories,
-      proteins: i.macros.proteins,
-      carbs: i.macros.carbs,
-      fats: i.macros.fats,
-    }))
-
-  const saveDish = async (payload: DishSavePayload) => {
-    setSaving(true)
-    try {
-      if (editing) {
-        const prev = dayEntries.find(e => e.id === editing.id)
-        if (prev) {
-          const next: DiaryEntry = {
-            ...prev,
-            name: payload.name,
-            mealType: payload.mealLabel,
-            servingLabel: payload.ingredients.map(i => `${i.label} ${i.grams}${i.unit === 'ml' ? 'ml' : 'g'}`).join(' · '),
-            amount: payload.ingredients.reduce((a, i) => a + i.grams, 0),
-            ingredients: toRecords(payload.ingredients),
-            macros: { ...payload.totals },
-          }
-          setDiaryEntries(list => list.map(e => (e.id === next.id ? next : e)))
-          await updateDiaryEntry(next)
-        }
-        setEditing(null)
-      } else {
-        const entry: DiaryEntry = {
-          id: `meal-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          date: activeDate,
-          name: payload.name,
-          mealType: payload.mealLabel,
-          servingLabel: payload.ingredients.map(i => `${i.label} ${i.grams}${i.unit === 'ml' ? 'ml' : 'g'}`).join(' · '),
-          amount: payload.ingredients.reduce((a, i) => a + i.grams, 0),
-          unit: 'g',
-          macros: { ...payload.totals },
-          time: nowLocalTime(),
-          ingredients: toRecords(payload.ingredients),
-          addedAt: new Date().toISOString(),
-        }
-        setDiaryEntries(list => [...list, entry])
-        await addDiaryEntry(entry)
-      }
-      setDraft(null)
-      setEditing(null)
-      setComposerVersion(v => v + 1)
-    } finally {
-      setSaving(false)
+  // Refleja lo ya guardado del día en los inputs (sin pisar lo que se escribe:
+  // dayEntries solo cambia al guardar o cambiar de día).
+  useEffect(() => {
+    const next: Record<DirectMacroKey, string> = { proteins: '', carbs: '', fats: '' }
+    for (const key of DIRECT_MACRO_KEYS) {
+      const e = dayEntries.find(x => x.id === directMacroId(key, activeDate))
+      if (e) { next[key] = String(Math.round(Number(e.macros[key]) || 0)) }
     }
-  }
+    setMacroDraft(next)
+  }, [dayEntries, activeDate])
 
-  const startEdit = (entry: DiaryEntry) => {
-    const d = dishFromEntry(entry)
-    if (!d) {
-      setComposerNotice('Esta comida se guardó sin desglose de ingredientes. Buscala por nombre para editarla.')
+  const saveDirectMacro = async (key: DirectMacroKey) => {
+    const raw = macroDraft[key].trim()
+    const grams = raw === '' ? 0 : Number(raw)
+    if (!Number.isFinite(grams) || grams < 0) {
+      setMacroNotice('Ingresá gramos válidos (0 o más).')
+      setMacroDraft(prev => ({ ...prev, [key]: '' }))
       return
     }
-    setEditing({ id: entry.id, draft: d, mealLabel: entry.mealType || 'Comida' })
-    setDraft(d)
-    setComposerOpen(true)
+    setMacroNotice(null)
+    const id = directMacroId(key, activeDate)
+    const existing = dayEntries.find(e => e.id === id)
+    if (grams === 0) {
+      if (existing) { removeEntry(id) }
+      return
+    }
+    const entry: DiaryEntry = {
+      id,
+      date: activeDate,
+      name: `Carga directa · ${key === 'proteins' ? 'proteínas' : key === 'carbs' ? 'carbohidratos' : 'grasas'}`,
+      mealType: DIRECT_MACRO_MEAL,
+      servingLabel: `${grams} g`,
+      amount: grams,
+      unit: 'g',
+      time: nowLocalTime(),
+      macros: {
+        calories: grams * MACRO_KCAL_PER_GRAM[key],
+        proteins: key === 'proteins' ? grams : 0,
+        carbs: key === 'carbs' ? grams : 0,
+        fats: key === 'fats' ? grams : 0,
+      },
+      addedAt: new Date().toISOString(),
+    }
+    setDiaryEntries(list => [...list.filter(e => e.id !== id), entry])
+    await (existing ? updateDiaryEntry(entry) : addDiaryEntry(entry))
   }
 
   const removeEntry = (id: string) => {
     setDiaryEntries(prev => prev.filter(e => e.id !== id))
-    if (editing?.id === id) { setEditing(null); setDraft(null) }
     removeDiaryEntry(id)
   }
 
@@ -309,21 +284,62 @@ export default function Nutricion() {
   const imcResult = perfil?.weightKg && perfil?.heightCm ? calcIMC(perfil.weightKg, perfil.heightCm) : null
   const tmbVal = perfil?.weightKg && perfil?.heightCm ? calcTMB(perfil.weightKg, perfil.heightCm, perfil.age, perfil.sex) : null
   const tdeeVal = tmbVal ? calcTDEE(tmbVal, perfil?.activityLevel || 'moderado', perfil?.schedule?.availableDays?.length || 3) : null
-  const suggestions = buildNutritionSuggestions({
+  const macroSuggestions = buildMacroSuggestions({
     goals: goalsPersonalized ? goals : null,
-    dayTotals: { calories: totals.calories, protein: totals.protein, carbs: totals.carbs, fat: totals.fat },
-    mealsLogged: dayEntries.length,
-    trainingTodayName: todayTraining?.name ?? null,
-    todayVolumeKg: todayVolume,
-    lastRecoveryScore: suggRecovery,
-    hydrationMl: suggHydration,
-    hydrationGoalMl: perfil?.hydrationGoalMl ?? null,
+    totals: { protein: totals.protein, carbs: totals.carbs, fat: totals.fat },
     allergies: perfil?.nutritionPrefs?.allergies ?? [],
     dislikedFoods: perfil?.nutritionPrefs?.dislikedFoods ?? [],
-    methodName: activeMethod?.nameEs ?? null,
   })
 
   const dateText = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  // Compartido por móvil y escritorio (misma lógica, un solo markup).
+  const directMacroCard = (
+    <AltheaSection title="Carga directa de macros" subtitle="Gramos independientes de cada macro" icon="edit_note">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {DIRECT_MACRO_FIELDS.map(f => (
+          <label key={f.key} className="rounded-lg border border-outline-variant/40 bg-surface-container p-2.5">
+            <span className="font-label-caps text-[10px] uppercase tracking-wider block font-semibold" style={{ color: f.color }}>{f.label}</span>
+            <span className="flex items-center gap-1.5 mt-1">
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step={1}
+                value={macroDraft[f.key]}
+                onChange={e => setMacroDraft(prev => ({ ...prev, [f.key]: e.target.value }))}
+                onBlur={() => { void saveDirectMacro(f.key) }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+                placeholder="0"
+                aria-label={`${f.label} en gramos`}
+                className="w-full min-h-[44px] bg-surface-container-lowest border border-outline-variant rounded px-2 text-[15px] text-on-surface font-mono"
+              />
+              <span className="font-label-caps text-[10px] text-on-surface-variant">g</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {macroNotice && <p role="alert" className="font-body-sm text-xs text-error mt-2">{macroNotice}</p>}
+      <p className="font-body-sm text-[11px] text-on-surface-variant mt-2">Se guarda al salir del campo. 0 o vacío borra ese macro del día.</p>
+    </AltheaSection>
+  )
+
+  const macroSuggestionList = macroSuggestions === null ? (
+    <AltheaEmpty icon="info" title="Sin datos suficientes" description="Cargá peso, altura y objetivos en Perfil." />
+  ) : (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+      {macroSuggestions.map((s: MacroSuggestion) => (
+        <div key={s.key} className="rounded-lg border border-outline-variant/40 bg-surface-container p-3" style={{ borderLeft: `3px solid ${s.color}` }} data-testid={`macro-suggestion-${s.key}`}>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} aria-hidden="true" />
+            <span className="font-body-sm text-sm font-semibold text-on-surface">{s.title}</span>
+          </div>
+          <p className="text-[12px] text-on-surface-variant mt-1">{s.detail}</p>
+        </div>
+      ))}
+    </div>
+  )
+
 
   if (status === 'loading') {
     return (
@@ -448,51 +464,24 @@ export default function Nutricion() {
           </div>
         </section>
 
-        {/* Registrar comida (opcional, colapsado) */}
-        {!composerOpen && !editing ? (
-          <AltheaButton variant="secondary" fullWidth className="min-h-[48px]" icon="add" onClick={() => setComposerOpen(true)}>
-            Registrar una comida
-          </AltheaButton>
-        ) : (
-        <AltheaCard level={2} className="domain-nutrition space-y-3">
-          <div>
-            <h2 className="text-title-md text-on-surface font-semibold">{editing ? 'Editar comida' : 'Registrar una comida'}</h2>
-            <p className="font-body-sm text-[11px] text-on-surface-variant">Escribí el plato; estimamos ingredientes y macros.</p>
-          </div>
-          {composerNotice && (
-            <p role="status" className="font-label-caps text-[10px] bg-secondary/10 border border-secondary/30 rounded p-2 text-on-surface">{composerNotice}</p>
-          )}
-          <DishComposer
-            key={`${editing?.id ?? 'new'}-${composerVersion}`}
-            onSave={saveDish}
-            onCancel={() => { setDraft(null); setEditing(null) }}
-            initial={draft}
-            initialMealLabel={editing?.mealLabel}
-            isEditing={!!editing}
-            saving={saving}
-          />
-          <button onClick={() => { setComposerOpen(false); setDraft(null); setEditing(null) }} className="w-full min-h-[44px] rounded border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant">
-            Ocultar registro
-          </button>
-        </AltheaCard>
-        )}
+        {directMacroCard}
 
         {/* Comidas del día */}
         <AltheaSection
           title="Comidas del día"
           subtitle="Registros de hoy"
           icon="restaurant_menu"
-          action={<span className="font-mono text-[10px] text-on-surface-variant">{dayEntries.length} · {Math.round(totals.calories).toLocaleString('es-AR')} kcal</span>}
+          action={<span className="font-mono text-[10px] text-on-surface-variant">{mealEntries.length} · {Math.round(totals.calories).toLocaleString('es-AR')} kcal</span>}
         >
-          {dayEntries.length === 0 ? (
+          {mealEntries.length === 0 ? (
             <AltheaEmpty
               icon="lunch_dining"
               title="Sin comidas registradas"
-              description="Escribí arriba y revisá la estimación."
+              description="Cargá los macros del día arriba."
             />
           ) : (
             <div className="space-y-1.5" data-testid="day-meals">
-              {dayEntries.map(e => (
+              {mealEntries.map(e => (
                 <div key={e.id} className="rounded-lg border border-outline-variant/40 bg-surface-container px-2.5 py-2" data-testid="meal-row">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -521,13 +510,6 @@ export default function Nutricion() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => startEdit(e)}
-                        aria-label={`Editar ${e.name}`}
-                        className="w-11 h-11 rounded-lg border border-outline-variant/40 text-on-surface-variant flex items-center justify-center"
-                      >
-                        <Pencil size={15} />
-                      </button>
                       <button
                         onClick={() => removeEntry(e.id)}
                         aria-label={`Eliminar ${e.name}`}
@@ -567,24 +549,8 @@ export default function Nutricion() {
           </div>
         </AltheaCard>
 
-        <AltheaSection title="Sugerencias del día" subtitle="Solo con tus datos" icon="lightbulb">
-          {suggestions === null ? (
-            <AltheaEmpty icon="info" title="Sin datos suficientes" description="Cargá peso, altura y objetivos en Perfil." />
-          ) : suggestions.length === 0 ? (
-            <p className="font-body-sm text-sm text-on-surface-variant">Sin brechas importantes hoy.</p>
-          ) : (
-            <div className="space-y-2">
-              {suggestions.map((s, i) => (
-                <div key={i} className="rounded-lg border border-outline-variant/40 bg-surface-container p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-body-sm text-sm font-semibold text-on-surface">{s.title}</span>
-                    <span className="text-[9px] font-mono text-outline uppercase">{s.origin === 'dato' ? 'dato' : 'cálculo'}</span>
-                  </div>
-                  <p className="text-[12px] text-on-surface-variant mt-1">{s.detail}</p>
-                </div>
-              ))}
-            </div>
-          )}
+        <AltheaSection title="Sugerencias del día" subtitle="Una por macro, con tus datos" icon="lightbulb">
+          {macroSuggestionList}
         </AltheaSection>
 
         {perfil?.activeNutritionMethod && (
@@ -752,62 +718,24 @@ export default function Nutricion() {
         </div>
       </AltheaCard>
 
-      {/* 3 — ENTRADA DE COMIDA (opcional, colapsada) */}
-      {!composerOpen && !editing ? (
-        <AltheaButton variant="secondary" fullWidth className="min-h-[48px]" icon="add" onClick={() => setComposerOpen(true)}>
-          Registrar una comida
-        </AltheaButton>
-      ) : (
-      <AltheaCard level={2} className="domain-nutrition space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-title-md text-on-surface font-semibold">
-              {editing ? 'Editar comida' : 'Registrar una comida'}
-            </h2>
-            <p className="font-body-sm text-xs text-on-surface-variant">
-              Escribí el plato; estimamos ingredientes y macros.
-            </p>
-          </div>
-        </div>
-        {composerNotice && (
-          <p
-            role="status"
-            className="font-label-caps text-[10px] bg-secondary/10 border border-secondary/30 rounded p-2 text-sm text-on-surface"
-          >
-            {composerNotice}
-          </p>
-        )}
-        <DishComposer
-          key={`${editing?.id ?? 'new'}-${composerVersion}`}
-          onSave={saveDish}
-          onCancel={() => { setDraft(null); setEditing(null) }}
-          initial={draft}
-          initialMealLabel={editing?.mealLabel}
-          isEditing={!!editing}
-          saving={saving}
-        />
-        <button onClick={() => { setComposerOpen(false); setDraft(null); setEditing(null) }} className="w-full min-h-[44px] rounded border border-outline-variant/60 font-label-caps text-[10px] uppercase text-on-surface-variant">
-          Ocultar registro
-        </button>
-      </AltheaCard>
-      )}
+      {directMacroCard}
 
       {/* 4 — COMIDAS DEL DÍA */}
       <AltheaSection
         title="Comidas del día"
         subtitle="Tus registros reales de hoy"
         icon="restaurant_menu"
-        action={<span className="font-mono text-[10px] text-on-surface-variant">{dayEntries.length} · {Math.round(totals.calories).toLocaleString('es-AR')} kcal</span>}
+        action={<span className="font-mono text-[10px] text-on-surface-variant">{mealEntries.length} · {Math.round(totals.calories).toLocaleString('es-AR')} kcal</span>}
       >
-        {dayEntries.length === 0 ? (
+        {mealEntries.length === 0 ? (
           <AltheaEmpty
             icon="lunch_dining"
             title="Todavía no registraste comidas hoy"
-            description="Escribí arriba y revisá la estimación."
+            description="Cargá los macros del día arriba."
           />
         ) : (
           <div className="space-y-1.5" data-testid="day-meals">
-            {dayEntries.map(e => (
+            {mealEntries.map(e => (
               <div key={e.id} className="althea-level-2 px-3 py-2" data-testid="meal-row">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -838,13 +766,6 @@ export default function Nutricion() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => startEdit(e)}
-                      aria-label={`Editar ${e.name}`}
-                      className="w-11 h-11 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary flex items-center justify-center transition-colors"
-                    >
-                      <Pencil size={16} />
-                    </button>
                     <button
                       onClick={() => removeEntry(e.id)}
                       aria-label={`Eliminar ${e.name}`}
@@ -911,24 +832,8 @@ export default function Nutricion() {
         </section>
       </div>
 
-      <AltheaSection title="Sugerencias del día" subtitle="Basadas solo en tus datos registrados" icon="lightbulb">
-        {suggestions === null ? (
-          <AltheaEmpty icon="info" title="Sin datos suficientes" description="Cargá peso, altura y objetivos en Perfil." />
-        ) : suggestions.length === 0 ? (
-          <p className="font-body-sm text-sm text-on-surface-variant">Sin brechas importantes hoy.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-            {suggestions.map((s, i) => (
-              <div key={i} className="althea-level-1 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-body-sm text-sm font-semibold text-on-surface">{s.title}</span>
-                  <span className="text-[9px] font-mono text-outline uppercase">{s.origin === 'dato' ? 'dato' : 'cálculo'}</span>
-                </div>
-                <p className="text-[12px] text-on-surface-variant mt-1">{s.detail}</p>
-              </div>
-            ))}
-          </div>
-        )}
+      <AltheaSection title="Sugerencias del día" subtitle="Una por macro, con tus datos" icon="lightbulb">
+        {macroSuggestionList}
       </AltheaSection>
 
       {perfil?.activeNutritionMethod && (

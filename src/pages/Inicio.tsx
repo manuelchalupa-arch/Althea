@@ -13,7 +13,7 @@ import { WaterBottle } from '@/components/recovery/WaterBottle'
 import GymPaymentCard from '@/components/gym/GymPaymentCard'
 import ScienceTip from '@/components/home/ScienceTip'
 import { AltheaPanel } from '@/components/althea'
-import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage } from '@/services/storage/sessionOverrideStore'
+import { getOverrideDay, getChangedData, setOverride, removeOverride, migrateSessionOverridesFromLocalStorage, getDayNotDone, setDayNotDone } from '@/services/storage/sessionOverrideStore'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
 import { todayKey, daysBetween, parseLocalDateKey, toLocalDateKey, weekdayOfKey, addDaysToKey, toDateKey, isDateKey, weekStartKey } from '@/utils/dates'
@@ -68,9 +68,10 @@ export default function Inicio(){
   const [changeComment, setChangeComment] = useState('')
   const [overrideDay, setOverrideDay] = useState<number|null>(null)
   const [weekOffset, setWeekOffset] = useState(0)
-  const [dayStatus, setDayStatus] = useState<Record<string,{planned:boolean; dayN:number|null; dayName:string|null; sessionStatus:string|null; overridden:boolean; volume?:number; rating?:number|null}>>({})
+  const [dayStatus, setDayStatus] = useState<Record<string,{planned:boolean; dayN:number|null; dayName:string|null; sessionStatus:string|null; overridden:boolean; notDone:boolean; volume?:number; rating?:number|null}>>({})
   const [gasto, setGasto] = useState<{ hoy: ExpenditureResult; semana: ExpenditureResult } | null>(null)
   const todayCompleted = dayStatus[todayStr]?.sessionStatus === 'COMPLETED'
+  const todayNotDone = dayStatus[todayStr]?.notDone === true
   const [selectedDate] = useState<string>(todayStr)
   const [, setPreviewList] = useState<{id:string;name:string;sets:number;reps:number;weight:number|null;restSec?:number;seriesType?:string;muscle?:string}[]>([])
   const [, setPreviewName] = useState('')
@@ -111,6 +112,7 @@ export default function Inicio(){
         if(!prev || String(s.updatedAt||'') > String(prev.updatedAt||'')) {byDate[k] = s}
       }
       const overrides = await Promise.all(weekKeys.map(k => getOverrideDay(k)))
+      const notDoneFlags = await Promise.all(weekKeys.map(k => getDayNotDone(k)))
       const surveys = await db.postWorkoutSurveys.toArray().catch(()=>[]) as Array<{calendarDate?: string; sessionRating?: number}>
       const ratingByDate: Record<string, number> = {}
       for(const sv of surveys){ if(sv.calendarDate && typeof sv.sessionRating === 'number'){ ratingByDate[sv.calendarDate] = sv.sessionRating } }
@@ -128,6 +130,7 @@ export default function Inicio(){
           dayN: n, dayName: nm,
           sessionStatus: sess?.sessionStatus || null,
           overridden: overrides[i] !== null && overrides[i] !== undefined,
+          notDone: notDoneFlags[i],
           volume: sess?.totalVolume || undefined,
           rating: ratingByDate[iso] ?? null,
         }
@@ -142,7 +145,7 @@ export default function Inicio(){
   useEffect(()=>{
     let alive = true
     const load = async ()=>{
-      const { computeExpenditure, loadWeightRows } = await import('@/services/training/exerciseEnergy')
+      const { computeExpenditure, loadWeightRows, weightForDate, crossfitEnergy } = await import('@/services/training/exerciseEnergy')
       const [sessions, weightRows] = await Promise.all([
         db.trainingSessions.toArray().catch(()=>[]),
         loadWeightRows(),
@@ -154,13 +157,22 @@ export default function Inicio(){
       try {
         const { getActivityHistoryBetween } = await import('@/services/activity/activityService')
         const acts = await getActivityHistoryBetween(todayStr, todayStr)
-        const strengthActive = hoy.sesiones.reduce((a, s) => a + (Number(s.netKcal) > 0 ? s.netKcal : 0), 0)
-        const sportActive = acts.reduce((a, r) => {
+        const cfRows = await db.cfResults.where('date').equals(todayStr).toArray().catch(()=>[])
+        const weight = weightForDate(weightRows, todayStr)
+        // Deduplicación por identificador: una misma marca no se suma dos veces.
+        const seen = new Set(hoy.sesiones.map(s => s.sessionId))
+        let active = 0
+        for (const r of cfRows) {
+          if (seen.has(r.id)) { continue }
+          const e = crossfitEnergy(r, weight)
+          if (e && e.netKcal > 0) { active += e.netKcal; seen.add(r.id) }
+        }
+        for (const r of acts) {
+          if (!r?.id || seen.has(r.id)) { continue }
           const v = r.activeKcal ?? r.netKcal ?? null
-          return a + (typeof v === 'number' && v > 0 ? v : 0)
-        }, 0)
-        const total = Math.round((strengthActive + sportActive) * 10) / 10
-        if(alive){ setActivasHoy((strengthActive + sportActive) > 0 ? total : null) }
+          if (typeof v === 'number' && v > 0) { active += v; seen.add(r.id) }
+        }
+        if(alive){ setActivasHoy(active > 0 ? Math.round(active * 10) / 10 : null) }
       } catch { if(alive){ setActivasHoy(null) } }
     }
     load().catch(()=>{})
@@ -257,7 +269,7 @@ export default function Inicio(){
     }
     try{
       if(hasActiveSession){ nav('/entrenar'); return }
-      if(todayCompleted){ return }
+      if(todayCompleted || todayNotDone){ return }
       const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
       const rawList = await getAllRoutines()
       const activeId = await getActiveRoutineId()
@@ -289,6 +301,16 @@ export default function Inicio(){
       nav('/entrenar')
     }catch{ /* el usuario permanece en Inicio y puede reintentar */ }
   }
+  // Día no entrenado: se marca en calendario sin crear sesión ficticia ni
+  // calorías. Es reversible y el próximo entreno sigue siendo el siguiente día.
+  const markNotDone = async (notDone: boolean) => {
+    try {
+      await setDayNotDone(todayStr, notDone)
+      setDayStatus(prev => ({ ...prev, [todayStr]: { ...prev[todayStr], notDone } }))
+      window.dispatchEvent(new Event('routineChange'))
+    } catch { /* noop */ }
+  }
+
   const ratifyRoutine = async () => {
     try {
       const { getAllRoutines, getActiveRoutineId, saveAllRoutines } = await import('@/services/storage/routineStore')
@@ -327,7 +349,11 @@ export default function Inicio(){
     setSnoozeOpen(false)
   }
   // Próximo entreno pendiente de la semana (desde mañana en adelante).
-  const nextWorkoutKey = weekKeys.find(k => k > todayStr && dayStatus[k]?.planned && dayStatus[k]?.sessionStatus !== 'COMPLETED') ?? null
+  const nextWorkoutKey = weekKeys.find(k => k > todayStr && dayStatus[k]?.planned && !dayStatus[k]?.notDone && dayStatus[k]?.sessionStatus !== 'COMPLETED') ?? null
+  const gymKcalHoy = gasto?.hoy.totalKcal ?? null
+  const totalDiaKcal = (gymKcalHoy !== null || activasHoy !== null)
+    ? Math.round(((gymKcalHoy ?? 0) + (activasHoy ?? 0)) * 10) / 10
+    : null
 
   // ── Layout único (desktop + mobile). Los 3 elementos principales
   // (hidratación, macros, mapa muscular) van en la primera fila del grid,
@@ -360,8 +386,8 @@ export default function Inicio(){
         <AltheaPanel className="p-5 sm:p-6 space-y-4 shadow-al-sm border border-outline-variant/50 sticky top-0 z-30">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-3">
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5 ${isRest ? 'bg-secondary/15 text-secondary border border-secondary/35' : 'bg-primary/10 text-primary border border-primary/35'}`}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider flex-wrap gap-1.5 max-w-full whitespace-normal break-words text-left ${isRest ? 'bg-secondary/15 text-secondary border border-secondary/35' : 'bg-primary/10 text-primary border border-primary/35'}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${isRest ? 'bg-secondary' : 'bg-primary'}`}></span>
                   {isRest ? 'Descanso' : `Día N.º ${agenda.n} · ${agenda.name}`}
                 </span>
@@ -404,7 +430,13 @@ export default function Inicio(){
                   <span className="truncate">Sesión completada</span>
                 </span>
               )}
-              {(!isRest || hasActiveSession) && !todayCompleted && <button onClick={()=>{ startOrContinueTraining() }}
+              {todayNotDone && !todayCompleted && !hasActiveSession && (
+                <span data-testid="inicio-day-not-done" className="flex-1 lg:flex-none flex items-center justify-center gap-1.5 px-2 py-1.5 min-h-[44px] min-w-0 rounded-xl bg-surface-container border border-outline-variant/60 text-on-surface-variant font-label-caps text-[10px] sm:text-[11px] uppercase font-bold text-center">
+                  <SemanticIcon name="block" size={16} className="shrink-0" />
+                  <span>No realizado</span>
+                </span>
+              )}
+              {(!isRest || hasActiveSession) && !todayCompleted && (!todayNotDone || hasActiveSession) && <button onClick={()=>{ startOrContinueTraining() }}
                 data-testid="inicio-hero-cta"
                 aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
                 className="btn-primary flex-1 lg:flex-none justify-center min-w-0 px-2 gap-1.5 min-h-[44px]">
@@ -424,15 +456,17 @@ export default function Inicio(){
               const isToday = k === todayStr
               const isNext = k === nextWorkoutKey
               const done = st?.sessionStatus === 'COMPLETED'
+              const notDone = st?.notDone === true
               return (
-                <div key={k} className={`rounded-lg border px-1 py-1.5 text-center min-w-0 ${isToday ? 'bg-primary/15 border-primary/50' : isNext ? 'bg-secondary-container/20 border-secondary/40' : st?.planned ? 'bg-surface-container-high/30 border-outline-variant/30' : 'bg-transparent border-outline-variant/20'}`}>
+                <div key={k} className={`rounded-lg border px-1 py-1.5 text-center min-w-0 ${isToday ? 'bg-primary/15 border-primary/50' : notDone ? 'bg-surface-container border-outline-variant/30 opacity-70' : isNext ? 'bg-secondary-container/20 border-secondary/40' : st?.planned ? 'bg-surface-container-high/30 border-outline-variant/30' : 'bg-transparent border-outline-variant/20'}`}>
                   <div className={`font-label-caps text-[9px] uppercase ${isToday ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>{isToday ? 'Hoy' : ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][weekdayOfKey(k)]}</div>
                   <div className="font-body-md text-[12px] font-semibold text-on-surface">{Number(k.slice(8))}</div>
-                  <div className={`text-[9px] leading-tight truncate ${st?.planned ? 'text-on-surface' : 'text-on-surface-variant italic'}`} title={st?.planned ? (st.dayName || `Día ${st.dayN}`) : 'Descanso'}>
+                  <div className={`text-[9px] leading-tight break-words ${st?.planned ? 'text-on-surface' : 'text-on-surface-variant italic'}`} title={st?.planned ? (st.dayName || `Día ${st.dayN}`) : 'Descanso'}>
                     {st?.planned ? (st.dayName || `Día ${st.dayN}`) : 'Descanso'}
                   </div>
                   {done && <SemanticIcon name="check_circle" size={11} className="text-primary mx-auto" />}
-                  {isNext && !done && <div className="font-label-caps text-[8px] uppercase text-secondary">Próximo</div>}
+                  {notDone && !done && <div className="font-label-caps text-[8px] uppercase text-on-surface-variant">No realizado</div>}
+                  {isNext && !done && !notDone && <div className="font-label-caps text-[8px] uppercase text-secondary">Próximo</div>}
                 </div>
               )
             })}
@@ -478,14 +512,20 @@ export default function Inicio(){
               <p className="text-[12px] text-on-surface-variant">Cargando…</p>
             ) : (
               <div className="space-y-3">
-                <GastoRow label="Hoy" res={gasto.hoy} testId="inicio-gasto-hoy" />
+                <GastoRow label="Gimnasio (base)" res={gasto.hoy} testId="inicio-gasto-hoy" />
                 <GastoRow label="Semana (lun → hoy)" res={gasto.semana} testId="inicio-gasto-semana" hideEmptyNote={sinSesiones(gasto.hoy)} />
                 <div className="flex items-center justify-between py-2" data-testid="inicio-activas-hoy">
-                  <span className="text-[12px] text-on-surface-variant">Calorías activas registradas hoy</span>
+                  <span className="text-[12px] text-on-surface-variant">Activas: CrossFit + libre</span>
                   <span className="font-mono text-sm text-secondary font-semibold">
                     {activasHoy !== null ? `${Math.round(activasHoy)} kcal` : 'sin datos'}
                   </span>
                 </div>
+                {totalDiaKcal !== null && totalDiaKcal > 0 && (
+                  <div className="flex items-center justify-between border-t border-outline-variant/30 pt-2" data-testid="inicio-gasto-total">
+                    <span className="text-[12px] text-on-surface font-medium">Total del día (base + activas)</span>
+                    <span className="font-mono text-sm text-on-surface font-semibold">{Math.round(totalDiaKcal)} kcal</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -540,7 +580,7 @@ export default function Inicio(){
                     return (
                       <li key={ex.id} className="flex items-center gap-2.5 py-2.5">
                         <span className="w-5 h-5 rounded bg-surface-container border border-secondary/30 flex items-center justify-center font-headline-sm text-[11px] text-secondary shrink-0">{ROMAN[i] || i+1}</span>
-                        <p className="flex-1 min-w-0 text-on-surface font-medium text-body-sm truncate">{ex.name}</p>
+                        <p className="flex-1 min-w-0 text-on-surface font-medium text-body-sm whitespace-normal break-words">{ex.name}</p>
                         <span className="shrink-0 font-mono text-[12px] text-on-surface-variant">
                           {ex.sets}×{ex.reps || '—'}{(ex.weight ?? 0) > 0 ? ` · ${ex.weight} kg` : ''}
                         </span>
@@ -551,10 +591,20 @@ export default function Inicio(){
                     <li className="py-8 text-center text-on-surface-variant text-sm">Sin ejercicios programados. <Link to="/rutina" className="text-primary underline">Configurar rutina</Link></li>
                   )}
                 </ul>
-                <div className="pt-2">
+                <div className="pt-2 flex flex-wrap items-center gap-2">
                   <Link to="/rutina" className="min-h-[44px] inline-flex items-center gap-1.5 px-3 rounded-lg border border-outline-variant/60 bg-surface-container-high/60 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface hover:text-primary">
                     <SemanticIcon name="edit" size={14} /> Editar en Rutinas
                   </Link>
+                  {!todayNotDone && !hasActiveSession && (
+                    <button type="button" data-testid="inicio-mark-not-done" onClick={()=>markNotDone(true)} className="min-h-[44px] inline-flex items-center gap-1.5 px-3 rounded-lg border border-outline-variant/60 bg-surface-container font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant hover:text-on-surface">
+                      <SemanticIcon name="block" size={14} /> No realizado
+                    </button>
+                  )}
+                  {todayNotDone && (
+                    <button type="button" onClick={()=>markNotDone(false)} className="min-h-[44px] inline-flex items-center gap-1.5 px-3 rounded-lg border border-outline-variant/60 bg-surface-container font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant hover:text-on-surface">
+                      Deshacer No realizado
+                    </button>
+                  )}
                 </div>
               </>
             ))}

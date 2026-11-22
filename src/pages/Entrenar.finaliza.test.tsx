@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { db } from '@/services/storage/db'
@@ -87,6 +87,38 @@ describe('Entrenar — finalización', () => {
     // La sesión finalizada no queda visible como activa en Entrenar.
     const { getActiveSession } = await import('@/services/training/sessionStore')
     expect(await getActiveSession()).toBeNull()
+  }, 60000)
+
+  it('finalización anticipada: guarda lo hecho, deja el resto no realizado y la sesión PARTIAL', async () => {
+    const sid = await startSession()
+    renderEntrenar()
+    await screen.findByLabelText('Ejercicio siguiente', undefined, { timeout: 10000 })
+
+    // Solo el primer ejercicio.
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    fireEvent.click(await screen.findByLabelText('No sentí dolor', undefined, { timeout: 10000 }))
+
+    fireEvent.click(screen.getByLabelText('Más opciones de la sesión'))
+    fireEvent.click(await screen.findByLabelText('Finalizar sesión anticipadamente'))
+    const dialog = await screen.findByRole('dialog', { name: 'Finalizar sesión anticipadamente' })
+    const motivo = within(dialog).getByLabelText('Motivo del final de la sesión de entrenamiento')
+    fireEvent.change(motivo, { target: { value: 'Me sentí mal' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Finalizar sesión anticipadamente' }))
+
+    await screen.findByTestId('inicio', undefined, { timeout: 10000 })
+    const s = await db.trainingSessions.get(sid)
+    expect(s?.sessionStatus).toBe('PARTIAL')
+    expect(s?.generalObservation || '').toContain('Me sentí mal')
+
+    const { getSessionExercises, getSetRecords } = await import('@/services/training/sessionStore')
+    const ses = await getSessionExercises(sid)
+    const press = ses.find(e => e.exerciseId === 'press' || e.exerciseName === 'Press')
+    const remo = ses.find(e => e.exerciseId === 'remo' || e.exerciseName === 'Remo')
+    expect(press?.status).not.toBe('SKIPPED')
+    expect(remo?.status).toBe('SKIPPED')
+    // La serie hecha se conserva con sus datos.
+    const sets = await getSetRecords(press!.sessionExerciseId)
+    expect(sets.some(r => r.status === 'COMPLETED' && Number(r.actualWeight) === 80)).toBe(true)
   }, 60000)
 
   it('doble clic en confirmar no duplica la finalización', async () => {

@@ -44,7 +44,7 @@ export function ViewerModal({ viewer, onClose }:{ viewer:any; onClose:()=>void }
         <div className="p-4 flex justify-between"><span className="font-headline-lg text-base font-semibold text-on-surface">{viewer.name}</span><button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center"><BrandIcon name="close" size={16}/></button></div>
         <div className="p-4">
           <div className="rounded bg-surface-container-low border border-outline-variant flex items-center justify-center min-h-[300px] p-2">
-            {viewer.gifUrl ? <img src={viewer.gifUrl} alt={viewer.name} className="max-w-full max-h-[60vh] object-contain"/> : <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">Sin GIF</span>}
+            {(viewer.gifUrl || viewer.imageDataUrl) ? <img src={viewer.gifUrl || viewer.imageDataUrl} alt={viewer.name} className="max-w-full max-h-[60vh] object-contain"/> : <span className="font-label-caps text-[10px] uppercase text-on-surface-variant">Sin demo disponible</span>}
           </div>
           <div className="font-label-caps text-[10px] uppercase text-on-surface-variant mt-2">{displayMuscle(viewer.muscle)} · {displayEquipment(viewer.equipment)}</div>
           <ol className="list-decimal list-inside font-body-md text-[15px] text-on-surface mt-1">{viewer.instructions?.slice(0,4).map((s:string,i:number)=><li key={i}>{s}</li>)}</ol>
@@ -443,6 +443,41 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
           {isSaving ? 'Guardando…' : ((s.pendingIdx.length===0 && s.skippedIdx.length===0) ? 'Confirmar — COMPLETADO' : `Confirmar — PARCIAL (${s.exPct}%)`)}
         </button>
         <button onClick={async()=>{ try{ const store = await import('@/services/training/sessionStore'); const targetId = session?.sessionId || sessionId; if(targetId){ const cur = await store.getSession(targetId).catch(()=>null); if(cur && cur.sessionStatus==='COMPLETING'){ const nx = await store.transitionSession(targetId,'IN_PROGRESS'); setSession(nx); setSessionStatus('IN_PROGRESS') } } }catch{ /* noop */ } onClose() }} className="w-full py-2.5 rounded bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant/50 font-label-caps text-[10px] uppercase text-on-surface-variant">Volver al entrenamiento</button>
+      </div>
+    </div>
+  )
+}
+
+/* ── Early Finish Modal (cierre anticipado: solo motivo opcional) ── */
+export function EarlyFinishModal({ show, onClose, comment, setComment, onConfirm, isSaving }:{
+  show:boolean; onClose:()=>void; comment:string; setComment:(v:string)=>void; onConfirm:()=>void; isSaving:boolean
+}){
+  if(!show) {return null}
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" role="dialog" aria-modal="true" aria-labelledby="early-finish-title">
+      <div className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg p-4 space-y-4">
+        <h3 id="early-finish-title" className="font-headline-lg text-base font-semibold text-on-surface">Finalizar sesión anticipadamente</h3>
+        <label htmlFor="early-finish-reason" className="block font-label-caps text-[10px] uppercase text-on-surface-variant">
+          Motivo del final de la sesión de entrenamiento
+        </label>
+        <textarea
+          id="early-finish-reason"
+          value={comment}
+          onChange={(e)=>setComment(e.target.value)}
+          placeholder="Opcional"
+          rows={3}
+          maxLength={500}
+          className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"
+        />
+        <p className="font-body-sm text-[12px] text-on-surface-variant">
+          Se guardan las series realizadas. Las restantes quedan como no realizadas y la sesión queda parcial.
+        </p>
+        <button onClick={onConfirm} disabled={isSaving} className="w-full py-3 rounded bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold tracking-widest disabled:opacity-50">
+          {isSaving ? 'Guardando…' : 'Finalizar sesión anticipadamente'}
+        </button>
+        <button onClick={onClose} className="w-full py-2.5 rounded bg-surface-container border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">
+          Volver al entrenamiento
+        </button>
       </div>
     </div>
   )

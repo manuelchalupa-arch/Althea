@@ -142,6 +142,26 @@ export function estimateStrengthSession(opts: { weightKg: number; durationMinute
   })
 }
 
+/** CrossFit se registra como resultado del WOD, no como sesión de fuerza. */
+export const CROSSFIT_ACTIVITY = 'Circuito de entrenamiento'
+export const CROSSFIT_MET = 8.0
+
+/** Gasto neto de un resultado CrossFit. Sin duración real no se inventa nada. */
+export function crossfitEnergy(
+  result: { id: string; date: string; timeSec?: number },
+  weightKg?: number | null,
+): { resultId: string; date: string; durationMinutes: number; netKcal: number } | null {
+  const minutes = Number(result.timeSec) > 0 ? Number(result.timeSec) / 60 : null
+  if (!minutes || !(Number(weightKg) > 0)) { return null }
+  const r = calculateCalorieExpenditure({
+    activity: CROSSFIT_ACTIVITY,
+    met: CROSSFIT_MET,
+    weightKg: Number(weightKg),
+    durationMinutes: minutes,
+  })
+  return { resultId: result.id, date: result.date, durationMinutes: minutes, netKcal: r.netKcal }
+}
+
 /** Peso corporal vigente en `dateKey` (mediciones no demo; la más reciente ≤ fecha). */
 export function weightForDate(rows: WeightRow[], dateKey?: string): number | null {
   const valid = rows

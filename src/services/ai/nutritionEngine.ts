@@ -316,3 +316,63 @@ export function buildNutritionSuggestions(input: SuggestionInput): NutritionSugg
   }
   return out
 }
+
+// ---- Sugerencias del día: exactamente una por macro ----
+// Los colores son los mismos segmentos del MacroPlate (no una paleta nueva).
+export const MACRO_SUGGESTION_COLORS = {
+  carbs: 'var(--althea-primary)',
+  protein: 'var(--althea-protein)',
+  fat: 'var(--althea-fat)',
+} as const
+
+export interface MacroSuggestion {
+  key: 'protein' | 'carbs' | 'fat'
+  title: string
+  detail: string
+  color: string
+}
+
+export function buildMacroSuggestions(input: {
+  goals: { protein: number; carbs: number; fat: number } | null
+  totals: { protein: number; carbs: number; fat: number }
+  allergies?: string[]
+  dislikedFoods?: string[]
+}): MacroSuggestion[] | null {
+  const { goals, totals } = input
+  if (!goals) { return null }
+
+  const gap = (goal: number, got: number) => Math.max(0, Math.round(goal - got))
+  const proteinGap = gap(goals.protein, totals.protein)
+  const carbsGap = gap(goals.carbs, totals.carbs)
+  const fatGap = gap(goals.fat, totals.fat)
+  const options = PROTEIN_FOODS
+    .filter(f => passesRestrictions(f, input.allergies ?? [], input.dislikedFoods ?? []))
+    .slice(0, 2)
+
+  return [
+    {
+      key: 'protein',
+      title: 'Proteínas',
+      detail: proteinGap > 5
+        ? `Faltan ${proteinGap} g. Sumá ${options.length > 0 ? options.join(' o ') : 'huevos, pollo o legumbres'}.`
+        : 'Objetivo proteico cubierto; mantené porciones similares.',
+      color: MACRO_SUGGESTION_COLORS.protein,
+    },
+    {
+      key: 'carbs',
+      title: 'Carbohidratos',
+      detail: carbsGap > 8
+        ? `Faltan ${carbsGap} g. Elegí arroz, avena, papa o fruta.`
+        : 'Carbohidratos en rango; reservá la próxima porción para después de entrenar.',
+      color: MACRO_SUGGESTION_COLORS.carbs,
+    },
+    {
+      key: 'fat',
+      title: 'Grasas',
+      detail: fatGap > 5
+        ? `Faltan ${fatGap} g. Sumá palta, frutos secos o aceite de oliva.`
+        : 'Grasas en rango; evitá sumar más frituras hoy.',
+      color: MACRO_SUGGESTION_COLORS.fat,
+    },
+  ]
+}

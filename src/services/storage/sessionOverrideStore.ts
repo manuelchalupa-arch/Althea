@@ -3,9 +3,11 @@ import type { Table } from 'dexie'
 
 export interface SessionOverrideData {
   date: string
-  overrideDay: number
+  overrideDay: number | null
   changed: Record<string, any> | null
   observation: Record<string, any> | null
+  /** Día planificado marcado como No realizado. Aditivo: no cambia el esquema. */
+  notDone?: boolean | null
 }
 
 function table(): Table<SessionOverrideData, string> {
@@ -34,10 +36,28 @@ export async function hasOverride(date: string): Promise<boolean> {
   return row !== null && row !== undefined
 }
 
+/** Día marcado como No realizado (sin sesión ficticia). */
+export async function getDayNotDone(date: string): Promise<boolean> {
+  const row = await table().get(date)
+  return row?.notDone === true
+}
+
 // ─── Write ───
 
 export async function setOverride(date: string, dayN: number, changed: Record<string, any> | null, observation: Record<string, any> | null): Promise<void> {
-  await table().put({ date, overrideDay: dayN, changed, observation })
+  // Cambiar de día cancela el "No realizado": la fecha vuelve a estar operativa.
+  await table().put({ date, overrideDay: dayN, changed, observation, notDone: null })
+}
+
+export async function setDayNotDone(date: string, notDone: boolean): Promise<void> {
+  const row = await table().get(date)
+  await table().put({
+    date,
+    overrideDay: row?.overrideDay ?? null,
+    changed: row?.changed ?? null,
+    observation: row?.observation ?? null,
+    notDone,
+  })
 }
 
 export async function removeOverride(date: string): Promise<void> {

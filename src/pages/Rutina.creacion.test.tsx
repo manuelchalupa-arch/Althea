@@ -89,7 +89,7 @@ describe('Rutina — modalidades asistida / simplificada', () => {
     render(<MemoryRouter><Rutina /></MemoryRouter>)
     await createRoutine('asistida', 'Rutina asistida test')
     // Botón "Ejercicio" del día N°1 (Pecho + tríceps) → IntelligentPicker.
-    const ejBtns = await screen.findAllByRole('button', { name: /Ejercicio$/ })
+    const ejBtns = await screen.findAllByRole('button', { name: /Ejercicios$/ })
     fireEvent.click(ejBtns[0])
     const badge = await screen.findByText('Rutina asistida', undefined, { timeout: 10000 })
     expect(badge).toBeInTheDocument()

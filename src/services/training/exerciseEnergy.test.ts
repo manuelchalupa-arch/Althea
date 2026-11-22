@@ -3,6 +3,7 @@ import {
   EXERCISE_MET, EXERCISE_ACTIVITY,
   sessionDurationMinutes, sessionEnergy, energyInsufficientReason,
   estimateStrengthSession, weightForDate, computeExpenditure,
+  crossfitEnergy, CROSSFIT_ACTIVITY, CROSSFIT_MET,
   type EnergySession, type WeightRow,
 } from './exerciseEnergy'
 import { calculateCalorieExpenditure } from '@/services/ai/metExpenditure'
@@ -101,6 +102,24 @@ describe('exerciseEnergy — peso corporal', () => {
     expect(weightForDate(rows, '2025-12-31')).toBeNull()
     expect(weightForDate([], '2026-09-28')).toBeNull()
     expect(weightForDate([{ localDate: '2026-09-28', isDemo: true, weightKg: 70 }], '2026-09-28')).toBeNull()
+  })
+})
+
+describe('exerciseEnergy — CrossFit', () => {
+  it('estima solo con duración real y peso, usando MET 8.0', () => {
+    const got = crossfitEnergy({ id: 'cf1', date: '2026-09-28', timeSec: 600 }, 75)!
+    expect(got.resultId).toBe('cf1')
+    expect(got.durationMinutes).toBe(10)
+    const expected = calculateCalorieExpenditure({ activity: CROSSFIT_ACTIVITY, met: CROSSFIT_MET, weightKg: 75, durationMinutes: 10 })
+    expect(got.netKcal).toBe(expected.netKcal)
+    expect(CROSSFIT_MET).toBe(8.0)
+  })
+
+  it('sin tiempo ni peso no inventa gasto', () => {
+    expect(crossfitEnergy({ id: 'cf1', date: '2026-09-28' }, 75)).toBeNull()
+    expect(crossfitEnergy({ id: 'cf1', date: '2026-09-28', timeSec: 0 }, 75)).toBeNull()
+    expect(crossfitEnergy({ id: 'cf1', date: '2026-09-28', timeSec: 600 }, null)).toBeNull()
+    expect(crossfitEnergy({ id: 'cf1', date: '2026-09-28', timeSec: 600 }, 0)).toBeNull()
   })
 })
 
