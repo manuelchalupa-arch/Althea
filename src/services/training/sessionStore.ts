@@ -36,6 +36,12 @@ export function isActiveSessionStatus(status?: SessionStatus | null): boolean {
   return !!status && ACTIVE_STATES.includes(status);
 }
 
+/** Una sesión READY con 0 ejercicios no es un entrenamiento iniciado. */
+export function isUsableActiveSession(s: TrainingSession): boolean {
+  if (!isActiveSessionStatus(s.sessionStatus)) {return false;}
+  return !(s.sessionStatus === 'READY' && s.plannedExerciseCount === 0);
+}
+
 // Evento global para que la UI (AppNav, Inicio, Mas) reaccione a cambios de
 // sesión sin re-leer Dexie en cada render.
 export const SESSION_CHANGED_EVENT = 'althea:session-changed';
@@ -55,6 +61,7 @@ export async function getActiveSession(): Promise<TrainingSession | null> {
   const s = await getSession(id);
   if (!s) { setActiveSessionId(null); return await findOrphanActiveSession(); }
   if (FINAL_STATES.includes(s.sessionStatus)) { setActiveSessionId(null); return null; }
+  if (!isUsableActiveSession(s)) { setActiveSessionId(null); return null; }
   // Sesión de otro día (p. ej. empezada ayer y sin terminar): se devuelve
   // igual. Entrenar la muestra con el banner de reanudar (continuar /
   // finalizar / abandonar); cerrarla es decisión del usuario, no automática.
@@ -70,7 +77,7 @@ async function findOrphanActiveSession(): Promise<TrainingSession | null> {
   try {
     const all = await db.trainingSessions.toArray().catch(() => []);
     const orphan = (all as TrainingSession[])
-      .filter((s) => isActiveSessionStatus(s.sessionStatus))
+      .filter((s) => isUsableActiveSession(s))
       .sort((a, b) => String(b.updatedAt ?? b.createdAt ?? '').localeCompare(String(a.updatedAt ?? a.createdAt ?? '')))[0] ?? null;
     if (!orphan) { return null; }
     setActiveSessionId(orphan.sessionId);

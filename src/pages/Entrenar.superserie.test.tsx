@@ -206,4 +206,95 @@ describe('Entrenar — superseries', () => {
     expect(recs.every(r => r.status === 'SKIPPED')).toBe(true)
     expect(b?.status).toBe('SKIPPED')
   }, 60000)
+
+  it('series desiguales (A3/B2/C1): completa pendientes en orden y el panel refleja el estado real', async () => {
+    const sid = await startSession([
+      { exId: 'a', name: 'Ej A', sets: 3, reps: 8, weight: 60, supersetId: 'ss-u', supersetOrder: 0 },
+      { exId: 'b', name: 'Ej B', sets: 2, reps: 8, weight: 60, supersetId: 'ss-u', supersetOrder: 1 },
+      { exId: 'c', name: 'Ej C', sets: 1, reps: 8, weight: 60, supersetId: 'ss-u', supersetOrder: 2 },
+    ])
+    render(<MemoryRouter><Entrenar /></MemoryRouter>)
+    await screen.findByLabelText('kilogramos serie 1', undefined, { timeout: 10000 })
+
+    // Panel con datos reales: grupo, actual, serie y próximo.
+    expect(screen.getByTestId('superset-panel')).toBeInTheDocument()
+    expect(screen.getByText(/SUPERSERIE 1 · GRUPO A/)).toBeInTheDocument()
+    expect(screen.getByTestId('superset-current').textContent).toContain('Ahora: A1 Ej A — serie 1 de 3')
+    expect(screen.getByTestId('superset-next').textContent).toContain('Siguiente: B1')
+    expect(screen.getByTestId('superset-round').textContent).toBe('Ronda 1 de 3')
+
+    // A1 → B1 → C1 → A2 → B2 → A3 (C no tiene segunda serie: no se espera).
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(2, 3)
+    expect(screen.getByTestId('superset-current').textContent).toContain('Ahora: B1 Ej B — serie 1 de 2')
+    expect(screen.getByTestId('superset-next').textContent).toContain('Siguiente: C1')
+
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(3, 3)
+    expect(screen.getByTestId('superset-next').textContent).toContain('Siguiente: A2')
+
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(1, 3)
+    expect(screen.getByTestId('superset-round').textContent).toBe('Ronda 2 de 3')
+    expect(screen.getByTestId('superset-next').textContent).toContain('Siguiente: B2')
+
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 2', undefined, { timeout: 10000 }))
+    await expectCurrent(2, 3)
+    expect(screen.getByTestId('superset-next').textContent).toContain('Siguiente: A3')
+
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 2', undefined, { timeout: 10000 }))
+    await expectCurrent(1, 3)
+    expect(screen.getByTestId('superset-round').textContent).toBe('Ronda 3 de 3')
+    expect(screen.getByTestId('superset-current').textContent).toContain('Ahora: A3 Ej A — serie 3 de 3')
+
+    // A3 cierra el bloque: consultas A → B → C.
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 3', undefined, { timeout: 10000 }))
+    for (const name of ['Ej A', 'Ej B', 'Ej C']) {
+      await waitFor(() => expect(screen.getByText(`Terminaste ${name}`)).toBeInTheDocument(), { timeout: 10000 })
+      await answerNo()
+    }
+
+    // Cada serie quedó registrada en su ejercicio, sin omitir ni repetir.
+    const records = await db.setRecords.toArray()
+    const completed = (id: string) => records.filter(r => r.exerciseId === id && r.status === 'COMPLETED').length
+    expect(completed('a')).toBe(3)
+    expect(completed('b')).toBe(2)
+    expect(completed('c')).toBe(1)
+    expect(sid).toBeTruthy()
+  }, 90000)
+
+  it('recarga en medio de la superserie: continúa en el punto correcto y no repite series', async () => {
+    const sid = await startSession([
+      { exId: 'a', name: 'Ej A', sets: 2, reps: 8, weight: 60, supersetId: 'ss-r', supersetOrder: 0 },
+      { exId: 'b', name: 'Ej B', sets: 2, reps: 8, weight: 60, supersetId: 'ss-r', supersetOrder: 1 },
+      { exId: 'c', name: 'Ej C', sets: 1, reps: 8, weight: 60 },
+    ])
+    const first = render(<MemoryRouter><Entrenar /></MemoryRouter>)
+    await screen.findByLabelText('kilogramos serie 1', undefined, { timeout: 10000 })
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(2, 3)
+    // La posición quedó persistida (A1 hecho → el punto es B).
+    await waitFor(async () => {
+      const s = (await db.trainingSessions.get(sid)) as never as { currentExerciseIndex?: number } | undefined
+      expect(s?.currentExerciseIndex).toBe(1)
+    }, { timeout: 10000 })
+    first.unmount()
+
+    render(<MemoryRouter><Entrenar /></MemoryRouter>)
+    await screen.findByLabelText('kilogramos serie 1', undefined, { timeout: 10000 })
+    await expectCurrent(2, 3)
+    expect(screen.getByTestId('superset-current').textContent).toContain('Ahora: B1 Ej B — serie 1 de 2')
+    expect(screen.getByTestId('superset-next').textContent).toContain('Siguiente: A2')
+
+    // B1 → vuelve a A por la serie 2 (A1 no se repite).
+    fireEvent.click(await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 }))
+    await expectCurrent(1, 3)
+    expect(screen.getByTestId('superset-current').textContent).toContain('Ahora: A2 Ej A — serie 2 de 2')
+    expect(screen.queryByLabelText('Confirmar serie 1')).not.toBeInTheDocument()
+
+    const records = await db.setRecords.toArray()
+    const aRecords = records.filter(r => r.exerciseId === 'a')
+    expect(aRecords).toHaveLength(2) // 1 hecha + 1 pendiente: nada duplicado
+    expect(aRecords.filter(r => r.status === 'COMPLETED')).toHaveLength(1)
+  }, 90000)
 })

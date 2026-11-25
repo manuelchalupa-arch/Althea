@@ -21,6 +21,9 @@ import type { ExpenditureResult } from '@/services/training/exerciseEnergy'
 
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X']
 
+/** Día de la rutina ACTIVA con sus ejercicios reales (selector de Inicio). */
+type PlanDay = { n: number; name: string; exercises: { name: string; sets: number; reps: number }[] }
+
 /** Fila del gasto calórico: valor real o estado honesto, nunca números inventados. */
 function sinSesiones(r: ExpenditureResult | null | undefined): boolean {
   return !!r && r.totalKcal === null && r.motivo === 'SIN_SESIONES'
@@ -51,7 +54,7 @@ function GastoRow({ label, res, testId, hideEmptyNote = false }: { label: string
 
 export default function Inicio(){
   const nav = useNavigate()
-  const { hasActiveSession } = useActiveTrainingSession()
+  const { hasActiveSession, session: activeSession } = useActiveTrainingSession()
   const { isVisible } = useVisibleSections()
   const todayStr = todayKey()
   const { dayName, dayNum, month } = formatAgendaDate(todayStr)
@@ -67,6 +70,8 @@ export default function Inicio(){
   const [changeReason, setChangeReason] = useState('Cambio de horarios')
   const [changeComment, setChangeComment] = useState('')
   const [overrideDay, setOverrideDay] = useState<number|null>(null)
+  const [planDays, setPlanDays] = useState<PlanDay[]>([])
+  const [agendaReady, setAgendaReady] = useState(false)
   const [weekOffset, setWeekOffset] = useState(0)
   const [dayStatus, setDayStatus] = useState<Record<string,{planned:boolean; dayN:number|null; dayName:string|null; sessionStatus:string|null; overridden:boolean; notDone:boolean; volume?:number; rating?:number|null}>>({})
   const [gasto, setGasto] = useState<{ hoy: ExpenditureResult; semana: ExpenditureResult } | null>(null)
@@ -82,6 +87,7 @@ export default function Inicio(){
   // respondan (unmount del test, navegación rápida), el setState tardío
   // revienta con "window is not defined" (unhandled rejection en CI).
   const mountedRef = useRef(true)
+  const startingRef = useRef(false)
   useEffect(() => {
     mountedRef.current = true
     return () => { mountedRef.current = false }
@@ -92,6 +98,38 @@ export default function Inicio(){
     const list = await getDayExercises(dayN, cycleToUse)
     if (!mountedRef.current) { return }
     setExNames(list.map(x=> ({id:x.exId, name:x.name, sets:x.sets, reps:x.reps, weight:x.weight, restSec:x.restSec, rpe:x.rpe, muscle:x.muscle})))
+  }
+
+  // Días de la rutina asignada (no del ciclo canónico si no coinciden): el
+  // selector debe mostrar lo que realmente se va a entrenar y con qué ejercicios.
+  const loadPlan = async (cycleToUse:CycleConfig)=>{
+    const [{ getAllRoutines, getActiveRoutineId }, { getDayExercises }] = await Promise.all([
+      import('@/services/storage/routineStore'),
+      import('@/utils/routine'),
+    ])
+    const list = await getAllRoutines()
+    const activeId = await getActiveRoutineId()
+    const active = list.find(r=>r.id===activeId) || list[0]
+    const routineDays = Object.entries(active?.dayExercises || {})
+      .filter(([, arr]) => Array.isArray(arr) && arr.length > 0)
+      .map(([k]) => Number(k))
+      .sort((a,b)=>a-b)
+    const source = routineDays.length ? routineDays : cycleToUse.trainingDays.map(d=>d.n)
+    const out: PlanDay[] = []
+    for(const n of source){
+      // getDayExercises decide la fuente real: rutina asignada si tiene el día,
+      // plan legacy solo cuando no hay rutina; días sin ejercicios quedan en [].
+      const exercises = await getDayExercises(n, cycleToUse)
+      out.push({
+        n,
+        name: cycleToUse.trainingDays.find(d=>d.n===n)?.name
+          || active?.cycle?.trainingDays?.find(d=>d.n===n)?.name
+          || `Día N°${n}`,
+        exercises: exercises.map(e=>({ name:e.name, sets:e.sets, reps:e.reps })),
+      })
+    }
+    if (!mountedRef.current) { return }
+    setPlanDays(out)
   }
 
   const weekKeys = useMemo(()=>{
@@ -193,20 +231,28 @@ export default function Inicio(){
   useEffect(()=>{
     ensureSeeded().catch(()=>{})
     migrateSessionOverridesFromLocalStorage().catch(()=>{})
-    db.userProfile.get('me').then(async p=>{
+    const sync = async ()=>{
+      const p = await db.userProfile.get('me')
       const c = await getCanonicalCycle(p!)
       if (!mountedRef.current) { return }
       setCycle(c)
       const override = await getOverrideDay(todayStr)
       const n = override !== null && override !== undefined ? override : getTrainingDayForDate(todayStr, c).n
       setOverrideDay(override)
-      loadDay(c, n)
+      await Promise.all([loadDay(c, n), loadPlan(c)])
+      if(mountedRef.current) { setAgendaReady(true) }
       if(c.methodId){
         const m = getMethod(c.methodId as TrainingMethodId)
         if(m) {setActiveMethodName(m.nameEs)}
       }
-    }).catch(()=>{})
+    }
+    sync().catch(()=>{})
+    // Cambiar la rutina asignada (Rutina → setActive) refresca esta pantalla
+    // aunque Inicio siga montado: días, nombres y ejercicios salen de la rutina
+    // activa, no de una copia del ciclo canónico.
+    window.addEventListener('routineChange', sync)
     db.userProfile.get('me').then((p: any)=>{ const n = p?.displayName || p?.name; if(n && mountedRef.current) {setUserName(n)} }).catch(()=>{})
+    return ()=>{ window.removeEventListener('routineChange', sync) }
   },[todayStr])
 
   useEffect(()=>{
@@ -255,12 +301,27 @@ export default function Inicio(){
     }
   },[])
 
+  const dayLabel = (n:number) => cycle.trainingDays.find(d=>d.n===n)?.name
+    || planDays.find(d=>d.n===n)?.name
+    || `Día N°${n}`
   const rawAgenda = getTrainingDayForDate(todayStr, cycle)
   const effectiveN = overrideDay ?? rawAgenda.n
-  const effectiveInfo = effectiveN ? { n: effectiveN, name: cycle.trainingDays.find(d=>d.n===effectiveN)?.name || rawAgenda.name, isRest: false } : rawAgenda
+  const effectiveInfo = effectiveN ? { n: effectiveN, name: dayLabel(effectiveN), isRest: false } : rawAgenda
   const agenda = effectiveInfo
   const isRest = !effectiveN ? true : (overrideDay ? false : rawAgenda.isRest)
   const isOverridden = overrideDay !== null && overrideDay !== rawAgenda.n
+  // Días que ofrece el selector: los de la rutina asignada con ejercicios
+  // reales; si la rutina todavía no tiene, cae a los días del ciclo.
+  const selectorDays: PlanDay[] = planDays.length
+    ? planDays
+    : cycle.trainingDays.map(d=>({ n:d.n, name:d.name, exercises:[] }))
+
+  // Un READY de otro día (o de otra fecha) no tiene trabajo hecho: al presionar
+  // Comenzar se reemplaza por el día seleccionado. Un IN_PROGRESS/PAUSED sí se
+  // conserva y se continúa para no perder registros.
+  const canContinueSession = (s: {sessionStatus:string; calendarDate:string; actualDay:number|null}, n:number|null) =>
+    s.sessionStatus !== 'READY' || (s.calendarDate === todayStr && s.actualDay === n)
+  const isContinuable = agendaReady && !!activeSession && canContinueSession(activeSession, effectiveN)
 
   const startOrContinueTraining = async ()=>{
     if (routineBlocked && routineReview) {
@@ -268,16 +329,31 @@ export default function Inicio(){
       return
     }
     try{
-      if(hasActiveSession){ nav('/entrenar'); return }
+      if(startingRef.current){ return }
+      startingRef.current = true
+      // Se relee la sesión activa y el día elegido: el estado de React puede no
+      // haber cargado todavía y no debe decidir qué día se entrena.
+      const { getActiveSession, transitionSession, clearActiveSession, createReadySession } = await import('@/services/training/sessionStore')
+      const existing = await getActiveSession()
+      const override = await getOverrideDay(todayStr)
+      const n = override ?? rawAgenda.n
+      if(existing && canContinueSession(existing, n)){ nav('/entrenar'); return }
       if(todayCompleted || todayNotDone){ return }
       const { getAllRoutines, getActiveRoutineId } = await import('@/services/storage/routineStore')
       const rawList = await getAllRoutines()
       const activeId = await getActiveRoutineId()
       const active:any = rawList?.find((r:any)=>r.id===activeId) || rawList?.[0]
-      const n = effectiveN
       const { getDayExercises } = await import('@/utils/routine')
       const list = await getDayExercises(n, cycle)
-      const { createReadySession } = await import('@/services/training/sessionStore')
+      // Un día sin ejercicios no abre una sesión vacía ni muestra Entrenar.
+      if(!list.length){ return }
+      // READY de otro día/fecha: no hay series hechas, se descarta y se crea
+      // la del día elegido. (IN_PROGRESS/PAUSED ya salieron por el return de arriba.)
+      if(existing){
+        await transitionSession(existing.sessionId, 'CANCELLED', { reason: 'Cambio de día antes de comenzar' })
+        await clearActiveSession()
+      }
+      const dayName = n !== null ? dayLabel(n) : rawAgenda.name
       const changed = await getChangedData(todayStr)
       const weekNumber = (()=>{ try{
         const start = (cycle as CycleConfig).startDate || todayStr
@@ -290,16 +366,17 @@ export default function Inicio(){
         plannedDay: rawAgenda.n ?? null,
         plannedDayName: rawAgenda.name ?? null,
         actualDay: n ?? null,
-        actualDayName: agenda.name ?? null,
+        actualDayName: dayName ?? null,
         exercises: list.map((x:any)=> ({ exId: x.exId || x.id, name: x.name, sets: x.sets, reps: x.reps, weight: x.weight, muscle: x.muscle, gifUrl: x.gifUrl, imageDataUrl: x.imageDataUrl, routineExerciseId: x.routineExerciseId, restSec: x.restSec, restBetweenExercisesSec: x.restBetweenExercisesSec, transitionRestSec: x.transitionRestSec, seriesType: x.seriesType, tempo: x.tempo, rir: x.rir, rpe: x.rpe, notes: x.notes, supersetId: x.supersetId ?? null, supersetOrder: x.supersetOrder ?? null, plannedSets: x.series?.length ? x.series.map((s:any, k:number)=>({ order: k+1, reps: s.reps, weight: s.weight ?? null })) : undefined })),
         plannedMuscleGroups: [...new Set(list.map((x:any)=> x.muscle).filter((m:any): m is string => typeof m === 'string' && m.length > 0))],
-        dayChangeReason: changed?.changeReason || (isOverridden ? 'Cambio de día desde Inicio' : undefined),
+        dayChangeReason: changed?.changeReason || (override !== null && override !== rawAgenda.n ? 'Cambio de día desde Inicio' : undefined),
         dayChangeComment: changed?.changeComment,
         weekNumber,
       })
       window.dispatchEvent(new Event('routineChange'))
       nav('/entrenar')
     }catch{ /* el usuario permanece en Inicio y puede reintentar */ }
+    finally{ startingRef.current = false }
   }
   // Día no entrenado: se marca en calendario sin crear sesión ficticia ni
   // calorías. Es reversible y el próximo entreno sigue siendo el siguiente día.
@@ -436,12 +513,12 @@ export default function Inicio(){
                   <span>No realizado</span>
                 </span>
               )}
-              {(!isRest || hasActiveSession) && !todayCompleted && (!todayNotDone || hasActiveSession) && <button onClick={()=>{ startOrContinueTraining() }}
+              {(!isRest || hasActiveSession) && !todayCompleted && (!todayNotDone || hasActiveSession) && (isContinuable || exNames.length > 0) && <button onClick={()=>{ startOrContinueTraining() }}
                 data-testid="inicio-hero-cta"
-                aria-label={hasActiveSession ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
+                aria-label={isContinuable ? 'Continuar entrenamiento' : 'Comenzar entrenamiento'}
                 className="btn-primary flex-1 lg:flex-none justify-center min-w-0 px-2 gap-1.5 min-h-[44px]">
               <SemanticIcon name="electric_bolt" size={17} className="shrink-0" />
-              <span className="tracking-wide uppercase font-semibold text-[11px] sm:text-[12px] truncate">{hasActiveSession ? 'Continuar' : 'Comenzar'}</span>
+              <span className="tracking-wide uppercase font-semibold text-[11px] sm:text-[12px] truncate">{isContinuable ? 'Continuar' : 'Comenzar'}</span>
 </button>
           }
             </div>
@@ -644,7 +721,7 @@ export default function Inicio(){
       {/* Day Change Modal */}
       {showChangeDay && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={()=>setShowChangeDay(false)}>
-          <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[85vh] overflow-auto">
+          <div onClick={e=>e.stopPropagation()} data-testid="inicio-change-day-modal" className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[85vh] overflow-auto">
             <h3 className="font-headline-md text-headline-sm font-semibold text-on-surface">Cambiar entrenamiento de hoy</h3>
             {rawAgenda.isRest ? (
               <div className="rounded bg-secondary/10 border border-secondary/30 p-3">
@@ -658,17 +735,22 @@ export default function Inicio(){
               </div>
             )}
             <p className="text-[11px] text-on-surface-variant">Seleccioná qué día querés realizar:</p>
-            {cycle.trainingDays.map(d=>(
-              <button key={d.n} onClick={async()=>{
+            {selectorDays.map(d=>(
+              <button key={d.n} data-testid={`inicio-change-day-${d.n}`} disabled={d.exercises.length===0} onClick={async()=>{
                 const obs={ date: todayStr, plannedDay: rawAgenda.n, plannedName: rawAgenda.name, actualDay: d.n, actualName: d.name, changeReason, changeComment, changedByUser:true, at: new Date().toISOString()}
                 await setOverride(todayStr, d.n, obs, obs)
                 setOverrideDay(d.n)
                 loadDay(cycle, d.n)
                 window.dispatchEvent(new Event('routineChange'))
                 setShowChangeDay(false)
-              }} className={`w-full p-3 rounded border text-left flex items-center justify-between ${effectiveN===d.n?'bg-primary text-on-surface border-primary':'bg-surface-container border-outline-variant text-on-surface'}`}>
-                <span className="text-sm">DÍA N.º {d.n} — {d.name}</span>
-                {effectiveN===d.n && <span className="text-[10px] font-label-caps text-on-surface-variant">· actual</span>}
+              }} className={`w-full p-3 rounded border text-left flex items-center justify-between gap-3 ${effectiveN===d.n?'bg-primary text-on-surface border-primary':d.exercises.length===0?'bg-surface-container border-outline-variant/40 text-on-surface-variant/70':'bg-surface-container border-outline-variant text-on-surface'}`}>
+                <span className="min-w-0">
+                  <span className="text-sm">DÍA N.º {d.n} — {d.name}</span>
+                  {d.exercises.length>0
+                    ? <span className="block text-[10px] text-on-surface-variant">{d.exercises.length} {d.exercises.length===1?'ejercicio':'ejercicios'}: {d.exercises.map(e=>e.name).join(' · ')}</span>
+                    : <span className="block text-[10px] text-on-surface-variant">Sin ejercicios en la rutina asignada</span>}
+                </span>
+                {effectiveN===d.n && <span className="shrink-0 text-[10px] font-label-caps text-on-surface-variant">· actual</span>}
               </button>
             ))}
             <div className="p-3 bg-surface-container border border-outline-variant rounded space-y-2">

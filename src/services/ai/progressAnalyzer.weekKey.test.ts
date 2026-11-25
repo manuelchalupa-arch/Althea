@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db } from '@/services/storage/db'
-import { todayKey, weekStartKey, weekdayOfKey, toDateKey } from '@/utils/dates'
+import { todayKey, weekStartKey, weekdayOfKey, toDateKey, dayKeyOffset } from '@/utils/dates'
 import { analyzeExercise } from './progressAnalyzer'
 
 // FASE 2 - S7: getWeekKey (progressAnalyzer) resolvia el lunes con el patron
@@ -50,19 +50,21 @@ describe('S7 - Progreso: la semana se ancla en el dia local', () => {
   })
 
   it('el domingo local y el lunes siguiente quedan en semanas DISTINTAS', async () => {
-    // 2026-09-21 es lunes, 2026-09-27 domingo, 2026-09-28 lunes
-    expect(weekdayOfKey('2026-09-21')).toBe(1)
-    expect(weekdayOfKey('2026-09-27')).toBe(0)
-    expect(weekdayOfKey('2026-09-28')).toBe(1)
+    // Par domingo→lunes MÁS RECIENTE: las fechas fijas (2026-09) salen de la
+    // ventana de 8 semanas de analyzeExercise y el test se rompía por calendario.
+    const lunes = mondayOf(todayKey())
+    const domingo = dayKeyOffset(lunes, -1)
+    expect(weekdayOfKey(domingo)).toBe(0)
+    expect(weekdayOfKey(lunes)).toBe(1)
 
     // domingo 21:30 local -> su instante UTC ya es lunes 22
-    const domingoISO = instantAt2130AR('2026-09-27')
-    expect(toDateKey(domingoISO)).toBe('2026-09-27')
+    const domingoISO = instantAt2130AR(domingo)
+    expect(toDateKey(domingoISO)).toBe(domingo)
 
     // lunes siguiente 00:01 local
-    const [y, m, d] = '2026-09-28'.split('-').map(Number)
+    const [y, m, d] = lunes.split('-').map(Number)
     const lunesISO = new Date(y, m - 1, d, 0, 1, 0, 0).toISOString()
-    expect(toDateKey(lunesISO)).toBe('2026-09-28')
+    expect(toDateKey(lunesISO)).toBe(lunes)
 
     // 2 sets en la semana del 21 (100x10 c/u = 2000) y 2 en la del 28 (150x10 c/u = 3000)
     for (let i = 0; i < 2; i++) await putSet(`dom-${i}`, domingoISO, 100)

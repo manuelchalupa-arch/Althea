@@ -17,6 +17,7 @@ import RestTimerOverlay from '@/components/entrenar/RestTimerOverlay'
 import ResultPanel from '@/components/entrenar/ResultPanel'
 import ExercisePainPrompt from '@/components/entrenar/ExercisePainPrompt'
 import ExerciseSeriesTable from '@/components/entrenar/ExerciseSeriesTable'
+import SupersetPanel from '@/components/entrenar/SupersetPanel'
 import { ModifyModal, ViewerModal, SwapModal, SkipReasonModal, CancelModal, AbandonModal, AddExtraModal, FinishModal, EarlyFinishModal } from '@/components/entrenar/SessionModals'
 import { MOBILE_NAV_OFFSET } from '@/components/layout/AppNav'
 import { AltheaPanel, AltheaMetric } from '@/components/althea'
@@ -341,22 +342,10 @@ const exercises: SessionEx[] = seList.map((se) => {
           await handleSessionLoaded(active as any)
           return
         } else {
-          // Sesión activa de HOY SIN ejercicios (día vacío/descanso con sesión):
-          // se conserva y se muestra el estado vacío con acciones. NUNCA se
-          // limpia ni se redirige: entrar a Entrenar no puede fallar por eso.
-          setSession(active)
-          setSessionStatus(active.sessionStatus)
-          setRutinaName(active.routineName || 'Rutina')
-          setRoutineId(active.routineId)
-          setDayName(active.actualDayName || (active.actualDay !== null && active.actualDay !== undefined ? `Día N°${active.actualDay}` : 'Descanso'))
-          setPlannedDayN(active.plannedDay)
-          setActualDayN(active.actualDay)
-          setPlannedName(active.plannedDayName || '')
-          setWeekNumber(active.weekNumber || 1)
-          setSessionStartTime(active.startedAt || active.createdAt)
-          setSessionId(active.sessionId)
-          setSessionStatus(active.sessionStatus)
-          setExs([])
+          // Sesión de HOY SIN ejercicios (día de descanso o sin rutina): no es
+          // un entrenamiento en curso. No se adopta ni se muestra una sesión
+          // vacía: se vuelve a Inicio, donde se elige el día o se navega.
+          setRedirectHome(true)
           return
         }
       }
@@ -486,14 +475,25 @@ const exercises: SessionEx[] = seList.map((se) => {
     return blk.length>=2 ? blk : null
   }
 
+  // Número de bloque en la sesión (1.º, 2.º…), derivado de los datos reales.
+  const supersetNumber = (i:number): number => {
+    const id = exs[i]?.supersetId
+    if(!id) {return 0}
+    const first = exs.findIndex(e=> e.supersetId===id)
+    const ids: string[] = []
+    for(const e of exs.slice(0, first)){ if(e.supersetId && e.supersetId!==id && !ids.includes(e.supersetId)) {ids.push(e.supersetId)} }
+    return ids.length + 1
+  }
+
   // ¿El ejercicio j todavía tiene series pendientes? (registros = fuente de verdad)
   const hasPendingSets = async (j:number): Promise<boolean> => {
     if(done[j]) {return false}
-    const planned = exs[j]?.plannedSets ?? exs[j]?.sets ?? 0
     const sid = seIdByIndex[j]
     if(!sid) {return !done[j]}
     const rs = await import('@/services/training/sessionStore').then(({ getSetRecords }) => getSetRecords(sid)).catch(()=>[])
     const doneN = rs.filter(x=> x.status==='COMPLETED' || x.status==='SKIPPED').length
+    // El plan real es lo que dicen los registros (incluye series extra agregadas).
+    const planned = Math.max(exs[j]?.plannedSets ?? exs[j]?.sets ?? 0, rs.length)
     return doneN < planned
   }
 
@@ -514,6 +514,36 @@ const exercises: SessionEx[] = seList.map((se) => {
     pendingAdvanceRef.current = target
     setPainQueue(prev=> [...prev, ...fresh.filter(i=> !prev.includes(i))])
     if(fresh[0] !== current) { setCurrent(fresh[0]) }
+  }
+
+  // Avance DENTRO de un bloque de superserie: alterna en orden A→B→C con
+  // vuelta al primero que tenga pendientes (nueva ronda). Transición corta
+  // dentro de la ronda, descanso principal al cerrarla y consulta de dolor
+  // al completar el bloque. Usa los registros (fuente de verdad) para decidir.
+  const advanceInBlock = async (isExDone: boolean): Promise<boolean> => {
+    const blk = supersetBlock(current)
+    if(!blk) {return false}
+    const pos = blk.indexOf(current)
+    const forward: number[] = []
+    for(const j of blk.slice(pos+1)){ if(await hasPendingSets(j)) {forward.push(j)} }
+    if(forward.length>0){
+      const d = exs[forward[0]]?.transitionRestSec ?? 15
+      if(d>0){ setRestBetweenKind('ss'); startRestBetweenEx(d) }
+      goToExercise(forward[0], true)
+      return true
+    }
+    const before: number[] = []
+    for(const j of blk.slice(0,pos)){ if(await hasPendingSets(j)) {before.push(j)} }
+    if(before.length>0){
+      const first = exs[before[0]]
+      const d = first?.restBetweenExercisesSec ?? first?.restSec ?? 120
+      setRestBetweenKind('block'); startRestBetweenEx(d)
+      goToExercise(before[0], true)
+      return true
+    }
+    if(!isExDone){ startRest(restForExercise); return true }
+    queuePain(blk)
+    return true
   }
 
   // Tras responder la última consulta: arrancar el descanso y pasar al siguiente.
@@ -631,7 +661,8 @@ const exercises: SessionEx[] = seList.map((se) => {
     setLogs(nlogs)
     await updateSession(session.sessionId, { currentExerciseId: cur.exId, currentExerciseIndex: current, currentSetIndex: setIdx + 1 }).catch(()=>null)
     const recs = await getSetRecords(seId).catch(()=>[])
-    const plannedCount = exs[current]?.plannedSets ?? cur.sets
+    // Plan incluye series extra agregadas: los registros son la fuente de verdad.
+    const plannedCount = Math.max(exs[current]?.plannedSets ?? cur.sets, recs.length)
     const doneCount = recs.filter(x=> x.status==='COMPLETED').length
     const isExDone = doneCount>=plannedCount && plannedCount>0
     const blk = supersetBlock(current)
@@ -643,31 +674,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       saveDecision({ date: today, type:'accept', exercise: cur.name, reason: coach?.reason, contextSnapshot:{weight:weightOrNull,reps:r}})
         try{ if(navigator.vibrate) {navigator.vibrate(12)} }catch{ /* noop */ }
       }
-      const pos = blk.indexOf(current)
-      const forward: number[] = []
-      for(const j of blk.slice(pos+1)){ if(await hasPendingSets(j)) {forward.push(j)} }
-      if(forward.length>0){
-        const nextJ = forward[0]
-        // Transición CORTA dentro del bloque: el descanso principal queda para
-        // el cierre de ronda. `transitionRestSec` es configurable (def. 15 s).
-        const d = exs[nextJ]?.transitionRestSec ?? 15
-        if(d>0){ setRestBetweenKind('ss'); startRestBetweenEx(d) }
-        goToExercise(nextJ, true)
-      } else {
-        const before: number[] = []
-        for(const j of blk.slice(0,pos)){ if(await hasPendingSets(j)) {before.push(j)} }
-        if(before.length>0){
-          const first = exs[before[0]]
-          // Descanso principal al cerrar la ronda: usa el descanso configurado.
-          const d = first?.restBetweenExercisesSec ?? first?.restSec ?? 120
-          setRestBetweenKind('block'); startRestBetweenEx(d)
-          goToExercise(before[0], true)
-        } else if(!isExDone){
-          startRest(restForExercise) // le quedan series a este ejercicio
-        } else {
-          queuePain(blk) // bloque completo: una consulta por ejercicio del bloque
-        }
-      }
+      await advanceInBlock(isExDone)
     } else if(isExDone){
       setDone({...done, [current]: true})
       saveDecision({ date: today, type:'accept', exercise: cur.name, reason: coach?.reason, contextSnapshot:{weight:weightOrNull,reps:r}})
@@ -1322,14 +1329,18 @@ const exercises: SessionEx[] = seList.map((se) => {
       updatedAt: now,
     }
     setLogs({ ...logs, [current]: arr })
-    const plannedCount = exs[current]?.plannedSets ?? 0
-    if(recs.filter(x=> x.status==='COMPLETED').length + recs.filter(x=> x.status==='SKIPPED').length >= plannedCount && plannedCount>0){
+    const plannedCount = Math.max(exs[current]?.plannedSets ?? cur.sets, recs.length)
+    const resolvedCount = recs.filter(x=> x.status==='COMPLETED').length + recs.filter(x=> x.status==='SKIPPED').length
+    if(resolvedCount >= plannedCount && plannedCount>0){
       const allSkipped = recs.length>0 && recs.every(x=> x.status==='SKIPPED')
-      if(!allSkipped) {
-        setDone({ ...done, [current]: true })
-        // Ejercicio terminado (con saltos): consultar dolor antes del siguiente.
-        if(!supersetBlock(current) && !painAskedRef.current.has(exs[current]?.exId || '')) { queuePain([current]) }
+      if(!allSkipped) { setDone({ ...done, [current]: true }) }
+      const blk = supersetBlock(current)
+      if(blk){
+        // En superserie el salto de serie también alterna: sigue el bloque.
+        await advanceInBlock(!allSkipped)
+        return
       }
+      if(!allSkipped && !painAskedRef.current.has(exs[current]?.exId || '')) { queuePain([current]) }
     }
   }
 
@@ -1444,7 +1455,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
   if(exs.length===0) {return (
     <div className="min-h-screen bg-transparent p-4 md:p-6 lg:p-8 pb-24 w-full mx-auto sm:px-5 xl:px-10 2xl:px-12 space-y-4">
-      <p className="font-body-md text-[15px] text-on-surface">Hoy es descanso o sin ejercicios todavía.</p>
+      <p className="font-body-md text-[15px] text-on-surface">No se pudieron cargar los ejercicios de la sesión.</p>
       {session? <button onClick={()=>{ void openAddExtra() }} className="px-4 py-2 rounded bg-primary text-on-primary">Agregar o crear ejercicio</button> : null}
       <AddExtraModal show={showAddEx} onClose={()=>setShowAddEx(false)} options={addExOptions} reason={addExReason} setReason={setAddExReason} comment={addExComment} setComment={setAddExComment} onAdd={(opt)=>{ void confirmAddExtra(opt) }} onCreate={createCustomForSession} />
     </div>
@@ -1527,6 +1538,7 @@ const exercises: SessionEx[] = seList.map((se) => {
 
   // Presentación mobile "Gym Mode": mismo estado, mismos handlers, misma sesión.
   const curBlock = supersetBlock(current)
+  const blockNumber = curBlock ? supersetNumber(curBlock[0]) : 0
   if (isMobile) {
     return (
       <div className="space-y-2">
@@ -1602,6 +1614,10 @@ const exercises: SessionEx[] = seList.map((se) => {
                 </button>
               </div>
             </div>
+
+            {curBlock && (
+              <SupersetPanel blockNumber={blockNumber} block={curBlock} current={current} exercises={exs} logs={logs} done={done} />
+            )}
 
             {safetyAlert && (
               <div className={`mx-3 mt-3 rounded border p-3 flex items-start gap-2 ${safetyAlert.severity==='critical' ? 'bg-error/10 border-error' : 'bg-secondary-container/20 border-secondary/30'}`}>
@@ -1980,6 +1996,10 @@ const exercises: SessionEx[] = seList.map((se) => {
                     </button>
                   </div>
                 </div>
+
+                {curBlock && (
+                  <SupersetPanel blockNumber={blockNumber} block={curBlock} current={current} exercises={exs} logs={logs} done={done} />
+                )}
 
                 {/* Safety Alert */}
                 {safetyAlert && (

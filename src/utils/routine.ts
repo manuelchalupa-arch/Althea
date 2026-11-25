@@ -39,6 +39,10 @@ export async function getDayExercises(dayN:number | null, _cycle: CycleConfig): 
     const rawList = await getAllRoutines()
     const activeId = await getActiveRoutineId()
     const active = rawList.find((r)=>r.id===activeId) || rawList[0]
+    // Una rutina activa con contenido es la fuente de verdad: si no define ese
+    // día, NO se cae al plan legacy de otro día (mostraría ejercicios ajenos).
+    const hasRoutineDays = !!active && Object.values(active.dayExercises || {})
+      .some((arr) => Array.isArray(arr) && arr.length > 0)
     if(active?.dayExercises?.[dayN] && active.dayExercises[dayN].length>0){
       const arr = active.dayExercises[dayN]
       const exs = await db.exercises.bulkGet(arr.map((x)=>x.exId)).catch(()=>[])
@@ -70,6 +74,7 @@ export async function getDayExercises(dayN:number | null, _cycle: CycleConfig): 
       }
       return results
     }
+    if(hasRoutineDays) {return []}
   }catch{}
   // fallback a routineDays (legacy)
   try{

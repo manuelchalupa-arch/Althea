@@ -7,6 +7,7 @@ import { todayKey, addDaysToKey } from '@/utils/dates'
 import { DEFAULT_CYCLE } from '@/utils/cycle'
 import { createSession, transitionSession } from '@/services/training/sessionStore'
 import { saveAllRoutines } from '@/services/storage/routineStore'
+import { setOverride } from '@/services/storage/sessionOverrideStore'
 
 vi.mock('@/services/exerciseGym', () => ({
   fetchAll: async () => ({ exercises: [] }),
@@ -147,7 +148,7 @@ describe('D — /entrenar ofrece reanudar una sesión sin terminar de otro día'
   }, 30000)
 })
 
-describe('D — sesión activa de HOY sin ejercicios: /entrenar NO expulsa', () => {
+describe('D — sesión READY sin ejercicios no muestra una sesión activa', () => {
   const mounted: Array<() => void> = []
   const renderIn = () => {
     const view = render(
@@ -171,7 +172,7 @@ describe('D — sesión activa de HOY sin ejercicios: /entrenar NO expulsa', () 
   })
   afterEach(() => { while (mounted.length) mounted.pop()!() })
 
-  it('sesión READY de hoy con 0 ejercicios: se conserva y se ofrece agregar/crear', async () => {
+  it('sesión READY de hoy con 0 ejercicios: redirige a Inicio sin estado vacío', async () => {
     const s = await createSession({
       routineId: 'r1', calendarDate: todayKey(), plannedDay: 1, actualDay: 1,
       plannedExercises: [],
@@ -180,17 +181,65 @@ describe('D — sesión activa de HOY sin ejercicios: /entrenar NO expulsa', () 
 
     renderIn()
     await waitFor(() => {
-      expect(screen.getByText(/Hoy es descanso o sin ejercicios/)).toBeInTheDocument()
+      expect(screen.getByTestId('inicio-screen')).toBeInTheDocument()
     }, { timeout: 15000 })
-    // Bug original: clearActiveSession + Navigate a /. Ahora no redirige.
-    expect(screen.queryByTestId('inicio-screen')).not.toBeInTheDocument()
-    expect(screen.getByTestId('loc').textContent).toBe('/entrenar')
-    // La sesión se adopta en load() (async): el botón aparece al terminar la carga.
-    await waitFor(() => {
-      expect(screen.getByText(/Agregar o crear ejercicio/)).toBeInTheDocument()
-    }, { timeout: 15000 })
-    // La sesión sigue activa en la DB.
-    const row = await db.trainingSessions.get(s.sessionId) as { sessionStatus: string } | undefined
-    expect(row?.sessionStatus).toBe('READY')
+    expect(screen.getByTestId('loc').textContent).toBe('/')
+    // No queda una vista de sesión ni el mensaje de descanso persistente.
+    expect(screen.queryByText(/No se pudieron cargar los ejercicios/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Agregar o crear ejercicio/)).not.toBeInTheDocument()
+    // La fila sigue en la DB (no se borró historial), pero ya no es "activa".
+    expect(await db.trainingSessions.get(s.sessionId)).toBeTruthy()
   }, 30000)
+
+  it('día seleccionado: reemplaza la sesión READY de otro día por el día elegido', async () => {
+    const iso = new Date().toISOString()
+    const cycle = { ...DEFAULT_CYCLE, startDate: todayKey(), weekMap: [1, 1, 1, 1, 1, 1, 1] }
+    await db.userProfile.put({ id: 'me', cycle } as never)
+    await saveAllRoutines([{
+      id: 'r1', name: 'Rutina', createdAt: iso, updatedAt: iso, rotationDays: 30,
+      cycle,
+      dayExercises: {
+        1: [{ id: 'e1', exId: 'press', name: 'Press', sets: 1, reps: 8, weight: 80 }],
+        2: [{ id: 'e2', exId: 'squat', name: 'Sentadilla', sets: 1, reps: 8, weight: 100 }],
+      },
+    } as never], 'r1')
+
+    // Sesión READY del día 1 creada antes de elegir otro día (sin series hechas).
+    const old = await createSession({
+      routineId: 'r1', calendarDate: todayKey(), plannedDay: 1, actualDay: 1,
+      plannedExercises: [{ id: 'e1', exId: 'press', name: 'Press', sets: 1, reps: 8, weight: 80 } as never],
+    })
+
+    await setOverride(todayKey(), 2, null, null)
+
+    const view = render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<Inicio />} />
+          <Route path="/entrenar" element={<div data-testid="entrenar-screen">Entrenar</div>} />
+        </Routes>
+        <LocationSpy />
+      </MemoryRouter>,
+    )
+    mounted.push(view.unmount)
+
+    const cta = await screen.findByTestId('inicio-hero-cta', undefined, { timeout: 15000 })
+    cta.click()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loc').textContent).toBe('/entrenar')
+    }, { timeout: 15000 })
+
+    const sessions = await db.trainingSessions.toArray()
+    const active = sessions.find((x) => (x as { sessionStatus: string }).sessionStatus !== 'CANCELLED')
+    expect(active).toBeTruthy()
+    expect((active as { actualDay: number }).actualDay).toBe(2)
+    expect((old as { sessionStatus: string }).sessionStatus).toBe('READY')
+    const oldRow = await db.trainingSessions.get(old.sessionId) as { sessionStatus: string }
+    expect(oldRow.sessionStatus).toBe('CANCELLED')
+
+    const exs = await db.sessionExercises.where('sessionId').equals((active as { sessionId: string }).sessionId).toArray()
+    expect(exs.map((e) => e.exerciseId)).toContain('squat')
+    expect(exs.map((e) => e.exerciseId)).not.toContain('press')
+  }, 40000)
 })

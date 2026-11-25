@@ -4,7 +4,7 @@ import { METHOD_COACHING_STYLES } from '@/services/ai/coachPersonality'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
 import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import { fetchByMuscle, type Exercise } from '@/services/exerciseGym'
-import { GROUP_MAP } from '@/utils/muscleMap'
+import { GROUP_MAP, PIERNA_FAMILY, parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { todayKey } from '@/utils/dates'
 import { getGroqUrl, getGroqHeaders } from './groqConfig'
 
@@ -32,6 +32,26 @@ export function detectDaysMention(description: string): number | null {
   return n >= 2 && n <= 7 ? n : null
 }
 
+export type RoutineSplit = 'torso_piernas' | 'push_pull_legs' | 'full_body'
+
+/** Instrucciones estructuradas extraídas del texto libre. Mandan sobre los valores por defecto. */
+export interface RoutineInstructions {
+  days: number | null
+  split: RoutineSplit | null
+  sessionMinutes: number | null
+  /** Músculos de la API (pectorals, lats, quads…). */
+  priorities: string[]
+  /** Equipamiento permitido (dumbbell, barbell, lever…). null = sin restricción. */
+  equipment: string[] | null
+  /** Frases normalizadas que deben aparecer. */
+  includes: string[]
+  /** Frases normalizadas que no deben aparecer. */
+  excludes: string[]
+  level: 'beginner' | 'intermediate' | 'advanced' | null
+  lowVolumeHighIntensity: boolean
+  gradualProgression: boolean
+}
+
 export interface GeneratedRoutine {
   name: string
   cycle: {
@@ -55,6 +75,460 @@ export interface GeneratedRoutine {
   }
 }
 
+// ─── Lectura del pedido libre ───────────────────────────────────────────────
+
+function plainText(s: string): string {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
+function normalizedName(name: string): string {
+  return plainText(name).replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/** ¿El nombre del ejercicio coincide con la frase? Tolera plurales y palabras sueltas. */
+function matchesTerm(name: string, term: string): boolean {
+  const n = normalizedName(name)
+  const t = normalizedName(term)
+  if (!t) {return false}
+  if (n.includes(t)) {return true}
+  const words = t.split(' ').filter(w => w.length >= 3)
+  if (words.length === 0) {return false}
+  return words.every(w => n.includes(w) || n.includes(w.replace(/s$/, '')))
+}
+
+function matchesAny(name: string, terms: string[]): boolean {
+  return terms.some(t => matchesTerm(name, t))
+}
+
+const GENERIC_WORDS = new Set([
+  'rutina', 'rutinas', 'ejercicio', 'ejercicios', 'entrenamiento', 'dia', 'dias', 'semana', 'semanas',
+  'peso', 'pesas', 'trabajo', 'sesion', 'sesiones', 'gym', 'gimnasio', 'nada', 'algo', 'eso', 'esto',
+  'los', 'las', 'el', 'la', 'un', 'una', 'unos', 'unas', 'de', 'del', 'que', 'y', 'e', 'o', 'en',
+  'con', 'por', 'para', 'mi', 'mis', 'tus', 'sus', 'muy', 'mas', 'menos', 'solo', 'solamente',
+])
+
+function termsFrom(chunk: string): string[] {
+  return plainText(chunk)
+    .split(/[,;\/]|\s+y\s+|\s+e\s+|\s+ni\s+/)
+    .map(t => t.replace(/[^a-z0-9\s-]/g, ' ').trim())
+    .filter(t => t.length >= 3)
+    .filter(t => t.split(/\s+/).length <= 4)
+    .filter(t => !t.split(/\s+/).every(w => GENERIC_WORDS.has(w)))
+}
+
+function extractPhrases(text: string, re: RegExp): string[] {
+  const out = new Set<string>()
+  const rx = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`)
+  let m: RegExpExecArray | null
+  while ((m = rx.exec(plainText(text)))) {
+    for (const term of termsFrom(m[1] || '')) {out.add(term)}
+  }
+  return [...out]
+}
+
+const EQUIPMENT_TERMS: Array<[RegExp, string[]]> = [
+  [/mancuernas?|dumbbells?/, ['dumbbell']],
+  [/\bbarras?\b(?!\s*z)/, ['barbell']],
+  [/\bbarra z\b|\bez.?bar\b/, ['ez-bar']],
+  [/\bmaquinas?\b|\bmachines?\b/, ['lever', 'machine', 'smith', 'sled', 'cable']],
+  [/\bpoleas?\b|\bcables?\b/, ['cable']],
+  [/\bbandas?\b|\belasticos?\b/, ['band']],
+  [/kettlebells?|pesa rusa/, ['kettlebell']],
+  [/\bsmith\b/, ['smith']],
+  [/peso corporal|bodyweight|sin equipo/, ['bodyweight']],
+]
+
+function detectEquipment(text: string): string[] | null {
+  const t = plainText(text)
+  const allowed = new Set<string>()
+  for (const [re, eqs] of EQUIPMENT_TERMS) {
+    if (re.test(t)) {eqs.forEach(e => allowed.add(e))}
+  }
+  return allowed.size ? [...allowed] : null
+}
+
+function detectMinutes(t: string): number | null {
+  if (/hora y media/.test(t)) {return 90}
+  if (/\b(?:una|1) hora\b/.test(t)) {return 60}
+  if (/media hora/.test(t)) {return 30}
+  const m = t.match(/(\d{1,3})\s*(?:min|minutos)/)
+  if (!m) {return null}
+  const n = Number(m[1])
+  return n >= 15 && n <= 180 ? n : null
+}
+
+function detectSplit(t: string): RoutineSplit | null {
+  if (/\btorso\b|\btren superior\b[\s\S]*\btren inferior\b|upper[\s\S]*lower/.test(t)) {return 'torso_piernas'}
+  if ((/empuje|push/.test(t)) && (/tir[oó]n|pull/.test(t))) {return 'push_pull_legs'}
+  if (/cuerpo completo|full.?body/.test(t)) {return 'full_body'}
+  return null
+}
+
+function addMuscleAliases(sentence: string, out: Set<string>) {
+  if (/\bbrazos?\b/.test(sentence)) {
+    out.add('biceps'); out.add('triceps'); out.add('forearms')
+  }
+  if (/\btorso\b/.test(sentence)) {
+    ;['pectorals', 'lats', 'upper-back', 'delts'].forEach(m => out.add(m))
+  }
+}
+
+export function parseRoutineInstructions(description = ''): RoutineInstructions {
+  const raw = description || ''
+  const text = plainText(raw)
+  const priorities = new Set<string>()
+  for (const sentence of text.split(/[.;\n]/)) {
+    if (/priorid|prioriz|enfasis|poco desarrollad|debil|mejorar|reforzar|mas (?:grande|fuerte|volumen|trabajo)|darle? mas/.test(sentence)) {
+      parseDayMuscles(sentence).forEach(m => priorities.add(m))
+      addMuscleAliases(sentence, priorities)
+    }
+  }
+  return {
+    days: detectDaysMention(raw),
+    split: detectSplit(text),
+    sessionMinutes: detectMinutes(text),
+    priorities: [...priorities],
+    equipment: detectEquipment(text),
+    includes: extractPhrases(raw, /(?:incluir|incluye|inclui|agregar|agrega|mete|sumar|suma|quiero hacer|quiero usar|quiero trabajar)\s+([^.;\n]+)/),
+    excludes: extractPhrases(raw, /(?:no quiero|no queria|no incluir|evitar|evita|excluir|excluye|exclui|nada de|\bsin\b)\s+([^.;\n]+)/),
+    level: /principiante|beginner|novat/.test(text) ? 'beginner'
+      : /avanzad/.test(text) ? 'advanced'
+        : /intermedi/.test(text) ? 'intermediate' : null,
+    lowVolumeHighIntensity: /menos ejercicios|pocos ejercicios|mayor intensidad|mas intensidad|alta intensidad|series pesadas|pocas reps/.test(text),
+    gradualProgression: /progresion gradual|progresivo|paulatin|de a poco/.test(text),
+  }
+}
+
+// ─── Plantillas y catálogo ─────────────────────────────────────────────────
+
+type DayTemplate = { name: string; muscles: string[] }
+
+const TORSO_A = ['pectorals', 'lats', 'upper-back', 'delts']
+const TORSO_B = ['lats', 'upper-back', 'pectorals', 'delts', 'biceps', 'triceps']
+const LEGS = [...PIERNA_FAMILY]
+const PUSH = ['pectorals', 'delts', 'triceps']
+const PULL = ['lats', 'upper-back', 'biceps', 'traps']
+const FULL_BODY = ['pectorals', 'lats', 'quads', 'hamstrings', 'delts', 'abs', 'triceps', 'biceps', 'glutes', 'calves']
+
+export function splitTemplates(split: RoutineSplit, days: number): DayTemplate[] {
+  const n = clampDays(days)
+  if (split === 'torso_piernas') {
+    return Array.from({ length: n }, (_, i) => {
+      const pair = Math.floor(i / 2)
+      return i % 2 === 0
+        ? { name: `Torso ${String.fromCharCode(65 + pair)}`, muscles: pair % 2 === 0 ? TORSO_A : TORSO_B }
+        : { name: `Piernas ${String.fromCharCode(65 + pair)}`, muscles: LEGS }
+    })
+  }
+  if (split === 'push_pull_legs') {
+    const base = [
+      { name: 'Empuje', muscles: PUSH },
+      { name: 'Tirón', muscles: PULL },
+      { name: 'Piernas', muscles: LEGS },
+    ]
+    return Array.from({ length: n }, (_, i) => {
+      const b = base[i % base.length]
+      const round = Math.floor(i / base.length)
+      return { name: round === 0 ? b.name : `${b.name} ${round + 1}`, muscles: b.muscles }
+    })
+  }
+  return Array.from({ length: n }, (_, i) => {
+    const start = (i * 3) % FULL_BODY.length
+    return { name: n === 1 ? 'Cuerpo completo' : `Cuerpo completo ${i + 1}`, muscles: [...FULL_BODY.slice(start), ...FULL_BODY.slice(0, start)] }
+  })
+}
+
+function splitLabel(split: RoutineSplit | null): string | null {
+  if (split === 'torso_piernas') {return 'torso / piernas'}
+  if (split === 'push_pull_legs') {return 'empuje / tirón / piernas'}
+  if (split === 'full_body') {return 'cuerpo completo'}
+  return null
+}
+
+function clampDays(days: number): number {
+  return Math.max(1, Math.min(7, Math.round(Number(days) || 4)))
+}
+
+function maxExercisesPerDay(instructions: RoutineInstructions, profileMinutes?: number | null): number {
+  if (instructions.lowVolumeHighIntensity) {return 3}
+  const minutes = instructions.sessionMinutes ?? (Number(profileMinutes) || 60)
+  if (minutes <= 45) {return 3}
+  if (minutes <= 75) {return 4}
+  if (minutes <= 105) {return 5}
+  return 6
+}
+
+function volumeForGoal(level: string, lowVolume: boolean, goal: string): { sets: number; reps: number } {
+  const sets = level === 'beginner' ? 2 : level === 'advanced' ? 4 : 3
+  const reps = /fuerza/i.test(goal) ? 6 : /resistencia|grasa|perdida/i.test(goal) ? 15 : 10
+  if (!lowVolume) {return { sets, reps }}
+  return { sets: Math.min(5, sets + 1), reps: Math.min(reps, 8) }
+}
+
+function maxSetsForLevel(level: string): number {
+  if (level === 'beginner') {return 3}
+  if (level === 'advanced') {return 6}
+  return 5
+}
+
+type PoolEx = { id: string; name: string; eq: string; gif: string; muscle: string }
+type RoutineExercise = GeneratedRoutine['dayExercises'][number][number]
+
+function hashStr(s: string): number {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+/**
+ * Catálogo curado por músculo. Antes se enviaban los primeros 8 ejercicios
+ * alfabéticos (estiramientos y bandas), lo que hacía que la IA repitiera
+ * siempre lo mismo. Se filtran estiramientos, equipo y exclusiones, y se
+ * prioriza fuerza/compuestos con una rotación estable por pedido.
+ */
+async function loadMusclePools(
+  instructions: RoutineInstructions,
+  seed: number,
+  excludedIds: string[] = [],
+): Promise<Record<string, PoolEx[]>> {
+  const rawMuscles = [...new Set(Object.values(GROUP_MAP))]
+  const muscles = rawMuscles.flatMap(m => (m === '__piernas__' ? PIERNA_FAMILY : [m])).filter(Boolean)
+  const fetches = await Promise.allSettled(muscles.map(m => fetchByMuscle(m)))
+  const excluded = new Set(excludedIds)
+  const seen = new Set<string>()
+  const pools: Record<string, PoolEx[]> = {}
+  for (let i = 0; i < muscles.length; i++) {
+    const r = fetches[i]
+    if (r.status !== 'fulfilled' || !r.value?.exercises) {continue}
+    const limit = instructions.priorities.includes(muscles[i]) ? 16 : 12
+    const scored = r.value.exercises
+      .filter((e: Exercise) => !excluded.has(e.id) && e.category !== 'stretching')
+      .filter((e: Exercise) => !matchesAny(e.name, instructions.excludes))
+      .filter((e: Exercise) => !instructions.equipment || instructions.equipment.includes(e.equipment))
+      .map((e: Exercise) => {
+        let score = 0
+        if (matchesAny(e.name, instructions.includes)) {score += 100}
+        if (e.category === 'strength') {score += 4}
+        score += Math.min(6, e.secondaryMuscles?.length || 0)
+        if (instructions.priorities.includes(e.muscle)) {score += 5}
+        // Rotación determinista: dos pedidos distintos reciben subconjuntos distintos.
+        score += (hashStr(`${e.id}|${seed}`) % 1000) / 500
+        return { e, score }
+      })
+      .sort((a, b) => b.score - a.score)
+    const picked: PoolEx[] = []
+    for (const { e } of scored) {
+      if (picked.length >= limit) {break}
+      if (seen.has(e.id)) {continue}
+      seen.add(e.id)
+      picked.push({ id: e.id, name: e.name, eq: e.equipment, gif: e.gifUrl, muscle: e.muscle || muscles[i] })
+    }
+    pools[muscles[i]] = picked
+  }
+  return pools
+}
+
+function newExercise(c: PoolEx, sets: number, reps: number): RoutineExercise {
+  return {
+    id: uid(), exId: c.id, name: c.name, muscle: c.muscle,
+    sets, reps, weight: 0,
+    gifUrl: c.gif || `${GYM_BASE}/api/es/exercises/${c.id}.gif`,
+  }
+}
+
+function fillDay(
+  list: RoutineExercise[],
+  muscles: string[],
+  pools: Record<string, PoolEx[]>,
+  used: Set<string>,
+  target: number,
+  make: (c: PoolEx) => RoutineExercise,
+  allowUsed: boolean,
+) {
+  const groups = muscles.filter(m => (pools[m]?.length ?? 0) > 0)
+  const order = groups.length ? groups : Object.keys(pools)
+  for (let round = 0; list.length < target; round++) {
+    let added = false
+    for (const m of order) {
+      const cand = (pools[m] || []).find(c => !list.some(x => x.exId === c.id) && (allowUsed || !used.has(c.id)))
+      if (!cand) {continue}
+      list.push(make(cand))
+      used.add(cand.id)
+      added = true
+      if (list.length >= target) {break}
+    }
+    if (!added) {break}
+  }
+}
+
+type DayEntry = { name: string; muscles: string[]; list: RoutineExercise[]; max: number }
+
+function ensureIncludes(
+  days: DayEntry[],
+  catalog: PoolEx[],
+  instructions: RoutineInstructions,
+  make: (c: PoolEx) => RoutineExercise,
+) {
+  for (const term of instructions.includes) {
+    if (days.some(d => d.list.some(x => matchesAny(x.name || '', [term])))) {continue}
+    const cand = catalog.find(c => matchesAny(c.name, [term]))
+    if (!cand) {continue}
+    const target = days.find(d => d.muscles.includes(cand.muscle)) || days[0]
+    if (!target || target.list.some(x => x.exId === cand.id)) {continue}
+    if (target.list.length >= target.max) {
+      const idx = [...target.list].reverse().findIndex(x => !matchesAny(x.name || '', instructions.includes))
+      if (idx >= 0) {target.list.splice(target.list.length - 1 - idx, 1)}
+    }
+    target.list.push(make(cand))
+  }
+}
+
+function resolveCatalog(
+  raw: any,
+  catalog: Map<string, PoolEx>,
+  instructions: RoutineInstructions,
+): PoolEx | null {
+  const id = String(raw?.exId || raw?.id || '').trim()
+  const direct = catalog.get(id)
+  if (direct && !matchesAny(direct.name, instructions.excludes)) {return direct}
+  const wanted = String(raw?.name || '').trim()
+  if (!wanted) {return null}
+  for (const c of catalog.values()) {
+    if (matchesTerm(c.name, wanted)) {return c}
+  }
+  return null
+}
+
+function normalizeRoutine(
+  parsed: any,
+  wants: UserWants,
+  instructions: RoutineInstructions,
+  ctx: { profile: any; exercises: Record<string, PoolEx[]> },
+): GeneratedRoutine {
+  const days = clampDays(instructions.days ?? wants.daysPerWeek)
+  const previous: any[] = Array.isArray(parsed.cycle?.trainingDays) ? parsed.cycle.trainingDays : []
+  const catalog = new Map<string, PoolEx>()
+  for (const [muscle, list] of Object.entries(ctx.exercises)) {
+    for (const e of list) {catalog.set(e.id, { ...e, muscle: e.muscle || muscle })}
+  }
+  const catalogList = [...catalog.values()]
+  const allMuscles = [...new Set(catalogList.map(e => e.muscle))]
+  const max = maxExercisesPerDay(instructions, ctx.profile?.sessionDurationMin)
+  const min = Math.min(3, max)
+  const level = instructions.level || (ctx.profile?.experienceLevel as string) || 'intermediate'
+  const v = volumeForGoal(level, instructions.lowVolumeHighIntensity, wants.goal)
+  const make = (c: PoolEx) => newExercise(c, v.sets, v.reps)
+  const used = new Set<string>()
+  const entries: DayEntry[] = []
+
+  const explicit = instructions.split ? splitTemplates(instructions.split, days) : null
+  for (let i = 0; i < days; i++) {
+    const oldDay = previous[i]
+    const oldN = oldDay?.n ?? i + 1
+    const rawList: any[] = Array.isArray(parsed.dayExercises?.[oldN]) ? parsed.dayExercises[oldN] : []
+    const name = explicit?.[i]?.name || oldDay?.name || `Día ${i + 1}`
+    const parsedMuscles = parseDayMuscles(name)
+    const muscles = explicit?.[i]?.muscles?.length ? explicit[i].muscles : (parsedMuscles.length ? parsedMuscles : allMuscles)
+    const list: RoutineExercise[] = []
+    const seenDay = new Set<string>()
+
+    for (const raw of rawList) {
+      if (list.length >= max) {break}
+      const hit = resolveCatalog(raw, catalog, instructions)
+      if (!hit || seenDay.has(hit.id) || used.has(hit.id)) {continue}
+      seenDay.add(hit.id)
+      used.add(hit.id)
+      let sets = clampNum(Number(raw?.sets) || v.sets, 1, maxSetsForLevel(level))
+      let reps = clampNum(Number(raw?.reps) || v.reps, 1, 30)
+      if (instructions.lowVolumeHighIntensity) {reps = clampNum(reps, 4, 10)}
+      list.push({
+        id: uid(), exId: hit.id, name: hit.name, muscle: hit.muscle,
+        sets, reps, weight: Math.max(0, Number(raw?.weight) || 0),
+        gifUrl: hit.gif || `${GYM_BASE}/api/es/exercises/${hit.id}.gif`,
+        restSec: Number(raw?.restSec) > 0 ? Number(raw.restSec) : undefined,
+        supersetId: raw?.supersetId ? String(raw.supersetId) : undefined,
+        supersetOrder: raw?.supersetId ? Number(raw.supersetOrder) || 0 : undefined,
+      })
+    }
+
+    fillDay(list, muscles, ctx.exercises, used, max, make, false)
+    if (list.length < min) {fillDay(list, muscles, ctx.exercises, used, min, make, true)}
+    entries.push({ name, muscles, list, max })
+  }
+
+  ensureIncludes(entries, catalogList, instructions, make)
+
+  // Recorte: el pedido de duración/volumen puede imponer un máximo menor al de la IA.
+  for (const d of entries) {
+    if (d.list.length <= d.max) {continue}
+    const keep = d.list.filter(x => matchesAny(x.name || '', instructions.includes))
+    const rest = d.list.filter(x => !keep.includes(x)).slice(0, Math.max(0, d.max - keep.length))
+    d.list.length = 0
+    d.list.push(...keep, ...rest)
+  }
+
+  // Superseries: solo bloques con 2+ integrantes reales del mismo día.
+  entries.forEach((entry, idx) => {
+    const dayN = idx + 1
+    const byBlock = new Map<string, any[]>()
+    for (const ex of entry.list) {
+      if (!ex.supersetId) {continue}
+      const list = byBlock.get(ex.supersetId) || []
+      list.push(ex); byBlock.set(ex.supersetId, list)
+    }
+    const valid = new Set([...byBlock.entries()].filter(([, list]) => list.length >= 2).map(([id]) => id))
+    let order = 0
+    for (const ex of entry.list) {
+      if (ex.supersetId && valid.has(ex.supersetId)) {
+        ex.supersetId = `ss-${dayN}-${ex.supersetId}`
+        ex.supersetOrder = order++
+        ex.transitionRestSec = 15
+      } else {
+        ex.supersetId = null
+        ex.supersetOrder = null
+      }
+    }
+  })
+
+  parsed.cycle.trainingDays = entries.map((d, i) => ({ n: i + 1, name: d.name }))
+  parsed.dayExercises = Object.fromEntries(entries.map((d, i) => [i + 1, d.list]))
+
+  // weekMap: exactamente los días elegidos, sin referencias a días recortados.
+  const rawWeek: any[] = Array.isArray(parsed.cycle.weekMap) ? parsed.cycle.weekMap : []
+  const weekMap: (number | null)[] = Array.from({ length: 7 }, (_, i) => {
+    const value = Number(rawWeek[i])
+    return Number.isFinite(value) && value >= 1 && value <= days ? value : null
+  })
+  for (let d = 1; d <= days; d++) {
+    if (weekMap.includes(d)) {continue}
+    const free = [1, 2, 3, 4, 5, 6, 0].find(i => weekMap[i] === null)
+    if (free !== undefined) {weekMap[free] = d}
+  }
+  parsed.cycle.weekMap = weekMap
+
+  if (!parsed.explanation) {
+    parsed.explanation = {
+      goal: wants.goal,
+      method: parsed.cycle.methodJustification || 'Método seleccionado por IA',
+      distribution: `${days} días por semana`,
+      intensity: 'Moderada a alta según nivel',
+      progression: 'Aumentar carga o repeticiones cada semana',
+      keyFeatures: ['Personalizada por IA', 'Basada en tu perfil', 'Ejercicios verificados'],
+    }
+  }
+  if ((!Array.isArray(parsed.explanation.priorities) || parsed.explanation.priorities.length === 0) && instructions.priorities.length > 0) {
+    parsed.explanation.priorities = instructions.priorities.map(m => displayMuscle(m))
+  }
+  return parsed as GeneratedRoutine
+}
+
+function clampNum(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n))
+}
+
 function isAvailable(): boolean {
   try {
     return !!import.meta.env.VITE_GROQ_PROXY_URL
@@ -70,61 +544,80 @@ function goalToMethodId(goal: string): TrainingMethodId {
   return 'hypertrophy'
 }
 
-// Fallback local 100% offline — usa misma estructura que IA pero sin API, garantiza selección funciona
-async function generateRoutineFallback(wants: UserWants): Promise<GeneratedRoutine> {
+// Fallback local 100% offline — usa misma estructura que IA pero sin API.
+// Declara explícitamente qué instrucciones aplica y cuáles no puede interpretar.
+async function generateRoutineFallback(
+  wants: UserWants,
+  instructions: RoutineInstructions,
+  reason?: string,
+): Promise<GeneratedRoutine> {
   const methodId = goalToMethodId(wants.goal)
   const { buildCycleFromMethod } = await import('@/utils/cycle')
   const cycle = buildCycleFromMethod(methodId, undefined, todayKey())
-  // Ajusta cantidad de días según lo seleccionado
-  const desiredDays = Math.max(2, Math.min(6, wants.daysPerWeek))
-  // Mapea focus a split
-  const focusMap: Record<string, string[]> = {
-    general: cycle.trainingDays.map(d => d.name),
-    tren_superior: ['Pecho + Tríceps', 'Espalda + Bíceps', 'Hombros + Abdomen'],
-    tren_inferior: ['Piernas', 'Glúteos + Gemelos', 'Cuádriceps + Isquios'],
-    empuje_tirón: ['Empuje', 'Tirón', 'Piernas'],
-    cuerpo_completo: Array.from({ length: desiredDays }, (_, i) => `Cuerpo completo ${i + 1}`),
-  }
-  const dayNames = focusMap[wants.focus] ?? cycle.trainingDays.map(d => d.name)
-  const trainingDays = Array.from({ length: desiredDays }, (_, i) => ({ n: i + 1, name: dayNames[i % dayNames.length] }))
-  const weekMap: (number | null)[] = [null, null, null, null, null, null, null]
-  const preferred = [1, 2, 3, 4, 5].slice(0, desiredDays)
-  preferred.forEach((dow, i) => { weekMap[dow] = i + 1 })
-  const finalCycle = { ...cycle, trainingDays, weekMap, methodId, methodJustification: `Método ${methodId} seleccionado localmente por objetivo ${wants.goal} y foco ${wants.focus}. Sin IA externa — rutina válida offline.` }
-  // Recolecta ejercicios por día (mínimo 3 por día, respeta lesiones/excluidos)
+  const desiredDays = clampDays(instructions.days ?? wants.daysPerWeek)
   const profile: any = await db.userProfile.get('me').catch(() => null) || {}
-  const excluded: string[] = profile.excludedExercises || []
-  const painAreas: string[] = profile.painAreas || []
-  const shouldExclude = (ex: Exercise) => {
-    if (excluded.includes(ex.id)) {return true}
-    if (wants.injuryNote && ex.name.toLowerCase().includes(wants.injuryNote.toLowerCase())) {return true}
-    if (painAreas.some((p: string) => ex.muscle.toLowerCase().includes(p.toLowerCase()))) {return false} // no bloquea, solo prioriza
-    return false
+  const seed = hashStr([wants.description || '', wants.goal, wants.focus, desiredDays].join('|'))
+  const pools = await loadMusclePools(instructions, seed, profile.excludedExercises || [])
+  const catalog = Object.values(pools).flat()
+  const fallbackMuscles = FULL_BODY.slice(0, 6)
+  const templates: DayTemplate[] = instructions.split
+    ? splitTemplates(instructions.split, desiredDays)
+    : Array.from({ length: desiredDays }, (_, i) => {
+        const name = cycle.trainingDays[i % Math.max(1, cycle.trainingDays.length)]?.name || `Día ${i + 1}`
+        const parsed = parseDayMuscles(name)
+        return { name, muscles: parsed.length ? parsed : fallbackMuscles }
+      })
+  const max = maxExercisesPerDay(instructions, profile.sessionDurationMin)
+  const min = Math.min(3, max)
+  const level = instructions.level || (profile.experienceLevel as string) || 'intermediate'
+  const v = volumeForGoal(level, instructions.lowVolumeHighIntensity, wants.goal)
+  const make = (c: PoolEx) => newExercise(c, v.sets, v.reps)
+  const used = new Set<string>()
+  const entries: DayEntry[] = []
+
+  for (const t of templates) {
+    const list: RoutineExercise[] = []
+    fillDay(list, t.muscles, pools, used, max, make, false)
+    if (list.length < min) {fillDay(list, t.muscles, pools, used, min, make, true)}
+    entries.push({ name: t.name, muscles: t.muscles, list, max })
   }
-  const dayExercises: GeneratedRoutine['dayExercises'] = {}
-  for (const d of trainingDays) {
-    const { parseDayMuscles } = await import('@/utils/muscleMap')
-    const muscles = parseDayMuscles(d.name)
-    const fetches = await Promise.allSettled((muscles.length ? muscles : ['quads']).map(m => fetchByMuscle(m)))
-    let pool: Exercise[] = []
-    fetches.forEach(r => { if (r.status === 'fulfilled' && r.value?.exercises) {pool.push(...r.value.exercises)} })
-    // Fallback si familia vacía: trae todo y filtra
-    if (pool.length === 0) {
-      const all = await fetchByMuscle('quads').then(r => r.exercises).catch(() => [])
-      pool = all as Exercise[]
-    }
-    const filtered = pool.filter(e => !shouldExclude(e))
-    const chosen = filtered.slice(0, 4)
-    dayExercises[d.n] = chosen.map(e => ({
-      id: uid(), exId: e.id, name: e.name, muscle: e.muscle, sets: 3, reps: 10, weight: 0, gifUrl: e.gifUrl,
-    }))
-  }
+  ensureIncludes(entries, catalog, instructions, make)
+
+  const weekMap: (number | null)[] = [null, null, null, null, null, null, null]
+  ;[1, 2, 3, 4, 5, 6, 0].slice(0, desiredDays).forEach((dow, i) => {weekMap[dow] = i + 1})
+
+  const label = splitLabel(instructions.split)
+  const applied: string[] = []
+  if (instructions.split) {applied.push(`split ${label}`)}
+  if (instructions.sessionMinutes) {applied.push(`sesiones de ${instructions.sessionMinutes} min`)}
+  if (instructions.priorities.length) {applied.push(`prioridad ${instructions.priorities.map(displayMuscle).join(', ')}`)}
+  if (instructions.equipment) {applied.push('equipo permitido')}
+  if (instructions.excludes.length) {applied.push('exclusiones')}
+  if (instructions.lowVolumeHighIntensity) {applied.push('menos ejercicios y más intensidad')}
+
   return {
-    name: `Rutina ${wants.goal} — ${desiredDays} días (${wants.focus})`,
-    cycle: finalCycle,
-    dayExercises,
+    name: `Rutina ${wants.goal} — ${desiredDays} días${label ? ` (${label})` : ''}`,
+    cycle: {
+      ...cycle,
+      trainingDays: entries.map((d, i) => ({ n: i + 1, name: d.name })),
+      weekMap,
+      methodId,
+      methodJustification: `Método ${methodId} por objetivo ${wants.goal}${label ? ` y split ${label}` : ''}.`,
+    },
+    dayExercises: Object.fromEntries(entries.map((d, i) => [i + 1, d.list])),
     explanation: {
-      goal: wants.goal, method: methodId, distribution: `${desiredDays} días/semana — foco ${wants.focus}`, intensity: 'Moderada (ajustable en cada serie)', progression: 'Subí 2.5kg cuando completes todas las reps', keyFeatures: ['Generada localmente (sin IA externa)', 'Respeta lesiones/excluidos', 'Ejercicios verificados'],
+      goal: wants.goal,
+      method: methodId,
+      distribution: `${desiredDays} días/semana${label ? ` — ${label}` : ''}`,
+      intensity: instructions.lowVolumeHighIntensity ? 'Alta: menos ejercicios, más series' : 'Moderada (ajustable en cada serie)',
+      progression: instructions.gradualProgression ? 'Progresión gradual: sumá carga o reps de a poco' : 'Subí 2.5 kg cuando completes todas las reps',
+      keyFeatures: [
+        reason || 'Generada localmente: no hay IA externa configurada.',
+        applied.length ? `Aplica del pedido: ${applied.join(', ')}.` : 'Aplica días, foco, equipo y exclusiones disponibles.',
+        'No interpreta condiciones narrativas fuera de días, split, duración, prioridades, equipo y exclusiones.',
+        'Ejercicios verificados del catálogo.',
+      ],
+      priorities: instructions.priorities.map(m => displayMuscle(m)),
     },
   }
 }
@@ -146,11 +639,12 @@ function markRequested() {
   try { localStorage.setItem(RATE_LIMIT_KEY, String(Date.now())) } catch { /* noop */ }
 }
 
-type CompactEx = { id: string; name: string; eq: string }
+type CompactEx = PoolEx
 
-async function collectContext(_wants: UserWants): Promise<{
-  profile: any; history: string; style: any; methodName: string; exercises: Record<string, CompactEx[]>
-}> {
+async function collectContext(
+  instructions: RoutineInstructions,
+  seed: number,
+): Promise<{ profile: any; history: string; style: any; methodName: string; exercises: Record<string, CompactEx[]> }> {
   const profile = await db.userProfile.get('me').catch(() => null) as any || {}
   // Método vigente de la planificación (canónico). Snapshot profile.cycle como
   // fallback; 'hypertrophy' solo si no hay ninguna fuente (comportamiento previo).
@@ -187,77 +681,84 @@ async function collectContext(_wants: UserWants): Promise<{
     }
   } catch { /* noop */ }
 
-  const muscleEx: Record<string, CompactEx[]> = {}
-  // Expande familia Piernas (__piernas__ placeholder) a músculos reales — evita fetch 404 que deja sin ejercicios a IA
-  const { PIERNA_FAMILY } = await import('@/utils/muscleMap')
-  const rawMuscles = [...new Set(Object.values(GROUP_MAP))]
-  const muscles: string[] = rawMuscles.flatMap(m => (m === '__piernas__' ? PIERNA_FAMILY : [m])).filter(Boolean)
-  const fetches = await Promise.allSettled(muscles.map(m => fetchByMuscle(m)))
-  for (let i = 0; i < muscles.length; i++) {
-    const r = fetches[i]
-    if (r.status === 'fulfilled' && r.value?.exercises) {
-      muscleEx[muscles[i]] = r.value.exercises.slice(0, 8).map((e: Exercise) => ({
-        id: e.id, name: e.name, eq: e.equipment
-      }))
-    }
-  }
-
-  return { profile, history, style, methodName: method?.nameEs || coachingMethod, exercises: muscleEx }
+  const exercises = await loadMusclePools(instructions, seed, profile.excludedExercises || [])
+  return { profile, history, style, methodName: method?.nameEs || coachingMethod, exercises }
 }
 
 function buildPrompt(ctx: {
   profile: any; history: string; style: any; methodName: string; exercises: Record<string, CompactEx[]>
-}, wants: UserWants): string {
+}, wants: UserWants, instructions: RoutineInstructions): string {
   const p = ctx.profile || {}
   const s = ctx.style
   const today = todayKey()
-  const time = p.sessionDurationMin || p.schedule?.sessionDurationMin || 60
+  const days = clampDays(instructions.days ?? wants.daysPerWeek)
+  const time = instructions.sessionMinutes ?? (Number(p.sessionDurationMin || p.schedule?.sessionDurationMin) || 60)
+  const maxPerDay = maxExercisesPerDay(instructions, time)
+  const level = instructions.level || p.experienceLevel || 'intermediate'
+  const equipment = instructions.equipment ? instructions.equipment.join(', ') : (p.equipment || ['gym']).join(', ')
   const description = (wants.description || '').trim()
+  const label = splitLabel(instructions.split)
 
   const exLines = Object.entries(ctx.exercises)
     .map(([m, exs]) => `${m}:${exs.map(e => `${e.id}|${e.name}|${e.eq}`).join(';')}`)
     .join('\n')
 
+  const hardRules = [
+    `- Días por semana: ${days}.`,
+    label ? `- Split obligatorio: ${label}.` : '- Split: el que mejor responda al pedido.',
+    `- Duración máxima: ${time} min → como máximo ${maxPerDay} ejercicios por día.`,
+    instructions.priorities.length ? `- Prioridades (más volumen/frecuencia): ${instructions.priorities.map(displayMuscle).join(', ')}.` : '',
+    instructions.equipment ? `- Equipo permitido: ${equipment}. No uses otro.` : `- Equipo disponible: ${equipment}.`,
+    instructions.includes.length ? `- Debe incluir: ${instructions.includes.join(', ')}.` : '',
+    instructions.excludes.length ? `- No incluir: ${instructions.excludes.join(', ')} (ni variantes equivalentes).` : '',
+    `- Nivel: ${level}. ${instructions.lowVolumeHighIntensity ? 'Menos ejercicios y mayor intensidad.' : ''}`,
+    instructions.gradualProgression ? '- Progresión gradual y explícita.' : '',
+  ].filter(Boolean).join('\n')
+
   return `Eres un entrenador personal experto en fuerza e hipertrofia. Genera una rutina de entrenamiento en formato JSON.
 
-PEDIDO DEL USUARIO (texto libre, interpretalo literalmente):
+PEDIDO DEL USUARIO (texto libre, es la fuente principal; interpretalo literalmente):
 ${description || '(sin pedido libre; usá los datos estructurados de abajo)'}
+
+RESTRICCIONES DEL PEDIDO (obligatorias; mandan sobre cualquier valor por defecto):
+${hardRules}
 
 DATOS DEL USUARIO:
 Edad: ${p.age || '?'} años, Sexo: ${p.sex || '?'} ${p.weightKg || '?'}kg, ${p.heightCm || '?'}cm
 Objetivo: ${wants.goal}
-Días por semana: ${wants.daysPerWeek}
-Enfoque: ${wants.focus}
-${wants.injuryNote ? `Lesiones/limitaciones: ${wants.injuryNote}` : ''}
-Nivel: ${p.experienceLevel || 'intermediate'}
-Tiempo por sesión: ${time} min
-Equipamiento: ${(p.equipment || ['gym']).join(', ')}
+Días por semana: ${days}
+Nivel: ${level}
+Tiempo por sesión: ${time} min (máx. ${maxPerDay} ejercicios)
+Equipamiento permitido: ${equipment}
 Zonas de dolor: ${(p.painAreas || []).join(', ') || 'ninguna'}
-Ejercicios excluidos: ${(p.excludedExercises || []).join(', ') || 'ninguno'}
+Lesiones/limitaciones: ${wants.injuryNote || (p.painAreas || []).join(', ') || 'ninguna'}
+Ejercicios excluidos (IDs): ${(p.excludedExercises || []).join(', ') || 'ninguno'}
 Estilo coaching: ${ctx.methodName} (${s?.tone || 'ABUELITOS'}, riesgo ${s ? Math.round(s.riskLevel * 100) : 50}%)
 Historial: ${ctx.history || 'sin historial'}
 
 CÓMO INTERPRETAR EL PEDIDO LIBRE:
-- Un músculo "poco desarrollado" o "débil" es una PRIORIDAD del usuario, no un diagnóstico: dale más volumen semanal y mejor frecuencia, sin abandonar el resto del cuerpo.
-- Respetá los ejercicios que pidió incluir y NO incluyas los que rechazó (ni variantes equivalentes del mismo movimiento).
-- Adaptá el volumen a experiencia, duración de sesión e historial: principiante 2-3 series por ejercicio, intermedio 3-4, avanzado 4-5. No impongas 10-20 series semanales a todos.
+- Un músculo "poco desarrollado" o "débil" es una PRIORIDAD: más volumen semanal y mejor frecuencia, sin abandonar el resto.
+- Respetá los ejercicios que pidió incluir y NO incluyas los que rechazó (ni variantes equivalentes).
+- Adaptá el volumen a nivel, duración e historial. Principiante 2-3 series por ejercicio, intermedio 3-4, avanzado 4-5.
 - Contá el trabajo indirecto: no sumes volumen de un músculo como si cada ejercicio solo lo trabajara él.
-- Progresión gradual y criterios de esfuerzo (RIR 2-3 en la mayoría de las series), sin porcentajes rígidos iguales para todos.
-- Si el pedido menciona dolor o una lesión, no des indicaciones terapéuticas: evitá los movimientos que puedan agravarlo y dejá la consulta profesional en la explicación.
-- Podés agrupar 2 o 3 ejercicios en superserie SOLO si tiene sentido para el objetivo, el tiempo y la recuperación: usá el mismo "supersetId" (ej. "ss1") en esos ejercicios y "supersetOrder" 0,1,2. Dejá el resto sin supersetId.
+- Progresión gradual y RIR 2-3 en la mayoría de las series.
+- Si hay dolor o lesión, evitá los movimientos que puedan agravarlo y dejá la consulta profesional en la explicación.
+- Podés agrupar 2 o 3 ejercicios en superserie SOLO si tiene sentido: mismo "supersetId" (ej. "ss1") y "supersetOrder" 0,1,2. El resto sin supersetId.
 
 EJERCICIOS DISPONIBLES (usá exclusivamente estos IDs exactos):
 ${exLines}
 
 INSTRUCCIONES:
 1. Elegí ejercicios SOLO de la lista anterior. Usá el ID exacto. Nunca inventes IDs.
-2. Respetá equipamiento, lesiones y ejercicios excluidos.
+2. Respetá equipo, lesiones, exclusiones e inclusiones del pedido.
 3. Calculá cargas según historial. Si no hay historial, poné 0.
-4. Generá ${wants.daysPerWeek} días de entrenamiento y distribuí el volumen según las prioridades.
-5. weekMap: 7 valores (Dom=0,Lun=1,Mar=2,Mié=3,Jue=4,Vie=5,Sáb=6). null=descanso, N=número de día.
-6. gifUrl: ${GYM_BASE}/api/es/exercises/{muscle}/{slug}.gif
-7. "priorities": lista breve de las prioridades que interpretaste (ej. ["piernas","brazos"]).
-8. No hagas preguntas en la respuesta: si un dato falta, usá los valores de arriba.
+4. Generá exactamente ${days} días de entrenamiento. Si el pedido pide un split, respetalo.
+5. No repitas el mismo ejercicio dentro del día. Entre días, evitá repetir el mismo ID si hay alternativa del mismo grupo muscular.
+6. Distribuí el volumen según las prioridades y el tiempo disponible.
+7. weekMap: 7 valores (Dom=0,Lun=1,Mar=2,Mié=3,Jue=4,Vie=5,Sáb=6). null=descanso, N=número de día. Cada día debe aparecer una vez.
+8. gifUrl: ${GYM_BASE}/api/es/exercises/{muscle}/{slug}.gif
+9. "priorities": lista breve de las prioridades que interpretaste (ej. ["piernas","brazos"]).
+10. No hagas preguntas en la respuesta: las restricciones de arriba ya resuelven el pedido.
 
 Responde SOLO con este JSON (sin explicaciones, sin markdown):
 {
@@ -338,8 +839,8 @@ async function callGroq(_apiKey: string, prompt: string, attempt = 0): Promise<s
         { role: 'system', content: 'Eres un entrenador personal. Respondes SOLO con JSON valido, nada de texto explicativo.' },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 4096,
-      temperature: 0.3
+      max_tokens: 8192,
+      temperature: 0.7
     })
   })
 
@@ -359,9 +860,12 @@ async function callGroq(_apiKey: string, prompt: string, attempt = 0): Promise<s
 }
 
 export async function generateRoutineWithAI(wants: UserWants): Promise<GeneratedRoutine> {
+  const instructions = parseRoutineInstructions(wants.description || '')
+  const seed = hashStr([wants.description || '', wants.goal, wants.focus, wants.daysPerWeek].join('|'))
+
   // Sin proxy/key → fallback local inmediato (seleccionar siempre funciona)
   if (!isAvailable()) {
-    return generateRoutineFallback(wants)
+    return generateRoutineFallback(wants, instructions, 'Generada localmente: no hay IA externa configurada.')
   }
 
   const cooldown = canRequestNow()
@@ -370,8 +874,8 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
   }
 
   try {
-    const ctx = await collectContext(wants)
-    const prompt = buildPrompt(ctx, wants)
+    const ctx = await collectContext(instructions, seed)
+    const prompt = buildPrompt(ctx, wants, instructions)
 
     markRequested()
     const content = await callGroq('', prompt)
@@ -387,125 +891,30 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
       throw new Error('La IA no devolvió JSON válido. Reintentá.')
     }
 
-  // Normalize methodId
-  if (parsed.cycle) {
-    parsed.cycle.methodId = (parsed.cycle.methodId || 'hypertrophy') as TrainingMethodId
-    if (!parsed.cycle.startDate) {parsed.cycle.startDate = todayKey()}
-  }
-
-  // Validate structure
-  if (!parsed.cycle?.trainingDays?.length || !parsed.dayExercises) {
-    throw new Error('La rutina generada no tiene la estructura correcta.')
-  }
-
-  // Ensure all trainingDays have names
-  for (const d of parsed.cycle.trainingDays) {
-    if (!d.name) {d.name = `Día ${d.n}`}
-  }
-
-  // Catálogo real disponible: todo ID que no esté acá se descarta. Nunca se
-  // guardan identificadores inventados por la IA.
-  const catalog = new Map<string, { name: string; muscle: string }>()
-  for (const [muscle, list] of Object.entries(ctx.exercises)) {
-    for (const e of list) {catalog.set(e.id, { name: e.name, muscle })}
-  }
-  const excluded = new Set<string>((ctx.profile?.excludedExercises || []) as string[])
-  const resolveCatalog = (raw: any): { id: string; name: string; muscle: string } | null => {
-    const id = String(raw?.exId || raw?.id || '').trim()
-    const direct = catalog.get(id)
-    if (direct && !excluded.has(id)) {return { id, ...direct }}
-    const wanted = String(raw?.name || '').toLowerCase().trim()
-    if (wanted) {
-      for (const [cid, c] of catalog) {
-        if (!excluded.has(cid) && (c.name.toLowerCase() === wanted || c.name.toLowerCase().includes(wanted))) {
-          return { id: cid, ...c }
-        }
-      }
+    // Normalize methodId
+    if (parsed.cycle) {
+      parsed.cycle.methodId = (parsed.cycle.methodId || 'hypertrophy') as TrainingMethodId
+      if (!parsed.cycle.startDate) {parsed.cycle.startDate = todayKey()}
     }
-    return null
-  }
 
-  const { parseDayMuscles } = await import('@/utils/muscleMap')
-  for (const dayN of Object.keys(parsed.dayExercises)) {
-    const rawList: any[] = Array.isArray(parsed.dayExercises[Number(dayN)]) ? parsed.dayExercises[Number(dayN)] : []
-    const seen = new Set<string>()
-    const normalized: any[] = []
-    for (const raw of rawList) {
-      const hit = resolveCatalog(raw)
-      if (!hit || seen.has(hit.id)) {continue}
-      seen.add(hit.id)
-      normalized.push({
-        id: uid(),
-        exId: hit.id,
-        name: hit.name,
-        muscle: hit.muscle,
-        sets: Math.max(1, Math.min(10, Number(raw.sets) || 3)),
-        reps: Math.max(1, Math.min(30, Number(raw.reps) || 10)),
-        weight: Math.max(0, Number(raw.weight) || 0),
-        gifUrl: raw.gifUrl || `${GYM_BASE}/api/es/exercises/${hit.id}.gif`,
-        restSec: Number(raw.restSec) > 0 ? Number(raw.restSec) : undefined,
-        supersetId: raw.supersetId ? String(raw.supersetId) : undefined,
-        supersetOrder: raw.supersetId ? Number(raw.supersetOrder) || 0 : undefined,
-      })
+    // Validate structure
+    if (!parsed.cycle?.trainingDays?.length || !parsed.dayExercises) {
+      throw new Error('La rutina generada no tiene la estructura correcta.')
     }
-    // Garantiza un mínimo de ejercicios reales por día tomando del catálogo
-    // del grupo muscular del día (o de cualquier grupo como último recurso).
-    if (normalized.length < 3) {
-      const day = parsed.cycle.trainingDays.find((d: any) => d.n === Number(dayN))
-      const muscles = parseDayMuscles(day?.name || '')
-      const pool = [...muscles.flatMap((m: string) => ctx.exercises[m] || []), ...catalog.values()]
-      for (const c of pool as Array<{ id: string; name: string; muscle: string }>) {
-        if (normalized.length >= 3) {break}
-        if (seen.has(c.id) || excluded.has(c.id)) {continue}
-        seen.add(c.id)
-        normalized.push({ id: uid(), exId: c.id, name: c.name, muscle: c.muscle, sets: 3, reps: 10, weight: 0, gifUrl: `${GYM_BASE}/api/es/exercises/${c.id}.gif` })
-      }
-    }
-    // Superseries: solo bloques con 2+ integrantes reales del mismo día.
-    const byBlock = new Map<string, any[]>()
-    for (const ex of normalized) {
-      if (!ex.supersetId) {continue}
-      const list = byBlock.get(ex.supersetId) || []
-      list.push(ex); byBlock.set(ex.supersetId, list)
-    }
-    const validBlocks = new Set([...byBlock.entries()].filter(([, list]) => list.length >= 2).map(([id]) => id))
-    let order = 0
-    for (const ex of normalized) {
-      if (ex.supersetId && validBlocks.has(ex.supersetId)) {
-        ex.supersetId = `ss-${dayN}-${ex.supersetId}`
-        ex.supersetOrder = order++
-        ex.transitionRestSec = 15
-      } else {
-        ex.supersetId = null
-        ex.supersetOrder = null
-      }
-    }
-    parsed.dayExercises[Number(dayN)] = normalized
-  }
 
-  // Fill missing explanation
-  if (!parsed.explanation) {
-    parsed.explanation = {
-      goal: wants.goal,
-      method: parsed.cycle.methodJustification || 'Método seleccionado por IA',
-      distribution: `${parsed.cycle.trainingDays.length} días por semana`,
-      intensity: 'Moderada a alta según nivel',
-      progression: 'Aumentar carga o repeticiones cada semana',
-      keyFeatures: ['Personalizada por IA', 'Basada en tu perfil', 'Ejercicios verificados']
+    const routine = normalizeRoutine(parsed, wants, instructions, ctx)
+
+    // Sin ningún ejercicio válido del catálogo no hay rutina utilizable.
+    const totalExercises = Object.values(routine.dayExercises)
+      .reduce((acc: number, list: any) => acc + (Array.isArray(list) ? list.length : 0), 0)
+    if (totalExercises === 0) {
+      throw new Error('La IA no devolvió ejercicios del catálogo.')
     }
-  }
 
-  // Sin ningún ejercicio válido del catálogo no hay rutina utilizable.
-  const totalExercises = Object.values(parsed.dayExercises)
-    .reduce((acc: number, list: any) => acc + (Array.isArray(list) ? list.length : 0), 0)
-  if (totalExercises === 0) {
-    throw new Error('La IA no devolvió ejercicios del catálogo.')
-  }
-
-    return parsed as GeneratedRoutine
+    return routine
   } catch (e) {
     console.warn('IA Groq falló, usando fallback local:', e)
-    return generateRoutineFallback(wants)
+    return generateRoutineFallback(wants, instructions, 'La IA no respondió; rutina armada localmente con las reglas del pedido.')
   }
 }
 

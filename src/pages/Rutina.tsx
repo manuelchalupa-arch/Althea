@@ -344,6 +344,8 @@ export default function RutinaPage(){
     import('@/services/storage/routineStore').then(({ setActiveRoutineId }) => setActiveRoutineId(id))
     // La planificación canónica vive en cycleVersions; profile.cycle es solo
     // snapshot legacy de lectura (no se sincroniza ni se crea perfil acá).
+    // Aviso global: Inicio (y demás lectores) recargan la rutina asignada.
+    window.dispatchEvent(new Event('routineChange'))
   }
   const createNew = ()=>{
     if(routines.length>=MAX_ROUTINES){
