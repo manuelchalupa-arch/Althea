@@ -88,7 +88,7 @@
         "destination": "/index.html"
       }
     ],
-    "site": "althea-4b1d0"
+    "target": "staging"
   },
   "firestore": {
     "rules": "firestore.rules"
