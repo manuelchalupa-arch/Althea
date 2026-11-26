@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { db } from '@/services/storage/db'
 
 vi.mock('./groqConfig', () => ({
-  getGroqUrl: () => 'https://proxy.test',
+  getProxyUrl: () => 'https://proxy.test',
   getGroqHeaders: () => ({ 'Content-Type': 'application/json' }),
 }))
 vi.mock('./aiAuth', () => ({

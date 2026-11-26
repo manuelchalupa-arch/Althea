@@ -28,11 +28,11 @@ vi.mock('@/services/exerciseGym', () => ({
 }))
 
 vi.mock('./groqConfig', () => ({
-  getGroqUrl: vi.fn(() => ''),
+  getProxyUrl: vi.fn(() => ''),
   getGroqHeaders: () => ({ 'Content-Type': 'application/json' }),
 }))
 
-import { getGroqUrl } from './groqConfig'
+import { getProxyUrl } from './groqConfig'
 import { generateRoutineWithAI, parseRoutineInstructions } from './routineBuilderIA'
 
 const wants = (description: string, daysPerWeek = 4) => ({
@@ -45,7 +45,7 @@ const allEx = (r: Awaited<ReturnType<typeof generateRoutineWithAI>>) =>
 describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
   beforeEach(async () => {
     localStorage.clear()
-    vi.mocked(getGroqUrl).mockReturnValue('')
+    vi.mocked(getProxyUrl).mockReturnValue('')
     await db.delete()
     await db.open()
   })
@@ -131,7 +131,7 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
   })
 
   it('el prompt envía las restricciones como obligatorias y el resultado las cumple', async () => {
-    vi.mocked(getGroqUrl).mockReturnValue('https://proxy.test')
+    vi.mocked(getProxyUrl).mockReturnValue('https://proxy.test')
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,

@@ -2,7 +2,7 @@
 import { db } from '@/services/storage/db'
 import { todayKey } from '@/utils/dates'
 vi.mock('./groqConfig', () => ({
-  getGroqUrl: () => '',
+  getProxyUrl: () => '',
   getGroqHeaders: () => ({ 'Content-Type': 'application/json' }),
 }))
 

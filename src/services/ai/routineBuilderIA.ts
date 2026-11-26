@@ -10,7 +10,6 @@ import { getProxyUrl, getGroqHeaders } from './groqConfig'
 import { aiLimitMessage, getAiAuthHeaders, isLimitError, stripLimitPrefix } from './aiAuth'
 import { buildAiTrainingContext, getTrainingPreferences } from '@/utils/profilePreferences'
 
-const MODEL = 'openai/gpt-oss-20b'
 const RATE_LIMIT_KEY = 'groq:lastRequestAt'
 const MIN_GAP_MS = 12_000
 
@@ -1011,22 +1010,50 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
   const profile = await db.userProfile.get('me').catch(() => null) as any || {}
   const effective = withProfilePreferences(wants, profile)
   const instructions = parseRoutineInstructions(effective.description || '')
-  if (!instructions.equipment && effective.allowedEquipment?.length) {instructions.equipment = effective.allowedEquipment}
-  if (!instructions.sessionMinutes && effective.durationMin) {instructions.sessionMinutes = effective.durationMin}
-  if (!instructions.level && effective.level) {instructions.level = effective.level}
-  if (effective.excludedMovements?.length) {
-    instructions.excludes = [...new Set([...instructions.excludes, ...effective.excludedMovements])]
-  }
-  const seed = hashStr([effective.description || '', effective.goal, effective.focus, effective.daysPerWeek].join('|'))
 
-  // Sin proxy/key → fallback local inmediato (seleccionar siempre funciona)
+  if (!instructions.equipment && effective.allowedEquipment?.length) {
+    instructions.equipment = effective.allowedEquipment
+  }
+
+  if (!instructions.sessionMinutes && effective.durationMin) {
+    instructions.sessionMinutes = effective.durationMin
+  }
+
+  if (!instructions.level && effective.level) {
+    instructions.level = effective.level
+  }
+
+  if (effective.excludedMovements?.length) {
+    instructions.excludes = [
+      ...new Set([
+        ...instructions.excludes,
+        ...effective.excludedMovements,
+      ]),
+    ]
+  }
+
+  const seed = hashStr([
+    effective.description || '',
+    effective.goal,
+    effective.focus,
+    effective.daysPerWeek,
+  ].join('|'))
+
+  // Sin configuración del proxy se conserva el funcionamiento offline.
   if (!isAvailable()) {
-    return fallbackWithDurationNotice(effective, instructions, 'Generada localmente: no hay IA externa configurada.')
+    return fallbackWithDurationNotice(
+      effective,
+      instructions,
+      'Generada localmente: no hay IA externa configurada.',
+    )
   }
 
   const cooldown = canRequestNow()
+
   if (!cooldown.ok) {
-    throw new Error(`Rate limit: esperá ${cooldown.waitSec}s antes de generar otra rutina.`)
+    throw new Error(
+      `Rate limit: esperá ${cooldown.waitSec}s antes de generar otra rutina.`,
+    )
   }
 
   const ctx = await collectContext(instructions, seed)
@@ -1036,63 +1063,115 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const prompt = buildPrompt(ctx, effective, instructions, corrections)
+
       markRequested()
+
       const content = await callAi(prompt)
-      if (!content) {throw new Error('Respuesta vacía del servicio de IA.')}
+
+      if (!content) {
+        throw new Error('Respuesta vacía del servicio de IA.')
+      }
 
       let parsed: any
-      try { parsed = JSON.parse(extractJSON(content)) }
-      catch { throw new Error('La IA no devolvió JSON válido. Reintentá.') }
+
+      try {
+        parsed = JSON.parse(extractJSON(content))
+      } catch {
+        throw new Error('La IA no devolvió JSON válido. Reintentá.')
+      }
 
       if (parsed.cycle) {
-        parsed.cycle.methodId = (parsed.cycle.methodId || 'hypertrophy') as TrainingMethodId
-        if (!parsed.cycle.startDate) {parsed.cycle.startDate = todayKey()}
+        parsed.cycle.methodId = (
+          parsed.cycle.methodId || 'hypertrophy'
+        ) as TrainingMethodId
+
+        if (!parsed.cycle.startDate) {
+          parsed.cycle.startDate = todayKey()
+        }
       }
+
       if (!parsed.cycle?.trainingDays?.length || !parsed.dayExercises) {
-        throw new Error('La rutina generada no tiene la estructura correcta.')
+        throw new Error(
+          'La rutina generada no tiene la estructura correcta.',
+        )
       }
 
-      const routine = normalizeRoutine(parsed, effective, instructions, ctx)
+      const routine = normalizeRoutine(
+        parsed,
+        effective,
+        instructions,
+        ctx,
+      )
+
       const totalExercises = Object.values(routine.dayExercises)
-        .reduce((acc: number, list: any) => acc + (Array.isArray(list) ? list.length : 0), 0)
-      if (totalExercises === 0) {throw new Error('La IA no devolvió ejercicios del catálogo.')}
+        .reduce(
+          (acc: number, list: any) =>
+            acc + (Array.isArray(list) ? list.length : 0),
+          0,
+        )
 
-      const validation = validateGeneratedRoutine(routine, effective, instructions, catalog)
-      if (!validation.ok) {
-        if (attempt === 0) {corrections = validation.issues; continue}
-        throw new RoutineValidationError(`La propuesta de IA no es válida: ${validation.issues.join(' ')}`)
+      if (totalExercises === 0) {
+        throw new Error(
+          'La IA no devolvió ejercicios del catálogo.',
+        )
       }
+
+      const validation = validateGeneratedRoutine(
+        routine,
+        effective,
+        instructions,
+        catalog,
+      )
+
+      if (!validation.ok) {
+        if (attempt === 0) {
+          corrections = validation.issues
+          continue
+        }
+
+        throw new RoutineValidationError(
+          `La propuesta de IA no es válida: ${validation.issues.join(' ')}`,
+        )
+      }
+
       if (validation.suggestion) {
-        routine.explanation.keyFeatures = routine.explanation.keyFeatures || []
+        routine.explanation.keyFeatures =
+          routine.explanation.keyFeatures || []
+
         routine.explanation.keyFeatures.push(validation.suggestion)
       }
+
       return routine
-    } catch (e: any) {
-  if (e instanceof RoutineValidationError) {
-    throw new Error(e.message)
-  }
+    } catch (e: unknown) {
+      if (e instanceof RoutineValidationError) {
+        throw new Error(e.message)
+      }
 
-  const message = String(
-    e?.message || 'Error desconocido al comunicarse con Cloudflare.'
-  )
+      const message = e instanceof Error
+        ? e.message
+        : String(e || 'Error desconocido al comunicarse con Cloudflare.')
 
-  if (isLimitError(message)) {
-    throw new Error(stripLimitPrefix(message))
-  }
+      if (isLimitError(message)) {
+        throw new Error(stripLimitPrefix(message))
+      }
 
-  console.error(
-    '[Althea IA] Falló la generación.',
-    {
-      message,
-      type: e?.name || 'Error',
+      console.error(
+        '[Althea IA] Falló la generación.',
+        {
+          message,
+          type: e instanceof Error ? e.name : 'Error',
+        },
+      )
+
+      throw new Error(
+        `No se pudo generar la rutina con IA: ${message}. Podés reintentar.`,
+      )
     }
-  )
+  }
 
   throw new Error(
-    `No se pudo generar la rutina con IA: ${message}. Podés reintentar.`
+    'La IA no pudo generar una rutina válida después de dos intentos. Volvé a intentarlo.',
   )
-}
-  return fallbackWithDurationNotice(effective, instructions, 'La IA no devolvió una propuesta válida; rutina armada localmente.')
 }
 
 export function isRoutineAIAvailable(): boolean {

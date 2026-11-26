@@ -38,7 +38,11 @@ describe('Rutinas IA — pedido libre y catálogo real', () => {
     localStorage.clear()
     await db.delete()
     await db.open()
-    vi.stubEnv('VITE_GROQ_PROXY_URL', 'https://proxy.test')
+    vi.stubEnv('VITE_FIREBASE_PROJECT_ID', 'althea-stg')
+    vi.stubEnv(
+      'VITE_GROQ_PROXY_URL',
+      'https://althea-proxy-staging.manuelchalupa.workers.dev',
+    )
   })
   afterEach(() => {
     vi.unstubAllEnvs()

@@ -4,6 +4,12 @@ import { fetchWithRetry } from '../apiUtils'
 import { streamChat } from './chatService'
 
 vi.mock('../apiUtils', () => ({ fetchWithRetry: vi.fn() }))
+vi.mock('./groqConfig', () => ({
+  getProxyUrl: () => 'https://proxy.test',
+  getGroqHeaders: () => ({
+    'Content-Type': 'application/json',
+  }),
+}))
 vi.mock('./groqUsage', () => ({
   canMakeRequest: () => ({ ok: true }),
   recordRequest: vi.fn(),
