@@ -27,6 +27,29 @@ describe('Chat — panel responsive y exclusión de FABs', () => {
     expect(text).not.toContain('import.meta')
   })
 
+  it('cierra y oculta el chatbot cuando aparece una ventana emergente', async () => {
+    render(
+      <MemoryRouter>
+        <ChatWidget />
+      </MemoryRouter>
+    )
+    fireEvent.click(screen.getByLabelText('Abrir chat'))
+    await waitFor(() => {
+      expect(screen.getByLabelText('Cerrar ventana del chat')).toBeTruthy()
+    })
+    const overlay = document.createElement('div')
+    overlay.className = 'althea-modal'
+    document.body.appendChild(overlay)
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Cerrar ventana del chat')).toBeNull()
+      expect(screen.queryByLabelText('Abrir chat')).toBeNull()
+    })
+    overlay.remove()
+    await waitFor(() => {
+      expect(screen.getByLabelText('Abrir chat')).toBeTruthy()
+    })
+  })
+
   it('panel opaco y controles accesibles', async () => {
     render(
       <MemoryRouter>

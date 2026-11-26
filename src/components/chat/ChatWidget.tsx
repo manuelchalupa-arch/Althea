@@ -29,13 +29,13 @@ export default function ChatWidget() {
   // está abierto. La marca se limpia siempre al cerrar o desmontar el widget.
   useEffect(() => {
     const root = document.documentElement
-    if (openChat) {
+    if (openChat && !modalOpen) {
       root.setAttribute('data-chat-open', 'true')
     } else {
       root.removeAttribute('data-chat-open')
     }
     return () => root.removeAttribute('data-chat-open')
-  }, [openChat])
+  }, [openChat, modalOpen])
 
 
   // No mostrar el acceso flotante sobre modales/ventanas emergentes: detecta
@@ -48,6 +48,12 @@ export default function ChatWidget() {
     observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'role', 'aria-modal', 'data-modal-open'] })
     return () => observer.disconnect()
   }, [])
+
+  // Si una ventana emergente aparece mientras el Coach está abierto, cerrarlo.
+  // Evita dos capas interactivas y libera los controles del modal.
+  useEffect(() => {
+    if (modalOpen && openChat) { setOpenChat(false) }
+  }, [modalOpen, openChat])
 
   const loadMessages = async () => {
     try {
@@ -146,7 +152,7 @@ export default function ChatWidget() {
         {openChat ? <X size={20} /> : <IconChatBubble className="w-6 h-6" />}
       </button>}
 
-      {openChat && (
+      {openChat && !modalOpen && (
         <div className="fixed inset-0 z-40 flex items-end justify-end p-2 pb-[calc(var(--mobile-nav-offset)+0.75rem)] md:p-8 md:pb-8 pointer-events-none">
           <div className="relative flex w-full max-w-md max-h-[82dvh] mx-2 md:mx-4 flex-col bg-surface rounded-3xl border border-outline-variant shadow-xl overflow-hidden pointer-events-auto">
             <div className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-outline-variant bg-surface">
