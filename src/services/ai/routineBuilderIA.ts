@@ -1068,12 +1068,30 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
       }
       return routine
     } catch (e: any) {
-      if (e instanceof RoutineValidationError) {throw new Error(e.message)}
-      if (isLimitError(String(e?.message || ''))) {throw new Error(stripLimitPrefix(String(e.message)))}
-      console.warn('IA no disponible, usando fallback local:', e)
-      return fallbackWithDurationNotice(effective, instructions, 'La IA no respondió; rutina armada localmente con las reglas del pedido.')
-    }
+  if (e instanceof RoutineValidationError) {
+    throw new Error(e.message)
   }
+
+  const message = String(
+    e?.message || 'Error desconocido al comunicarse con Cloudflare.'
+  )
+
+  if (isLimitError(message)) {
+    throw new Error(stripLimitPrefix(message))
+  }
+
+  console.error(
+    '[Althea IA] Falló la generación.',
+    {
+      message,
+      type: e?.name || 'Error',
+    }
+  )
+
+  throw new Error(
+    `No se pudo generar la rutina con IA: ${message}. Podés reintentar.`
+  )
+}
   return fallbackWithDurationNotice(effective, instructions, 'La IA no devolvió una propuesta válida; rutina armada localmente.')
 }
 
