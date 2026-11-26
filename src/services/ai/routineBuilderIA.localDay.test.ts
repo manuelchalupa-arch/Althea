@@ -1,6 +1,11 @@
 ﻿import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { db } from '@/services/storage/db'
 import { todayKey } from '@/utils/dates'
+vi.mock('./groqConfig', () => ({
+  getGroqUrl: () => '',
+  getGroqHeaders: () => ({ 'Content-Type': 'application/json' }),
+}))
+
 import { generateRoutineWithAI } from './routineBuilderIA'
 
 // FASE 2 - S7: routineBuilderIA armaba el ciclo con

@@ -1,136 +1,88 @@
 /**
- * ALTHEA — Cloudflare Worker (edge proxy)
+ * ALTHEA — Cloudflare Worker (servicio central de IA)
  *
- * Arranque:
- *   - POST /                      -> proxy Groq (chat completion, SSE)
+ *   - POST /   -> Cloudflare Workers AI (@cf/google/gemma-4-26b-a4b-it)
+ *   - OPTIONS  -> preflight CORS
  *
- * Principio de diseño (§3-§10 del prompt de cierre):
- *   El Worker es un proxy CONTROLADO, no un relay HTTP genérico.
- *   Nada de lo que llega del cliente decide URL de proveedor, modelo,
- *   headers, credenciales ni destino. Todo eso es server-side.
+ * El usuario nunca aporta claves: el proveedor se llama exclusivamente desde
+ * el servidor con el binding `AI`. La identidad se verifica en CADA petición
+ * con el ID token de Firebase. El cliente no elige modelo, URL ni parámetros.
  *
- * Reglas duras:
- *   1. CORS fail-closed: sin `CORS_ORIGIN` configurado => 500. Nunca `*`.
- *      Nunca se refleja el Origin del request sin compararlo contra la
- *      allowlist exacta. Lista separada por entorno (staging/production).
- *   2. Métodos: sólo POST (+ OPTIONS para preflight). 405 con `Allow`.
- *   3. Content-Type: `application/json` obligatorio en POST. Otro => 415.
- *   4. Body size: límite explícito (MAX_BODY_BYTES). Excedido => 413.
- *      El tamaño se mira en `Content-Length` ANTES de leer, y se recorta
- *      el stream en bytes como segunda barrera (Content-Length es falsificable).
- *   5. Payload: esquema cerrado. Se reenvía SÓLO lo validado. El cliente no
- *      puede elegir modelo, URL, headers ni campos extra.
- *   6. Timeout: AbortController en toda llamada saliente => 504.
- *   7. Errores: nunca se devuelve el cuerpo upstream ni stack traces.
- *   8. Rate limit: tres capas, se usa la más fuerte disponible y se declara
- *      cuál se usó en `X-RateLimit-Mode`.
- *        a) Durable Object (strongly consistent, boundary de seguridad real).
- *        b) KV namespace (eventualmente consistente; degrada de (a)).
- *        c) Memoria del isolate (sin garantía; sólo desarrollo).
- *      Ninguna capa degrada en silencio: el modo va siempre en la respuesta.
+ * Reglas duras heredadas y ampliadas:
+ *   1. CORS fail-closed (nunca `*`), allowlist exacta por entorno.
+ *   2. Sólo POST (+ OPTIONS), Content-Type application/json, body ≤64 KB.
+ *   3. Esquema cerrado: sólo `messages` y `task` llegan al proveedor.
+ *   4. Auth Firebase obligatoria; el `uid` verificado es la clave de cuota.
+ *   5. Cuota: 20 req/min por usuario, 240 req/min globales, presupuesto
+ *      diario de neuronas y límite de concurrencia por isolate.
+ *   6. Errores sanitizados: nunca cuerpo del proveedor ni stack traces.
+ *   7. Logs: sólo códigos/status. Nunca prompts, respuestas ni tokens.
  */
 
+import { verifyFirebaseIdToken } from './firebase-auth.js'
+import { estimateNeurons, reserveDailyNeurons, secondsUntilUtcMidnight } from './quota.js'
 import { checkRateLimit } from './rate-limiter.js'
 
-// ───────────────────────────────────────────────────────────────────────────
-// Límites (valores documentados a propósito; ver docs/INFRAESTRUCTURA.md)
-// ───────────────────────────────────────────────────────────────────────────
+const MAX_BODY_BYTES = 64 * 1024
+const DEFAULT_AI_TIMEOUT_MS = 60_000
+const DEFAULT_MODEL = '@cf/google/gemma-4-26b-a4b-it'
+const DEFAULT_MAX_CONCURRENCY = 6
 
-/** Body máx del endpoint Groq. El Coach manda system prompt + contexto real;
- *  con max_tokens=512 el payload real ronda 2-8 KB. 64 KB es holgado y
- *  sigue siendo pequeño frente a un payload abusivo. */
-const MAX_BODY_BYTES = 64 * 1024 // 65536
+/** Parámetros fijados por servidor según la función solicitada. */
+const TASKS = {
+  chat: {
+    maxTokens: 512,
+    stream: true,
+    responseFormat: { type: 'text' },
+  },
+  routine: {
+    maxTokens: 8192,
+    stream: false,
+    responseFormat: { type: 'json_object' },
+  },
+}
 
-/** Timeout por defecto de la llamada a Groq (ms). Configurable por entorno. */
-const DEFAULT_GROQ_TIMEOUT_MS = 60_000
-
-/** Modelo fijado por servidor. El cliente NUNCA lo elige. */
-const GROQ_MODEL = 'openai/gpt-oss-20b'
-
-/** Params de generación: los fija el servidor, no el cliente. */
-const GROQ_MAX_TOKENS = 512
-const GROQ_TEMPERATURE = 0.7
-const GROQ_TOP_P = 0.9
-
-/** Esquema de mensajes del Coach. */
 const MAX_MESSAGES = 40
 const MAX_CONTENT_CHARS = 12_000
 const ALLOWED_ROLES = new Set(['system', 'user', 'assistant'])
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Rate limiting
-// ─────────────────────────────────────────────────────────────────────────────
-// La implementación vive en ./rate-limiter.js (capa DO + KV + memoria).
-// Se re-exporta aquí porque el entry point es lo que Wrangler despliega.
-
 export { checkRateLimit, resetMemoryRateLimits, RateLimiter, RATE_LIMIT_MODE } from './rate-limiter.js'
+export { verifyFirebaseIdToken, resetJwksCache } from './firebase-auth.js'
+export { estimateNeurons, reserveDailyNeurons, utcDayKey, secondsUntilUtcMidnight } from './quota.js'
 
-/** Rate limit por defecto del endpoint Groq (capa DO/KV). */
-const RATE_LIMIT = {
-  max: 20, // requests
-  windowSeconds: 60, // por minuto
-  keyPrefix: 'rl:groq',
-}
+const PER_USER_RATE_LIMIT = { max: 20, windowSeconds: 60, keyPrefix: 'ai:user' }
+const GLOBAL_RATE_LIMIT = { max: 240, windowSeconds: 60, keyPrefix: 'ai:global' }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Utilidades de respuesta
-// ───────────────────────────────────────────────────────────────────────────
+let inFlight = 0
 
-/**
- * Extrae la allowlist de origins desde `CORS_ORIGIN`.
- * Acepta lista separada por coma. Nunca devuelve `*` ni vacío-como-wildcard.
- *
- * Si la configuración contiene un wildcard, se devuelve `[]` (config inválida)
- * en vez de una lista parcial: una config con `*` es un error de despliegue y
- * debe fallar ruidosamente, no aceptarse en silencio con la mitad de los hosts.
- *
- * @param {string | undefined | null} raw
- * @returns {string[]}
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// Respuestas y CORS
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function parseAllowedOrigins(raw) {
   if (typeof raw !== 'string') return []
-  const entries = raw
-    .split(',')
-    .map((o) => o.trim())
-    .filter((o) => o.length > 0)
+  const entries = raw.split(',').map((o) => o.trim()).filter((o) => o.length > 0)
   if (entries.some((o) => o === '*')) return []
   return entries
 }
 
-/**
- * Fail-closed. Devuelve el origin permitido si `requestOrigin` está en la
- * allowlist exacta. `null` si no hay configuración o no coincide.
- *
- * Requests sin `Origin` (mismo origen, curl, health checks): se permiten
- * SOLO si no llevan Origin — el navegador siempre manda Origin en cross-origin,
- * así que la ausencia de Origin no es un hueco de CORS para el browser.
- * @param {string | undefined | null} requestOrigin
- * @param {string[] | undefined | null} allowed
- * @returns {string | null}
- */
 export function resolveAllowedOrigin(requestOrigin, allowed) {
   if (!Array.isArray(allowed) || allowed.length === 0) return null
-  // Sin Origin: request same-origin / no-browser. No es un bypass de CORS
-  // porque el control real de credenciales lo hace SameSite + cookies.
-  if (requestOrigin === null || requestOrigin === undefined || requestOrigin === '') {
-    return null
-  }
+  if (requestOrigin === null || requestOrigin === undefined || requestOrigin === '') return null
   return allowed.includes(requestOrigin) ? requestOrigin : null
 }
 
-/** Headers de CORS para un origin ya resuelto. */
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
     'Access-Control-Allow-Credentials': 'true',
     Vary: 'Origin',
   }
 }
 
-/** Solo los headers de respuesta que el Worker controla. Nunca upstream. */
 function jsonResponse(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
@@ -138,31 +90,17 @@ function jsonResponse(data, status = 200, headers = {}) {
   })
 }
 
-/**
- * Error controlado. `detail` es un código corto y estable, nunca texto de
- * upstream ni información de infraestructura.
- */
 function errorResponse(status, code, headers = {}) {
   return jsonResponse({ error: code }, status, headers)
 }
 
-/**
- * Lee el body con un tope duro en bytes. `Content-Length` se usa como atajo
- * barato, pero NO es de fiar: si miente, el stream se corta igual.
- * @returns {Promise<{ ok: true, text: string } | { ok: false, code: string }>}
- */
 export async function readBodyWithLimit(request, limitBytes) {
   const declared = request.headers.get('Content-Length')
   if (declared !== null) {
     const n = Number(declared)
-    if (!Number.isFinite(n) || n < 0) {
-      return { ok: false, code: 'invalid_content_length' }
-    }
-    if (n > limitBytes) {
-      return { ok: false, code: 'payload_too_large' }
-    }
+    if (!Number.isFinite(n) || n < 0) return { ok: false, code: 'invalid_content_length' }
+    if (n > limitBytes) return { ok: false, code: 'payload_too_large' }
   }
-
   if (!request.body) return { ok: true, text: '' }
 
   const reader = request.body.getReader()
@@ -174,7 +112,6 @@ export async function readBodyWithLimit(request, limitBytes) {
       if (done) break
       total += value.byteLength
       if (total > limitBytes) {
-        // Cancel explícito: no seguimos drenando de un body abusivo.
         await reader.cancel().catch(() => {})
         return { ok: false, code: 'payload_too_large' }
       }
@@ -193,260 +130,245 @@ export async function readBodyWithLimit(request, limitBytes) {
   return { ok: true, text: new TextDecoder().decode(merged) }
 }
 
-/** `application/json` (con o sin parámetros tipo charset). */
 export function isJsonContentType(contentType) {
   if (typeof contentType !== 'string') return false
-  const mime = contentType.split(';')[0].trim().toLowerCase()
-  return mime === 'application/json'
+  return contentType.split(';')[0].trim().toLowerCase() === 'application/json'
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Validación de payload (Groq) — esquema cerrado
-// ───────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Validación del payload: el cliente sólo entrega mensajes y la función.
+// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Valida y NORMALIZA el body del Coach. Devuelve únicamente lo que se va a
- * reenviar — el modelo y los params de generación los pone el servidor.
- *
- * @param {unknown} body
- * @returns {{ ok: true, messages: Array<{role: string, content: string}> }
- *          | { ok: false, code: string }}
- */
 export function validateChatPayload(body) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     return { ok: false, code: 'invalid_payload' }
   }
 
-  // El cliente sólo aporta `messages`. Las claves de provider que el frontend
-  // ya envía (model, max_tokens, temperature, top_p, stream) se ACEPTAN pero se
-  // IGNORAN: el servidor es quien las fija. Así el proxy sigue siendo
-  // controlado sin romper el contrato actual del cliente Coach.
-  const ALLOWED_KEYS = new Set([
-    'messages',
-    'model',
-    'max_tokens',
-    'temperature',
-    'top_p',
-    'stream',
-  ])
+  const ALLOWED_KEYS = new Set(['messages', 'task', 'model', 'max_tokens', 'temperature', 'top_p', 'stream'])
   for (const key of Object.keys(body)) {
-    if (!ALLOWED_KEYS.has(key)) {
-      // El cliente intentó controlar url/api_key/headers/modelo libre/lo que sea.
-      return { ok: false, code: 'unexpected_field' }
-    }
+    if (!ALLOWED_KEYS.has(key)) return { ok: false, code: 'unexpected_field' }
+  }
+
+  const task = body.task === undefined ? 'chat' : body.task
+  if (task !== 'chat' && task !== 'routine') {
+    return { ok: false, code: 'invalid_task' }
   }
 
   const { messages } = body
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return { ok: false, code: 'invalid_messages' }
-  }
-  if (messages.length > MAX_MESSAGES) {
-    return { ok: false, code: 'too_many_messages' }
-  }
+  if (!Array.isArray(messages) || messages.length === 0) return { ok: false, code: 'invalid_messages' }
+  if (messages.length > MAX_MESSAGES) return { ok: false, code: 'too_many_messages' }
 
   const out = []
-  let totalChars = 0
-
   for (const m of messages) {
-    if (m === null || typeof m !== 'object' || Array.isArray(m)) {
-      return { ok: false, code: 'invalid_message' }
-    }
-    // Sin campos extra por mensaje: nada de `name`, `function_call`, etc.
+    if (m === null || typeof m !== 'object' || Array.isArray(m)) return { ok: false, code: 'invalid_message' }
     for (const key of Object.keys(m)) {
-      if (key !== 'role' && key !== 'content') {
-        return { ok: false, code: 'unexpected_message_field' }
-      }
+      if (key !== 'role' && key !== 'content') return { ok: false, code: 'unexpected_message_field' }
     }
-    const { role, content } = m
-    if (typeof role !== 'string' || !ALLOWED_ROLES.has(role)) {
-      return { ok: false, code: 'invalid_role' }
-    }
-    if (typeof content !== 'string') {
-      return { ok: false, code: 'invalid_content' }
-    }
-    if (content.length === 0) {
-      return { ok: false, code: 'empty_content' }
-    }
-    if (content.length > MAX_CONTENT_CHARS) {
-      return { ok: false, code: 'content_too_long' }
-    }
-    totalChars += content.length
-    out.push({ role, content })
+    if (typeof m.role !== 'string' || !ALLOWED_ROLES.has(m.role)) return { ok: false, code: 'invalid_role' }
+    if (typeof m.content !== 'string' || m.content.length === 0) return { ok: false, code: 'empty_content' }
+    if (m.content.length > MAX_CONTENT_CHARS) return { ok: false, code: 'content_too_long' }
+    out.push({ role: m.role, content: m.content })
   }
 
-  return { ok: true, messages: out }
+  return { ok: true, messages: out, task }
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Rate limiting — ver ./rate-limiter.js
-// ───────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Autenticación
+// ─────────────────────────────────────────────────────────────────────────────
 
-/** Identidad para rate limit: IP del cliente (CF la normaliza). */
-function clientKey(request) {
-  return request.headers.get('CF-Connecting-IP') || 'unknown'
-}
-
-// ───────────────────────────────────────────────────────────────────────────
-// Fetch con timeout
-// ───────────────────────────────────────────────────────────────────────────
-
-/**
- * `fetch` con AbortController. Nunca deja una request externa abierta.
- * @returns {Promise<Response | { timeout: true } | { error: true }>}
- */
-export async function fetchWithTimeout(url, init, timeoutMs) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    const res = await fetch(url, { ...init, signal: controller.signal })
-    return res
-  } catch (e) {
-    if (e && (e.name === 'AbortError' || e.name === 'TimeoutError')) {
-      return { timeout: true }
-    }
-    return { error: true }
-  } finally {
-    clearTimeout(timer)
+async function authenticate(request, env, cors) {
+  const header = request.headers.get('Authorization') || ''
+  if (!header.startsWith('Bearer ')) {
+    return { error: errorResponse(401, 'unauthorized', { ...cors, 'WWW-Authenticate': 'Bearer' }) }
   }
+  const uid = await verifyFirebaseIdToken(header.slice(7).trim(), env.FIREBASE_PROJECT_ID)
+  if (!uid) {
+    return { error: errorResponse(401, 'unauthorized', { ...cors, 'WWW-Authenticate': 'Bearer' }) }
+  }
+  return { uid }
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Groq endpoint
-// ───────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Proveedor: Cloudflare Workers AI
+// ─────────────────────────────────────────────────────────────────────────────
 
-async function handleGroq(request, env, cors, timeoutMs) {
-  const rl = await checkRateLimit(env, clientKey(request), RATE_LIMIT, Date.now())
-  const rlHeaders = {
+function withTimeout(promise, timeoutMs) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const e = new Error('inference_timeout')
+      e.inferenceTimeout = true
+      reject(e)
+    }, timeoutMs)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
+function isQuotaError(e) {
+  const status = e && (e.status || (e.response && e.response.status))
+  const code = String((e && e.code) || '')
+  const message = String((e && e.message) || '')
+  return status === 429 || code.includes('429') || message.includes('429') ||
+    (/quota|rate.?limit|capacity/i.test(message) && /exceed|reached|exhaust/i.test(message))
+}
+
+async function handleAi(request, env, cors, timeoutMs, uid) {
+  const userLimit = await checkRateLimit(env, uid, PER_USER_RATE_LIMIT, Date.now())
+  const limitHeaders = {
     ...cors,
-    'X-RateLimit-Limit': String(rl.limit),
-    'X-RateLimit-Remaining': String(rl.remaining),
-    'X-RateLimit-Reset': String(rl.resetSeconds),
-    'X-RateLimit-Mode': rl.mode,
+    'X-RateLimit-Limit': String(userLimit.limit),
+    'X-RateLimit-Remaining': String(userLimit.remaining),
+    'X-RateLimit-Reset': String(userLimit.resetSeconds),
+    'X-RateLimit-Mode': userLimit.mode,
   }
-  if (!rl.ok) {
-    return errorResponse(429, 'rate_limited', { ...rlHeaders, 'Retry-After': String(rl.resetSeconds) })
+  if (!userLimit.ok) {
+    return errorResponse(429, 'rate_limited', { ...limitHeaders, 'Retry-After': String(userLimit.resetSeconds) })
   }
 
-  // Content-Type obligatorio.
+  const globalLimit = await checkRateLimit(env, 'all', GLOBAL_RATE_LIMIT, Date.now())
+  if (!globalLimit.ok) {
+    return errorResponse(429, 'global_rate_limited', {
+      ...limitHeaders,
+      'Retry-After': String(globalLimit.resetSeconds),
+    })
+  }
+
   if (!isJsonContentType(request.headers.get('Content-Type'))) {
-    return errorResponse(415, 'unsupported_media_type', rlHeaders)
+    return errorResponse(415, 'unsupported_media_type', limitHeaders)
   }
 
-  // Body con tope duro.
   const body = await readBodyWithLimit(request, MAX_BODY_BYTES)
   if (!body.ok) {
     if (body.code === 'payload_too_large') {
       return errorResponse(413, 'payload_too_large', {
-        ...rlHeaders,
+        ...limitHeaders,
         'X-Max-Body-Bytes': String(MAX_BODY_BYTES),
       })
     }
-    return errorResponse(400, 'invalid_request', rlHeaders)
+    return errorResponse(400, 'invalid_request', limitHeaders)
   }
 
   let parsed
   try {
     parsed = JSON.parse(body.text)
   } catch {
-    return errorResponse(400, 'invalid_json', rlHeaders)
+    return errorResponse(400, 'invalid_json', limitHeaders)
   }
 
-  // Esquema cerrado: se reenvía SÓLO messages validadas.
   const validated = validateChatPayload(parsed)
-  if (!validated.ok) {
-    return errorResponse(422, validated.code, rlHeaders)
+  if (!validated.ok) return errorResponse(422, validated.code, limitHeaders)
+
+  if (!env.AI || typeof env.AI.run !== 'function') {
+    return errorResponse(503, 'ai_not_configured', limitHeaders)
   }
 
-  const GROQ_API_KEY = env.GROQ_API_KEY
-  if (!GROQ_API_KEY) {
-    // No se revela nada del entorno, sólo que falta configuración.
-    return errorResponse(503, 'proxy_not_configured', rlHeaders)
+  const taskConfig = TASKS[validated.task]
+  const cost = estimateNeurons(validated.messages, taskConfig.maxTokens)
+  const quota = await reserveDailyNeurons(env, cost, Date.now())
+  const quotaHeaders = {
+    'X-AI-Neurons-Reserved': String(cost),
+    'X-AI-Budget-Remaining': String(quota.remaining),
+    'X-AI-Budget-Mode': quota.degraded ? 'degraded' : 'enforced',
+  }
+  if (!quota.ok) {
+    return errorResponse(429, 'quota_exhausted', {
+      ...limitHeaders,
+      ...quotaHeaders,
+      'Retry-After': String(secondsUntilUtcMidnight()),
+    })
   }
 
-  // URL de proveedor: server-side. Configurada en wrangler, nunca del cliente.
-  const GROQ_URL = env.GROQ_URL || 'https://api.groq.com/openai/v1/chat/completions'
-
-  // Payload reconstruido por el servidor: modelo y params NO son del cliente.
-  const upstreamBody = JSON.stringify({
-    model: GROQ_MODEL,
-    messages: validated.messages,
-    max_tokens: GROQ_MAX_TOKENS,
-    temperature: GROQ_TEMPERATURE,
-    top_p: GROQ_TOP_P,
-    stream: true,
-  })
-
-  const upstream = await fetchWithTimeout(
-    GROQ_URL,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-      },
-      body: upstreamBody,
-      redirect: 'follow',
-    },
-    timeoutMs,
-  )
-
-  if (upstream.timeout) return errorResponse(504, 'upstream_timeout', rlHeaders)
-  if (upstream.error) return errorResponse(502, 'upstream_error', rlHeaders)
-
-  if (!upstream.ok) {
-    // NO se reenvía el body de Groq (puede filtrar detalle de cuenta/modelo).
-    // Se registra sólo el status, que es seguro.
-    console.warn(`[althea-worker] groq upstream status=${upstream.status}`)
-    return errorResponse(502, 'upstream_error', rlHeaders)
+  const maxConcurrency = Number(env.AI_MAX_CONCURRENCY) || DEFAULT_MAX_CONCURRENCY
+  if (inFlight >= maxConcurrency) {
+    return errorResponse(429, 'busy', { ...limitHeaders, ...quotaHeaders, 'Retry-After': '2' })
   }
+  inFlight += 1
 
-  // SSE: se retransmite el stream, pero sólo con Content-Type controlado.
-  const headers = new Headers()
-  headers.set('Content-Type', upstream.headers.get('Content-Type') || 'text/event-stream')
-  headers.set('Cache-Control', 'no-store')
-  headers.set('X-Accel-Buffering', 'no')
-  for (const [k, v] of Object.entries(rlHeaders)) headers.set(k, v)
+  try {
+    const model = typeof env.AI_MODEL === 'string' && env.AI_MODEL.trim()
+      ? env.AI_MODEL.trim()
+      : DEFAULT_MODEL
+    const input = {
+      messages: validated.messages,
+      max_completion_tokens: taskConfig.maxTokens,
+      temperature: 0.7,
+      top_p: 0.9,
+      stream: taskConfig.stream,
+      store: false,
+      chat_template_kwargs: { enable_thinking: false },
+      response_format: taskConfig.responseFormat,
+      user: uid,
+    }
 
-  return new Response(upstream.body, { status: 200, headers })
+    const result = await withTimeout(env.AI.run(model, input), timeoutMs)
+    const headers = {
+      ...limitHeaders,
+      ...quotaHeaders,
+      'Cache-Control': 'no-store',
+    }
+
+    if (taskConfig.stream) {
+      return new Response(result, {
+        status: 200,
+        headers: { ...headers, 'Content-Type': 'text/event-stream', 'X-Accel-Buffering': 'no' },
+      })
+    }
+    return jsonResponse(result, 200, headers)
+  } catch (e) {
+    if (e && e.inferenceTimeout) {
+      return errorResponse(504, 'upstream_timeout', limitHeaders)
+    }
+    if (isQuotaError(e)) {
+      console.warn('[althea-ai] provider status=429')
+      return errorResponse(429, 'quota_exhausted', {
+        ...limitHeaders,
+        ...quotaHeaders,
+        'Retry-After': String(secondsUntilUtcMidnight()),
+      })
+    }
+    // Sólo el código, nunca el mensaje: el proveedor puede incluir detalles
+    // de cuenta ni se registran prompts ni respuestas.
+    console.warn('[althea-ai] provider_error status=' + String((e && e.status) || 'unknown'))
+    return errorResponse(502, 'upstream_error', limitHeaders)
+  } finally {
+    inFlight -= 1
+  }
 }
 
-// ───────────────────────────────────────────────────────────────────────────
+// Solo para tests: reinicia el contador de concurrencia del isolate.
+export function resetConcurrency() {
+  inFlight = 0
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Router
-// ───────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default {
   async fetch(request, env = {}) {
-    const url = new URL(request.url)
-    const path = url.pathname
-
-    // ── 1. CORS fail-closed ───────────────────────────────────────────
     const allowedOrigins = parseAllowedOrigins(env.CORS_ORIGIN)
-    if (allowedOrigins.length === 0) {
-      // Sin allowlist no hay servicio. Fail-closed, sin fallback a `*`.
-      return errorResponse(500, 'cors_not_configured')
-    }
+    if (allowedOrigins.length === 0) return errorResponse(500, 'cors_not_configured')
 
     const requestOrigin = request.headers.get('Origin')
     const origin = resolveAllowedOrigin(requestOrigin, allowedOrigins)
-    if (origin === null) {
-      // Origin ausente (same-origin/no-browser) o no permitido.
-      if (requestOrigin) return errorResponse(403, 'forbidden_origin')
-    }
-
+    if (origin === null && requestOrigin) return errorResponse(403, 'forbidden_origin')
     const cors = origin ? corsHeaders(origin) : {}
 
-    // ── 2. Preflight ──────────────────────────────────────────────────
     if (request.method === 'OPTIONS') {
       if (origin === null) return errorResponse(403, 'forbidden_origin')
       return new Response(null, { status: 204, headers: { ...cors, Allow: 'POST, OPTIONS' } })
     }
 
-    // ── 3. Groq (POST /) ─────────────────────────────────────────────
     if (request.method !== 'POST') {
       return errorResponse(405, 'method_not_allowed', { ...cors, Allow: 'POST, OPTIONS' })
     }
 
-    const timeoutMs = Number(env.GROQ_TIMEOUT_MS) || DEFAULT_GROQ_TIMEOUT_MS
-    return handleGroq(request, env, cors, timeoutMs)
+    const identity = await authenticate(request, env, cors)
+    if (identity.error) return identity.error
+
+    const timeoutMs = Number(env.AI_TIMEOUT_MS) || DEFAULT_AI_TIMEOUT_MS
+    return handleAi(request, env, cors, timeoutMs, identity.uid)
   },
 }

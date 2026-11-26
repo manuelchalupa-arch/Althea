@@ -389,14 +389,14 @@ const exercises: SessionEx[] = seList.map((se) => {
   useEffect(()=>{
     let alive = true
     ;(async ()=>{
-      if(!alive || !sessionId) return
+      if(!alive || !sessionId) { return }
       try {
         import('@/services/storage/db').then(async ({db})=>{
-          if(!alive) return
+          if(!alive) { return }
           const today = todayKey()
-          if(!exs || exs.length===0) return
+          if(!exs || exs.length===0) { return }
           const promises = exs.map(async (ex)=>{
-            if(!alive) return
+            if(!alive) { return }
             const existing = await db.painLogs.where({ exerciseId: ex.exId, localDate: today }).first().catch(()=>null)
             if(existing){ painAskedRef.current.add(ex.exId) }
           })
@@ -405,7 +405,7 @@ const exercises: SessionEx[] = seList.map((se) => {
       } catch { /* noop */ }
     })()
     return ()=>{ alive = false }
-  }, [sessionId, todayKey])
+  }, [sessionId, exs])
 
   const cur = exs[current]
   const curExId = cur?.exId

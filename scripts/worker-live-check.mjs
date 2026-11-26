@@ -4,18 +4,15 @@
  * Ejecuta la matriz de seguridad real contra el Worker DESPLEGADO. Esto es
  * STAGING-VALIDATED: pruebas contra el servicio real, no inspección de código.
  *
- * Qué puede validarse sin `GROQ_API_KEY` (que es secret del propietario):
- *   CORS, métodos, Content-Type, límite de body, validación de payload,
- *   rate limiting y el comportamiento fail-closed cuando falta el secret.
+ * El Worker exige el ID token de Firebase en cada petición. Se toma de
+ * `ALTHEA_AI_ID_TOKEN` (token de una sesión real). Sin él se validan CORS,
+ * métodos, Content-Type y el fail-closed de autenticación; el resto se marca
+ * NOT VALIDATED, nunca PASS.
  *
- * Qué NO puede validarse sin el secret:
- *   el flujo real Groq (timeout 504, error upstream 502, respuesta 200).
- *   Esos se marcan NOT VALIDATED, nunca PASS.
- *
- * NO imprime secretos. NO despliega. NO toca producción.
+ * NO imprime tokens. NO despliega. NO toca producción.
  *
  * Uso:
- *   node scripts/worker-live-check.mjs <WORKER_URL> <ALLOWED_ORIGIN> [--skip-wait]
+ *   ALTHEA_AI_ID_TOKEN=<idToken> node scripts/worker-live-check.mjs <WORKER_URL> <ALLOWED_ORIGIN> [--skip-wait]
  */
 
 import process from 'node:process'
@@ -23,6 +20,7 @@ import process from 'node:process'
 const url = process.argv[2]
 const allowedOrigin = process.argv[3]
 const skipWait = process.argv.includes('--skip-wait')
+const idToken = process.env.ALTHEA_AI_ID_TOKEN || ''
 
 if (!url || !allowedOrigin) {
   console.error('uso: node scripts/worker-live-check.mjs <WORKER_URL> <ALLOWED_ORIGIN> [--skip-wait]')
@@ -52,6 +50,7 @@ function skip(section, name, reason) {
 function post(bodyText, { origin = allowedOrigin, contentType = 'application/json' } = {}) {
   const headers = { Origin: origin }
   if (contentType) headers['Content-Type'] = contentType
+  if (idToken) headers.Authorization = `Bearer ${idToken}`
   return fetch(url, { method: 'POST', headers, body: bodyText })
 }
 
@@ -145,18 +144,19 @@ record(
   record('PAYLOAD', 'model/temperature del cliente no rompen el proxy', true, accepted)
 }
 
-// ── Fail-closed del secret ────────────────────────────────────────────────
-console.log('\n[D] Secret server-side (fail-closed)')
-{
-  const res = await post(validChat)
-  const status = res.status
-  const body = await res.text()
-  if (status === 503) {
-    record('SECRET', 'sin GROQ_API_KEY el proxy responde 503 fail-closed', 503, status)
-    record('SECRET', 'el 503 no revela la clave', false, /gsk_|api\.groq\.com|secret/i.test(body))
-  } else {
-    record('SECRET', 'sin GROQ_API_KEY el proxy responde 503 fail-closed', 503, status, '(el secret ya está configurado)')
-  }
+// ── Fail-closed de autenticación ──────────────────────────────────────────
+console.log('\n[D] Identidad del usuario (fail-closed)')
+if (idToken) {
+  console.log('  token de sesión presente; el resto de la matriz usa identidad verificada')
+} else {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Origin: allowedOrigin, 'Content-Type': 'application/json' },
+    body: validChat,
+  })
+  record('AUTH', 'sin ID token el Worker responde 401', 401, res.status)
+  record('AUTH', 'el error no revela credenciales', false, /gsk_|api\.groq\.com|secret/i.test(await res.text()))
+  skip('AI', 'flujo real del proveedor', 'se necesita ALTHEA_AI_ID_TOKEN')
 }
 
 // ── Fase C: rate limiting real ────────────────────────────────────────────
@@ -168,7 +168,7 @@ if (!skipWait) {
 }
 
 {
-  // El límite configurado para Groq es 20/min por IP. Se supera a propósito.
+  // El límite configurado es 20/min por usuario verificado. Se supera a propósito.
   let limited = null
   let firstHeaders = null
   const LIMIT = 26

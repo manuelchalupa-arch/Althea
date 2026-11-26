@@ -14,8 +14,8 @@ type Props = {
 
 /**
  * Consulta de dolor POST-ejercicio: aparece una sola vez, cuando el ejercicio
- * terminó y antes de pasar al siguiente. Nunca entre series. No registra
- * ausencia de dolor si el usuario no respondió.
+ * terminó y antes de pasar al siguiente. Nunca entre series. La ausencia de
+ * dolor no se registra: solo se guarda cuando hay dolor.
  */
 export default function ExercisePainPrompt({ exerciseId, exerciseName, onAnswered }: Props) {
   const [answer, setAnswer] = useState<'no' | 'si' | 'si-picking' | null>(null)
@@ -23,26 +23,10 @@ export default function ExercisePainPrompt({ exerciseId, exerciseName, onAnswere
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const answerNo = async () => {
+  // "No" no es dolor: no se registra y se continúa igual que con "Sí".
+  const answerNo = () => {
     setAnswer('no')
-    try {
-      const today = todayKey()
-      const existing = await db.painLogs.where({ exerciseId, localDate: today }).first().catch(() => null)
-      if (!existing) {
-        const log: PainLog = {
-          id: crypto.randomUUID(),
-          localDate: today,
-          level: 'none',
-          zone: '',
-          exerciseId,
-          moment: new Date().toISOString(),
-          notes: '',
-          createdAt: new Date().toISOString(),
-        }
-        await db.painLogs.put(log)
-      }
-    } catch { /* best-effort: no bloquea el entrenamiento */ }
-    void onAnswered()
+    onAnswered()
   }
 
   const answerYes = async () => {

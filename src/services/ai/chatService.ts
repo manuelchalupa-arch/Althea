@@ -1,5 +1,6 @@
 import { canMakeRequest, recordRequest } from './groqUsage'
 import { getGroqUrl, getGroqHeaders } from './groqConfig'
+import { aiLimitMessage, getAiAuthHeaders, hasAiSession, limitError } from './aiAuth'
 import { fetchWithRetry } from '../apiUtils'
 
 const MODEL = 'openai/gpt-oss-20b'
@@ -59,7 +60,12 @@ export async function streamChat(
   options?: StreamOptions
 ): Promise<void> {
   if (!isAvailable()) {
-    callbacks.onError('API proxy no configurado. Configurá VITE_GROQ_PROXY_URL en .env')
+    callbacks.onError(limitError('El servicio de IA no está configurado.'))
+    return
+  }
+
+  if (!hasAiSession()) {
+    callbacks.onError(limitError('Iniciá sesión en Althea para usar el Coach.'))
     return
   }
 
@@ -78,10 +84,12 @@ export async function streamChat(
   try {
     const res = await fetchWithRetry(getGroqUrl(), {
       method: 'POST',
-      headers: getGroqHeaders(),
+      headers: { ...getGroqHeaders(), ...(await getAiAuthHeaders()) },
       body: JSON.stringify({
-        model: MODEL,
+        task: 'chat',
         messages: fullMessages,
+        // Parámetros legacy: el Worker los ignora y fija los reales.
+        model: MODEL,
         max_tokens: 512,
         temperature: 0.7,
         top_p: 0.9,
@@ -90,8 +98,11 @@ export async function streamChat(
     }, { maxRetries: 1 })
 
     if (!res.ok) {
-      const err = await res.text()
-      callbacks.onError(`Error ${res.status}: ${err.slice(0, 200)}`)
+      let code: string | undefined
+      try {
+        code = (await res.clone().json())?.error
+      } catch { /* cuerpo no JSON: se usa el status */ }
+      callbacks.onError(aiLimitMessage(res.status, code) || `Error ${res.status}. Probá de nuevo.`)
       return
     }
 
@@ -156,7 +167,7 @@ export async function streamChat(
     await callbacks.onDone(fullText)
     recordRequest(fullText.trim().length)
   } catch (e: any) {
-    callbacks.onError(e?.message || 'Error de conexión con Groq')
+    callbacks.onError(e?.message || 'Error de conexión con el servicio de IA')
   }
 }
 

@@ -12,6 +12,7 @@ import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import type { UserProfile } from '@/types'
 import type { CycleConfig } from '@/utils/cycle'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
+import { isLimitError, stripLimitPrefix } from '@/services/ai/aiAuth'
 import {
   prepareUnifiedContext,
   buildUnifiedSystemPrompt,
@@ -331,7 +332,17 @@ export default function Coach() {
               setUsage(getUsage())
             }
           },
-          onError: async () => {
+          onError: async (message) => {
+            if (isLimitError(message)) {
+              // Cuota/sesión: no se inventa una respuesta de IA. Se muestra
+              // el motivo y se deja el mensaje listo para reintentar.
+              setError(stripLimitPrefix(message))
+              setRetryText(text)
+              setStreaming(false)
+              setSending(false)
+              setStreamText('')
+              return
+            }
             await runLocalReply(text)
           },
         },

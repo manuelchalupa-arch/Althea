@@ -27,11 +27,6 @@ const fail = (c, d = '') => errors.push(d ? `${c}: ${d}` : c)
 const block = (c, d = '') => blocked.push(d ? `${c}: ${d}` : c)
 const ok = (label) => passed.push(label)
 
-/** Estado de un secreto: nunca el valor. */
-function secretStatus(value) {
-  return value && String(value).trim() ? 'configured' : 'missing'
-}
-
 function wrangler(args, { allowFail = false } = {}) {
   try {
     return execFileSync('npx', ['--yes', 'wrangler', ...args], {
@@ -79,19 +74,23 @@ if (!fs.existsSync(STAGING_TOML)) {
   else if (!/new_sqlite_classes\s*=\s*\["RateLimiter"\]/.test(toml)) fail('DO_MIGRATION_MISSING')
   else ok('Durable Object del rate limit enlazada con migración')
 
-  // El secret jamás puede estar en el archivo.
-  if (/^GROQ_API_KEY\s*=\s*"/m.test(toml)) {
-    fail('GROQ_API_KEY_LITERAL_IN_TOML', 'el secret debe ir por `wrangler secret put`')
+  if (!/\[ai\]/.test(toml) || !/binding\s*=\s*"AI"/.test(toml)) {
+    fail('AI_BINDING_MISSING', 'Cloudflare Workers AI debe enlazarse desde el servidor')
   } else {
-    ok('GROQ_API_KEY no está en el archivo (se inyecta como secret)')
+    ok('binding AI configurado (sin secretos de proveedor)')
+  }
+
+  if (!/FIREBASE_PROJECT_ID\s*=/.test(toml)) {
+    fail('FIREBASE_PROJECT_ID_MISSING', 'necesario para verificar el ID token')
+  } else {
+    ok('FIREBASE_PROJECT_ID configurado')
   }
 }
 
-// ── 2. El entorno puede o no traer el secret ────────────────────────────────
-console.log('[2] Secret')
-console.log(`  GROQ_API_KEY (entorno local) = ${secretStatus(process.env.GROQ_API_KEY)}`)
-console.log('  nota: el secret real vive en Cloudflare, no en este entorno.')
-ok('secret definido sólo server-side por diseño')
+// ── 2. Sin secretos de proveedor ────────────────────────────────────────────
+console.log('[2] Credenciales')
+console.log('  Cloudflare Workers AI usa el binding de la cuenta: no hay secret que cargar.')
+ok('ningún secreto de IA en el frontend ni en el entorno local')
 
 // ── 3. CLI y sesión ─────────────────────────────────────────────────────────
 console.log('[3] CLI y autenticación')
@@ -107,28 +106,10 @@ if (whoami === null) {
   }
 }
 
-// ── 4. Secretos desplegados (sólo presencia, nunca valor) ──────────────────
-console.log('[4] Secretos desplegados en el Worker de staging')
-let secretList = null
-if (fs.existsSync(STAGING_TOML)) {
-  // El path del config es relativo al directorio de trabajo, y este script se
-  // ejecuta desde la raíz del repo, no desde worker/. Sin el prefijo, wrangler
-  // no encuentra el archivo y el comando falla aunque el Worker exista.
-  secretList = wrangler(['secret', 'list', '--config', 'worker/wrangler.staging.toml'], {
-    allowFail: true,
-  })
-}
-if (secretList === null) {
-  block('CANNOT_LIST_WORKER_SECRETS', 'requiere sesión de Cloudflare y Worker desplegado')
-} else {
-  const listed = /GROQ_API_KEY/.test(secretList)
-  console.log(`  GROQ_API_KEY en el Worker = ${listed ? 'configured' : 'missing'}`)
-  if (!listed) {
-    block('GROQ_API_KEY_NOT_SET_ON_WORKER', 'npm run worker:secret:staging')
-  } else {
-    ok('GROQ_API_KEY configurado en el Worker de staging')
-  }
-}
+// ── 4. Sin secretos que listar ──────────────────────────────────────────────
+console.log('[4] Credenciales del proveedor')
+console.log('  No aplica: Workers AI se autentica con la cuenta vía binding `AI`.')
+ok('sin secretos de IA que configurar en el Worker')
 
 // ── Resultado ───────────────────────────────────────────────────────────────
 console.log('\n' + '='.repeat(62))

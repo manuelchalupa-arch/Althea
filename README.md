@@ -26,7 +26,7 @@ npm run check:release  # verifica que dist/ no contenga claves
 - **Planificación canónica**: `db.cycleVersions` (`savePlanning`/`getActiveVersion`). `profile.cycle` es snapshot legacy de solo lectura; el contenido de cada rutina vive versionado en `routineStore`.
 - **Ejecución canónica**: `trainingSessions` + `sessionExercises` + `setRecords` (una sola sesión activa; se readopta si queda huérfana). `sessions`/`setLogs` son capa legacy de solo lectura.
 - **Historial honesto**: sin registros reales no se inventa nada (`null`/`[]`/estados vacíos). Los generadores `seeder`/`demoData` son fixtures exclusivos de tests.
-- **Coach**: contexto real → Groq mediante proxy (`VITE_GROQ_PROXY_URL`, Cloudflare Worker con `GROQ_API_KEY` server-side) → fallback determinístico local. Sin modelos descargables, sin secretos en el cliente.
+- **Coach y generador de rutinas**: contexto real → servicio central (`VITE_GROQ_PROXY_URL`, Cloudflare Worker con binding `AI` de Workers AI) → fallback determinístico local. El usuario solo necesita su sesión de Althea; no hay claves de proveedor ni secretos en el cliente. Ver `docs/IA_CENTRALIZADA.md`.
 - localStorage solo para preferencias UI, cachés y `althea:lastUid`; nunca dominio.
 - Cambio de cuenta Firebase en el mismo navegador limpia los datos locales del usuario anterior (multi-dispositivo por `users/{uid}` en Firestore con rules por uid).
 

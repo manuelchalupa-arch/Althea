@@ -8,6 +8,13 @@ vi.mock('./groqUsage', () => ({
   canMakeRequest: () => ({ ok: true }),
   recordRequest: vi.fn(),
 }))
+vi.mock('./aiAuth', () => ({
+  hasAiSession: () => true,
+  getAiAuthHeaders: async () => ({ Authorization: 'Bearer test-token' }),
+  aiLimitMessage: (status: number) => (status === 429 ? 'LIMITE_IA:Límite de cuota' : null),
+  isLimitError: (m: string) => m.startsWith('LIMITE_IA:'),
+  limitError: (m: string) => `LIMITE_IA:${m}`,
+}))
 
 const mockFetch = vi.mocked(fetchWithRetry)
 
@@ -94,5 +101,18 @@ describe('streamChat', () => {
 
     expect(callbacks.onError).toHaveBeenCalled()
     expect(callbacks.onDone).not.toHaveBeenCalled()
+  })
+
+  it('envía el token de sesión y la función chat al servicio central', async () => {
+    mockFetch.mockResolvedValue(sseResponse(['data: [DONE]\n\n']))
+
+    const { callbacks } = collectors()
+    await streamChat([{ role: 'user', content: 'hola' }], callbacks)
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit]
+    const headers = init.headers as Record<string, string>
+    expect(headers.Authorization).toBe('Bearer test-token')
+    expect(JSON.parse(init.body as string).task).toBe('chat')
+    expect(JSON.stringify(init.body)).not.toContain('API_KEY')
   })
 })

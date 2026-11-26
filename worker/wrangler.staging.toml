@@ -3,10 +3,9 @@
 # Uso (explícito, nunca implícito):
 #   cd worker
 #   npx wrangler deploy -c wrangler.staging.toml
-#   npx wrangler secret put GROQ_API_KEY -c wrangler.staging.toml
 #
 # Este archivo NUNCA debe apuntar al Worker de producción.
-# El secret GROQ_API_KEY de staging es DISTINTO del de producción.
+# Sin secretos de proveedor: se usa el binding `AI` de la cuenta staging.
 
 name = "althea-proxy-staging"
 main = "src/index.js"
@@ -18,8 +17,16 @@ compatibility_date = "2025-09-01"
 # `althea-stg` (creado 2026-10-21; el ID `althea-staging` ya existía ajeno).
 # Debe seguir siendo DISTINTO al de producción.
 CORS_ORIGIN = "https://althea-stg.web.app"
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_TIMEOUT_MS = "60000"
+# Identidad: debe coincidir con VITE_FIREBASE_PROJECT_ID del frontend staging.
+FIREBASE_PROJECT_ID = "althea-stg"
+AI_MODEL = "@cf/google/gemma-4-26b-a4b-it"
+AI_TIMEOUT_MS = "60000"
+AI_MAX_CONCURRENCY = "6"
+AI_DAILY_NEURON_BUDGET = "9000"
+
+# Binding de Cloudflare Workers AI (sin claves ni tokens en el frontend).
+[ai]
+binding = "AI"
 
 # Rate limit. Capa 1 (preferida): Durable Object, contador strongly consistent.
 # Es la unica que es boundary de seguridad real en el edge distribuido.
@@ -38,5 +45,4 @@ new_sqlite_classes = ["RateLimiter"]
 binding = "RATE_LIMIT"
 id = "0f643e89b72743f197bd851c4dd9146e"
 
-# Secrets (server-side, NUNCA en el frontend ni en Git):
-#   npx wrangler secret put GROQ_API_KEY -c wrangler.staging.toml
+# No hay secrets de IA: el binding `AI` usa la identidad de la cuenta.
