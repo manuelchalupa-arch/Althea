@@ -227,16 +227,6 @@ const exercises: SessionEx[] = seList.map((se) => {
     if (restBetweenExPaused && restBetweenExSec > 0) { resumeRestBetweenEx() }
   }, [restPaused, restSec, resumeRest, restBetweenExPaused, restBetweenExSec, resumeRestBetweenEx])
 
-  // Overlay de descanso bloqueante (mobile y desktop): un único punto de montaje.
-  const restOverlay = restBetweenExSec > 0 || restSec > 0 ? (
-    <RestTimerOverlay
-      seconds={restBetweenExSec > 0 ? restBetweenExSec : restSec}
-      label={restBetweenExSec > 0 ? 'Descanso entre ejercicios' : 'Descanso entre series'}
-      onAdjust={restBetweenExSec > 0 ? adjustRestBetweenEx : adjustRest}
-      onFinish={restBetweenExSec > 0 ? skipRestBetweenEx : skipRest}
-    />
-  ) : null
-
   // Sync sessionStatusRef with hook's sessionStatus
   useEffect(() => {
     sessionStatusRef.current = sessionStatus
@@ -512,6 +502,15 @@ const exercises: SessionEx[] = seList.map((se) => {
       target = fresh[0]+1 < exs.length ? fresh[0]+1 : null
     }
     pendingAdvanceRef.current = target
+    // El descanso arranca YA al terminar el ejercicio: la pregunta de dolor se
+    // muestra dentro del reloj (arriba) y el temporizador corre sin esperar la
+    // respuesta. Mismo destino y duración que al responder.
+    if(target !== null && restSec <= 0 && restBetweenExSec <= 0){
+      const nextEx = exs[target]
+      const d = (nextEx?.restBetweenExercisesSec && nextEx.restBetweenExercisesSec > 0) ? nextEx.restBetweenExercisesSec : 120
+      setRestBetweenKind('ex')
+      startRestBetweenEx(d)
+    }
     setPainQueue(prev=> [...prev, ...fresh.filter(i=> !prev.includes(i))])
     if(fresh[0] !== current) { setCurrent(fresh[0]) }
   }
@@ -567,8 +566,12 @@ const exercises: SessionEx[] = seList.map((se) => {
     if(target!==null && target < exs.length){
       const nextEx = exs[target]
       const d = (nextEx?.restBetweenExercisesSec && nextEx.restBetweenExercisesSec > 0) ? nextEx.restBetweenExercisesSec : 120
-      setRestBetweenKind('ex')
-      startRestBetweenEx(d)
+      // El descanso suele estar corriendo ya (arrancó al terminar el ejercicio);
+      // solo se arranca si terminó — o no hubo — antes de responder.
+      if(restBetweenExSec <= 0 && restSec <= 0){
+        setRestBetweenKind('ex')
+        startRestBetweenEx(d)
+      }
       setCurrent(target)
       const sid = sessionId
       if(sid){
@@ -578,6 +581,27 @@ const exercises: SessionEx[] = seList.map((se) => {
       }
     }
   }
+
+  // Overlay de descanso bloqueante (mobile y desktop): un único punto de montaje.
+  // Con una consulta de dolor pendiente, la pregunta vive ARRIBA del reloj en el
+  // mismo diálogo: el temporizador corre mientras se responde.
+  const painForOverlay = painQueue.length > 0 && exs[painQueue[0]] ? (
+    <ExercisePainPrompt
+      key={exs[painQueue[0]].exId}
+      exerciseId={exs[painQueue[0]].exId}
+      exerciseName={exs[painQueue[0]].name}
+      onAnswered={handlePainAnswered}
+    />
+  ) : null
+  const restOverlay = restBetweenExSec > 0 || restSec > 0 ? (
+    <RestTimerOverlay
+      seconds={restBetweenExSec > 0 ? restBetweenExSec : restSec}
+      label={restBetweenExSec > 0 ? 'Descanso entre ejercicios' : 'Descanso entre series'}
+      onAdjust={restBetweenExSec > 0 ? adjustRestBetweenEx : adjustRest}
+      onFinish={restBetweenExSec > 0 ? skipRestBetweenEx : skipRest}
+      question={painForOverlay ?? undefined}
+    />
+  ) : null
 
   const nextCoach = async (nextIdx:number)=>{
     if(nextIdx>=exs.length) {return}
@@ -597,10 +621,10 @@ const exercises: SessionEx[] = seList.map((se) => {
     }
   }
 
-  const handleSetDone = async (setIdx:number, w:number|null, r:number, neg?:{reps:number; weight:number}, obs?:string, loadText?:string, modeR?:boolean)=>{
-    if(!cur || !session) {return}
+  const handleSetDone = async (setIdx:number, w:number|null, r:number, neg?:{reps:number; weight:number}, obs?:string, loadText?:string, modeR?:boolean): Promise<boolean> => {
+    if(!cur || !session) {return false}
     const seId = seIdByIndex[current] || cur.seId
-    if(!seId) { setFinishError('Sin SessionExercise para este ejercicio: recargá la pestaña.'); return }
+    if(!seId) { setFinishError('Sin SessionExercise para este ejercicio: recargá la pestaña.'); return false }
     const { confirmSetRecord, saveNegatives, saveExerciseObservation, updateSession, getSetRecords } = await import('@/services/training/sessionStore')
     const { resolveSetType } = await import('@/services/training/setPlanner')
     // Primera confirmación de la sesión: READY → IN_PROGRESS (la máquina de
@@ -693,6 +717,8 @@ const exercises: SessionEx[] = seList.map((se) => {
       // Serie completada pero no es la última: iniciar descanso entre series
       startRest(restForExercise)
     }
+    // true = el registro de la serie se guardó (el botón puede mostrar éxito).
+    return true
   }
 
   const runSafetyCheck = async (painValue?: number) => {
@@ -1578,7 +1604,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           </button>
         ) : null}
 
-        {painQueue.length>0 && exs[painQueue[0]] && (
+        {!restOverlay && painQueue.length>0 && exs[painQueue[0]] && (
           <ExercisePainPrompt
             // key: cada ejercicio de la cola monta una instancia nueva (si no,
             // la anterior conserva answer='no' y no pinta los botones).
@@ -1921,7 +1947,7 @@ const exercises: SessionEx[] = seList.map((se) => {
           </div>
         </AltheaPanel>
 
-        {painQueue.length>0 && exs[painQueue[0]] && (
+        {!restOverlay && painQueue.length>0 && exs[painQueue[0]] && (
           <ExercisePainPrompt
             key={exs[painQueue[0]].exId}
             exerciseId={exs[painQueue[0]].exId}

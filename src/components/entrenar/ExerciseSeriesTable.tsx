@@ -16,11 +16,14 @@ const kgOrNull = (v:number|null|undefined):number|null=>{
   return Math.round(n*10)/10
 }
 
-export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeight, plannedSets, planMeta, onComplete, onAddSet, logs, initialCompleted, initialSkipped }:{ exerciseId:string; today:string; sets:number; plannedReps:number; plannedWeight:number|null; plannedSets?: Array<{ order: number; reps: number; weight: number|null; setType?: string }>; planMeta?: { restSec?: number; tempo?: string; rir?: number; rpe?: number; notes?: string }; onComplete:(idx:number,w:number|null,r:number,neg?:any,obs?:string,loadText?:string,modeR?:boolean)=>void; onSkipSet?:(idx:number)=>void; onAddSet?:()=>void; logs:any[]; initialCompleted?:Record<number,{weight:number|null;reps:number}>; initialSkipped?:number[] }){
+export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedReps, plannedWeight, plannedSets, planMeta, onComplete, onAddSet, logs, initialCompleted, initialSkipped }:{ exerciseId:string; today:string; sets:number; plannedReps:number; plannedWeight:number|null; plannedSets?: Array<{ order: number; reps: number; weight: number|null; setType?: string }>; planMeta?: { restSec?: number; tempo?: string; rir?: number; rpe?: number; notes?: string }; onComplete:(idx:number,w:number|null,r:number,neg?:any,obs?:string,loadText?:string,modeR?:boolean)=>void|boolean|Promise<void|boolean>; onSkipSet?:(idx:number)=>void; onAddSet?:()=>void; logs:any[]; initialCompleted?:Record<number,{weight:number|null;reps:number}>; initialSkipped?:number[] }){
   const [refs,setRefs]=useState<Record<number,any>>({})
   const [weights,setWeights]=useState<Record<number,number|null>>({})
   const [reps,setReps]=useState<Record<number,number|null>>({})
   const [checks,setChecks]=useState<Record<number,boolean>>({})
+  // Éxito de confirmación POR SERIE: el color de éxito solo se aplica cuando
+  // el guardado real confirmó; si falló, el botón queda como antes (reintento).
+  const [okSets,setOkSets]=useState<Record<number,boolean>>({})
   // Modo R por serie: se marca al confirmar y queda en el registro de la serie.
   const [rModes,setRModes]=useState<Record<number,boolean>>({})
   const [negEnabled,setNegEnabled]=useState(false)
@@ -151,7 +154,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
 
   // Al cambiar de ejercicio no se heredan observaciones ni cargas de otro.
   // Declarado ANTES de la semilla: el orden de los efectos limpia y luego siembra.
-  useEffect(()=>{ setObsBySet({}); setWeightText({}); setLoadHint({}); setLoadOriginal({}) }, [exerciseId])
+  useEffect(()=>{ setObsBySet({}); setWeightText({}); setLoadHint({}); setLoadOriginal({}); setOkSets({}) }, [exerciseId])
 
   // Semilla POR SERIE desde lo ya confirmado en BD (observation de cada SetRecord).
   useEffect(()=>{
@@ -387,17 +390,20 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
                         />
                         R
                       </label>
-                      <button onClick={(e)=>{
+                      <button onClick={async (e)=>{
                         setChecks({...checks, [si]: true})
                         try{ e.currentTarget.classList.remove('flash-confirm'); void e.currentTarget.offsetWidth; e.currentTarget.classList.add('flash-confirm') }catch{ /* noop */ }
                         const obsDeEstaSerie = obsBySet[si]
                         // La observación confirmada queda ligada a ESTA serie y el
                         // borrador se limpia para no arrastrarlo a la siguiente.
                         if(obsDeEstaSerie) { setObsBySet(prev=> ({ ...prev, [si]: '' })) }
-                        onComplete(si, w, r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obsDeEstaSerie||undefined, loadOriginal[si], !!rModes[si])
-                      }} aria-label={`Confirmar serie ${si+1}`} title="Registrar serie" className="px-2 py-3 min-h-[48px] rounded-lg bg-secondary text-on-secondary-fixed font-label-caps text-[10px] uppercase font-bold shadow-sm transition-all active:scale-95">
-                        <span className="sm:hidden">R</span>
-                        <span className="hidden sm:inline">Registrar</span>
+                        try{
+                          const res = await onComplete(si, w, r, negEnabled?{reps:Number(negReps)||0,weight:parseKg(negWeight)}:undefined, obsDeEstaSerie||undefined, loadOriginal[si], !!rModes[si])
+                          // Color de éxito SOLO si el guardado confirmó (false = no guardó).
+                          if(res !== false) { setOkSets(prev=> ({ ...prev, [si]: true })) }
+                        }catch{ /* guardado falló: el color no cambia y se puede reintentar */ }
+                      }} aria-label={`Confirmar serie ${si+1}`} title="Registrar serie" className={`px-2 py-3 min-h-[48px] rounded-lg font-label-caps text-[11px] uppercase font-bold shadow-sm transition-all active:scale-95 ${okSets[si] ? 'bg-primary text-on-primary' : 'bg-secondary text-on-secondary-fixed'}`}>
+                        OK
                       </button>
                     </div>
                   </td>

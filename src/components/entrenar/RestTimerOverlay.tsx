@@ -1,18 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 interface Props {
   seconds: number
   label: string
   onAdjust: (delta: number) => void
   onFinish: () => void
+  /** Pregunta de dolor: vive ARRIBA del reloj; el temporizador sigue corriendo. */
+  question?: ReactNode
 }
 
 const ARM_MS = 3000
 
-export default function RestTimerOverlay({ seconds, label, onAdjust, onFinish }: Props) {
+export default function RestTimerOverlay({ seconds, label, onAdjust, onFinish, question }: Props) {
   const minusRef = useRef<HTMLButtonElement>(null)
   const plusRef = useRef<HTMLButtonElement>(null)
   const finRef = useRef<HTMLButtonElement>(null)
+  const sectionRef = useRef<HTMLElement>(null)
   const [armed, setArmed] = useState(false)
   const armTimerRef = useRef<number | null>(null)
 
@@ -47,9 +50,15 @@ export default function RestTimerOverlay({ seconds, label, onAdjust, onFinish }:
 
     if (event.key === 'Tab') {
       event.preventDefault()
-      const order = [minusRef.current, plusRef.current, finRef.current]
-      const idx = order.indexOf(document.activeElement as HTMLButtonElement | null)
-      const next = order[(idx + 1) % order.length] ?? minusRef.current
+      // El ciclo incluye los controles de la pregunta (si la hay): el foco no
+      // queda atrapado solo en los botones del temporizador.
+      const nodes = Array.from(
+        sectionRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), select, input:not([disabled]), textarea') ?? [],
+      )
+      if (nodes.length === 0) { return }
+      const active = document.activeElement
+      const idx = active instanceof HTMLElement ? nodes.indexOf(active) : -1
+      const next = nodes[(idx + 1) % nodes.length] ?? nodes[0]
       next?.focus()
     }
   }
@@ -76,7 +85,8 @@ export default function RestTimerOverlay({ seconds, label, onAdjust, onFinish }:
       aria-label={label}
       onKeyDown={onKeyDown}
     >
-      <section className="w-full max-w-sm rounded-2xl border border-secondary/40 bg-surface p-7 text-center shadow-2xl">
+      <section ref={sectionRef} className="w-full max-w-sm max-h-[92vh] overflow-y-auto rounded-2xl border border-secondary/40 bg-surface p-7 text-center shadow-2xl">
+        {question}
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
           {label}
         </p>

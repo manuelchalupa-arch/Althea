@@ -71,6 +71,14 @@ describe('restore automático por cuenta (autoRestore)', () => {
     expect((getDocs as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0)
   })
 
+  it('force: el login con datos vacíos salta el throttle y baja el perfil igual', async () => {
+    localStorage.setItem('althea:autoSync:uid-D', String(Date.now()))
+    const { getDocs } = await import('firebase/firestore')
+    await autoRestore('uid-D', true)
+    expect((getDocs as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(0)
+    expect(localStorage.getItem('althea:autoSync:uid-D')).toBeTruthy()
+  })
+
   it('sin conexión no intenta nada', async () => {
     Object.defineProperty(window.navigator, 'onLine', { configurable: true, get: () => false })
     const { getDocs } = await import('firebase/firestore')

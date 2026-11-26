@@ -66,6 +66,8 @@ export interface UserProfile {
    * un tono explícito. Leer siempre vía `resolveCoachTone()` (@/services/ai/coachPersonality).
    */
   coachIntensity: CoachIntensity; onboardingDone: boolean; hydrationGoalMl: number
+  /** Modalidad elegida en el onboarding: 'gym' (tradicional) o 'crossfit'. */
+  trainingModality?: 'gym' | 'crossfit'
   /** FASE 2 S6 · Método que la persona quiere VER en la pantalla del Coach. No es el método canónico del ciclo. */
   coachMethodView?: string
   /**

@@ -388,3 +388,42 @@ describe('ResultPanel deriva de Dexie', () => {
     // Verify planFor logic: series 2 should show 8/25, not 10/20
   })
 })
+
+describe('Botón OK de confirmar serie', () => {
+  it('muestra OK con color inicial identificable y cambia al éxito SOLO si el guardado confirmó', async () => {
+    const ok = vi.fn().mockResolvedValue(true)
+    const { unmount } = render(<ExerciseSeriesTable {...base} onComplete={ok} />)
+    await waitFor(() => expect(screen.getByLabelText('kilogramos serie 1')).toBeInTheDocument())
+    const btn = screen.getByLabelText('Confirmar serie 1')
+    expect(btn.textContent).toContain('OK')
+    expect(btn.className).toContain('bg-secondary')
+    expect(btn.className).not.toContain('bg-primary')
+    fireEvent.click(btn)
+    await waitFor(() => expect(ok).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(btn.className).toContain('bg-primary'))
+    unmount()
+
+    // Guardado fallido (rechaza): el color NO cambia y se puede reintentar.
+    const fail = vi.fn().mockRejectedValue(new Error('db down'))
+    render(<ExerciseSeriesTable {...base} onComplete={fail} />)
+    await waitFor(() => expect(screen.getByLabelText('kilogramos serie 1')).toBeInTheDocument())
+    const btn2 = screen.getByLabelText('Confirmar serie 1')
+    fireEvent.click(btn2)
+    await waitFor(() => expect(fail).toHaveBeenCalledTimes(1))
+    await new Promise((r) => setTimeout(r, 150))
+    expect(btn2.className).toContain('bg-secondary')
+    expect(btn2.className).not.toContain('bg-primary')
+  })
+
+  it('onComplete que resuelve false (no guardó) tampoco cambia el color', async () => {
+    const noSave = vi.fn().mockResolvedValue(false)
+    render(<ExerciseSeriesTable {...base} onComplete={noSave} />)
+    await waitFor(() => expect(screen.getByLabelText('kilogramos serie 1')).toBeInTheDocument())
+    const btn = screen.getByLabelText('Confirmar serie 1')
+    fireEvent.click(btn)
+    await waitFor(() => expect(noSave).toHaveBeenCalledTimes(1))
+    await new Promise((r) => setTimeout(r, 150))
+    expect(btn.className).toContain('bg-secondary')
+    expect(btn.className).not.toContain('bg-primary')
+  })
+})

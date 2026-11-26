@@ -52,7 +52,7 @@ const chipCls = (active: boolean) =>
 export default function Onboarding(){
   const nav = useNavigate()
   const [step,setStep]=useState(0)
-  const total=7
+  const total=8
   const [err,setErr]=useState<string|null>(null)
   const [draftLoaded,setDraftLoaded]=useState(false)
 
@@ -77,7 +77,10 @@ export default function Onboarding(){
   // Paso 5: Coach (intensidad/estilo)
   const [coachIntensity,setCoachIntensity]=useState<CoachIntensity>('profesional')
 
-  // Paso 6: Notificaciones + Dolencias + Restricciones + Excluidos + Datos cuantitativos
+  // Paso 6: Modalidad de entrenamiento (gimnasio tradicional o CrossFit)
+  const [modalidad,setModalidad]=useState<'gym'|'crossfit'|''>('')
+
+  // Paso 7: Notificaciones + Dolencias + Restricciones + Excluidos + Datos cuantitativos
   const [nombre,setNombre]=useState('')
   const [email,setEmail]=useState('')
   // Sexo: vocabulario CANÓNICO ('M' | 'F' | 'X'), el mismo de UserProfile.sex.
@@ -129,6 +132,7 @@ export default function Onboarding(){
         if (d.horarioEntreno) { setHorarioEntreno(d.horarioEntreno) }
         if (d.duracionSesion) { setDuracionSesion(d.duracionSesion) }
         if (d.coachIntensity) { setCoachIntensity(d.coachIntensity) }
+        if (d.modalidad) { setModalidad(d.modalidad) }
         if (d.nombre) { setNombre(d.nombre) }
         if (d.email) { setEmail(d.email) }
         if (d.sexo) { setSexo(normalizeSex(d.sexo)) }
@@ -154,7 +158,7 @@ export default function Onboarding(){
       objPrincipal, objCustom, objSec,
       nivel, diasDisponibles, equipamiento,
       horarioEntreno, duracionSesion,
-      coachIntensity,
+      coachIntensity, modalidad,
       nombre, email, sexo, fechaNacimiento, altura, peso, pesoObjetivo,
       needs, hasPain, painAreas, limDesc, restrictions, restDesc, excluded
     }
@@ -184,6 +188,9 @@ export default function Onboarding(){
         // Coach step: all have defaults, no validation needed
       }
       if(step===6){
+        if(!modalidad) {throw new Error('Elegí tu modalidad de entrenamiento')}
+      }
+      if(step===7){
         if(!nombre.trim()) {throw new Error('Ingresá tu nombre')}
         z.string().email('Email inválido').parse(email)
         if(peso) {
@@ -247,7 +254,14 @@ export default function Onboarding(){
           objPrincipal.includes('movilidad')?'movilidad': objPrincipal.includes('recomposición')?'recomposicion':'mantenimiento'
 
     const profile:any = await db.userProfile.get('me') || { id:'me', createdAt: new Date().toISOString() }
-    const initialCycle = profile.cycle || { startDate: todayKey(), trainingDays:[{n:1,name:'Pecho + tríceps'},{n:2,name:'Espalda + bíceps'},{n:3,name:'Piernas'},{n:4,name:'Hombros + abdomen'}], weekMap:[null,1,2,null,3,4,null] }
+    // Planificación inicial: SOLO los días que eligió la persona (sin nombres de
+    // grupos musculares inventados ni rutina precargada). Los ejercicios llegan
+    // recién cuando cree o elija su primera rutina.
+    const chosenDows = [...new Set(diasDisponibles)].map(d=> (d + 1) % 7).sort((a,b)=> a-b) // etiqueta 0=Lun..6=Dom → 0=Dom..6=Sáb
+    const initialTrainingDays = chosenDows.map((_, i)=> ({ n: i + 1, name: `Día ${i + 1}` }))
+    const initialWeekMap: (number|null)[] = [null, null, null, null, null, null, null]
+    chosenDows.forEach((dow, i)=> { initialWeekMap[dow] = i + 1 })
+    const initialCycle = profile.cycle || { startDate: todayKey(), trainingDays: initialTrainingDays, weekMap: initialWeekMap }
     await db.userProfile.put({
       ...profile,
       displayName: nombre,
@@ -278,6 +292,7 @@ export default function Onboarding(){
       equipment: equipamiento.map(e=>e.toLowerCase().replace(' ','_')) as any,
       sessionDurationMin: duracionSesion,
       coachIntensity,
+      trainingModality: modalidad || undefined,
       onboardingDone: true,
       updatedAt: new Date().toISOString(),
       cycle: initialCycle,
@@ -291,7 +306,9 @@ export default function Onboarding(){
       await db.table('bodyMeasurements').put({ id:`init-${Date.now()}`, localDate: todayKey(), weightKg: weightNum, heightCm: heightNum, createdAt: new Date().toISOString() }).catch(()=>{})
     }
     await clearOnboardingDraft()
-    nav('/')
+    // Siguiente paso del alta: elegir o crear la primera rutina (sin rutina
+    // automática ni ejercicios asignados por nosotros).
+    nav('/rutina')
   }
 
   if (!draftLoaded) {
@@ -411,8 +428,28 @@ export default function Onboarding(){
           </div>
         )}
 
-        {/* PASO 6: NOTIFICACIONES + PERFIL COMPLETO */}
+        {/* PASO 6: MODALIDAD DE ENTRENAMIENTO */}
         {step===6 && (
+          <div className="space-y-3">
+            <h1 className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">¿Cómo entrenás?</h1>
+            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Elegí tu modalidad de entrenamiento</p>
+            <div className="grid gap-1">
+              {([
+                { value: 'gym', label: 'Gimnasio tradicional', desc: 'Rutina con ejercicios y series en el gimnasio' },
+                { value: 'crossfit', label: 'CrossFit', desc: 'WODs, metcon y trabajo funcional' },
+              ] as const).map(m=>(
+                <button key={m.value} onClick={()=>setModalidad(m.value)} className={`p-4 rounded-lg border text-left font-body-md text-sm text-on-surface ${modalidad===m.value?'bg-primary text-on-surface border-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>
+                  <div className="flex items-center justify-between"><span className="font-semibold">{m.label}</span>{modalidad===m.value&&'✓'}</div>
+                  <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant mt-1">{m.desc}</div>
+                </button>
+              ))}
+            </div>
+            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Al terminar vas a elegir o crear tu primera rutina</p>
+          </div>
+        )}
+
+        {/* PASO 7: NOTIFICACIONES + PERFIL COMPLETO */}
+        {step===7 && (
           <div className="space-y-4">
             <div>
               <h1 className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">Últimos datos para tu perfil</h1>
@@ -574,7 +611,7 @@ export default function Onboarding(){
         {err && <div className="rounded-lg bg-error/10 border border-error/30 p-2 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-error">{err}</div>}
         <div className="flex gap-2">
           {step>0 && <button onClick={back} className="flex-1 py-4 rounded-lg bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Atrás</button>}
-          <button onClick={next} className="flex-1 py-4 rounded-lg bg-primary text-on-surface font-semibold">{step===6 ? 'COMENZAR →' : 'Siguiente →'}</button>
+          <button onClick={next} className="flex-1 py-4 rounded-lg bg-primary text-on-surface font-semibold">{step===7 ? 'COMENZAR →' : 'Siguiente →'}</button>
         </div>
       </div>
     </div>

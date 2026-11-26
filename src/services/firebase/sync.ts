@@ -289,12 +289,16 @@ export async function localUserDataEmpty(): Promise<boolean> {
 const AUTO_RESTORE_PREFIX = 'althea:autoSync:'
 const AUTO_RESTORE_MS = 5 * 60_000
 
-export async function autoRestore(uid: string): Promise<void> {
+// `force` salta el throttle: lo usa el login cuando los datos locales están
+// vacíos o se acaban de limpiar (cambio de cuenta), para que el perfil existente
+// baje ANTES de que el gate de onboarding evalúe — si no, un re-login podía
+// mandar a rehacer el onboarding de una cuenta ya configurada.
+export async function autoRestore(uid: string, force = false): Promise<void> {
   try {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {return}
     let last = 0
     try { last = Number(localStorage.getItem(AUTO_RESTORE_PREFIX + uid) || 0) } catch {}
-    if (Date.now() - last < AUTO_RESTORE_MS) {return}
+    if (!force && Date.now() - last < AUTO_RESTORE_MS) {return}
     const { processQueue } = await import('@/services/sync/engine')
     await processQueue(uid, firestoreRemote(uid))
     await syncAll(uid)

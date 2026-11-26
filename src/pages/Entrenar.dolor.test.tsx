@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter } from 'react-router-dom'
 import { db } from '@/services/storage/db'
@@ -56,7 +56,12 @@ describe('Consulta de dolor post-ejercicio', () => {
 
     // Última serie: el ejercicio terminó → consulta antes del siguiente.
     fireEvent.click(screen.getByLabelText('Confirmar serie 3'))
-    await screen.findByTestId('pain-prompt', undefined, { timeout: 10000 })
+    const prompt = await screen.findByTestId('pain-prompt', undefined, { timeout: 10000 })
+    // La pregunta vive DENTRO del reloj de descanso (arriba), con el timer activo.
+    const overlay = prompt.closest('[role="dialog"]')
+    expect(overlay).not.toBeNull()
+    const timer = within(overlay as HTMLElement).getByRole('timer')
+    expect(timer.textContent).toMatch(/\d+:\d{2}/)
     fireEvent.click(screen.getByLabelText('No sentí dolor'))
     await waitFor(() => expect(screen.queryByTestId('pain-prompt')).not.toBeInTheDocument())
     // "No" no escribe registro de dolor.

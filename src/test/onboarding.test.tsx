@@ -39,7 +39,7 @@ describe('Onboarding - Encuesta Inicial', () => {
   it('1. debe iniciar en el paso 0 (Objetivo) y mostrar progreso 1/7', async () => {
     renderOnboarding()
     await waitForOnboardingReady()
-    expect(screen.getByText('PASO 1 DE 7')).toBeInTheDocument()
+    expect(screen.getByText('PASO 1 DE 8')).toBeInTheDocument()
     expect(screen.getByText('¿Cuál es tu objetivo principal?')).toBeInTheDocument()
   })
 
@@ -153,6 +153,8 @@ describe('Onboarding - Encuesta Inicial', () => {
     await user.click(screen.getByText('Profesional'))
     await user.click(screen.getByText('Siguiente →'))
     
+    await user.click(screen.getByText('Gimnasio tradicional'))
+    await user.click(screen.getByText('Siguiente →'))
     await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
     await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
     await user.type(screen.getByPlaceholderText('80'), '80')
@@ -167,6 +169,7 @@ describe('Onboarding - Encuesta Inicial', () => {
       expect(profile?.weightKg).toBe(80)
       expect(profile?.heightCm).toBe(180)
       expect(profile?.onboardingDone).toBe(true)
+      expect((profile as any)?.trainingModality).toBe('gym')
       expect(profile?.coachIntensity).toBe('profesional')
       // exigencia fields removed per spec (only coachIntensity in onboarding)
       expect(profile?.exigencia).toBeUndefined()
@@ -193,6 +196,8 @@ describe('Onboarding - Encuesta Inicial', () => {
     await user.click(screen.getByText('Profesional'))
     await user.click(screen.getByText('Siguiente →'))
     
+    await user.click(screen.getByText('Gimnasio tradicional'))
+    await user.click(screen.getByText('Siguiente →'))
     await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
     await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
     await user.type(screen.getByPlaceholderText('80'), '80')
@@ -222,6 +227,8 @@ describe('Onboarding - Encuesta Inicial', () => {
     await user.click(screen.getByText('Profesional'))
     await user.click(screen.getByText('Siguiente →'))
     
+    await user.click(screen.getByText('Gimnasio tradicional'))
+    await user.click(screen.getByText('Siguiente →'))
     await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
     await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
     await user.type(screen.getByPlaceholderText('80'), '80')
@@ -266,6 +273,8 @@ describe('Onboarding - Encuesta Inicial', () => {
     await user.click(screen.getByText('Profesional'))
     await user.click(screen.getByText('Siguiente →'))
     
+    await user.click(screen.getByText('Gimnasio tradicional'))
+    await user.click(screen.getByText('Siguiente →'))
     await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
     await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
     await user.type(screen.getByPlaceholderText('80'), '80')
@@ -296,6 +305,8 @@ describe('Onboarding - Encuesta Inicial', () => {
     await user.click(screen.getByText('Profesional'))
     await user.click(screen.getByText('Siguiente →'))
     
+    await user.click(screen.getByText('Gimnasio tradicional'))
+    await user.click(screen.getByText('Siguiente →'))
     await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
     await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
     await user.type(screen.getByPlaceholderText('80'), '80')
@@ -346,6 +357,8 @@ describe('Onboarding - Encuesta Inicial', () => {
     await user.click(screen.getByText('Profesional'))
     await user.click(screen.getByText('Siguiente →'))
     
+    await user.click(screen.getByText('Gimnasio tradicional'))
+    await user.click(screen.getByText('Siguiente →'))
     await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
     await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
     // Sin peso ni altura - IMC no debe mostrarse
@@ -381,6 +394,8 @@ describe('Onboarding - Encuesta Inicial', () => {
     await user2.click(screen.getByText('Profesional'))
     await user2.click(screen.getByText('Siguiente →'))
     
+    await user2.click(screen.getByText('Gimnasio tradicional'))
+    await user2.click(screen.getByText('Siguiente →'))
     // Usar getAllByPlaceholderText y tomar el último (la nueva instancia)
     const nombreInputs = screen.getAllByPlaceholderText('Manuel')
     await user2.type(nombreInputs[nombreInputs.length - 1], 'Test User 2')
@@ -419,6 +434,8 @@ describe('Onboarding - Encuesta Inicial', () => {
     await user.click(screen.getByText('Motivacional'))
     await user.click(screen.getByText('Siguiente →'))
     
+    await user.click(screen.getByText('Gimnasio tradicional'))
+    await user.click(screen.getByText('Siguiente →'))
     await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
     await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
     await user.type(screen.getByPlaceholderText('80'), '80')
@@ -448,6 +465,8 @@ describe('Onboarding - Encuesta Inicial', () => {
     await user.click(screen.getByText('Profesional'))
     await user.click(screen.getByText('Siguiente →'))
     
+    await user.click(screen.getByText('Gimnasio tradicional'))
+    await user.click(screen.getByText('Siguiente →'))
     await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
     await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
     await user.type(screen.getByPlaceholderText('80'), '80')

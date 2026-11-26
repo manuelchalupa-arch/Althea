@@ -151,15 +151,19 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
                 await clearUserDataOnAccountDelete().catch(() => {})
                 rememberAccountUid(u.uid)
                 restoreFirst = true
-              } else if (!lastUid) {
-                rememberAccountUid(u.uid)
+              } else {
+                if (!lastUid) { rememberAccountUid(u.uid) }
+                // Con datos locales vacíos el restore es obligatorio (no en
+                // segundo plano): el perfil de la cuenta tiene que estar antes
+                // de que el gate de onboarding decida.
                 const { localUserDataEmpty } = await import('@/services/firebase/sync')
                 restoreFirst = await localUserDataEmpty()
               }
             } catch { /* noop: jamás bloquear el login */ }
             try {
               const { autoRestore } = await import('@/services/firebase/sync')
-              const restoring = autoRestore(u.uid)
+              // force: sin throttle cuando hay que bajar el perfil primero.
+              const restoring = autoRestore(u.uid, restoreFirst)
               // Al terminar el restore, re-evaluar el gate de onboarding:
               // si bajó el perfil completo, hay que salir del onboarding forzado.
               void restoring.catch(() => {}).finally(() => { if (alive) { setGateTick((t) => t + 1) } })
