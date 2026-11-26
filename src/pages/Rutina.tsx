@@ -104,6 +104,8 @@ type RutinaDayExercise = {
   gifUrl?:string; name?:string; muscle?:string; imageDataUrl?:string; restSec?:number; restBetweenExercisesSec?:number; transitionRestSec?:number; seriesType?:string; tempo?:string; rir?:number; rpe?:number; notes?:string; routineExerciseId?:string
   /** Superserie (aditivo): bloque y orden dentro del bloque. */
   supersetId?:string | null; supersetOrder?:number | null
+  sequenceRole?: 'warmup' | 'primary' | 'secondary' | 'cooldown'
+  durationMin?: number
   /** Músculo secundario del ejercicio simplificado (opcional). */
   secondaryMuscle?:string | null
 }
@@ -763,6 +765,7 @@ export default function RutinaPage(){
                 {exs.map((it,idx)=>{
                   const ex = exercises.find(e=>e.id===it.exId)
                   const isStr = (it as { isStretch?: boolean }).isStretch
+                  const roleLabel = it.sequenceRole === 'warmup' ? 'Calentamiento y estiramiento' : it.sequenceRole === 'primary' ? 'Grupo muscular principal' : it.sequenceRole === 'secondary' ? 'Grupo muscular secundario' : it.sequenceRole === 'cooldown' ? 'Cardio suave' : null
                   const blkN = it.supersetId ? exs.filter(x=>x.supersetId===it.supersetId).length : 0
                   const inDraft = ssDraft?.dayN===d.n && ssDraft.idxs.includes(idx)
                   const label = ex?.name || it.name || it.exId
@@ -772,9 +775,10 @@ export default function RutinaPage(){
                         <button onPointerDown={onGripDown(d.n, idx)} onPointerMove={onGripMove} onPointerUp={onGripUp} onPointerCancel={onGripUp} aria-label={`Reordenar ${label}`} title="Arrastrar para reordenar" className="shrink-0 w-9 h-9 rounded flex items-center justify-center text-on-surface-variant touch-none cursor-grab active:cursor-grabbing hover:bg-surface-container-high"><GripVertical size={16}/></button>
                         <div className="min-w-0 flex-1 pt-1.5">
                           <div className="font-body-md text-sm text-on-surface font-medium whitespace-normal break-words" title={label}>{label}</div>
-                          {(isStr || it.supersetId) && (
+                          {(isStr || it.supersetId || roleLabel) && (
                             <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                              {isStr && <span className="font-label-caps text-[9px] uppercase tracking-wider text-[var(--althea-stretch)]">Estiramiento</span>}
+                              {roleLabel && <span className="font-label-caps text-[9px] uppercase tracking-wider text-primary">{roleLabel}</span>}
+                              {isStr && !roleLabel && <span className="font-label-caps text-[9px] uppercase tracking-wider text-[var(--althea-stretch)]">Estiramiento</span>}
                               {it.supersetId && <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary/15 border border-secondary/40 font-label-caps text-[9px] text-secondary uppercase font-semibold">SS {(it.supersetOrder ?? 0)+1}/{blkN}</span>}
                             </div>
                           )}
@@ -1667,7 +1671,8 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
                       <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant w-5">{i+1}.</span>
                       <div className="flex-1 min-w-0">
                         <div className="font-body-md text-sm text-on-surface whitespace-normal break-words">{ex.name || ex.exId}</div>
-                        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.muscle || '—'} · {ex.sets}×{ex.reps}{ex.weight > 0 ? ` · ${ex.weight}kg` : ''}</div>
+                        {ex.sequenceRole && <div className="font-label-caps text-[9px] uppercase tracking-wider text-primary">{ex.sequenceRole === 'warmup' ? 'Calentamiento y estiramiento' : ex.sequenceRole === 'primary' ? 'Grupo muscular principal' : ex.sequenceRole === 'secondary' ? 'Grupo muscular secundario' : 'Cardio suave'}</div>}
+                        <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{ex.durationMin ? `1×${ex.durationMin} min suaves` : `${ex.muscle || '—'} · ${ex.sets}×${ex.reps}${ex.weight > 0 ? ` · ${ex.weight}kg` : ''}`}</div>
                       </div>
                       {ex.supersetId && (
                         <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary/15 border border-secondary/40 font-label-caps text-[9px] uppercase text-secondary">

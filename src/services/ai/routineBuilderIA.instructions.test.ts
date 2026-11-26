@@ -8,7 +8,11 @@ vi.mock('@/services/exerciseGym', () => ({
   fetchByMuscle: async (muscle: string) => ({
     muscle,
     count: 12,
-    exercises: Array.from({ length: 12 }, (_, i) => ({
+    exercises: muscle === 'cardio'
+      ? Array.from({ length: 8 }, (_, i) => ({ id: `cardio/cardio${i}`, name: `Cardio suave ${i}`, muscle: 'cardio', bodyPart: 'cardio', equipment: 'bodyweight', category: 'cardio', secondaryMuscles: [], instructions: [], file: '', gifUrl: '' }))
+      : [
+      ...(muscle === 'pectorals' ? [{ id: 'pectorals/stretch-test', name: 'Estiramiento de pecho', muscle: 'pectorals', bodyPart: 'chest', equipment: 'bodyweight', category: 'stretching', secondaryMuscles: [], instructions: [], file: '', gifUrl: '' }] : []),
+      ...Array.from({ length: 12 }, (_, i) => ({
       id: `${muscle}/ex${i}`,
       name: i === 0 ? 'press banca plano' : `${muscle} ex${i}`,
       muscle,
@@ -22,6 +26,7 @@ vi.mock('@/services/exerciseGym', () => ({
       file: '',
       gifUrl: '',
     })),
+      ],
   }),
   fetchAll: async () => ({ exercises: [] }),
   fetchOne: async () => null,
@@ -44,7 +49,7 @@ vi.mock('./aiAuth', () => ({
 }))
 
 import { getProxyUrl } from './groqConfig'
-import { generateRoutineWithAI, parseRoutineInstructions } from './routineBuilderIA'
+import { generateRoutineWithAI, parseRoutineInstructions, parseRoutineSequence } from './routineBuilderIA'
 
 const wants = (description: string, daysPerWeek = 4) => ({
   goal: 'hipertrofia', daysPerWeek, focus: 'general', injuryNote: '', description,
@@ -76,6 +81,25 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
     expect(i.priorities).toEqual(expect.arrayContaining(['lats', 'delts']))
     expect(i.excludes.join(' ')).toContain('press banca')
     expect(i.level).toBeNull()
+  })
+
+  it('aplica la secuencia solicitada, con cuatro ejercicios principales en dos superseries', async () => {
+    const description = [
+      'Un ejercicio de estiramiento calentamiento',
+      'Cuatro ejercicios de un grupo muscular principal con super series',
+      'Tres ejercicios de grupo muscular secundario',
+      'Cardio suave para bajar el ritmo cardíaco',
+    ].join('\\n')
+    expect(parseRoutineSequence(description)).toEqual({ warmupCount: 1, primaryCount: 4, primarySupersets: true, secondaryCount: 3, cooldownCount: 1 })
+    const r = await generateRoutineWithAI({ goal: 'hipertrofia', daysPerWeek: 1, focus: 'pectorals', injuryNote: '', description })
+    const list = r.dayExercises[1]
+    expect(list).toHaveLength(9)
+    expect(list.map(e=>e.sequenceRole)).toEqual(['warmup','primary','primary','primary','primary','secondary','secondary','secondary','cooldown'])
+    expect(list[0].isStretch).toBe(true)
+    expect(list.slice(1,5).every(e=>!!e.supersetId)).toBe(true)
+    expect(new Set(list.slice(1,5).map(e=>e.supersetId)).size).toBe(2)
+    expect(list[5].muscle).not.toBe('pectorals')
+    expect(list[8].muscle).toBe('cardio')
   })
 
   it('fallback 4 días torso/piernas: respeta el split y no repite ejercicios', async () => {

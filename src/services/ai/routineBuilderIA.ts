@@ -9,6 +9,7 @@ import { todayKey } from '@/utils/dates'
 import { getProxyUrl, getGroqHeaders } from './groqConfig'
 import { aiLimitMessage, getAiAuthHeaders, isLimitError, stripLimitPrefix } from './aiAuth'
 import { buildAiTrainingContext, getTrainingPreferences } from '@/utils/profilePreferences'
+import { exercisePurpose, type ExercisePurpose } from '@/utils/stretching'
 
 const RATE_LIMIT_KEY = 'groq:lastRequestAt'
 const MIN_GAP_MS = 12_000
@@ -59,6 +60,15 @@ export interface RoutineInstructions {
   level: 'beginner' | 'intermediate' | 'advanced' | null
   lowVolumeHighIntensity: boolean
   gradualProgression: boolean
+  sequence?: RoutineSequenceRequirements
+}
+
+export interface RoutineSequenceRequirements {
+  warmupCount: number
+  primaryCount: number
+  primarySupersets: boolean
+  secondaryCount: number
+  cooldownCount: number
 }
 
 export interface GeneratedRoutine {
@@ -75,6 +85,9 @@ export interface GeneratedRoutine {
     gifUrl?: string; name?: string; muscle?: string;
     restSec?: number; transitionRestSec?: number;
     supersetId?: string | null; supersetOrder?: number | null;
+    isStretch?: boolean
+    sequenceRole?: 'warmup' | 'primary' | 'secondary' | 'cooldown'
+    durationMin?: number
   }[]>
   explanation: {
     goal: string; method: string; distribution: string; intensity: string;
@@ -182,6 +195,26 @@ function addMuscleAliases(sentence: string, out: Set<string>) {
   }
 }
 
+function parseSpanishCount(value: string | undefined): number {
+  if (!value) { return 0 }
+  const words: Record<string, number> = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7 }
+  return Number(value) || words[value] || 0
+}
+
+/** Convierte el pedido de bloques consecutivos a una estructura verificable. */
+export function parseRoutineSequence(description = ''): RoutineSequenceRequirements | undefined {
+  const text = plainText(description).replace(/\s+/g, ' ')
+  const warm = text.match(/\b(un|uno|una|1)\s+ejercicios?\s+de\s+(?:estiramiento|calentamiento)/)
+  const primary = text.match(/\b(cuatro|4|cinco|5|tres|3|dos|2)\s+ejercicios?\b.{0,90}\bgrupo muscular principal\b/)
+  const secondary = text.match(/\b(cuatro|4|tres|3|dos|2)\s+ejercicios?\b.{0,90}\bgrupo muscular secundario\b/)
+  const cooldown = /\bcardio\b.{0,100}\b(?:suave|bajar|ritmo cardiaco|ritmo del corazon|recuperacion)\b/.test(text)
+  const warmupCount = parseSpanishCount(warm?.[1])
+  const primaryCount = parseSpanishCount(primary?.[1])
+  const secondaryCount = parseSpanishCount(secondary?.[1])
+  if (!warmupCount || !primaryCount || !secondaryCount || !cooldown) { return undefined }
+  return { warmupCount, primaryCount, primarySupersets: /super\s*series?|superseries?/.test(text), secondaryCount, cooldownCount: 1 }
+}
+
 export function parseRoutineInstructions(description = ''): RoutineInstructions {
   const raw = description || ''
   const text = plainText(raw)
@@ -192,7 +225,9 @@ export function parseRoutineInstructions(description = ''): RoutineInstructions 
       addMuscleAliases(sentence, priorities)
     }
   }
+  const sequence = parseRoutineSequence(raw)
   return {
+    ...(sequence ? { sequence } : {}),
     days: detectDaysMention(raw),
     split: detectSplit(text),
     sessionMinutes: detectMinutes(text),
@@ -259,6 +294,7 @@ function clampDays(days: number): number {
 }
 
 function maxExercisesPerDay(instructions: RoutineInstructions, profileMinutes?: number | null): number {
+  if (instructions.sequence) { const s = instructions.sequence; return s.warmupCount + s.primaryCount + s.secondaryCount + s.cooldownCount }
   if (instructions.lowVolumeHighIntensity) {return 3}
   const minutes = instructions.sessionMinutes ?? (Number(profileMinutes) || 60)
   if (minutes <= 45) {return 3}
@@ -280,7 +316,7 @@ function maxSetsForLevel(level: string): number {
   return 5
 }
 
-type PoolEx = { id: string; name: string; eq: string; gif: string; muscle: string }
+type PoolEx = { id: string; name: string; eq: string; gif: string; muscle: string; purpose?: ExercisePurpose }
 type RoutineExercise = GeneratedRoutine['dayExercises'][number][number]
 
 function hashStr(s: string): number {
@@ -309,34 +345,58 @@ async function loadMusclePools(
   const excluded = new Set(excludedIds)
   const seen = new Set<string>()
   const pools: Record<string, PoolEx[]> = {}
+  const warmupPool: PoolEx[] = []
+  const cardioPool: PoolEx[] = []
+
   for (let i = 0; i < muscles.length; i++) {
     const r = fetches[i]
-    if (r.status !== 'fulfilled' || !r.value?.exercises) {continue}
-    const limit = instructions.priorities.includes(muscles[i]) ? 16 : 12
-    const scored = r.value.exercises
-      .filter((e: Exercise) => !excluded.has(e.id) && e.category !== 'stretching')
+    if (r.status !== 'fulfilled' || !r.value?.exercises) { continue }
+    const muscle = muscles[i]
+    const limit = instructions.priorities.includes(muscle) ? 16 : 12
+    const candidates = r.value.exercises
+      .filter((e: Exercise) => !excluded.has(e.id) && !seen.has(e.id))
       .filter((e: Exercise) => !matchesAny(e.name, instructions.excludes))
       .filter((e: Exercise) => !instructions.equipment || instructions.equipment.includes(e.equipment))
       .map((e: Exercise) => {
         let score = 0
-        if (matchesAny(e.name, instructions.includes)) {score += 100}
-        if (e.category === 'strength') {score += 4}
+        if (matchesAny(e.name, instructions.includes)) { score += 100 }
+        if (e.category === 'strength') { score += 4 }
         score += Math.min(6, e.secondaryMuscles?.length || 0)
-        if (instructions.priorities.includes(e.muscle)) {score += 5}
-        // Rotación determinista: dos pedidos distintos reciben subconjuntos distintos.
+        if (instructions.priorities.includes(e.muscle)) { score += 5 }
         score += (hashStr(`${e.id}|${seed}`) % 1000) / 500
-        return { e, score }
+        return { e, score, purpose: exercisePurpose(e) }
       })
-      .sort((a, b) => b.score - a.score)
-    const picked: PoolEx[] = []
-    for (const { e } of scored) {
-      if (picked.length >= limit) {break}
-      if (seen.has(e.id)) {continue}
-      seen.add(e.id)
-      picked.push({ id: e.id, name: e.name, eq: e.equipment, gif: e.gifUrl, muscle: e.muscle || muscles[i] })
+
+    const conventional: typeof candidates = []
+    for (const item of candidates) {
+      const { e, purpose } = item
+      const candidate: PoolEx = { id: e.id, name: e.name, eq: e.equipment, gif: e.gifUrl, muscle: e.muscle || muscle, purpose }
+      if (purpose !== 'conventional') {
+        warmupPool.push(candidate)
+        seen.add(e.id)
+        continue
+      }
+      if (e.muscle === 'cardio' || e.bodyPart === 'cardio' || e.category === 'cardio') {
+        cardioPool.push(candidate)
+        seen.add(e.id)
+        continue
+      }
+      conventional.push(item)
     }
-    pools[muscles[i]] = picked
+
+    const picked: PoolEx[] = []
+    for (const { e, purpose } of conventional.sort((a, b) => b.score - a.score)) {
+      if (picked.length >= limit) { break }
+      if (seen.has(e.id)) { continue }
+      seen.add(e.id)
+      picked.push({ id: e.id, name: e.name, eq: e.equipment, gif: e.gifUrl, muscle: e.muscle || muscle, purpose })
+    }
+    pools[muscle] = picked
   }
+
+  const warmRank = (p: PoolEx) => p.purpose === 'stretch' ? 0 : p.purpose === 'warmup' ? 1 : 2
+  pools.__warmup__ = warmupPool.sort((a, b) => warmRank(a) - warmRank(b)).slice(0, 8)
+  pools.__cardio__ = cardioPool.slice(0, 8)
   return pools
 }
 
@@ -358,7 +418,7 @@ function fillDay(
   allowUsed: boolean,
 ) {
   const groups = muscles.filter(m => (pools[m]?.length ?? 0) > 0)
-  const order = groups.length ? groups : Object.keys(pools)
+  const order = groups.length ? groups : Object.keys(pools).filter(m => !m.startsWith('__') && m !== 'cardio')
   for (let round = 0; list.length < target; round++) {
     let added = false
     for (const m of order) {
@@ -411,6 +471,66 @@ function resolveCatalog(
   return null
 }
 
+type SequenceRole = 'warmup' | 'primary' | 'secondary' | 'cooldown'
+
+function applyRequestedSequence(
+  entry: DayEntry,
+  pools: Record<string, PoolEx[]>,
+  wants: UserWants,
+  instructions: RoutineInstructions,
+  make: (c: PoolEx) => RoutineExercise,
+): RoutineExercise[] {
+  const s = instructions.sequence
+  if (!s) { return entry.list }
+  const eligible = (items: PoolEx[]) => items.filter(c => c.purpose === undefined || c.purpose === 'conventional')
+    .filter(c => !matchesAny(c.name, instructions.excludes))
+  const keys = Object.keys(pools).filter(k => !k.startsWith('__') && k !== 'cardio')
+  const preferred = [...parseDayMuscles(wants.focus || ''), ...entry.list.map(e => e.muscle || ''), ...entry.muscles]
+    .filter((m, i, a) => m && m !== 'cardio' && a.indexOf(m) === i)
+  const counts = new Map<string, number>()
+  for (const e of entry.list) { if (e.muscle && e.muscle !== 'cardio') counts.set(e.muscle, (counts.get(e.muscle) || 0) + 1) }
+  const order = [...preferred, ...[...counts.entries()].sort((a,b)=>b[1]-a[1]).map(([m])=>m), ...keys]
+    .filter((m,i,a)=>keys.includes(m) && a.indexOf(m)===i)
+  const primaryMuscle = order.find(m => eligible(pools[m] || []).length >= s.primaryCount)
+  if (!primaryMuscle) throw new Error(`No se encontraron ${s.primaryCount} ejercicios del grupo muscular principal en el catálogo disponible.`)
+  const pairs: Record<string,string[]> = {
+    pectorals:['triceps','delts'], lats:['biceps','upper-back'], 'upper-back':['biceps','lats'],
+    biceps:['triceps','forearms'], triceps:['biceps','pectorals'], delts:['traps','triceps'],
+    quads:['hamstrings','glutes'], hamstrings:['quads','glutes'], glutes:['quads','hamstrings'],
+    calves:['quads','hamstrings'], abs:['spine','traps'], traps:['delts','upper-back'],
+  }
+  const secondaryOrder = [...order.filter(m=>m!==primaryMuscle), ...(pairs[primaryMuscle]||[]), ...keys]
+    .filter((m,i,a)=>m!==primaryMuscle && a.indexOf(m)===i)
+  const secondaryMuscle = secondaryOrder.find(m => eligible(pools[m] || []).length >= s.secondaryCount)
+  if (!secondaryMuscle) throw new Error(`No se encontraron ${s.secondaryCount} ejercicios de un grupo muscular secundario distinto.`)
+  const warmPool = (pools.__warmup__ || []).slice().sort((a,b)=>{
+    const rank=(p:PoolEx)=>p.purpose==='stretch'?0:p.purpose==='warmup'?1:2
+    return rank(a)-rank(b)
+  })
+  const cardioPool = eligible(pools.__cardio__ || [])
+  if (warmPool.length < s.warmupCount) throw new Error('El catálogo no devolvió ejercicios de estiramiento/calentamiento. No se generó una rutina incompleta.')
+  if (cardioPool.length < s.cooldownCount) throw new Error('El catálogo no devolvió ejercicios de cardio suave. No se generó una rutina incompleta.')
+
+  const old = new Map(entry.list.map(e=>[e.exId,e]))
+  const picked = (items:PoolEx[],n:number) => {
+    const existing=new Set(entry.list.map(e=>e.exId))
+    return [...items].sort((a,b)=>Number(existing.has(b.id))-Number(existing.has(a.id))).slice(0,n).map(c=>old.get(c.id)?{...old.get(c.id)!}:make(c))
+  }
+  const mark = (items:RoutineExercise[], role:SequenceRole) => items.map(e=>({...e,sequenceRole:role}))
+  const warm = mark(picked(warmPool,s.warmupCount),'warmup').map(e=>({...e,isStretch:true,sets:1,reps:1,restSec:15,supersetId:null,supersetOrder:null}))
+  const main = mark(picked(eligible(pools[primaryMuscle]||[]),s.primaryCount),'primary')
+  const secondary = mark(picked(eligible(pools[secondaryMuscle]||[]),s.secondaryCount),'secondary')
+  const cool = mark(picked(cardioPool,s.cooldownCount),'cooldown').map(e=>({...e,sets:1,reps:5,durationMin:5,restSec:0,supersetId:null,supersetOrder:null}))
+  if (s.primarySupersets) {
+    for (let i=0;i+1<main.length;i+=2) {
+      const id=`ai-ss-${entry.name.replace(/[^a-z0-9]/gi,'').toLowerCase()}-${i/2+1}`
+      main[i]={...main[i],supersetId:id,supersetOrder:0,transitionRestSec:15}
+      main[i+1]={...main[i+1],supersetId:id,supersetOrder:1,transitionRestSec:15}
+    }
+  }
+  return [...warm,...main,...secondary,...cool]
+}
+
 function normalizeRoutine(
   parsed: any,
   wants: UserWants,
@@ -424,7 +544,7 @@ function normalizeRoutine(
     for (const e of list) {catalog.set(e.id, { ...e, muscle: e.muscle || muscle })}
   }
   const catalogList = [...catalog.values()]
-  const allMuscles = [...new Set(catalogList.map(e => e.muscle))]
+  const allMuscles = [...new Set(Object.entries(ctx.exercises).filter(([key]) => !key.startsWith('__') && key !== 'cardio').flatMap(([, list]) => list.map(e => e.muscle)))]
   const max = maxExercisesPerDay(instructions, ctx.profile?.sessionDurationMin)
   const min = Math.min(3, max)
   const level = instructions.level || wants.level || (ctx.profile?.experienceLevel as string) || 'intermediate'
@@ -503,6 +623,9 @@ function normalizeRoutine(
     }
   })
 
+  if (instructions.sequence) {
+    for (const entry of entries) { entry.list = applyRequestedSequence(entry, ctx.exercises, wants, instructions, make); entry.max = entry.list.length }
+  }
   parsed.cycle.trainingDays = entries.map((d, i) => ({ n: i + 1, name: d.name }))
   parsed.dayExercises = Object.fromEntries(entries.map((d, i) => [i + 1, d.list]))
 
@@ -597,6 +720,9 @@ async function generateRoutineFallback(
     entries.push({ name: t.name, muscles: t.muscles, list, max })
   }
   ensureIncludes(entries, catalog, instructions, make)
+  if (instructions.sequence) {
+    for (const entry of entries) { entry.list = applyRequestedSequence(entry, pools, wants, instructions, make); entry.max = entry.list.length }
+  }
   if (wants.modality === 'crossfit') {entries.forEach((d, i) => { d.name = `WOD ${i + 1}` })}
 
   const weekMap: (number | null)[] = [null, null, null, null, null, null, null]
@@ -726,6 +852,7 @@ function buildPrompt(ctx: {
 
   const hardRules = [
     `- Días por semana: ${days}.`,
+    instructions.sequence ? `- Secuencia OBLIGATORIA por día: ${instructions.sequence.warmupCount} estiramiento/calentamiento + ${instructions.sequence.primaryCount} ejercicios del grupo principal + ${instructions.sequence.secondaryCount} del grupo secundario + ${instructions.sequence.cooldownCount} cardio suave. Los ejercicios principales deben organizarse en superseries de a pares. No omitas ni cambies el orden.` : '',
     label ? `- Split obligatorio: ${label}.` : '- Split: el que mejor responda al pedido.',
     `- Duración máxima: ${time} min → como máximo ${maxPerDay} ejercicios por día.`,
     instructions.priorities.length ? `- Prioridades (más volumen/frecuencia): ${instructions.priorities.map(displayMuscle).join(', ')}.` : '',
@@ -931,6 +1058,17 @@ export function validateGeneratedRoutine(
     if (!Array.isArray(list) || list.length === 0) {issues.push(`Día ${n} sin ejercicios.`)}
   }
 
+  if (instructions.sequence) {
+    const s = instructions.sequence
+    const expected = s.warmupCount + s.primaryCount + s.secondaryCount + s.cooldownCount
+    for (const [day, list] of Object.entries(routine.dayExercises || {})) {
+      if (list.length !== expected) issues.push(`Día ${day}: la secuencia requiere ${expected} ejercicios y se generaron ${list.length}.`)
+      const roles = list.map(ex=>ex.sequenceRole)
+      const wanted = [...Array(s.warmupCount).fill('warmup'),...Array(s.primaryCount).fill('primary'),...Array(s.secondaryCount).fill('secondary'),...Array(s.cooldownCount).fill('cooldown')]
+      if (JSON.stringify(roles)!==JSON.stringify(wanted)) issues.push(`Día ${day}: no se respetó el orden solicitado.`)
+      if (s.primarySupersets) { const main=list.filter(ex=>ex.sequenceRole==='primary'); if(main.some(ex=>!ex.supersetId)||new Set(main.map(ex=>ex.supersetId)).size!==Math.ceil(s.primaryCount/2)) issues.push(`Día ${day}: faltan las superseries del grupo principal.`) }
+    }
+  }
   for (const [n, list] of Object.entries(routine.dayExercises || {})) {
     for (const ex of list) {
       const entry = catalog.get(ex.exId)
