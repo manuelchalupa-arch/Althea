@@ -31,6 +31,21 @@ Ambas usan el mismo transporte (`src/services/ai/groqConfig.ts` + `src/services/
 - 401 sin sesión, 429 con `Retry-After` al agotar límites, 503 sin binding, 504 por timeout, 502 sanitizado.
 - Logs: solo códigos de estado; nunca prompts, respuestas ni tokens.
 
+## Medición real del proveedor (2026-11-26)
+
+Llamadas directas al binding `AI` de la cuenta (sin la capa de auth del Worker):
+
+| Tarea | Tokens entrada/salida | Neuronas | Latencia |
+|---|---|---|---|
+| Coach corto | 21 / 2 | 0,245 | ~1,0 s |
+| Rutina JSON corta | 24 / 6 | 0,382 | ~1,4 s |
+| Rutina con thinking | 27 / 64 | 1,991 | ~6,0 s |
+
+Capacidad con el presupuesto interno de 9.000 neuronas/día, usando la reserva conservadora del Worker (no es una medición de tráfico real):
+
+- Coach: ~32 neuronas por reserva (512 de salida + ~2.000 tokens de entrada) → ~280 mensajes/día.
+- Rutina: ~260 neuronas por reserva (8.192 de salida + ~4.000 tokens de entrada) → ~34 rutinas/día.
+
 ## Configuración externa pendiente (la aplica el propietario al desplegar)
 
 1. Habilitar Workers AI en la cuenta de Cloudflare (plan Free) y desplegar:
