@@ -545,8 +545,10 @@ function clampNum(n: number, min: number, max: number): number {
 
 function isAvailable(): boolean {
   try {
-    return getGroqUrl().trim().length > 0
-  } catch { return false }
+    return getProxyUrl().length > 0
+  } catch {
+    return false
+  }
 }
 
 function goalToMethodId(goal: string): TrainingMethodId {
