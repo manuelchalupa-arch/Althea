@@ -12,7 +12,7 @@ export interface WorkerEnv {
   AI_MODEL?: string
   /** Timeout de inferencia en ms. Default 60000. */
   AI_TIMEOUT_MS?: string
-  /** Máximo de inferencias simultáneas por isolate. Default 6. */
+  /** Máximo de inferencias simultáneas globales. Default 6. */
   AI_MAX_CONCURRENCY?: string
   /** Presupuesto diario de neuronas. Default 9000 (gratis: 10000). */
   AI_DAILY_NEURON_BUDGET?: string
@@ -75,7 +75,7 @@ export declare function reserveDailyNeurons(
   env: WorkerEnv,
   cost: number,
   nowMs?: number,
-): Promise<{ ok: boolean; limit: number; remaining: number; resetSeconds: number; degraded: boolean }>
+): Promise<{ ok: boolean; limit: number; remaining: number; resetSeconds: number; degraded: boolean; mode: string }>
 export declare function utcDayKey(nowMs?: number): string
 export declare function secondsUntilUtcMidnight(nowMs?: number): number
 
@@ -99,7 +99,10 @@ export declare class RateLimiter {
     }
   })
   fetch(request: Request): Promise<Response>
-  alarm(state: unknown, timestamp: number): Promise<void>
+  reserveBudget(request: Request): Promise<Response>
+  acquireSlot(request: Request): Promise<Response>
+  releaseSlot(request: Request): Promise<Response>
+  alarm(): Promise<void>
 }
 
 declare const worker: {

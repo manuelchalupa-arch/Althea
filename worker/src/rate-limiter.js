@@ -32,7 +32,7 @@ export const RATE_LIMIT_MODE = {
   NONE: 'unavailable',
 }
 
-/** Prefijo de la petición interna DO→DO. */
+/** Ruta de la petición interna DO→DO del rate limit. */
 const DO_CHECK_URL = 'https://rate-limit.internal/check'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,6 +63,11 @@ export class RateLimiter {
     if (request.method !== 'POST') {
       return new Response('method_not_allowed', { status: 405 })
     }
+
+    const path = new URL(request.url).pathname
+    if (path === '/budget') return this.reserveBudget(request)
+    if (path === '/concurrency') return this.acquireSlot(request)
+    if (path === '/release') return this.releaseSlot(request)
 
     let payload
     try {
@@ -121,16 +126,79 @@ export class RateLimiter {
   }
 
   /**
-   * Alarma: purga contadores cuyas ventanas ya vencieron.
-   * @param {{ storage: { list(opts?: unknown): Promise<Map<string, unknown>>; delete(k: string): Promise<void> } }} state
-   * @param {number} timestamp
+   * Reserva neuronas del presupuesto diario. Atómico: el DO serializa las
+   * peticiones, así que dos isolates no pueden leer el mismo contador.
    */
-  async alarm(state, timestamp) {
-    const all = await state.storage.list()
-    const now = typeof timestamp === 'number' ? timestamp : Date.now()
+  async reserveBudget(request) {
+    const { day, cost, budget } = await request.json()
+    if (typeof day !== 'string' || !Number.isFinite(cost) || cost <= 0 || !Number.isFinite(budget)) {
+      return new Response('invalid_request', { status: 400 })
+    }
+    const key = `budget:${day}`
+    const now = Date.now()
+    let record = await this.state.storage.get(key)
+    if (!record || typeof record.used !== 'number' || now >= record.expiresAt) {
+      record = { used: 0, expiresAt: now + 26 * 60 * 60 * 1000 }
+    }
+    if (record.used + cost > budget) {
+      return Response.json({ allowed: false, remaining: Math.max(0, budget - record.used) })
+    }
+    record.used += cost
+    await this.state.storage.put(key, record)
+    try {
+      await this.state.storage.setAlarm(record.expiresAt)
+    } catch {
+      // La limpieza es cosmética; el presupuesto ya quedó reservado.
+    }
+    return Response.json({ allowed: true, remaining: Math.max(0, budget - record.used) })
+  }
+
+  /**
+   * Slot de concurrencia global. Cada slot guarda su expiración para que una
+   * petición que muera sin liberar no bloquee el límite para siempre.
+   */
+  async acquireSlot(request) {
+    const { id, max, ttlMs } = await request.json()
+    if (typeof id !== 'string' || !Number.isFinite(max) || !Number.isFinite(ttlMs)) {
+      return new Response('invalid_request', { status: 400 })
+    }
+    const key = 'concurrency'
+    const now = Date.now()
+    const stored = (await this.state.storage.get(key)) || {}
+    const active = {}
+    for (const [slotId, expiresAt] of Object.entries(stored)) {
+      if (typeof expiresAt === 'number' && now < expiresAt) active[slotId] = expiresAt
+    }
+    if (Object.keys(active).length >= max) {
+      return Response.json({ allowed: false, active: Object.keys(active).length })
+    }
+    active[id] = now + ttlMs
+    await this.state.storage.put(key, active)
+    return Response.json({ allowed: true, active: Object.keys(active).length })
+  }
+
+  async releaseSlot(request) {
+    const { id } = await request.json()
+    if (typeof id !== 'string') return new Response('invalid_request', { status: 400 })
+    const key = 'concurrency'
+    const stored = (await this.state.storage.get(key)) || {}
+    if (Object.prototype.hasOwnProperty.call(stored, id)) {
+      delete stored[id]
+      await this.state.storage.put(key, stored)
+    }
+    return Response.json({ ok: true })
+  }
+
+  /**
+   * Alarma: purga contadores y presupuestos vencidos.
+   */
+  async alarm() {
+    const all = await this.state.storage.list()
+    const now = Date.now()
     for (const [key, value] of all) {
-      if (value && typeof value.resetAt === 'number' && now >= value.resetAt) {
-        await state.storage.delete(key)
+      const expiresAt = value && (value.resetAt || value.expiresAt)
+      if (typeof expiresAt === 'number' && now >= expiresAt) {
+        await this.state.storage.delete(key)
       }
     }
   }

@@ -24,10 +24,9 @@ Ambas usan el mismo transporte (`src/services/ai/groqConfig.ts` + `src/services/
 
 ## Límites aplicados en el Worker
 
-- 20 peticiones/minuto por `uid` verificado.
-- 240 peticiones/minuto globales (por debajo del límite de Cloudflare).
-- Presupuesto diario de neuronas en KV (`ai:neurons:AAAA-MM-DD`, UTC).
-- 6 inferencias simultáneas por isolate.
+- 20 peticiones/minuto por `uid` verificado y 240/minuto globales, en un **Durable Object** (contador serializado: vale entre isolates).
+- Presupuesto diario de neuronas reservado de forma **atómica** en el mismo Durable Object (`budget:AAAA-MM-DD`, UTC); KV queda solo como degradación best-effort.
+- 6 inferencias simultáneas **globales**, con slots que expiran por TTL si una petición muere sin liberarlos.
 - `enable_thinking:false` y `store:false` para no gastar tokens en razonamiento ni almacenar salidas.
 - 401 sin sesión, 429 con `Retry-After` al agotar límites, 503 sin binding, 504 por timeout, 502 sanitizado.
 - Logs: solo códigos de estado; nunca prompts, respuestas ni tokens.

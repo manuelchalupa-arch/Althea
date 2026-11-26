@@ -98,54 +98,8 @@ for (const method of ['GET', 'PUT', 'PATCH', 'DELETE']) {
   }
 }
 
-// ── Fase B: controles que SÍ consumen cuota (una vez cada uno) ─────────────
-console.log('\n[C] Content-Type, body limit y validación de payload (consumen cuota)')
-
-record('CONTENT_TYPE', 'POST sin Content-Type', 415, (await post(validChat, { contentType: null })).status)
-record('CONTENT_TYPE', 'POST con text/plain', 415, (await post(validChat, { contentType: 'text/plain' })).status)
-record(
-  'CONTENT_TYPE',
-  'POST con application/json; charset=utf-8 (debe pasar la comprobación)',
-  [503, 502, 504, 200],
-  (await post(validChat, { contentType: 'application/json; charset=utf-8' })).status,
-)
-
-{
-  const huge = JSON.stringify({ messages: [{ role: 'user', content: 'x'.repeat(70 * 1024) }] })
-  const res = await post(huge)
-  record('BODY_LIMIT', 'body > 64 KB', 413, res.status)
-}
-
-{
-  const res = await post(JSON.stringify({ messages: [{ role: 'user', content: 'hola' }], api_key: 'x' }))
-  record('PAYLOAD', 'campo inesperado (api_key)', 422, res.status)
-}
-
-{
-  const res = await post(JSON.stringify({ messages: [{ role: 'system', content: 'ok' }, { role: 'admin', content: 'x' }] }))
-  record('PAYLOAD', 'rol no permitido', 422, res.status)
-}
-
-{
-  const many = Array.from({ length: 60 }, () => ({ role: 'user', content: 'x' }))
-  const res = await post(JSON.stringify({ messages: many }))
-  record('PAYLOAD', 'demasiados mensajes (>40)', 422, res.status)
-}
-
-{
-  const res = await post(JSON.stringify({ messages: [] }))
-  record('PAYLOAD', 'array de mensajes vacío', 422, res.status)
-}
-
-{
-  // El cliente no puede elegir modelo ni parámetros de generación.
-  const res = await post(JSON.stringify({ messages: [{ role: 'user', content: 'hola' }], model: 'attacker-model', temperature: 2 }))
-  const accepted = [503, 502, 504, 200].includes(res.status)
-  record('PAYLOAD', 'model/temperature del cliente no rompen el proxy', true, accepted)
-}
-
 // ── Fail-closed de autenticación ──────────────────────────────────────────
-console.log('\n[D] Identidad del usuario (fail-closed)')
+console.log('\n[C] Identidad del usuario (fail-closed)')
 if (idToken) {
   console.log('  token de sesión presente; el resto de la matriz usa identidad verificada')
 } else {
@@ -156,19 +110,72 @@ if (idToken) {
   })
   record('AUTH', 'sin ID token el Worker responde 401', 401, res.status)
   record('AUTH', 'el error no revela credenciales', false, /gsk_|api\.groq\.com|secret/i.test(await res.text()))
-  skip('AI', 'flujo real del proveedor', 'se necesita ALTHEA_AI_ID_TOKEN')
+}
+
+// ── Validación de payload (requiere identidad verificada) ─────────────────
+console.log('\n[D] Content-Type, body limit y validación de payload')
+if (!idToken) {
+  for (const name of [
+    'POST sin Content-Type -> 415',
+    'POST con text/plain -> 415',
+    'body > 64 KB -> 413',
+    'campo inesperado -> 422',
+    'rol no permitido -> 422',
+    'demasiados mensajes -> 422',
+    'mensajes vacíos -> 422',
+  ]) {
+    skip('PAYLOAD', name, 'se necesita ALTHEA_AI_ID_TOKEN')
+  }
+} else {
+  record('CONTENT_TYPE', 'POST sin Content-Type', 415, (await post(validChat, { contentType: null })).status)
+  record('CONTENT_TYPE', 'POST con text/plain', 415, (await post(validChat, { contentType: 'text/plain' })).status)
+  record(
+    'CONTENT_TYPE',
+    'POST con application/json; charset=utf-8 (debe pasar la comprobación)',
+    [503, 502, 504, 200],
+    (await post(validChat, { contentType: 'application/json; charset=utf-8' })).status,
+  )
+
+  {
+    const huge = JSON.stringify({ messages: [{ role: 'user', content: 'x'.repeat(70 * 1024) }] })
+    record('BODY_LIMIT', 'body > 64 KB', 413, (await post(huge)).status)
+  }
+  record(
+    'PAYLOAD',
+    'campo inesperado (api_key)',
+    422,
+    (await post(JSON.stringify({ messages: [{ role: 'user', content: 'hola' }], api_key: 'x' }))).status,
+  )
+  record(
+    'PAYLOAD',
+    'rol no permitido',
+    422,
+    (await post(JSON.stringify({ messages: [{ role: 'system', content: 'ok' }, { role: 'admin', content: 'x' }] }))).status,
+  )
+  {
+    const many = Array.from({ length: 60 }, () => ({ role: 'user', content: 'x' }))
+    record('PAYLOAD', 'demasiados mensajes (>40)', 422, (await post(JSON.stringify({ messages: many }))).status)
+  }
+  record('PAYLOAD', 'array de mensajes vacío', 422, (await post(JSON.stringify({ messages: [] }))).status)
+  {
+    // El cliente no puede elegir modelo ni parámetros de generación.
+    const res = await post(JSON.stringify({ messages: [{ role: 'user', content: 'hola' }], model: 'attacker-model', temperature: 2 }))
+    const accepted = [503, 502, 504, 200].includes(res.status)
+    record('PAYLOAD', 'model/temperature del cliente no rompen el proxy', true, accepted)
+  }
 }
 
 // ── Fase C: rate limiting real ────────────────────────────────────────────
 console.log('\n[E] Rate limiting real')
+if (!idToken) {
+  skip('RATE_LIMIT', 'se alcanza el límite y responde 429', 'se necesita ALTHEA_AI_ID_TOKEN')
+  skip('RATE_LIMIT', 'cabeceras X-RateLimit-*', 'se necesita ALTHEA_AI_ID_TOKEN')
+} else {
+  if (!skipWait) {
+    console.log('  (esperando a que expire la ventana de rate limit: 65s)')
+    await new Promise((r) => setTimeout(r, 65_000))
+  }
 
-if (!skipWait) {
-  console.log('  (esperando a que expire la ventana de rate limit de la fase B: 65s)')
-  await new Promise((r) => setTimeout(r, 65_000))
-}
-
-{
-  // El límite configurado es 20/min por usuario verificado. Se supera a propósito.
   let limited = null
   let firstHeaders = null
   const LIMIT = 26
@@ -181,7 +188,6 @@ if (!skipWait) {
         retryAfter: res.headers.get('retry-after'),
         limit: res.headers.get('x-ratelimit-limit'),
         remaining: res.headers.get('x-ratelimit-remaining'),
-        reset: res.headers.get('x-ratelimit-reset'),
         mode: res.headers.get('x-ratelimit-mode'),
       }
       break
@@ -208,16 +214,51 @@ if (!skipWait) {
   )
 }
 
-// ── Lo que no se puede validar sin el secret ──────────────────────────────
-console.log('\n[F] Flujo Groq real (requiere GROQ_API_KEY del propietario)')
-skip('GROQ_E2E', 'respuesta 200 con contenido del modelo', 'falta GROQ_API_KEY en el Worker de staging')
-skip('GROQ_E2E', 'timeout upstream devuelve 504', 'falta GROQ_API_KEY en el Worker de staging')
-skip('GROQ_E2E', 'error upstream devuelve 502 sanitizado', 'falta GROQ_API_KEY en el Worker de staging')
-skip('COACH_E2E', 'frontend → Worker → Groq → frontend', 'falta GROQ_API_KEY y frontend en staging')
+// ── Flujo real del proveedor ──────────────────────────────────────────────
+console.log('\n[F] Cloudflare Workers AI (Gemma 4)')
+if (!idToken) {
+  skip('AI_E2E', 'Coach: 200 + SSE con contenido', 'se necesita ALTHEA_AI_ID_TOKEN')
+  skip('AI_E2E', 'Rutinas: JSON válido', 'se necesita ALTHEA_AI_ID_TOKEN')
+  skip('AI_E2E', 'consumo real de neuronas', 'se necesita ALTHEA_AI_ID_TOKEN')
+} else {
+  {
+    const res = await post(validChat)
+    const body = await res.text()
+    const ct = res.headers.get('content-type') || ''
+    record('AI_E2E', 'Coach responde 200', 200, res.status)
+    record('AI_E2E', 'la respuesta es SSE', true, ct.includes('text/event-stream'))
+    record('AI_E2E', 'el SSE trae contenido del modelo', true, /"content"\s*:\s*"[^"]+/.test(body))
+    record('AI_E2E', 'el modelo es Gemma 4', true, /gemma-4/i.test(body), '')
+  }
+  {
+    const res = await post(JSON.stringify({
+      task: 'routine',
+      messages: [{ role: 'user', content: 'Devuelve SOLO este JSON: {"ok":true}' }],
+    }))
+    const text = await res.text()
+    record('AI_E2E', 'Rutinas responde 200', 200, res.status)
+    let content = ''
+    try {
+      content = JSON.parse(text)?.choices?.[0]?.message?.content || ''
+    } catch {}
+    let validJson = false
+    try {
+      validJson = typeof JSON.parse(content) === 'object'
+    } catch {}
+    record('AI_E2E', 'el contenido es JSON parseable', true, validJson)
+  }
+  {
+    const res = await post(validChat)
+    const body = await res.text()
+    const neurons = body.match(/"neurons"\s*:\s*([0-9.]+)/)
+    record('AI_E2E', 'el proveedor reporta neuronas', true, Boolean(neurons), neurons ? `(neurons=${neurons[1]})` : '')
+    record('AI_E2E', 'X-AI-Budget-Mode = enforced', 'enforced', res.headers.get('x-ai-budget-mode'))
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(66))
 const passed = results.filter((r) => r.status === 'PASS').length
 console.log(`PASS=${passed}  FAIL=${failures}  NOT VALIDATED=${notValidated}`)
-console.log(`WORKER LIVE CHECK = ${failures === 0 ? 'PASS (parcial: Groq E2E sin secret)' : 'FAIL'}`)
+console.log(`WORKER LIVE CHECK = ${failures === 0 ? (notValidated ? 'PASS (parcial)' : 'PASS') : 'FAIL'}`)
 process.exit(failures === 0 ? 0 : 1)

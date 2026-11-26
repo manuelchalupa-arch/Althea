@@ -15,6 +15,7 @@ import worker, {
   resetMemoryRateLimits,
   resetConcurrency,
   reserveDailyNeurons,
+  RateLimiter,
 } from '../src/index.js'
 
 vi.mock('../src/firebase-auth.js', () => ({
@@ -352,4 +353,54 @@ describe('cuota compartida', () => {
     // Se cancela la primera para no dejar la promesa colgada.
     void first
   })
+
+  it('el presupuesto diario se comparte entre isolates vía Durable Object', async () => {
+    const namespace = doNamespace()
+    const a = env({ RATE_LIMITER: namespace, AI_DAILY_NEURON_BUDGET: '1000' })
+    const b = env({ RATE_LIMITER: namespace, AI_DAILY_NEURON_BUDGET: '1000' })
+    const first = await worker.fetch(request(), a)
+    const second = await worker.fetch(request(), b)
+    expect(first.headers.get('X-AI-Budget-Mode')).toBe('enforced')
+    expect(second.headers.get('X-AI-Budget-Mode')).toBe('enforced')
+    expect(Number(second.headers.get('X-AI-Budget-Remaining')))
+      .toBeLessThan(Number(first.headers.get('X-AI-Budget-Remaining')))
+  })
+
+  it('la concurrencia se comparte entre isolates vía Durable Object', async () => {
+    const namespace = doNamespace()
+    let started: () => void = () => {}
+    const inFlight = new Promise<void>((resolve) => { started = resolve })
+    const hanging = { run: vi.fn(() => { started(); return new Promise(() => {}) }) }
+    const a = env({ RATE_LIMITER: namespace, AI_MAX_CONCURRENCY: '1', AI_TIMEOUT_MS: '300', AI: hanging })
+    const b = env({ RATE_LIMITER: namespace, AI_MAX_CONCURRENCY: '1', AI_TIMEOUT_MS: '300', AI: hanging })
+    const first = worker.fetch(request(), a)
+    await inFlight
+    const second = await worker.fetch(request(), b)
+    expect(second.status).toBe(429)
+    expect((await second.json()).error).toBe('busy')
+    void first
+  })
 })
+
+/** Namespace DO falso: cada nombre tiene su propia instancia y storage. */
+function doNamespace() {
+  const instances = new Map<string, any>()
+  return {
+    getByName: (name: string) => {
+      if (!instances.has(name)) {
+        const store = new Map<string, unknown>()
+        instances.set(name, {
+          storage: {
+            get: async (k: string) => (store.has(k) ? store.get(k) : null),
+            put: async (k: string, v: unknown) => { store.set(k, v) },
+            delete: async (k: string) => { store.delete(k) },
+            list: async () => new Map(store),
+            setAlarm: async () => {},
+          },
+        })
+      }
+      const instance = new RateLimiter(instances.get(name) as any)
+      return { fetch: async (input: string, init?: RequestInit) => instance.fetch(new Request(input, init)) }
+    },
+  }
+}

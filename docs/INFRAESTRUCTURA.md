@@ -4,6 +4,12 @@ Estado de este documento: refleja el hardening local del Worker y la
 preparación de la separación staging/producción. **No** certifica validación
 contra entornos reales.
 
+> **2026-11-26 — IA migrada a Cloudflare Workers AI.** El Worker ya no usa
+> `GROQ_API_KEY` ni `api.groq.com`: usa el binding `AI`
+> (`@cf/google/gemma-4-26b-a4b-it`) y verifica el ID token de Firebase en cada
+> petición. Las referencias a Groq de este documento son históricas; el estado
+> vigente está en `docs/IA_CENTRALIZADA.md`.
+
 ```
 CODE-COMPLETE      = TRUE
 FRONTEND-PROD      = NETLIFY   (https://altheafit.netlify.app · deploy 2026-10-20 · bundle verificado: Firebase althea-4b1d0 + Coach IA activo)

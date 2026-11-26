@@ -35,7 +35,10 @@ export function secondsUntilUtcMidnight(nowMs = Date.now()) {
 
 /**
  * Reserva `cost` neuronas del presupuesto del día.
- * Si falta KV se permite la petición (fail-open) pero se marca `degraded`.
+ *
+ * Orden de capas: Durable Object (atómico, entre isolates) → KV (eventual,
+ * best-effort) → fail-open marcado `degraded`. El resultado indica qué capa
+ * se usó en `mode`; sólo `durable-object` es un techo real.
  */
 export async function reserveDailyNeurons(env, cost, nowMs = Date.now()) {
   const configured = Number(env && env.AI_DAILY_NEURON_BUDGET)
@@ -43,11 +46,14 @@ export async function reserveDailyNeurons(env, cost, nowMs = Date.now()) {
     ? configured
     : DEFAULT_DAILY_NEURON_BUDGET
   const resetSeconds = secondsUntilUtcMidnight(nowMs)
-  const kv = env && env.RATE_LIMIT
-  const base = { limit: budget, resetSeconds, degraded: false }
+  const base = { limit: budget, resetSeconds, degraded: false, mode: 'durable-object' }
 
+  const viaDo = await reserveViaDurableObject(env, cost, budget, utcDayKey(nowMs))
+  if (viaDo) return { ...base, ...viaDo }
+
+  const kv = env && env.RATE_LIMIT
   if (!kv || typeof kv.get !== 'function') {
-    return { ...base, ok: true, remaining: budget, degraded: true }
+    return { ...base, ok: true, remaining: budget, degraded: true, mode: 'unavailable' }
   }
 
   const key = `ai:neurons:${utcDayKey(nowMs)}`
@@ -55,11 +61,31 @@ export async function reserveDailyNeurons(env, cost, nowMs = Date.now()) {
     const raw = await kv.get(key)
     const used = Number.parseInt(raw === null ? '0' : raw, 10) || 0
     if (used + cost > budget) {
-      return { ...base, ok: false, remaining: Math.max(0, budget - used) }
+      return { ...base, ok: false, remaining: Math.max(0, budget - used), degraded: true, mode: 'kv' }
     }
     await kv.put(key, String(used + cost), { expirationTtl: 60 * 60 * 26 })
-    return { ...base, ok: true, remaining: Math.max(0, budget - used - cost) }
+    return { ...base, ok: true, remaining: Math.max(0, budget - used - cost), degraded: true, mode: 'kv' }
   } catch {
-    return { ...base, ok: true, remaining: budget, degraded: true }
+    return { ...base, ok: true, remaining: budget, degraded: true, mode: 'unavailable' }
+  }
+}
+
+/** Devuelve `null` si no hay DO o falla, para degradar a la capa siguiente. */
+async function reserveViaDurableObject(env, cost, budget, day) {
+  const namespace = env && env.RATE_LIMITER
+  if (!namespace || typeof namespace.getByName !== 'function') return null
+  try {
+    const stub = namespace.getByName(`budget|${day}`)
+    const res = await stub.fetch('https://rate-limit.internal/budget', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ day, cost, budget }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    if (typeof data.allowed !== 'boolean' || !Number.isFinite(data.remaining)) return null
+    return { ok: data.allowed, remaining: data.remaining }
+  } catch {
+    return null
   }
 }

@@ -14,7 +14,7 @@
  *   3. Esquema cerrado: sólo `messages` y `task` llegan al proveedor.
  *   4. Auth Firebase obligatoria; el `uid` verificado es la clave de cuota.
  *   5. Cuota: 20 req/min por usuario, 240 req/min globales, presupuesto
- *      diario de neuronas y límite de concurrencia por isolate.
+ *      diario de neuronas y concurrencia global, todo en Durable Objects.
  *   6. Errores sanitizados: nunca cuerpo del proveedor ni stack traces.
  *   7. Logs: sólo códigos/status. Nunca prompts, respuestas ni tokens.
  */
@@ -22,6 +22,7 @@
 import { verifyFirebaseIdToken } from './firebase-auth.js'
 import { estimateNeurons, reserveDailyNeurons, secondsUntilUtcMidnight } from './quota.js'
 import { checkRateLimit } from './rate-limiter.js'
+import { acquireSlot, releaseSlot, resetConcurrency } from './concurrency.js'
 
 const MAX_BODY_BYTES = 64 * 1024
 const DEFAULT_AI_TIMEOUT_MS = 60_000
@@ -52,8 +53,6 @@ export { estimateNeurons, reserveDailyNeurons, utcDayKey, secondsUntilUtcMidnigh
 
 const PER_USER_RATE_LIMIT = { max: 20, windowSeconds: 60, keyPrefix: 'ai:user' }
 const GLOBAL_RATE_LIMIT = { max: 240, windowSeconds: 60, keyPrefix: 'ai:global' }
-
-let inFlight = 0
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Respuestas y CORS
@@ -264,29 +263,30 @@ async function handleAi(request, env, cors, timeoutMs, uid) {
     return errorResponse(503, 'ai_not_configured', limitHeaders)
   }
 
-  const taskConfig = TASKS[validated.task]
-  const cost = estimateNeurons(validated.messages, taskConfig.maxTokens)
-  const quota = await reserveDailyNeurons(env, cost, Date.now())
-  const quotaHeaders = {
-    'X-AI-Neurons-Reserved': String(cost),
-    'X-AI-Budget-Remaining': String(quota.remaining),
-    'X-AI-Budget-Mode': quota.degraded ? 'degraded' : 'enforced',
-  }
-  if (!quota.ok) {
-    return errorResponse(429, 'quota_exhausted', {
-      ...limitHeaders,
-      ...quotaHeaders,
-      'Retry-After': String(secondsUntilUtcMidnight()),
-    })
-  }
-
   const maxConcurrency = Number(env.AI_MAX_CONCURRENCY) || DEFAULT_MAX_CONCURRENCY
-  if (inFlight >= maxConcurrency) {
-    return errorResponse(429, 'busy', { ...limitHeaders, ...quotaHeaders, 'Retry-After': '2' })
+  const slot = await acquireSlot(env, maxConcurrency, timeoutMs + 15_000)
+  if (!slot.ok) {
+    return errorResponse(429, 'busy', { ...limitHeaders, 'Retry-After': '2' })
   }
-  inFlight += 1
 
+  let quotaHeaders = {}
   try {
+    const taskConfig = TASKS[validated.task]
+    const cost = estimateNeurons(validated.messages, taskConfig.maxTokens)
+    const quota = await reserveDailyNeurons(env, cost, Date.now())
+    quotaHeaders = {
+      'X-AI-Neurons-Reserved': String(cost),
+      'X-AI-Budget-Remaining': String(quota.remaining),
+      'X-AI-Budget-Mode': quota.degraded ? 'degraded' : 'enforced',
+    }
+    if (!quota.ok) {
+      return errorResponse(429, 'quota_exhausted', {
+        ...limitHeaders,
+        ...quotaHeaders,
+        'Retry-After': String(secondsUntilUtcMidnight()),
+      })
+    }
+
     const model = typeof env.AI_MODEL === 'string' && env.AI_MODEL.trim()
       ? env.AI_MODEL.trim()
       : DEFAULT_MODEL
@@ -333,14 +333,12 @@ async function handleAi(request, env, cors, timeoutMs, uid) {
     console.warn('[althea-ai] provider_error status=' + String((e && e.status) || 'unknown'))
     return errorResponse(502, 'upstream_error', limitHeaders)
   } finally {
-    inFlight -= 1
+    await releaseSlot(env, slot)
   }
 }
 
-// Solo para tests: reinicia el contador de concurrencia del isolate.
-export function resetConcurrency() {
-  inFlight = 0
-}
+// Solo para tests: reinicia el fallback de concurrencia en memoria.
+export { resetConcurrency }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Router
