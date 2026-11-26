@@ -854,7 +854,7 @@ function extractJSON(text: string): string {
 }
 
 async function callAi(prompt: string): Promise<string> {
-  const res = await fetch(getGroqUrl(), {
+  const res = await fetch(getProxyUrl(), {
     method: 'POST',
     headers: { ...getGroqHeaders(), ...(await getAiAuthHeaders()) },
     body: JSON.stringify({
@@ -864,7 +864,7 @@ async function callAi(prompt: string): Promise<string> {
         { role: 'user', content: prompt }
       ],
       // Parámetros legacy: el Worker fija el modelo y el formato JSON.
-      model: MODEL,
+      top_p: 0.9,
       max_tokens: 8192,
       temperature: 0.7,
       stream: false
