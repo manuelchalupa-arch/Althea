@@ -219,21 +219,19 @@ html[data-textscale="l"] { font-size: 112.5%; }
   --mobile-nav-offset: calc(env(safe-area-inset-bottom, 0px) + 74px);
 }
 
-/* Stack de FAB flotantes (chat + feedback) alineado a la barra de navegación móvil.
-   Desktop: posición fija de borde (la nav lateral no ocupa el ancho del fondo).
-   fab-feedback-stack ocupa el lugar que tenía fab-coach-stack: mismo offset,
-   para que el botón F mantenga la posición adaptativa del acceso anterior. */
-.fab-chat-stack { bottom: calc(var(--mobile-nav-offset) + 0.625rem); }
-.fab-feedback-stack { bottom: calc(var(--mobile-nav-offset) + 4.625rem); }
+/* Único botón flotante: Coach abajo, separado de la barra móvil. Feedback vive
+   en la cabecera de Inicio y no ocupa espacio sobre el contenido. */
+.fab-chat-stack { bottom: calc(var(--mobile-nav-offset) + 0.75rem); z-index: 40; }
 @media (min-width: 768px) {
   .fab-chat-stack { bottom: 2rem; }
-  .fab-feedback-stack { bottom: 2rem; }
 }
 
-/* Con el chat de Althea abierto, el panel ocupa la esquina inferior derecha:
-   el FAB de Feedback se retira para no superponerse (ChatWidget publica la
-   señal en <html data-chat-open>). */
-html[data-chat-open] .fab-feedback { display: none; }
+/* Si hay cualquier modal abierto, ocultar el acceso flotante para no tapar
+   botones de la ventana ni contenido interactivo. */
+body:has(.althea-modal) .fab-chat-stack,
+body:has([role="dialog"]) .fab-chat-stack,
+body:has([aria-modal="true"]) .fab-chat-stack,
+body:has([data-modal-open="true"]) .fab-chat-stack { display: none !important; }
 
 /* El shell corre todo el contenido por debajo del recorte superior. Resuelve
    de una vez los dos casos: con header (sticky offset = --safe-top) y sin

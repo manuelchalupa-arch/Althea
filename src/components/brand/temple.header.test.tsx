@@ -49,6 +49,14 @@ describe('S8 - AppHeader: sin falsa funcionalidad', () => {
     expect(dot.getAttribute('aria-hidden')).toBe('true')
   })
 
+  it('Feedback está en la cabecera solo en Inicio', () => {
+    const { unmount } = renderAt('/')
+    expect(screen.getByRole('link', { name: 'Abrir Feedback' })).toBeInTheDocument()
+    unmount()
+    renderAt('/rutina')
+    expect(screen.queryByRole('link', { name: 'Abrir Feedback' })).not.toBeInTheDocument()
+  })
+
   it('el header sigue funcionando: identidad, seccion y toggle de tema', () => {
     renderAt('/entrenar')
     expect(screen.getByText('ALTHEA')).toBeInTheDocument()

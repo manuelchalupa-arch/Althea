@@ -12,6 +12,7 @@ export default function ChatWidget() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   // La carga del historial es async: no actualizar el estado si el widget
   // se desmonta antes de que Dexie termine de responder.
@@ -36,11 +37,16 @@ export default function ChatWidget() {
     return () => root.removeAttribute('data-chat-open')
   }, [openChat])
 
-  // El botón de chat del AppHeader (temple.tsx) abre este mismo panel.
+
+  // No mostrar el acceso flotante sobre modales/ventanas emergentes: detecta
+  // también overlays que se montan después de abrir la pantalla.
   useEffect(() => {
-    const openFromHeader = () => setOpenChat(true)
-    window.addEventListener('althea:open-chat', openFromHeader)
-    return () => window.removeEventListener('althea:open-chat', openFromHeader)
+    const root = document.body
+    const update = () => setModalOpen(Boolean(root.querySelector('.althea-modal, [role="dialog"], [aria-modal="true"], [data-modal-open="true"]')))
+    update()
+    const observer = new MutationObserver(update)
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'role', 'aria-modal', 'data-modal-open'] })
+    return () => observer.disconnect()
   }, [])
 
   const loadMessages = async () => {
@@ -128,9 +134,9 @@ export default function ChatWidget() {
 
   return (
     <>
-      <button
+      {!modalOpen && <button
         onClick={() => setOpenChat(!openChat)}
-        className={`fixed z-50 fab-chat-stack right-4 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 ${
+        className={`fixed z-40 fab-chat-stack right-4 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 ${
           openChat
             ? 'w-11 h-11 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
             : 'fab-chat w-12 h-12 md:w-14 md:h-14 bg-primary text-on-primary hover:scale-105 md:right-4'
@@ -138,7 +144,7 @@ export default function ChatWidget() {
         aria-label={openChat ? 'Cerrar chat' : 'Abrir chat'}
       >
         {openChat ? <X size={20} /> : <IconChatBubble className="w-6 h-6" />}
-      </button>
+      </button>}
 
       {openChat && (
         <div className="fixed inset-0 z-40 flex items-end justify-end p-2 pb-[calc(var(--mobile-nav-offset)+0.75rem)] md:p-8 md:pb-8 pointer-events-none">

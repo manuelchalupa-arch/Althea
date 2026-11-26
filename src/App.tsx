@@ -39,7 +39,6 @@ const FeedbackThreadPage = lazy(() => import('@/pages/FeedbackThreadPage'))
 // estático esa cadena entra en el chunk inicial. Se difiere: el FAB aparece
 // tras cargar su chunk, sin bloquear el resto de la app.
 const ChatWidget = lazy(() => import('@/components/chat/ChatWidget'))
-import FeedbackFab from '@/components/feedback/FeedbackFab'
 
 // Fallback component for lazy loading
 function PageLoader() {
@@ -311,7 +310,6 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
           <ChatWidget/>
         </Suspense>
       )}
-      {!hideNav && <FeedbackFab/>}
       {updateReady && (
         <div role="status" style={{ top: 'calc(var(--safe-top) + 0.5rem)' }} className="fixed left-2 right-2 z-50 flex items-center justify-center gap-3 bg-tertiary text-on-tertiary text-sm p-2.5 rounded-xl shadow-al-md">
           <span>Nueva versión disponible</span>

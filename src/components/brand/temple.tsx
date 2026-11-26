@@ -1,8 +1,7 @@
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 import { AltheaAvatar } from './AltheaAvatar'
-import { IconChatBubble } from './FitnessIcons'
 import { confirmAndUpdate } from '@/services/pwa/manualUpdate'
 import { accentSectionForPath as navSectionForPath } from '@/components/navigation/sections'
 
@@ -97,7 +96,7 @@ export function AppHeader() {
       <div className="hidden md:flex flex-1 max-w-[420px]">
         <div className="flex-1" />
       </div>
-      {/* Derecha: desktop → coach → perfil → tema; mobile → chat */}
+      {/* Acciones superiores: Feedback solo en Inicio; el chat tiene un único acceso flotante inferior. */}
       <div className="flex items-center gap-2">
         <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-medium">
           <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-primary" /> Coach activo
@@ -110,6 +109,11 @@ export function AppHeader() {
         >
           <AltheaAvatar context="avatar" size={36} alt="Perfil" />
         </button>
+        {loc.pathname === '/' && (
+          <Link to="/feedback" aria-label="Abrir Feedback" title="Feedback" className="inline-flex items-center justify-center min-w-11 min-h-11 px-3 rounded-full border border-outline-variant bg-surface text-on-surface text-xs font-semibold tracking-wide hover:bg-surface-container-high">
+            Feedback
+          </Link>
+        )}
         <ThemeToggle />
         <button
           type="button"
@@ -119,14 +123,6 @@ export function AppHeader() {
           className="inline-flex items-center justify-center w-11 h-11 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
         >
           <RefreshCw className="w-5 h-5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event('althea:open-chat'))}
-          aria-label="Abrir conversación del Coach"
-          className="md:hidden inline-flex items-center justify-center w-11 h-11 -mr-2 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
-        >
-          <IconChatBubble className="w-6 h-6" />
         </button>
       </div>
     </header>
