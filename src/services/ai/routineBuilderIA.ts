@@ -488,11 +488,17 @@ function applyRequestedSequence(
   const preferred = [...parseDayMuscles(wants.focus || ''), ...entry.list.map(e => e.muscle || ''), ...entry.muscles]
     .filter((m, i, a) => m && m !== 'cardio' && a.indexOf(m) === i)
   const counts = new Map<string, number>()
-  for (const e of entry.list) { if (e.muscle && e.muscle !== 'cardio') counts.set(e.muscle, (counts.get(e.muscle) || 0) + 1) }
+  for (const e of entry.list) {
+    if (e.muscle && e.muscle !== 'cardio') {
+      counts.set(e.muscle, (counts.get(e.muscle) || 0) + 1)
+    }
+  }
   const order = [...preferred, ...[...counts.entries()].sort((a,b)=>b[1]-a[1]).map(([m])=>m), ...keys]
     .filter((m,i,a)=>keys.includes(m) && a.indexOf(m)===i)
   const primaryMuscle = order.find(m => eligible(pools[m] || []).length >= s.primaryCount)
-  if (!primaryMuscle) throw new Error(`No se encontraron ${s.primaryCount} ejercicios del grupo muscular principal en el catálogo disponible.`)
+  if (!primaryMuscle) {
+    throw new Error(`No se encontraron ${s.primaryCount} ejercicios del grupo muscular principal en el catálogo disponible.`)
+  }
   const pairs: Record<string,string[]> = {
     pectorals:['triceps','delts'], lats:['biceps','upper-back'], 'upper-back':['biceps','lats'],
     biceps:['triceps','forearms'], triceps:['biceps','pectorals'], delts:['traps','triceps'],
@@ -502,14 +508,20 @@ function applyRequestedSequence(
   const secondaryOrder = [...order.filter(m=>m!==primaryMuscle), ...(pairs[primaryMuscle]||[]), ...keys]
     .filter((m,i,a)=>m!==primaryMuscle && a.indexOf(m)===i)
   const secondaryMuscle = secondaryOrder.find(m => eligible(pools[m] || []).length >= s.secondaryCount)
-  if (!secondaryMuscle) throw new Error(`No se encontraron ${s.secondaryCount} ejercicios de un grupo muscular secundario distinto.`)
+  if (!secondaryMuscle) {
+    throw new Error(`No se encontraron ${s.secondaryCount} ejercicios de un grupo muscular secundario distinto.`)
+  }
   const warmPool = (pools.__warmup__ || []).slice().sort((a,b)=>{
     const rank=(p:PoolEx)=>p.purpose==='stretch'?0:p.purpose==='warmup'?1:2
     return rank(a)-rank(b)
   })
   const cardioPool = eligible(pools.__cardio__ || [])
-  if (warmPool.length < s.warmupCount) throw new Error('El catálogo no devolvió ejercicios de estiramiento/calentamiento. No se generó una rutina incompleta.')
-  if (cardioPool.length < s.cooldownCount) throw new Error('El catálogo no devolvió ejercicios de cardio suave. No se generó una rutina incompleta.')
+  if (warmPool.length < s.warmupCount) {
+    throw new Error('El catálogo no devolvió ejercicios de estiramiento/calentamiento. No se generó una rutina incompleta.')
+  }
+  if (cardioPool.length < s.cooldownCount) {
+    throw new Error('El catálogo no devolvió ejercicios de cardio suave. No se generó una rutina incompleta.')
+  }
 
   const old = new Map(entry.list.map(e=>[e.exId,e]))
   const picked = (items:PoolEx[],n:number) => {
@@ -1062,11 +1074,22 @@ export function validateGeneratedRoutine(
     const s = instructions.sequence
     const expected = s.warmupCount + s.primaryCount + s.secondaryCount + s.cooldownCount
     for (const [day, list] of Object.entries(routine.dayExercises || {})) {
-      if (list.length !== expected) issues.push(`Día ${day}: la secuencia requiere ${expected} ejercicios y se generaron ${list.length}.`)
+      if (list.length !== expected) {
+        issues.push(`Día ${day}: la secuencia requiere ${expected} ejercicios y se generaron ${list.length}.`)
+      }
       const roles = list.map(ex=>ex.sequenceRole)
       const wanted = [...Array(s.warmupCount).fill('warmup'),...Array(s.primaryCount).fill('primary'),...Array(s.secondaryCount).fill('secondary'),...Array(s.cooldownCount).fill('cooldown')]
-      if (JSON.stringify(roles)!==JSON.stringify(wanted)) issues.push(`Día ${day}: no se respetó el orden solicitado.`)
-      if (s.primarySupersets) { const main=list.filter(ex=>ex.sequenceRole==='primary'); if(main.some(ex=>!ex.supersetId)||new Set(main.map(ex=>ex.supersetId)).size!==Math.ceil(s.primaryCount/2)) issues.push(`Día ${day}: faltan las superseries del grupo principal.`) }
+      if (JSON.stringify(roles)!==JSON.stringify(wanted)) {
+        issues.push(`Día ${day}: no se respetó el orden solicitado.`)
+      }
+      if (s.primarySupersets) {
+        const main = list.filter(ex => ex.sequenceRole === 'primary')
+        const validPairs = main.every(ex => Boolean(ex.supersetId)) &&
+          new Set(main.map(ex => ex.supersetId)).size === Math.ceil(s.primaryCount / 2)
+        if (!validPairs) {
+          issues.push(`Día ${day}: faltan las superseries del grupo principal.`)
+        }
+      }
     }
   }
   for (const [n, list] of Object.entries(routine.dayExercises || {})) {
