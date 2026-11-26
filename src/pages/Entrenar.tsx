@@ -383,6 +383,30 @@ const exercises: SessionEx[] = seList.map((se) => {
     return ()=>{ window.removeEventListener('focus', onFocus); window.removeEventListener('routineChange', onCustom as EventListener); window.removeEventListener('beforeunload', onBeforeUnload) }
   },[loadSession])
 
+  // Restaura painAskedRef desde painLogs para persistir el "ya respondió"
+  // entre sesiones: si ya hay un registro de dolor para este ejercicio hoy,
+  // no se volverá a preguntar al recuperar la sesión.
+  useEffect(()=>{
+    let alive = true
+    ;(async ()=>{
+      if(!alive || !sessionId) return
+      try {
+        import('@/services/storage/db').then(async ({db})=>{
+          if(!alive) return
+          const today = todayKey()
+          if(!exs || exs.length===0) return
+          const promises = exs.map(async (ex)=>{
+            if(!alive) return
+            const existing = await db.painLogs.where({ exerciseId: ex.exId, localDate: today }).first().catch(()=>null)
+            if(existing){ painAskedRef.current.add(ex.exId) }
+          })
+          await Promise.all(promises)
+        }).catch(()=>{})
+      } catch { /* noop */ }
+    })()
+    return ()=>{ alive = false }
+  }, [sessionId, todayKey])
+
   const cur = exs[current]
   const curExId = cur?.exId
 

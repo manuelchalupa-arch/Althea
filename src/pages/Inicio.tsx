@@ -778,19 +778,26 @@ export default function Inicio(){
           <div onClick={e=>e.stopPropagation()} className="bg-surface/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3 max-h-[85vh] overflow-auto">
             <h3 className="font-headline-md text-headline-sm font-semibold text-on-surface">Vista semanal</h3>
             <div className="space-y-1.5">
-              {cycle.trainingDays.map((d:any)=>{
-                const dayDate = new Date((cycle as any).startDate || todayStr)
-                dayDate.setDate(dayDate.getDate() + (d.n - 1) + (weekOffset * 7))
-                const dateStr = toLocalDateKey(dayDate)
-                const isToday = dateStr === todayStr
-                const isPast = new Date(dateStr) < new Date(todayStr)
+              {weekKeys.map((k)=> {
+                const st = dayStatus[k]
+                const n = st?.dayN ?? null
+                const dayName = st?.dayName ?? null
+                const isToday = k === todayStr
+                const isPast = new Date(k) < new Date(todayStr)
+                const planned = n !== null && n !== undefined
+                const exercises = planDays.find(d=>d.n===n)?.exercises || []
                 return (
-                  <div key={d.n} className={`flex items-center justify-between p-2.5 rounded border text-sm ${isToday ? 'bg-primary/20 border-primary/40' : isPast ? 'bg-surface-container border-outline-variant/20 opacity-60' : 'bg-surface-container border-outline-variant/40'}`}>
+                  <div key={k} className={`flex items-center justify-between p-2.5 rounded border text-sm ${isToday ? 'bg-primary/20 border-primary/40' : isPast ? 'bg-surface-container border-outline-variant/20 opacity-60' : planned ? 'bg-surface-container-high/30 border-outline-variant/30' : 'bg-transparent border-outline-variant/20'}`}>
                     <div>
-                      <div className="font-medium text-on-surface">Día {d.n} — {d.name}</div>
-                      <div className="text-[11px] text-on-surface-variant">{dateStr}</div>
+                      <div className="font-medium text-on-surface">{planned ? `Día ${n} — ${dayName || ''}` : 'Descanso'}</div>
+                      <div className="text-[11px] text-on-surface-variant">{isToday ? 'Hoy' : k.slice(8)}</div>
                     </div>
-                    {isToday && <span className="text-[10px] font-label-caps text-primary">HOY</span>}
+                    {planned && exercises.length>0 && (
+                      <div className="text-[9px] text-on-surface-variant small">
+                        {exercises.map((e,i)=> `${e.name}(${e.sets}×${e.reps})${i<exercises.length-1?' · ':''}`) || '—'}
+                      </div>
+                    )}
+                    {isToday && planned && <span className="text-[10px] font-label-caps text-primary">HOY</span>}
                   </div>
                 )
               })}

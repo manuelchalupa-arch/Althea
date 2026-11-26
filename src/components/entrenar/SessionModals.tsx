@@ -407,34 +407,7 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
               ))}
             </div>
           </div>
-<div>
-          <div id="sw-dolor" className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">¿Dolor muscular?</div>
-          <div className="flex gap-1.5" role="group" aria-labelledby="sw-dolor">
-          {[{ v:0, label:'No' },{ v:1, label:'Sí' }].map(({ v, label })=>(
-                <button key={v} onClick={()=> setSurvey('pain', v)}
-                  aria-pressed={Number(finishSurvey.pain)===v}
-                  className={`flex-1 py-1.5 rounded border transition text-sm font-medium ${Number(finishSurvey.pain)===v ? 'bg-primary border-primary text-on-primary' : 'bg-surface-container-high/30 border-outline-variant text-on-surface-variant'}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          {finishSurvey.pain === 1 && (
-            <>
-              <div>
-                <label htmlFor="sw-zona-dolor" className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">Zona del dolor</label>
-                <select id="sw-zona-dolor" value={finishSurvey.painZone || ''} onChange={e=> setSurvey('painZone', e.target.value)} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
-                  <option value="">Seleccionar zona</option>
-                  {['Hombros','Pecho','Espalda','Brazos','Abdomen','Glúteos','Piernas','Rodillas','Lumbar','Cuello','Otro'].map((z)=><option key={z} value={z.toLowerCase()}>{z}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="sw-detalle-dolor" className="font-label-caps text-[10px] uppercase text-on-surface-variant block mb-2">Detalle del dolor</label>
-                <textarea id="sw-detalle-dolor" value={finishSurvey.painDetail || ''} onChange={e=> setSurvey('painDetail', e.target.value)} placeholder="Descripción (opcional)" rows={2} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
-              </div>
-            </>
-          )}
-          <input value={finishSurvey.comment || ''} onChange={(e)=> setSurvey('comment', e.target.value)} placeholder="Observación (opcional)" maxLength={200} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
+<input value={finishSurvey.comment || ''} onChange={(e)=> setSurvey('comment', e.target.value)} placeholder="Observación (opcional)" maxLength={200} className="w-full bg-surface-container-high/30 border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
         </div>
 
         {finishError && <p className="text-sm text-error">{finishError}</p>}

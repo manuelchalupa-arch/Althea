@@ -23,7 +23,27 @@ export default function ExercisePainPrompt({ exerciseId, exerciseName, onAnswere
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const answerNo = () => { setAnswer('no'); void onAnswered() }
+  const answerNo = async () => {
+    setAnswer('no')
+    try {
+      const today = todayKey()
+      const existing = await db.painLogs.where({ exerciseId, localDate: today }).first().catch(() => null)
+      if (!existing) {
+        const log: PainLog = {
+          id: crypto.randomUUID(),
+          localDate: today,
+          level: 'none',
+          zone: '',
+          exerciseId,
+          moment: new Date().toISOString(),
+          notes: '',
+          createdAt: new Date().toISOString(),
+        }
+        await db.painLogs.put(log)
+      }
+    } catch { /* best-effort: no bloquea el entrenamiento */ }
+    void onAnswered()
+  }
 
   const answerYes = async () => {
     if (saving) { return }
