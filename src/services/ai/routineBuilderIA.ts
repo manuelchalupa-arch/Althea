@@ -6,7 +6,7 @@ import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import { fetchByMuscle, type Exercise } from '@/services/exerciseGym'
 import { GROUP_MAP, PIERNA_FAMILY, parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { todayKey } from '@/utils/dates'
-import { getGroqUrl, getGroqHeaders } from './groqConfig'
+import { getProxyUrl, getGroqHeaders } from './groqConfig'
 import { aiLimitMessage, getAiAuthHeaders, isLimitError, stripLimitPrefix } from './aiAuth'
 import { buildAiTrainingContext, getTrainingPreferences } from '@/utils/profilePreferences'
 
