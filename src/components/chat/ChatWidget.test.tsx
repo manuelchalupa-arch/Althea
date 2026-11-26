@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import '@testing-library/jest-dom'
 import { MemoryRouter } from 'react-router-dom'
 import ChatWidget from './ChatWidget'
 
@@ -19,8 +18,8 @@ describe('Chat — panel responsive y exclusión de FABs', () => {
     )
     fireEvent.click(screen.getByLabelText('Abrir chat'))
     await waitFor(() => {
-      expect(screen.getByLabelText('Cerrar ventana del chat')).toBeInTheDocument()
-      expect(document.documentElement).toHaveAttribute('data-chat-open', 'true')
+      expect(screen.getByLabelText('Cerrar ventana del chat')).toBeTruthy()
+      expect(document.documentElement.getAttribute('data-chat-open')).toBe('true')
     })
     const text = document.body.textContent || ''
     expect(text).not.toContain('VITE_GROQ_API_KEY')
@@ -36,11 +35,11 @@ describe('Chat — panel responsive y exclusión de FABs', () => {
     )
     fireEvent.click(screen.getByLabelText('Abrir chat'))
     await waitFor(() => {
-      expect(screen.getByLabelText('Cerrar ventana del chat')).toBeInTheDocument()
+      expect(screen.getByLabelText('Cerrar ventana del chat')).toBeTruthy()
     })
-    expect(screen.getByLabelText('Borrar conversación')).toBeInTheDocument()
-    expect(screen.getByLabelText('Enviar mensaje')).toBeInTheDocument()
-    expect(screen.getByLabelText('Mensaje para el Coach')).toBeInTheDocument()
+    expect(screen.getByLabelText('Borrar conversación')).toBeTruthy()
+    expect(screen.getByLabelText('Enviar mensaje')).toBeTruthy()
+    expect(screen.getByLabelText('Mensaje para el Coach')).toBeTruthy()
   })
 
   it('quita la marca global al cerrar el chat', async () => {
@@ -51,11 +50,11 @@ describe('Chat — panel responsive y exclusión de FABs', () => {
     )
     fireEvent.click(screen.getByLabelText('Abrir chat'))
     await waitFor(() => {
-      expect(document.documentElement).toHaveAttribute('data-chat-open', 'true')
+      expect(document.documentElement.getAttribute('data-chat-open')).toBe('true')
     })
     fireEvent.click(screen.getByLabelText('Cerrar ventana del chat'))
     await waitFor(() => {
-      expect(document.documentElement).not.toHaveAttribute('data-chat-open')
+      expect(document.documentElement.hasAttribute('data-chat-open')).toBe(false)
     })
   })
 })
