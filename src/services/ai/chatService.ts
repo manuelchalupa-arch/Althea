@@ -1,5 +1,5 @@
 import { canMakeRequest, recordRequest } from './groqUsage'
-import { getGroqUrl, getGroqHeaders } from './groqConfig'
+import { getProxyUrl, getGroqHeaders } from './groqConfig'
 import { aiLimitMessage, getAiAuthHeaders, hasAiSession, limitError } from './aiAuth'
 import { fetchWithRetry } from '../apiUtils'
 
@@ -47,11 +47,11 @@ export interface StreamOptions {
 }
 
 function isAvailable(): boolean {
-  // El proxy de producción es la fuente de verdad: siempre hay una URL
-  // (fallback en groqConfig). El Coach queda activo en local y en Netlify.
   try {
-    return getGroqUrl().trim().length > 0
-  } catch { return false }
+    return getProxyUrl().trim().length > 0
+  } catch {
+    return false
+  }
 }
 
 export async function streamChat(
@@ -82,7 +82,7 @@ export async function streamChat(
   const fullMessages = [systemMsg, ...messages]
 
   try {
-    const res = await fetchWithRetry(getGroqUrl(), {
+    const res = await fetchWithRetry(getProxyUrl(), {
       method: 'POST',
       headers: { ...getGroqHeaders(), ...(await getAiAuthHeaders()) },
       body: JSON.stringify({
