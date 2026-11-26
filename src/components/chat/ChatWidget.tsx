@@ -1,38 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Send, Mail, Trash2 } from 'lucide-react'
+import { X, Send, Trash2 } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { IconChatBubble } from '@/components/brand/FitnessIcons'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
 import { getActiveConversation, saveMessage, getMessages, type ChatMessage } from '@/services/ai/chatHistory'
 
-import { createThread } from '@/services/feedback/feedbackService'
-import { FEEDBACK_CATEGORIES, type FeedbackCategory } from '@/services/feedback/feedbackTypes'
-
-type FeedbackType = FeedbackCategory
-
-const initialFeedbackType: FeedbackType = FEEDBACK_CATEGORIES[0]?.value ?? 'otro'
-
-interface FeedbackFormState {
-  type: FeedbackType
-  subject: string
-  content: string
-  isSubmitting: boolean
-  submittingError: string | null
-  /** Aviso de envío pendiente (sin conexión): el borrador se conserva. */
-  notice: string | null
-}
-
 export default function ChatWidget() {
-  const [open, setOpen] = useState(false)
-  const [form, setForm] = useState<FeedbackFormState>({
-    type: initialFeedbackType,
-    subject: '',
-    content: '',
-    isSubmitting: false,
-    submittingError: null,
-    notice: null,
-  })
-
   const [openChat, setOpenChat] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -40,27 +13,35 @@ export default function ChatWidget() {
   const [error, setError] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string | null>(null)
 
-  // La carga del historial es async: si el componente se desmonta (o el
-  // entorno de test termina) antes de que Dexie responda, hacer setState
-  // revienta con "window is not defined" (unhandled rejection en CI).
+  // La carga del historial es async: no actualizar el estado si el widget
+  // se desmonta antes de que Dexie termine de responder.
   const mountedRef = useRef(true)
   useEffect(() => {
     mountedRef.current = true
-    return () => { mountedRef.current = false }
+    return () => {
+      mountedRef.current = false
+      document.documentElement.removeAttribute('data-chat-open')
+    }
   }, [])
 
-  // El botón de chat del AppHeader (temple.tsx) dispatchea este evento.
+  // El CSS usa esta marca para retirar el FAB de Feedback mientras el chat
+  // está abierto. La marca se limpia siempre al cerrar o desmontar el widget.
+  useEffect(() => {
+    const root = document.documentElement
+    if (openChat) {
+      root.setAttribute('data-chat-open', 'true')
+    } else {
+      root.removeAttribute('data-chat-open')
+    }
+    return () => root.removeAttribute('data-chat-open')
+  }, [openChat])
+
+  // El botón de chat del AppHeader (temple.tsx) abre este mismo panel.
   useEffect(() => {
     const openFromHeader = () => setOpenChat(true)
     window.addEventListener('althea:open-chat', openFromHeader)
     return () => window.removeEventListener('althea:open-chat', openFromHeader)
   }, [])
-
-  useEffect(() => {
-    if (openChat) {
-      loadMessages()
-    }
-  }, [openChat])
 
   const loadMessages = async () => {
     try {
@@ -75,6 +56,10 @@ export default function ChatWidget() {
     }
   }
 
+  useEffect(() => {
+    if (openChat) { void loadMessages() }
+  }, [openChat])
+
   const handleClearHistory = async () => {
     if (messages.length === 0) { return }
     if (!window.confirm('¿Borrar toda la conversación con el Coach? Esta acción no se puede deshacer.')) { return }
@@ -82,17 +67,18 @@ export default function ChatWidget() {
       const convId = conversationId ?? await getActiveConversation('coach')
       const { clearConversation } = await import('@/services/ai/chatHistory')
       await clearConversation(convId)
+      if (!mountedRef.current) { return }
       setMessages([])
       setConversationId(null)
       setError(null)
     } catch {
-      setError('No se pudo borrar la conversación')
+      if (mountedRef.current) { setError('No se pudo borrar la conversación') }
     }
   }
 
   const handleSend = async () => {
     const text = input.trim()
-    if (!text || loading) {return}
+    if (!text || loading) { return }
 
     setInput('')
     setError(null)
@@ -112,6 +98,7 @@ export default function ChatWidget() {
         history,
         {
           onToken: (token) => {
+            if (!mountedRef.current) { return }
             assistantContent += token
             setMessages((prev) => {
               const last = prev[prev.length - 1]
@@ -123,139 +110,30 @@ export default function ChatWidget() {
           },
           onDone: async (fullText) => {
             await saveMessage({ conversationId: convId, role: 'assistant', content: fullText, createdAt: new Date().toISOString() })
-            setLoading(false)
+            if (mountedRef.current) { setLoading(false) }
           },
           onError: (err) => {
+            if (!mountedRef.current) { return }
             setError(err)
             setLoading(false)
           },
         },
       )
     } catch {
+      if (!mountedRef.current) { return }
       setError('No se pudo enviar el mensaje')
       setLoading(false)
-    }
-  }
-
-  const handleFeedbackSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!form.subject.trim() || !form.content.trim()) {return}
-
-    setForm((prev) => ({ ...prev, isSubmitting: true, submittingError: null, notice: null }))
-
-    try {
-      const res = await createThread({
-        category: form.type,
-        subject: form.subject.trim(),
-        text: form.content.trim(),
-      })
-      if (res.delivery === 'error') {
-        // Error real de Firestore: se informa y el borrador queda en pie.
-        setForm((prev) => ({ ...prev, isSubmitting: false, submittingError: res.error || 'No se pudo enviar. Intentá de nuevo.' }))
-        return
-      }
-      if (res.delivery === 'pending') {
-        // Sin conexión: NO es éxito. Borrador conservado, se reenvía solo.
-        setForm((prev) => ({ ...prev, isSubmitting: false, notice: res.reason || 'Sin conexión: se enviará al volver la conexión.' }))
-        return
-      }
-      setForm({ type: initialFeedbackType, subject: '', content: '', isSubmitting: false, submittingError: null, notice: null })
-      setOpen(false)
-    } catch {
-      setForm((prev) => ({ ...prev, isSubmitting: false, submittingError: 'No se pudo enviar. Intentá de nuevo.' }))
     }
   }
 
   return (
     <>
       <button
-        onClick={() => setOpen(!open)}
-        className={`fixed z-50 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 ${
-          open
-            ? 'bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 w-12 h-12 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-            : 'fab-feedback right-4 w-14 h-14 bg-success text-on-success hover:scale-105 md:right-4'
-        }`}
-        aria-label={open ? 'Cerrar feedback' : 'Abrir feedback'}
-      >
-        {open ? <X size={20} /> : <Mail size={24} className="w-6 h-6" />}
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-40 flex items-end justify-end p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:p-8 md:pb-8 pointer-events-none">
-          <div className="relative w-full max-w-lg mx-4 pt-8 pb-8 bg-surface rounded-3xl border border-outline-variant shadow-xl overflow-hidden pointer-events-auto">
-            <button onClick={() => setOpen(false)} className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface">
-              <X size={24} />
-            </button>
-
-            <form onSubmit={handleFeedbackSubmit} className="space-y-6">
-              <div>
-                <label htmlFor="fb-type" className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1">
-                  Tipo
-                </label>
-                <select
-                  id="fb-type"
-                  value={form.type}
-                  onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value as FeedbackType }))}
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/50 disabled:opacity-50"
-                >
-                  {FEEDBACK_CATEGORIES.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="fb-subject" className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1">
-                  Asunto
-                </label>
-                <input
-                  id="fb-subject"
-                  value={form.subject}
-                  onChange={(e) => setForm((prev) => ({ ...prev, subject: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/50 disabled:opacity-50"
-                  placeholder="Asunto del reporte"
-                  maxLength={100}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="fb-content" className="block text-[10px] font-medium uppercase tracking-widest text-on-surface-variant mb-1">
-                  Descripción
-                </label>
-                <textarea
-                  id="fb-content"
-                  value={form.content}
-                  onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-4 text-sm text-on-surface h-[120px] resize-none focus:outline-none focus:border-primary/50 disabled:opacity-50"
-                  placeholder="Describe tu reporte con el máximo de detalle"
-                />
-              </div>
-
-              {form.submittingError && (
-                <p className="text-xs text-error" role="alert">{form.submittingError}</p>
-              )}
-              {form.notice && (
-                <p className="text-xs text-tertiary" role="status">{form.notice}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={form.isSubmitting}
-                className="w-full py-3 rounded-xl bg-success text-on-success font-medium uppercase tracking-widest transition-colors hover:bg-success/90 disabled:opacity-50"
-              >
-                {form.isSubmitting ? 'Enviando…' : 'Enviar reporte'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <button
         onClick={() => setOpenChat(!openChat)}
-        className={`fixed z-50 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 ${
+        className={`fixed z-50 fab-chat-stack right-4 flex items-center justify-center rounded-full shadow-al-md transition-all duration-200 ${
           openChat
-            ? 'bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 w-12 h-12 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
-            : 'fab-chat right-4 w-14 h-14 bg-primary text-on-primary hover:scale-105 md:right-4'
+            ? 'w-11 h-11 bg-surface border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+            : 'fab-chat w-12 h-12 md:w-14 md:h-14 bg-primary text-on-primary hover:scale-105 md:right-4'
         }`}
         aria-label={openChat ? 'Cerrar chat' : 'Abrir chat'}
       >
@@ -263,9 +141,9 @@ export default function ChatWidget() {
       </button>
 
       {openChat && (
-        <div className="fixed inset-0 z-40 flex items-end justify-end p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:p-8 md:pb-8 pointer-events-none">
-          <div className="relative w-full max-w-md mx-4 pt-8 pb-8 bg-surface rounded-3xl border border-outline-variant shadow-xl overflow-hidden pointer-events-auto">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-outline-variant bg-surface">
+        <div className="fixed inset-0 z-40 flex items-end justify-end p-2 pb-[calc(var(--mobile-nav-offset)+0.75rem)] md:p-8 md:pb-8 pointer-events-none">
+          <div className="relative flex w-full max-w-md max-h-[82dvh] mx-2 md:mx-4 flex-col bg-surface rounded-3xl border border-outline-variant shadow-xl overflow-hidden pointer-events-auto">
+            <div className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-outline-variant bg-surface">
               <div className="flex items-center gap-2">
                 <span className="w-7 h-7 rounded-full overflow-hidden shrink-0">
                   <BrandIcon name="coach" size={28} className="w-full h-full object-cover" />
@@ -287,7 +165,7 @@ export default function ChatWidget() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[200px] max-h-[400px]">
+            <div className="flex-1 min-h-[120px] overflow-y-auto px-4 py-3 space-y-3 max-h-[45dvh]">
               {messages.length === 0 && (
                 <p className="text-on-surface-variant text-sm text-center py-8">Preguntale algo al Coach</p>
               )}
@@ -311,22 +189,22 @@ export default function ChatWidget() {
               )}
             </div>
 
-            <div className="px-3 py-3 border-t border-outline-variant bg-surface">
+            <div className="shrink-0 px-3 py-3 border-t border-outline-variant bg-surface">
               {error && <p className="text-xs text-error mb-2" role="alert">{error}</p>}
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { handleSend() } }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { void handleSend() } }}
                   placeholder="Escribí tu mensaje…"
                   aria-label="Mensaje para el Coach"
-                  className="flex-1 bg-surface-container-low border border-outline-variant rounded-xl px-3 py-3 min-h-[48px] text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary/50 disabled:opacity-50"
+                  className="flex-1 min-w-0 bg-surface-container-low border border-outline-variant rounded-xl px-3 py-3 min-h-[48px] text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary/50 disabled:opacity-50"
                 />
                 <button
-                  onClick={handleSend}
+                  onClick={() => { void handleSend() }}
                   disabled={loading || !input.trim()}
-                  className="w-12 h-12 rounded-xl bg-primary text-on-primary flex items-center justify-center disabled:opacity-40 transition hover:brightness-110"
+                  className="w-12 h-12 min-w-[48px] rounded-xl bg-primary text-on-primary flex items-center justify-center disabled:opacity-40 transition hover:brightness-110"
                   aria-label="Enviar mensaje"
                 >
                   <Send size={18} />
