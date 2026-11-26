@@ -212,21 +212,30 @@ export default function RutinaPage(){
   }
 
   useEffect(()=>{
+    let alive = true
     ensureSeeded().then(async()=>{
-      const ex = await db.exercises.toArray(); setExercises(ex)
-      db.customExercises.toArray().then(cs=> setCustoms(cs.map(c=>({id:c.id, name:c.name, origin:c.origin})))).catch(()=>{})
+      const ex = await db.exercises.toArray()
+      if (!alive) { return }
+      setExercises(ex)
+      db.customExercises.toArray()
+        .then(cs=> { if (alive) { setCustoms(cs.map(c=>({id:c.id, name:c.name, origin:c.origin}))) } })
+        .catch(()=>{})
       // Load routines from Dexie (with migration from localStorage)
       const { list, activeId: aid } = await loadRoutines()
+      if (!alive) { return }
       setRoutines(list); setActiveId(aid); setRoutinesLoaded(true); loadVersions(aid)
       // si active no tiene cycle, intenta cargar de userProfile
       const p = await db.userProfile.get('me')
+      if (!alive) { return }
       const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
+      if (!alive) { return }
       const seedCycle = pv?.cycle ?? p?.cycle
       if(seedCycle && list.length===1 && JSON.stringify(list[0].cycle)===JSON.stringify(DEFAULT_CYCLE)){
         const upd = list.map(r=> r.id===aid ? {...r, cycle: seedCycle as CycleConfig} : r)
         setRoutines(upd); saveRoutines(upd, aid)
       }
-    })
+    }).catch(()=>{})
+    return () => { alive = false }
   },[])
 
   // sync active cycle a userProfile para que Inicio/Entrenar/Coach usen rutina activa
