@@ -12,6 +12,7 @@ import { analyzeExercise, analyzeGlobal } from './progressAnalyzer'
 import { analyzeRecovery } from './recoveryAnalyzer'
 import { analyzeNutrition } from './nutritionEngine'
 import type { UserProfile, RecoveryCheck } from '@/types'
+import { resolveExperienceLevel } from '@/utils/profilePreferences'
 import type { ActivityLevel } from '@/utils/nutrition'
 import type { TrainingMethodId } from './trainingMethods'
 import { todayKey, dayKeyOffset, toDateKey } from '@/utils/dates'
@@ -280,7 +281,7 @@ export function buildPrompt(ctx:AIContext):string{
   // ─── Coach IA v2: perfiles de entrenamiento ───
   const goal = resolveTrainingGoal(ctx.userProfile) || ctx.objetivo || 'hypertrophy'
   const goalProfile = TRAINING_GOAL_PROFILES[goal] || TRAINING_GOAL_PROFILES.hypertrophy
-  const experience = (ctx.userProfile?.experienceLevel as string) || 'intermediate'
+  const experience = resolveExperienceLevel(ctx.userProfile)
   const expInstruction = EXPERIENCE_INSTRUCTIONS[experience] || EXPERIENCE_INSTRUCTIONS.intermediate
   // knowledge chunks
   const kbChunk = (ctx.knowledgeChunks||[]).length > 0 ? `\nCONOCIMIENTO RELEVANTE:\n${(ctx.knowledgeChunks||[]).join('\n')}` : ''

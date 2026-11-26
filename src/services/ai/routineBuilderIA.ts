@@ -7,6 +7,8 @@ import { fetchByMuscle, type Exercise } from '@/services/exerciseGym'
 import { GROUP_MAP, PIERNA_FAMILY, parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { todayKey } from '@/utils/dates'
 import { getGroqUrl, getGroqHeaders } from './groqConfig'
+import { aiLimitMessage, getAiAuthHeaders, isLimitError, stripLimitPrefix } from './aiAuth'
+import { buildAiTrainingContext, getTrainingPreferences } from '@/utils/profilePreferences'
 
 const MODEL = 'openai/gpt-oss-20b'
 const RATE_LIMIT_KEY = 'groq:lastRequestAt'
@@ -19,6 +21,14 @@ export interface UserWants {
   injuryNote: string
   /** Pedido libre en lenguaje natural: la IA interpreta prioridades, ejercicios, equipo, etc. */
   description?: string
+  /** Preferencias del perfil: mandan cuando el pedido libre no dice lo contrario. */
+  level?: 'beginner' | 'intermediate' | 'advanced'
+  durationMin?: number
+  modality?: 'gym' | 'crossfit'
+  allowedEquipment?: string[]
+  excludedMovements?: string[]
+  excludedExerciseIds?: string[]
+  trainingIntensity?: number
 }
 
 /** Días mencionados explícitamente en el pedido libre ("4 días", "cuatro veces"). */
@@ -418,7 +428,7 @@ function normalizeRoutine(
   const allMuscles = [...new Set(catalogList.map(e => e.muscle))]
   const max = maxExercisesPerDay(instructions, ctx.profile?.sessionDurationMin)
   const min = Math.min(3, max)
-  const level = instructions.level || (ctx.profile?.experienceLevel as string) || 'intermediate'
+  const level = instructions.level || wants.level || (ctx.profile?.experienceLevel as string) || 'intermediate'
   const v = volumeForGoal(level, instructions.lowVolumeHighIntensity, wants.goal)
   const make = (c: PoolEx) => newExercise(c, v.sets, v.reps)
   const used = new Set<string>()
@@ -460,6 +470,7 @@ function normalizeRoutine(
   }
 
   ensureIncludes(entries, catalogList, instructions, make)
+  if (wants.modality === 'crossfit') {entries.forEach((d, i) => { d.name = `WOD ${i + 1}` })}
 
   // Recorte: el pedido de duración/volumen puede imponer un máximo menor al de la IA.
   for (const d of entries) {
@@ -516,7 +527,10 @@ function normalizeRoutine(
       distribution: `${days} días por semana`,
       intensity: 'Moderada a alta según nivel',
       progression: 'Aumentar carga o repeticiones cada semana',
-      keyFeatures: ['Personalizada por IA', 'Basada en tu perfil', 'Ejercicios verificados'],
+      keyFeatures: [
+        'Personalizada por IA', 'Basada en tu perfil', 'Ejercicios verificados',
+        ...(wants.modality === 'crossfit' ? ['Modalidad CrossFit: sesiones funcionales/WOD.'] : []),
+      ],
     }
   }
   if ((!Array.isArray(parsed.explanation.priorities) || parsed.explanation.priorities.length === 0) && instructions.priorities.length > 0) {
@@ -531,7 +545,7 @@ function clampNum(n: number, min: number, max: number): number {
 
 function isAvailable(): boolean {
   try {
-    return !!import.meta.env.VITE_GROQ_PROXY_URL
+    return getGroqUrl().trim().length > 0
   } catch { return false }
 }
 
@@ -569,7 +583,7 @@ async function generateRoutineFallback(
       })
   const max = maxExercisesPerDay(instructions, profile.sessionDurationMin)
   const min = Math.min(3, max)
-  const level = instructions.level || (profile.experienceLevel as string) || 'intermediate'
+  const level = instructions.level || wants.level || (profile.experienceLevel as string) || 'intermediate'
   const v = volumeForGoal(level, instructions.lowVolumeHighIntensity, wants.goal)
   const make = (c: PoolEx) => newExercise(c, v.sets, v.reps)
   const used = new Set<string>()
@@ -582,6 +596,7 @@ async function generateRoutineFallback(
     entries.push({ name: t.name, muscles: t.muscles, list, max })
   }
   ensureIncludes(entries, catalog, instructions, make)
+  if (wants.modality === 'crossfit') {entries.forEach((d, i) => { d.name = `WOD ${i + 1}` })}
 
   const weekMap: (number | null)[] = [null, null, null, null, null, null, null]
   ;[1, 2, 3, 4, 5, 6, 0].slice(0, desiredDays).forEach((dow, i) => {weekMap[dow] = i + 1})
@@ -596,7 +611,9 @@ async function generateRoutineFallback(
   if (instructions.lowVolumeHighIntensity) {applied.push('menos ejercicios y más intensidad')}
 
   return {
-    name: `Rutina ${wants.goal} — ${desiredDays} días${label ? ` (${label})` : ''}`,
+    name: wants.modality === 'crossfit'
+      ? `Rutina CrossFit — ${desiredDays} días`
+      : `Rutina ${wants.goal} — ${desiredDays} días${label ? ` (${label})` : ''}`,
     cycle: {
       ...cycle,
       trainingDays: entries.map((d, i) => ({ n: i + 1, name: d.name })),
@@ -616,6 +633,7 @@ async function generateRoutineFallback(
         applied.length ? `Aplica del pedido: ${applied.join(', ')}.` : 'Aplica días, foco, equipo y exclusiones disponibles.',
         'No interpreta condiciones narrativas fuera de días, split, duración, prioridades, equipo y exclusiones.',
         'Ejercicios verificados del catálogo.',
+        ...(wants.modality === 'crossfit' ? ['Modalidad CrossFit: sesiones funcionales/WOD.'] : []),
       ],
       priorities: instructions.priorities.map(m => displayMuscle(m)),
     },
@@ -687,15 +705,17 @@ async function collectContext(
 
 function buildPrompt(ctx: {
   profile: any; history: string; style: any; methodName: string; exercises: Record<string, CompactEx[]>
-}, wants: UserWants, instructions: RoutineInstructions): string {
+}, wants: UserWants, instructions: RoutineInstructions, corrections: string[] = []): string {
   const p = ctx.profile || {}
   const s = ctx.style
   const today = todayKey()
   const days = clampDays(instructions.days ?? wants.daysPerWeek)
-  const time = instructions.sessionMinutes ?? (Number(p.sessionDurationMin || p.schedule?.sessionDurationMin) || 60)
+  // El pedido explícito manda sobre la preferencia por defecto del perfil.
+  const time = instructions.sessionMinutes ?? wants.durationMin ?? (Number(p.sessionDurationMin || p.schedule?.sessionDurationMin) || 60)
   const maxPerDay = maxExercisesPerDay(instructions, time)
-  const level = instructions.level || p.experienceLevel || 'intermediate'
-  const equipment = instructions.equipment ? instructions.equipment.join(', ') : (p.equipment || ['gym']).join(', ')
+  const level = wants.level || instructions.level || p.experienceLevel || 'intermediate'
+  const allowed = instructions.equipment || wants.allowedEquipment || p.equipment || []
+  const equipment = allowed.join(', ') || 'gimnasio'
   const description = (wants.description || '').trim()
   const label = splitLabel(instructions.split)
 
@@ -712,6 +732,10 @@ function buildPrompt(ctx: {
     instructions.includes.length ? `- Debe incluir: ${instructions.includes.join(', ')}.` : '',
     instructions.excludes.length ? `- No incluir: ${instructions.excludes.join(', ')} (ni variantes equivalentes).` : '',
     `- Nivel: ${level}. ${instructions.lowVolumeHighIntensity ? 'Menos ejercicios y mayor intensidad.' : ''}`,
+    wants.trainingIntensity ? `- Intensidad del entrenamiento: ${wants.trainingIntensity}/5 (no es el tono del Coach).` : '',
+    wants.excludedMovements?.length ? `- Movimientos prohibidos: ${wants.excludedMovements.join(', ')} (ni variantes).` : '',
+    wants.excludedExerciseIds?.length ? `- IDs de ejercicios prohibidos: ${wants.excludedExerciseIds.join(', ')}.` : '',
+    wants.modality === 'crossfit' ? '- Modalidad CrossFit: WOD/metcon/funcional; no splits por músculo aislado.' : '- Modalidad: gimnasio tradicional.',
     instructions.gradualProgression ? '- Progresión gradual y explícita.' : '',
   ].filter(Boolean).join('\n')
 
@@ -723,18 +747,16 @@ ${description || '(sin pedido libre; usá los datos estructurados de abajo)'}
 RESTRICCIONES DEL PEDIDO (obligatorias; mandan sobre cualquier valor por defecto):
 ${hardRules}
 
-DATOS DEL USUARIO:
-Edad: ${p.age || '?'} años, Sexo: ${p.sex || '?'} ${p.weightKg || '?'}kg, ${p.heightCm || '?'}cm
-Objetivo: ${wants.goal}
-Días por semana: ${days}
-Nivel: ${level}
+DATOS DE ENTRENAMIENTO DEL USUARIO (solo lo relevante; sin nombre, email ni identificadores):
+${buildAiTrainingContext(p)}
+Objetivo del pedido: ${wants.goal}
+Nivel aplicado: ${level}
 Tiempo por sesión: ${time} min (máx. ${maxPerDay} ejercicios)
 Equipamiento permitido: ${equipment}
-Zonas de dolor: ${(p.painAreas || []).join(', ') || 'ninguna'}
-Lesiones/limitaciones: ${wants.injuryNote || (p.painAreas || []).join(', ') || 'ninguna'}
-Ejercicios excluidos (IDs): ${(p.excludedExercises || []).join(', ') || 'ninguno'}
+Modalidad: ${wants.modality || p.trainingModality || 'gym'}
 Estilo coaching: ${ctx.methodName} (${s?.tone || 'ABUELITOS'}, riesgo ${s ? Math.round(s.riskLevel * 100) : 50}%)
 Historial: ${ctx.history || 'sin historial'}
+${corrections.length ? `\nCORRECCIONES OBLIGATORIAS (la propuesta anterior fue rechazada):\n${corrections.map(c => `- ${c}`).join('\n')}` : ''}
 
 CÓMO INTERPRETAR EL PEDIDO LIBRE:
 - Un músculo "poco desarrollado" o "débil" es una PRIORIDAD: más volumen semanal y mejor frecuencia, sin abandonar el resto.
@@ -829,43 +851,175 @@ function extractJSON(text: string): string {
   throw new Error('No se pudo extraer JSON válido de la respuesta.')
 }
 
-async function callGroq(_apiKey: string, prompt: string, attempt = 0): Promise<string> {
+async function callAi(prompt: string): Promise<string> {
   const res = await fetch(getGroqUrl(), {
     method: 'POST',
-    headers: getGroqHeaders(),
+    headers: { ...getGroqHeaders(), ...(await getAiAuthHeaders()) },
     body: JSON.stringify({
-      model: MODEL,
+      task: 'routine',
       messages: [
         { role: 'system', content: 'Eres un entrenador personal. Respondes SOLO con JSON valido, nada de texto explicativo.' },
         { role: 'user', content: prompt }
       ],
+      // Parámetros legacy: el Worker fija el modelo y el formato JSON.
+      model: MODEL,
       max_tokens: 8192,
-      temperature: 0.7
+      temperature: 0.7,
+      stream: false
     })
   })
 
-  if (res.status === 429 && attempt < 2) {
-    const waitMs = (attempt + 1) * 15_000
-    await new Promise(r => setTimeout(r, waitMs))
-    return callGroq(_apiKey, prompt, attempt + 1)
-  }
-
   if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Error Groq ${res.status}: ${err.slice(0, 300)}`)
+    let code: string | undefined
+    try { code = (await res.clone().json())?.error } catch { /* status */ }
+    const limit = aiLimitMessage(res.status, code)
+    if (limit) {throw new Error(limit)}
+    throw new Error(`Error del servicio de IA ${res.status}`)
   }
 
   const data = await res.json()
   return data.choices?.[0]?.message?.content || ''
 }
 
+export interface RoutineValidationResult {
+  ok: boolean
+  issues: string[]
+  warnings: string[]
+  estimatedMinutes: number[]
+  suggestion?: string
+}
+
+/** Estimación determinista: calentamiento fijo + series × (reps × 3s + descanso) + transiciones. */
+export function estimateRoutineMinutes(routine: GeneratedRoutine): number[] {
+  return Object.values(routine.dayExercises).map(list => {
+    const seconds = list.reduce((sum, ex) => {
+      const reps = Math.max(1, Number(ex.reps) || 10)
+      const sets = Math.max(1, Number(ex.sets) || 3)
+      const rest = Math.max(30, Number(ex.restSec) || 60)
+      const transition = Number(ex.transitionRestSec) || 15
+      return sum + sets * (reps * 3 + rest) + transition
+    }, 0)
+    return Math.round(8 + seconds / 60)
+  })
+}
+
+type CatalogEntry = { id: string; name?: string; eq?: string }
+
+/** Rechaza propuestas inválidas; la duración incompatible se informa con alternativa. */
+export function validateGeneratedRoutine(
+  routine: GeneratedRoutine,
+  wants: UserWants,
+  instructions: RoutineInstructions,
+  catalog: Map<string, CatalogEntry>,
+): RoutineValidationResult {
+  const issues: string[] = []
+  const warnings: string[] = []
+  const days = clampDays(instructions.days ?? wants.daysPerWeek)
+  const allowed = instructions.equipment || wants.allowedEquipment || []
+  const banned = [...(wants.excludedMovements || []), ...instructions.excludes]
+  const bannedIds = new Set(wants.excludedExerciseIds || [])
+
+  if (routine.cycle?.trainingDays?.length !== days) {issues.push(`Estructura: se esperaban ${days} días y vinieron ${routine.cycle?.trainingDays?.length ?? 0}.`)}
+  const week = routine.cycle?.weekMap || []
+  const planned = week.filter((n): n is number => n !== null && n !== undefined)
+  if (week.length !== 7 || planned.length !== days || new Set(planned).size !== days || planned.some(n => n < 1 || n > days)) {
+    issues.push('weekMap: cada día debe aparecer una vez y los descansos deben ser null.')
+  }
+  for (let n = 1; n <= days; n++) {
+    const list = routine.dayExercises?.[n]
+    if (!Array.isArray(list) || list.length === 0) {issues.push(`Día ${n} sin ejercicios.`)}
+  }
+
+  for (const [n, list] of Object.entries(routine.dayExercises || {})) {
+    for (const ex of list) {
+      const entry = catalog.get(ex.exId)
+      if (!entry) {issues.push(`Día ${n}: ejercicio inexistente en el catálogo (${ex.exId}).`); continue}
+      if (allowed.length && entry.eq && !allowed.includes(entry.eq)) {
+        issues.push(`Día ${n}: ${entry.name || ex.exId} usa ${entry.eq}, equipamiento no disponible.`)
+      }
+      if (bannedIds.has(ex.exId)) {issues.push(`Día ${n}: ejercicio excluido (${ex.exId}).`)}
+      const hit = banned.find(term => matchesAny(ex.name || entry.name || '', [term]))
+      if (hit) {issues.push(`Día ${n}: movimiento excluido (${hit}).`)}
+      if (!Number.isInteger(ex.sets) || ex.sets < 1 || ex.sets > 6) {issues.push(`Día ${n}: series inválidas (${ex.sets}).`)}
+      if (!Number.isInteger(ex.reps) || ex.reps < 1 || ex.reps > 30) {issues.push(`Día ${n}: repeticiones inválidas (${ex.reps}).`)}
+    }
+  }
+
+  if (wants.modality === 'crossfit') {
+    const names = (routine.cycle?.trainingDays || []).map(d => d.name).join(' ')
+    const text = `${routine.name || ''} ${(routine.explanation?.keyFeatures || []).join(' ')}`.toLowerCase()
+    if (!/crossfit|wod|metcon|funcional/.test(text)) {issues.push('Modalidad CrossFit: faltan sesiones WOD/metcon/funcional.')}
+    if (/pecho|espalda|b[ií]ceps|tr[ií]ceps/.test(names)) {issues.push('CrossFit no debe usar split por músculo aislado.')}
+  }
+
+  const estimatedMinutes = estimateRoutineMinutes(routine)
+  const target = instructions.sessionMinutes ?? wants.durationMin ?? 60
+  const low = Math.max(15, target * 0.65)
+  const high = target * 1.35
+  const bad = estimatedMinutes.map((m, i) => ({ m, i })).filter(x => x.m < low || x.m > high)
+  if (bad.length) {
+    const x = bad[0]
+    const short = x.m < low
+    warnings.push(`Sesión ${x.i + 1}: ${x.m} min estimados para ${target} min disponibles.`)
+    const spare = Math.max(1, Math.min(3, Math.round((target - x.m) / 12)))
+    // La alternativa es accionable y no inventa datos del usuario.
+    const alt = short
+      ? `Sumá ${spare} ejercicio${spare === 1 ? '' : 's'} o una serie por ejercicio para llegar a ${target} min.`
+      : `Reducí ejercicios o series para llegar a ${target} min.`
+    return { ok: issues.length === 0, issues, warnings, estimatedMinutes, suggestion: alt }
+  }
+
+  return { ok: issues.length === 0, issues, warnings, estimatedMinutes }
+}
+
+class RoutineValidationError extends Error {}
+
+function catalogOf(exercises: Record<string, CatalogEntry[]>): Map<string, CatalogEntry> {
+  return new Map(Object.values(exercises).flat().map(e => [e.id, e]))
+}
+
+function withProfilePreferences(wants: UserWants, profile: any): UserWants {
+  const p = getTrainingPreferences(profile)
+  const allowed = p.equipment.length ? p.equipment : undefined
+  return {
+    ...wants,
+    level: wants.level || p.level,
+    durationMin: wants.durationMin || p.sessionDurationMin,
+    modality: wants.modality || p.modality,
+    allowedEquipment: wants.allowedEquipment || allowed,
+    excludedMovements: wants.excludedMovements || p.excludedMovements,
+    excludedExerciseIds: wants.excludedExerciseIds || p.excludedExercises,
+    trainingIntensity: wants.trainingIntensity || p.trainingIntensity,
+  }
+}
+
+async function fallbackWithDurationNotice(wants: UserWants, instructions: RoutineInstructions, reason: string): Promise<GeneratedRoutine> {
+  const routine = await generateRoutineFallback(wants, instructions, reason)
+  const estimates = estimateRoutineMinutes(routine)
+  const target = instructions.sessionMinutes || wants.durationMin || 60
+  if (estimates.some(m => m < target * 0.65 || m > target * 1.35)) {
+    routine.explanation.keyFeatures.push(
+      `Sesión estimada en ${estimates[0]} min para ${target} min disponibles: ajustá ejercicios o series en la rutina.`,
+    )
+  }
+  return routine
+}
+
 export async function generateRoutineWithAI(wants: UserWants): Promise<GeneratedRoutine> {
-  const instructions = parseRoutineInstructions(wants.description || '')
-  const seed = hashStr([wants.description || '', wants.goal, wants.focus, wants.daysPerWeek].join('|'))
+  const profile = await db.userProfile.get('me').catch(() => null) as any || {}
+  const effective = withProfilePreferences(wants, profile)
+  const instructions = parseRoutineInstructions(effective.description || '')
+  if (!instructions.equipment && effective.allowedEquipment?.length) {instructions.equipment = effective.allowedEquipment}
+  if (!instructions.sessionMinutes && effective.durationMin) {instructions.sessionMinutes = effective.durationMin}
+  if (!instructions.level && effective.level) {instructions.level = effective.level}
+  if (effective.excludedMovements?.length) {
+    instructions.excludes = [...new Set([...instructions.excludes, ...effective.excludedMovements])]
+  }
+  const seed = hashStr([effective.description || '', effective.goal, effective.focus, effective.daysPerWeek].join('|'))
 
   // Sin proxy/key → fallback local inmediato (seleccionar siempre funciona)
   if (!isAvailable()) {
-    return generateRoutineFallback(wants, instructions, 'Generada localmente: no hay IA externa configurada.')
+    return fallbackWithDurationNotice(effective, instructions, 'Generada localmente: no hay IA externa configurada.')
   }
 
   const cooldown = canRequestNow()
@@ -873,49 +1027,52 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
     throw new Error(`Rate limit: esperá ${cooldown.waitSec}s antes de generar otra rutina.`)
   }
 
-  try {
-    const ctx = await collectContext(instructions, seed)
-    const prompt = buildPrompt(ctx, wants, instructions)
+  const ctx = await collectContext(instructions, seed)
+  const catalog = catalogOf(ctx.exercises)
+  let corrections: string[] = []
 
-    markRequested()
-    const content = await callGroq('', prompt)
-
-    if (!content) {throw new Error('Respuesta vacía de Groq.')}
-
-    const jsonStr = extractJSON(content)
-
-    let parsed: any
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      parsed = JSON.parse(jsonStr)
-    } catch {
-      throw new Error('La IA no devolvió JSON válido. Reintentá.')
+      const prompt = buildPrompt(ctx, effective, instructions, corrections)
+      markRequested()
+      const content = await callAi(prompt)
+      if (!content) {throw new Error('Respuesta vacía del servicio de IA.')}
+
+      let parsed: any
+      try { parsed = JSON.parse(extractJSON(content)) }
+      catch { throw new Error('La IA no devolvió JSON válido. Reintentá.') }
+
+      if (parsed.cycle) {
+        parsed.cycle.methodId = (parsed.cycle.methodId || 'hypertrophy') as TrainingMethodId
+        if (!parsed.cycle.startDate) {parsed.cycle.startDate = todayKey()}
+      }
+      if (!parsed.cycle?.trainingDays?.length || !parsed.dayExercises) {
+        throw new Error('La rutina generada no tiene la estructura correcta.')
+      }
+
+      const routine = normalizeRoutine(parsed, effective, instructions, ctx)
+      const totalExercises = Object.values(routine.dayExercises)
+        .reduce((acc: number, list: any) => acc + (Array.isArray(list) ? list.length : 0), 0)
+      if (totalExercises === 0) {throw new Error('La IA no devolvió ejercicios del catálogo.')}
+
+      const validation = validateGeneratedRoutine(routine, effective, instructions, catalog)
+      if (!validation.ok) {
+        if (attempt === 0) {corrections = validation.issues; continue}
+        throw new RoutineValidationError(`La propuesta de IA no es válida: ${validation.issues.join(' ')}`)
+      }
+      if (validation.suggestion) {
+        routine.explanation.keyFeatures = routine.explanation.keyFeatures || []
+        routine.explanation.keyFeatures.push(validation.suggestion)
+      }
+      return routine
+    } catch (e: any) {
+      if (e instanceof RoutineValidationError) {throw new Error(e.message)}
+      if (isLimitError(String(e?.message || ''))) {throw new Error(stripLimitPrefix(String(e.message)))}
+      console.warn('IA no disponible, usando fallback local:', e)
+      return fallbackWithDurationNotice(effective, instructions, 'La IA no respondió; rutina armada localmente con las reglas del pedido.')
     }
-
-    // Normalize methodId
-    if (parsed.cycle) {
-      parsed.cycle.methodId = (parsed.cycle.methodId || 'hypertrophy') as TrainingMethodId
-      if (!parsed.cycle.startDate) {parsed.cycle.startDate = todayKey()}
-    }
-
-    // Validate structure
-    if (!parsed.cycle?.trainingDays?.length || !parsed.dayExercises) {
-      throw new Error('La rutina generada no tiene la estructura correcta.')
-    }
-
-    const routine = normalizeRoutine(parsed, wants, instructions, ctx)
-
-    // Sin ningún ejercicio válido del catálogo no hay rutina utilizable.
-    const totalExercises = Object.values(routine.dayExercises)
-      .reduce((acc: number, list: any) => acc + (Array.isArray(list) ? list.length : 0), 0)
-    if (totalExercises === 0) {
-      throw new Error('La IA no devolvió ejercicios del catálogo.')
-    }
-
-    return routine
-  } catch (e) {
-    console.warn('IA Groq falló, usando fallback local:', e)
-    return generateRoutineFallback(wants, instructions, 'La IA no respondió; rutina armada localmente con las reglas del pedido.')
   }
+  return fallbackWithDurationNotice(effective, instructions, 'La IA no devolvió una propuesta válida; rutina armada localmente.')
 }
 
 export function isRoutineAIAvailable(): boolean {

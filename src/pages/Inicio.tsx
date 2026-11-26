@@ -233,7 +233,20 @@ export default function Inicio(){
     migrateSessionOverridesFromLocalStorage().catch(()=>{})
     const sync = async ()=>{
       const p = await db.userProfile.get('me')
-      const c = await getCanonicalCycle(p!)
+      const canonical = await getCanonicalCycle(p!)
+      // La rutina activa manda sobre la disponibilidad declarada en el
+      // onboarding: sus descansos se respetan y los días vacíos no se rellenan.
+      const { getActiveRoutineId, getActiveRoutine } = await import('@/services/storage/routineStore')
+      const activeId = await getActiveRoutineId().catch(() => null)
+      const active = activeId ? await db.routineStore.get(activeId) as any : await getActiveRoutine().catch(() => null)
+      const hasDays = !!active && Object.values(active.dayExercises || {})
+        .some((arr: any) => Array.isArray(arr) && arr.length > 0)
+      // Un día del weekMap sin ejercicios en la rutina es descanso, no se rellena.
+      const activeWeekMap = (active?.cycle?.weekMap || []).map((n: number | null) =>
+        n !== null && active.dayExercises?.[n]?.length ? n : null)
+      const c: CycleConfig = hasDays && active?.cycle
+        ? { ...canonical, weekMap: activeWeekMap, trainingDays: active.cycle.trainingDays, methodId: active.cycle.methodId ?? canonical.methodId }
+        : canonical
       if (!mountedRef.current) { return }
       setCycle(c)
       const override = await getOverrideDay(todayStr)

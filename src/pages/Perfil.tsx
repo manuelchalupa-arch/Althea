@@ -18,6 +18,7 @@ import { AltheaButton, AltheaBadge, AltheaSelect, AltheaEmpty, AltheaPanel } fro
 import * as Gym from '@/services/exerciseGym'
 import { traditionalItems, toggleGroupExcluded, TRADITIONAL_GROUPS, type TraditionalGroupId, type TraditionalItem } from '@/data/traditionalCatalog'
 import { resolveCoachTone } from '@/services/ai/coachPersonality'
+import { resolveExperienceLevel } from '@/utils/profilePreferences'
 import { todayKey } from '@/utils/dates'
 import { useVisibleSections, TOGGLEABLE_SECTIONS } from '@/hooks/useVisibleSections'
 
@@ -191,6 +192,7 @@ export default function Perfil() {
   const [firebaseReady, setFirebaseReady] = useState(false)
   const [coachTone, setCoachTone] = useState('')
   const [coachLevel, setCoachLevel] = useState(3)
+  const [trainPrefs, setTrainPrefs] = useState({ duration: 60, time: '18:00', level: 'intermediate', modality: 'gym', intensity: 3, availability: '' })
   const [excluded, setExcluded] = useState<string[]>([])
   const { isVisible: isSectionVisible, toggle: toggleSection } = useVisibleSections()
   const [showBiblio, setShowBiblio] = useState(false)
@@ -207,6 +209,14 @@ export default function Perfil() {
         getCanonicalMethodId(p).then(setCanonicalMethodId).catch(() => { /* fallback legacy */ })
         setCoachTone(p.coachTone || '')
         setCoachLevel(p.coachLevel || 3)
+        setTrainPrefs({
+          duration: Number(p.sessionDurationMin) || 60,
+          time: p.trainingTime || p.schedule?.preferredTime || '18:00',
+          level: resolveExperienceLevel(p),
+          modality: p.trainingModality === 'crossfit' ? 'crossfit' : 'gym',
+          intensity: Number(p.exigencia?.entrenamiento || p.trainingIntensity || 3),
+          availability: p.availabilityNotes || '',
+        })
         setExcluded(p.excludedExercises || [])
         setForm({
           name: p.displayName || '',
@@ -310,6 +320,24 @@ export default function Perfil() {
     if (!profile) {return}
     await db.userProfile.put({ ...profile, trainingGoal: goal, updatedAt: new Date().toISOString() })
     setProfile({ ...profile, trainingGoal: goal })
+  }
+
+  const saveTrainingPrefs = async () => {
+    if (!profile) {return}
+    const duration = Math.max(20, Math.min(180, Number(trainPrefs.duration) || 60))
+    const patch: any = {
+      sessionDurationMin: duration,
+      trainingTime: trainPrefs.time,
+      experienceLevel: trainPrefs.level,
+      level: trainPrefs.level === 'beginner' ? 'principiante' : trainPrefs.level === 'advanced' ? 'avanzado' : 'intermedio',
+      trainingModality: trainPrefs.modality,
+      trainingIntensity: trainPrefs.intensity,
+      exigencia: { ...(profile.exigencia || {}), entrenamiento: trainPrefs.intensity },
+      availabilityNotes: trainPrefs.availability,
+      schedule: { ...(profile.schedule || {}), preferredTime: trainPrefs.time, sessionTimeAvailable: duration },
+    }
+    await db.userProfile.put({ ...profile, ...patch, updatedAt: new Date().toISOString() })
+    setProfile({ ...profile, ...patch })
   }
 
   const saveCoachTone = async (tone: string) => {
@@ -540,6 +568,70 @@ export default function Perfil() {
         </div>
       </Section>
 
+      {/* ═══ PREFERENCIAS DE ENTRENAMIENTO (editables sin repetir onboarding) ═══ */}
+      <Section title="Entrenamiento" icon={<IconDumbbell className="w-5 h-5" />} defaultOpen={false}>
+        <div className="pt-3 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Duración de sesión (min)</span>
+              <input type="number" min={20} max={180} value={trainPrefs.duration}
+                onChange={e => setTrainPrefs(p => ({ ...p, duration: Number(e.target.value) }))}
+                className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface" />
+            </label>
+            <label className="block">
+              <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Horario habitual</span>
+              <input type="time" value={trainPrefs.time}
+                onChange={e => setTrainPrefs(p => ({ ...p, time: e.target.value }))}
+                className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface" />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Nivel</span>
+              <select value={trainPrefs.level} onChange={e => setTrainPrefs(p => ({ ...p, level: e.target.value }))}
+                className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface">
+                <option value="beginner">Principiante</option>
+                <option value="intermediate">Intermedio</option>
+                <option value="advanced">Avanzado</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Modalidad</span>
+              <select value={trainPrefs.modality} onChange={e => setTrainPrefs(p => ({ ...p, modality: e.target.value }))}
+                className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface">
+                <option value="gym">Gimnasio</option>
+                <option value="crossfit">CrossFit</option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <div className="font-label-caps text-[9px] uppercase text-outline tracking-wider mb-2">Intensidad de entrenamiento · {trainPrefs.intensity} de 5</div>
+            <div className="grid grid-cols-5 gap-2">
+              {[1,2,3,4,5].map(n => (
+                <button key={n} onClick={() => setTrainPrefs(p => ({ ...p, intensity: n }))} aria-label={`Intensidad de entrenamiento ${n} de 5`}
+                  aria-pressed={trainPrefs.intensity === n}
+                  className="h-12 rounded-lg border font-headline-md font-bold bg-surface-container/50 border-outline-variant/50 transition">
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="block">
+            <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Disponibilidad variable</span>
+            <input value={trainPrefs.availability} onChange={e => setTrainPrefs(p => ({ ...p, availability: e.target.value }))}
+              placeholder="Ej.: turnos rotativos"
+              className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-[15px] text-on-surface" />
+          </label>
+          <button onClick={() => saveTrainingPrefs().catch(() => {})} disabled={!profile}
+            className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-semibold disabled:opacity-60">
+            Guardar preferencias de entrenamiento
+          </button>
+          <p className="font-body-md text-[11px] text-on-surface-variant">
+            Cambiar estos valores no modifica rutinas pasadas ni el calendario vigente: se aplica a la próxima rutina que generes o elijas.
+          </p>
+        </div>
+      </Section>
+
       {/* ═══ PREFERENCIAS DEL COACH ═══ */}
       <Section title="Coach" icon={<IconBody className="w-5 h-5" />}>
         <div className="pt-3 space-y-4">
@@ -563,7 +655,7 @@ export default function Perfil() {
           </div>
           <div>
             <div className="font-label-caps text-[10px] uppercase text-outline tracking-wider mb-2">
-              Intensidad de la exigencia · {coachLevel} de {COACH_LEVELS.length}
+              Exigencia del tono del Coach (legacy) · {coachLevel} de {COACH_LEVELS.length}
             </div>
             <div className="grid grid-cols-5 gap-2">
               {COACH_LEVELS.map(n => (

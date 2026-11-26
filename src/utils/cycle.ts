@@ -125,8 +125,15 @@ function generateDayNames(splitType: string, _methodId: TrainingMethodId, daysCo
   }
 }
 
+/** Sin planificación guardada no hay días: el onboarding no rellena el calendario. */
+export const EMPTY_CYCLE: CycleConfig = {
+  startDate: todayKey(),
+  trainingDays: [],
+  weekMap: [null, null, null, null, null, null, null],
+}
+
 export function getCycleFromProfile(p: UserProfile | null): CycleConfig {
-  if (!p || !p.cycle) {return DEFAULT_CYCLE}
+  if (!p || !p.cycle) {return EMPTY_CYCLE}
   return { ...p.cycle, methodId: p.cycle.methodId as TrainingMethodId | undefined }
 }
 

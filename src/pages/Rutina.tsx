@@ -623,6 +623,14 @@ export default function RutinaPage(){
 
   return (
     <div className="min-h-screen bg-transparent px-0 pt-2 pb-24 md:px-6 md:pt-6 md:pb-6 lg:px-8 lg:pt-8 lg:pb-8 sm:px-5 xl:px-10 2xl:px-12 w-full mx-auto space-y-4">
+      {new URLSearchParams(window.location.search).get('first') === '1' && (
+        <div className="rounded-2xl border border-primary/40 bg-primary-container/15 p-4">
+          <h1 className="font-headline-lg text-lg font-semibold text-on-surface">Tu perfil está listo</h1>
+          <p className="font-body-md text-sm text-on-surface-variant mt-1">
+            Todavía no hay rutina asignada. Elegí una existente, creá una nueva o generá la primera con IA; el calendario se arma desde esa rutina, no desde tu disponibilidad.
+          </p>
+        </div>
+      )}
       {/* Selector superior */}
       <AltheaCard className="p-4 rounded-2xl shadow-al-sm border border-outline-variant/50">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">

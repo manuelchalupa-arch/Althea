@@ -26,6 +26,7 @@ import { resolveGoal, type GoalLogic } from './goalEngine'
 import { type CoachTone } from './coachPersonality'
 import { recommendLoad } from './localEngine'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
+import { buildAiTrainingContext, resolveExperienceLevel } from '@/utils/profilePreferences'
 import type { TrainingGoal, ExperienceLevel } from '@/types'
 import { logDecision } from './decisionLogger'
 import { db } from '@/services/storage/db'
@@ -77,7 +78,7 @@ export async function prepareUnifiedContext(text: string): Promise<UnifiedContex
   const safety = await safetyCheck(safetyCtx)
 
   const goal = (resolveTrainingGoal(context.userProfile) as TrainingGoal) || 'hypertrophy'
-  const goalLogic = resolveGoal(goal, context.userProfile?.experienceLevel as ExperienceLevel)
+  const goalLogic = resolveGoal(goal, resolveExperienceLevel(context.userProfile) as ExperienceLevel)
   const tone = (context.personalidad || 'ABUELITOS') as CoachTone
 
   return { intent: intentResult.intent, intentResult, context, evidence, safety, goalLogic, tone }
@@ -144,10 +145,8 @@ function buildContextBlock(ctx: UnifiedContext): string {
   const parts: string[] = []
 
   if (c.userProfile) {
-    const p = c.userProfile
-    parts.push(`USUARIO: ${p.displayName || 'sin nombre'}, ${p.age || '?'} años, ${p.weightKg || '?'}kg, ${p.heightCm || '?'}cm`)
-    if (p.goalPrimary) { parts.push(`Objetivo: ${p.goalPrimary}`) }
-    if (p.experienceLevel) { parts.push(`Nivel: ${p.experienceLevel}`) }
+    // Solo datos de entrenamiento relevantes: nunca nombre, email ni identificadores.
+    parts.push(buildAiTrainingContext(c.userProfile, c.rutina ? { name: String((c.rutina as any).name || '') } : undefined))
   }
 
   if (c.dia) { parts.push(`Día: ${c.dia}`) }

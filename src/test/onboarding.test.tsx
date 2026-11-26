@@ -6,474 +6,190 @@ import Onboarding from '@/pages/Onboarding'
 import { db } from '@/services/storage/db'
 import { clearOnboardingDraft, getOnboardingDraft } from '@/services/storage/db'
 
-const clickMainObjective = async (user: ReturnType<typeof userEvent.setup>, text: string) => {
-    const buttons = screen.getAllByRole('button', { name: text })
-    await user.click(buttons[0])
-  }
+type User = ReturnType<typeof userEvent.setup>
 
-const renderOnboarding = () => {
-  return render(
-    <BrowserRouter>
-      <Onboarding />
-    </BrowserRouter>
-  )
+const renderOnboarding = () => render(<BrowserRouter><Onboarding /></BrowserRouter>)
+const nextBtn = () => screen.getByText('Siguiente →')
+const ready = async () => { await waitFor(() => expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()) }
+
+async function reachPreferences(user: User) {
+  await user.click(screen.getByText('Gimnasio tradicional'))
+  await user.click(nextBtn())
+  await user.click(screen.getByText('Ganar masa muscular'))
+  await user.click(nextBtn())
+  await user.click(screen.getByText('Principiante'))
+  await user.click(nextBtn())
+  await user.click(screen.getByText('Lun'))
+  await user.click(nextBtn())
+  await user.click(screen.getByText('Mancuernas'))
+  await user.click(nextBtn())
+  await user.click(nextBtn()) // restricciones: se puede seguir sin ninguna
+  expect(screen.getByText('Preferencias (opcional)')).toBeInTheDocument()
 }
 
-const waitForOnboardingReady = async () => {
-  await waitFor(() => {
-    expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
-  })
+async function finish(user: User) {
+  await user.click(nextBtn()) // preferencias → resumen
+  await user.click(screen.getByText('COMENZAR →'))
 }
 
-describe('Onboarding - Encuesta Inicial', () => {
+describe('Onboarding — alta mínima de entrenamiento', () => {
   beforeEach(async () => {
     await db.open()
     await clearOnboardingDraft()
     await db.userProfile.clear()
   })
+  afterEach(() => vi.clearAllMocks())
 
-  afterEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('1. debe iniciar en el paso 0 (Objetivo) y mostrar progreso 1/7', async () => {
+  it('1. empieza por modalidad y muestra 8 pasos', async () => {
     renderOnboarding()
-    await waitForOnboardingReady()
+    await ready()
     expect(screen.getByText('PASO 1 DE 8')).toBeInTheDocument()
-    expect(screen.getByText('¿Cuál es tu objetivo principal?')).toBeInTheDocument()
+    expect(screen.getByText('¿Cómo entrenás?')).toBeInTheDocument()
   })
 
-  it('2. debe validar objetivo principal requerido y permitir avance', async () => {
+  it('2. exige modalidad, objetivo, nivel, días y equipamiento', async () => {
     const user = userEvent.setup()
     renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await user.click(screen.getByText('Siguiente →'))
-    expect(await screen.findByText('Seleccioná tu objetivo principal')).toBeInTheDocument()
-    
-    await clickMainObjective(user, 'Perder grasa / bajar de peso')
-    await user.click(screen.getByText('Siguiente →'))
-    expect(await screen.findByText('¿Cuál es tu nivel de experiencia?')).toBeInTheDocument()
+    await ready()
+
+    await user.click(nextBtn())
+    expect(screen.getByText('Elegí tu modalidad de entrenamiento')).toBeInTheDocument()
+    await user.click(screen.getByText('CrossFit'))
+    await user.click(nextBtn())
+    await user.click(nextBtn())
+    expect(screen.getByText('Seleccioná tu objetivo principal')).toBeInTheDocument()
+    await user.click(screen.getByText('Otro'))
+    await user.click(nextBtn())
+    expect(screen.getByText('Especificá tu objetivo personalizado')).toBeInTheDocument()
+    await user.type(screen.getByPlaceholderText('Especificá tu objetivo'), 'Mi objetivo')
+    await user.click(nextBtn())
+    await user.click(nextBtn())
+    expect(screen.getByText('Seleccioná tu nivel de experiencia')).toBeInTheDocument()
+    await user.click(screen.getByText('Avanzado'))
+    await user.click(nextBtn())
+    await user.click(nextBtn())
+    expect(screen.getByText('Seleccioná al menos un día disponible')).toBeInTheDocument()
+    await user.click(screen.getByText('Mar'))
+    await user.click(nextBtn())
+    await user.click(nextBtn())
+    expect(screen.getByText('Seleccioná al menos un equipamiento disponible')).toBeInTheDocument()
   })
 
-  it('3. debe validar objetivo "Otro" requiere customGoal', async () => {
+  it('3. valida la duración en preferencias y permite seguir', async () => {
     const user = userEvent.setup()
     renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Otro')
-    await user.click(screen.getByText('Siguiente →'))
-    expect(await screen.findByText('Especificá tu objetivo personalizado')).toBeInTheDocument()
-    
-    await user.type(screen.getByPlaceholderText('Especificá tu objetivo'), 'Mi objetivo personal')
-    await user.click(screen.getByText('Siguiente →'))
-    expect(await screen.findByText('¿Cuál es tu nivel de experiencia?')).toBeInTheDocument()
+    await ready()
+    await reachPreferences(user)
+
+    const input = screen.getByDisplayValue('60')
+    await user.clear(input)
+    await user.type(input, '10')
+    await user.click(nextBtn())
+    expect(screen.getByText('Duración entre 20 y 180 minutos')).toBeInTheDocument()
+    await user.clear(input)
+    await user.type(input, '40')
+    await user.click(nextBtn())
+    expect(screen.getByText('Todo listo')).toBeInTheDocument()
   })
 
-  it('4. debe requerir al menos un día disponible', async () => {
+  it('4. guarda el perfil sin rutina, IMC ni datos físicos inventados', async () => {
     const user = userEvent.setup()
     renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    await user.click(screen.getByText('Siguiente →'))
-    expect(await screen.findByText('Seleccioná al menos un día disponible')).toBeInTheDocument()
-    
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    expect(await screen.findByText('¿Qué equipamiento tenés disponible?')).toBeInTheDocument()
-  })
+    await ready()
+    await reachPreferences(user)
+    await finish(user)
 
-  it('5. debe requerir al menos un equipamiento', async () => {
-    const user = userEvent.setup()
-    renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    await user.click(screen.getByText('Siguiente →'))
-    expect(await screen.findByText('Seleccioná al menos un equipamiento disponible')).toBeInTheDocument()
-    
-    // Seleccionar equipamiento
-    await user.click(screen.getByText('Peso corporal'))
-    await user.click(screen.getByText('Siguiente →'))
-    // El siguiente paso es Horario (paso 4), no Coach
-    expect(await screen.findByText('¿Cuándo y cuánto entrenás?')).toBeInTheDocument()
-  })
-
-  it('6. debe validar duración de sesión (20-180 min)', async () => {
-    const user = userEvent.setup()
-    renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Peso corporal'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    const durationInput = screen.getByDisplayValue('60')
-    await user.clear(durationInput)
-    await user.type(durationInput, '10')
-    await user.click(screen.getByText('Siguiente →'))
-    expect(await screen.findByText('Duración entre 20 y 180 minutos')).toBeInTheDocument()
-    
-    await user.clear(durationInput)
-    await user.type(durationInput, '60')
-    await user.click(screen.getByText('Siguiente →'))
-    expect(await screen.findByText('Configurá tu Coach')).toBeInTheDocument()
-  })
-
-  it('7. debe completar onboarding y persistir en Dexie', async () => {
-    const user = userEvent.setup()
-    renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Peso corporal'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Profesional'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    await user.click(screen.getByText('Gimnasio tradicional'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
-    await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
-    await user.type(screen.getByPlaceholderText('80'), '80')
-    await user.type(screen.getByPlaceholderText('180'), '180')
-    await user.click(screen.getByText('COMENZAR →'))
-    
     await waitFor(async () => {
-      const profile = await db.userProfile.get('me')
-      expect(profile).toBeDefined()
-      expect(profile?.displayName).toBe('Test User')
-      expect(profile?.email).toBe('test@test.com')
-      expect(profile?.weightKg).toBe(80)
-      expect(profile?.heightCm).toBe(180)
-      expect(profile?.onboardingDone).toBe(true)
-      expect((profile as any)?.trainingModality).toBe('gym')
-      expect(profile?.coachIntensity).toBe('profesional')
-      // exigencia fields removed per spec (only coachIntensity in onboarding)
-      expect(profile?.exigencia).toBeUndefined()
+      const p: any = await db.userProfile.get('me')
+      expect(p).toBeDefined()
+      expect(p.trainingGoal).toBe('hypertrophy')
+      expect(p.experienceLevel).toBe('beginner')
+      expect(p.level).toBe('principiante')
+      expect(p.availableDays).toEqual([0])
+      expect(p.equipment).toEqual(['mancuernas'])
+      expect(p.sessionDurationMin).toBe(60)
+      expect(p.onboardingDone).toBe(true)
+      expect(p.bmi).toBeUndefined()
+      expect(p.targetWeightKg).toBeUndefined()
+      expect(p.nutritionTargets).toBeUndefined()
+      expect(p.cycle).toBeUndefined()
+      expect(p.schedule.sessionTimeAvailable).toBe(60)
     })
   })
 
-  it('8. debe guardar objetivo secundario y customGoal', async () => {
+  it('5. persiste restricciones, dolencias y movimientos excluidos', async () => {
     const user = userEvent.setup()
     renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    // Seleccionar objetivo secundario (chip - segundo elemento con ese texto)
-    const secondaryChips = screen.getAllByText('Perder grasa / bajar de peso')
-    await user.click(secondaryChips[1])
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Peso corporal'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Profesional'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    await user.click(screen.getByText('Gimnasio tradicional'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
-    await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
-    await user.type(screen.getByPlaceholderText('80'), '80')
-    await user.type(screen.getByPlaceholderText('180'), '180')
-    await user.click(screen.getByText('COMENZAR →'))
-    
-    await waitFor(async () => {
-      const profile = await db.userProfile.get('me')
-      expect(profile?.goalsSecondary).toContain('Perder grasa / bajar de peso')
-    })
-  })
-
-  it('9. debe integrar restricciones y dolencias en limitations', async () => {
-    const user = userEvent.setup()
-    renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Peso corporal'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Profesional'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    await user.click(screen.getByText('Gimnasio tradicional'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
-    await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
-    await user.type(screen.getByPlaceholderText('80'), '80')
-    await user.type(screen.getByPlaceholderText('180'), '180')
-    
+    await ready()
+    await reachPreferences(user)
+    await user.click(screen.getByText('Atrás')) // preferencias → restricciones
     await user.click(screen.getByText('Sí'))
     await user.click(screen.getByText('hombros'))
-    await user.type(screen.getByPlaceholderText('Contanos cuál / detalles'), 'Dolor en press militar')
-    
-    await user.click(screen.getByText('equipamiento'))
+    await user.type(screen.getByPlaceholderText('Contanos cuál / detalles'), 'Dolor al press')
     await user.click(screen.getByText('tiempo'))
-    await user.type(screen.getByPlaceholderText('Otras restricciones'), 'Solo 45 min por sesión')
-    
-    await user.click(screen.getByText('COMENZAR →'))
-    
+    await user.type(screen.getByPlaceholderText('Detalle de restricciones'), '45 min')
+    await user.click(screen.getByText('Sentadilla'))
+    await user.click(nextBtn())
+    await finish(user)
+
     await waitFor(async () => {
-      const profile = await db.userProfile.get('me')
-      expect(profile?.limitations).toContain('dolor')
-      expect(profile?.limitations).toContain('equipamiento')
-      expect(profile?.limitations).toContain('tiempo')
-      expect(profile?.painAreas).toContain('hombros')
-      expect(profile?.limitationDescription).toBe('Dolor en press militar')
-      expect(profile?.restrictions).toEqual(['equipamiento', 'tiempo'])
-      expect(profile?.restrictionDescription).toBe('Solo 45 min por sesión')
+      const p: any = await db.userProfile.get('me')
+      expect(p.limitations).toContain('dolor')
+      expect(p.limitations).toContain('tiempo')
+      expect(p.painAreas).toContain('hombros')
+      expect(p.limitationDescription).toBe('Dolor al press')
+      expect(p.restrictionDescription).toBe('45 min')
+      expect(p.excludedMovements).toEqual(['Sentadilla'])
     })
   })
 
-  it('10. debe guardar peso objetivo', async () => {
+  it('6. guarda objetivos secundarios y estilo Coach sin mezclar con intensidad', async () => {
     const user = userEvent.setup()
     renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Perder grasa / bajar de peso')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Peso corporal'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Profesional'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    await user.click(screen.getByText('Gimnasio tradicional'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
-    await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
-    await user.type(screen.getByPlaceholderText('80'), '80')
-    await user.type(screen.getByPlaceholderText('180'), '180')
-    await user.type(screen.getByPlaceholderText('75'), '75')
-    await user.click(screen.getByText('COMENZAR →'))
-    
-    await waitFor(async () => {
-      const profile = await db.userProfile.get('me')
-      expect(profile?.targetWeightKg).toBe(75)
-    })
-  })
-
-  it('11. debe limpiar borrador al completar onboarding', async () => {
-    const user = userEvent.setup()
-    renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Peso corporal'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Profesional'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    await user.click(screen.getByText('Gimnasio tradicional'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
-    await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
-    await user.type(screen.getByPlaceholderText('80'), '80')
-    await user.type(screen.getByPlaceholderText('180'), '180')
-    await user.click(screen.getByText('COMENZAR →'))
-    
-    await waitFor(async () => {
-      const draft = await getOnboardingDraft()
-      expect(draft).toBeNull()
-    })
-  })
-
-  it('12. debe guardar borrador en Dexie en cada paso', async () => {
-    const user = userEvent.setup()
-    renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    // Verificar borrador guardado hasta paso 2 (días completado, guardado antes de ir a equipamiento)
-    const draft = await getOnboardingDraft()
-    expect(draft).not.toBeNull()
-    expect(draft?.step).toBe(2)
-    expect(draft?.data.objPrincipal).toBe('Ganar masa muscular')
-    expect(draft?.data.nivel).toBe('Principiante')
-    expect(draft?.data.diasDisponibles).toEqual([0])
-  })
-
-  it('13. debe permitir peso y altura opcionales y mostrar IMC solo cuando ambos están presentes', async () => {
-    const user = userEvent.setup()
-    renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Peso corporal'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Profesional'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    await user.click(screen.getByText('Gimnasio tradicional'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
-    await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
-    // Sin peso ni altura - IMC no debe mostrarse
-    expect(screen.queryByText('24.7')).not.toBeInTheDocument()
-    expect(screen.getByText('Opcional: completa peso y altura para calcular IMC = peso / altura²')).toBeInTheDocument()
-    await user.click(screen.getByText('COMENZAR →'))
-    
-    // Debe permitir completar sin peso/altura
-    await waitFor(async () => {
-      const profile = await db.userProfile.get('me')
-      expect(profile).toBeDefined()
-      expect(profile?.weightKg).toBeUndefined()
-      expect(profile?.heightCm).toBeUndefined()
-    })
-    
-    // Ahora probar con peso y altura
-    const { unmount } = renderOnboarding()
-    unmount()
-    
-    const user2 = userEvent.setup()
-    renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user2, 'Ganar masa muscular')
-    await user2.click(screen.getByText('Siguiente →'))
-    await user2.click(screen.getByText('Principiante'))
-    await user2.click(screen.getByText('Siguiente →'))
-    await user2.click(screen.getByText('Lun'))
-    await user2.click(screen.getByText('Siguiente →'))
-    await user2.click(screen.getByText('Peso corporal'))
-    await user2.click(screen.getByText('Siguiente →'))
-    await user2.click(screen.getByText('Siguiente →'))
-    await user2.click(screen.getByText('Profesional'))
-    await user2.click(screen.getByText('Siguiente →'))
-    
-    await user2.click(screen.getByText('Gimnasio tradicional'))
-    await user2.click(screen.getByText('Siguiente →'))
-    // Usar getAllByPlaceholderText y tomar el último (la nueva instancia)
-    const nombreInputs = screen.getAllByPlaceholderText('Manuel')
-    await user2.type(nombreInputs[nombreInputs.length - 1], 'Test User 2')
-    const emailInputs = screen.getAllByPlaceholderText('manuel@mail.com')
-    await user2.type(emailInputs[emailInputs.length - 1], 'test2@test.com')
-    const pesoInputs = screen.getAllByPlaceholderText('80')
-    await user2.type(pesoInputs[pesoInputs.length - 1], '80')
-    const alturaInputs = screen.getAllByPlaceholderText('180')
-    await user2.type(alturaInputs[alturaInputs.length - 1], '180')
-    const comenzarButtons = screen.getAllByText('COMENZAR →')
-    await user2.click(comenzarButtons[comenzarButtons.length - 1])
-    
-    await waitFor(async () => {
-      const profile = await db.userProfile.get('me')
-      expect(profile?.weightKg).toBe(80)
-      expect(profile?.heightCm).toBe(180)
-      expect(profile?.bmi).toBe('24.69') // 80 / 1.8^2 = 24.69
-    })
-  })
-
-  it('14. debe permitir configurar coach intensity', async () => {
-    const user = userEvent.setup()
-    renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Peso corporal'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Siguiente →'))
-    // Coach step: click on Motivacional card
+    await ready()
+    await reachPreferences(user)
+    const chips = screen.getAllByText('Perder grasa / bajar de peso')
+    await user.click(chips[0])
     await user.click(screen.getByText('Motivacional'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    await user.click(screen.getByText('Gimnasio tradicional'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
-    await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
-    await user.type(screen.getByPlaceholderText('80'), '80')
-    await user.type(screen.getByPlaceholderText('180'), '180')
-    await user.click(screen.getByText('COMENZAR →'))
-    
+    await user.click(screen.getByText('4'))
+    await finish(user)
+
     await waitFor(async () => {
-      const profile = await db.userProfile.get('me')
-      expect(profile?.coachIntensity).toBe('motivacional')
+      const p: any = await db.userProfile.get('me')
+      expect(p.goalsSecondary).toContain('Perder grasa / bajar de peso')
+      expect(p.coachIntensity).toBe('motivacional')
+      expect(p.trainingIntensity).toBe(4)
+      expect(p.exigencia).toBeUndefined()
     })
   })
 
-  it('15. debe calcular IMC y mostrar categoría', async () => {
+  it('7. conserva perfiles existentes (sin limpieza destructiva)', async () => {
+    await db.userProfile.put({
+      id: 'me', displayName: 'Existente', email: 'viejo@mail.com', weightKg: 80,
+      bmi: '24.69', onboardingDone: false, createdAt: new Date().toISOString(),
+    } as any)
     const user = userEvent.setup()
     renderOnboarding()
-    await waitForOnboardingReady()
-    
-    await clickMainObjective(user, 'Ganar masa muscular')
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Principiante'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Lun'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Peso corporal'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.click(screen.getByText('Profesional'))
-    await user.click(screen.getByText('Siguiente →'))
-    
-    await user.click(screen.getByText('Gimnasio tradicional'))
-    await user.click(screen.getByText('Siguiente →'))
-    await user.type(screen.getByPlaceholderText('Manuel'), 'Test User')
-    await user.type(screen.getByPlaceholderText('manuel@mail.com'), 'test@test.com')
-    await user.type(screen.getByPlaceholderText('80'), '80')
-    await user.type(screen.getByPlaceholderText('180'), '180')
-    
-    // El IMC debería mostrarse: 80 / 1.8^2 = 24.69 -> Normopeso
-    expect(screen.getByText('24.7')).toBeInTheDocument()
-    expect(screen.getByText('Normopeso')).toBeInTheDocument()
+    await ready()
+    await reachPreferences(user)
+    await finish(user)
+
+    await waitFor(async () => {
+      const p: any = await db.userProfile.get('me')
+      expect(p.displayName).toBe('Existente')
+      expect(p.email).toBe('viejo@mail.com')
+      expect(p.weightKg).toBe(80)
+      expect(p.bmi).toBe('24.69')
+      expect(p.onboardingDone).toBe(true)
+    })
+  })
+
+  it('8. limpia el borrador al terminar', async () => {
+    const user = userEvent.setup()
+    renderOnboarding()
+    await ready()
+    await reachPreferences(user)
+    await finish(user)
+    await waitFor(async () => expect(await getOnboardingDraft()).toBeNull())
   })
 })

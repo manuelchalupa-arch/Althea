@@ -68,6 +68,12 @@ export interface UserProfile {
   coachIntensity: CoachIntensity; onboardingDone: boolean; hydrationGoalMl: number
   /** Modalidad elegida en el onboarding: 'gym' (tradicional) o 'crossfit'. */
   trainingModality?: 'gym' | 'crossfit'
+  /** Exigencia de ENTRENAMIENTO (1-5). Independiente de `coachIntensity`, que es tono. */
+  trainingIntensity?: 1 | 2 | 3 | 4 | 5
+  /** Patrones o movimientos vedados por nombre (ej. "sentadilla"), además de `excludedExercises`. */
+  excludedMovements?: string[]
+  /** Disponibilidad variable (ej. "turnos rotativos"); no es planificación. */
+  availabilityNotes?: string
   /** FASE 2 S6 · Método que la persona quiere VER en la pantalla del Coach. No es el método canónico del ciclo. */
   coachMethodView?: string
   /**

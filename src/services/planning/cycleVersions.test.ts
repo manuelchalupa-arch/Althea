@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { db } from '@/services/storage/db'
 import type { CycleConfig } from '@/utils/cycle'
-import { DEFAULT_CYCLE } from '@/utils/cycle'
+import { EMPTY_CYCLE } from '@/utils/cycle'
 import {
   savePlanning,
   getActiveVersion,
@@ -196,15 +196,15 @@ describe('FASE 2 S3 — contrato de lectura canónica y fallback legacy', () => 
     expect(canonical.methodId).toBe(CYCLE_V1.methodId)
   })
 
-  it('C. sin versión ni ciclo no rompe: devuelve DEFAULT_CYCLE, nunca undefined', async () => {
-    await expect(getCanonicalCycle(null)).resolves.toEqual(DEFAULT_CYCLE)
+  it('C. sin versión ni ciclo no inventa días: devuelve un ciclo vacío, nunca undefined', async () => {
+    await expect(getCanonicalCycle(null)).resolves.toEqual(EMPTY_CYCLE)
 
     await db.userProfile.put({ id: 'me', updatedAt: '2026-09-01T00:00:00Z' } as never)
     const sinCiclo = await getCanonicalCycle((await db.userProfile.get('me')) as never)
 
-    expect(sinCiclo).toEqual(DEFAULT_CYCLE)
-    expect(sinCiclo.weekMap).toBeDefined()
-    expect(sinCiclo.trainingDays.length).toBeGreaterThan(0)
+    expect(sinCiclo).toEqual(EMPTY_CYCLE)
+    expect(sinCiclo.weekMap).toEqual([null, null, null, null, null, null, null])
+    expect(sinCiclo.trainingDays).toEqual([])
     expect(sinCiclo.startDate).toBeTruthy()
   })
 

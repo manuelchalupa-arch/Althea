@@ -4,16 +4,18 @@ import type { TrainingMethodId, UserProfile, MethodRecommendation } from './trai
 import type { TrainingGoal, ExperienceLevel } from '@/types'
 import { TRAINING_METHODS, getMethod } from './trainingMethodsDB'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
+import { getTrainingPreferences } from '@/utils/profilePreferences'
 
 /** Analizar al usuario y recomendar métodos */
 export function selectMethods(profile: UserProfile, recentVolume?: number, recentFatigue?: number): MethodRecommendation {
-  const goal: TrainingGoal = (resolveTrainingGoal(profile) as TrainingGoal) ?? 'hypertrophy'
-  const level = (profile.experienceLevel || 'intermediate') as ExperienceLevel
-  const days = getAvailableDays(profile)
-  const sessionMin = profile.sessionDurationMin || 60
-  const hasEquipment = profile.equipment || ['barbell', 'dumbbell']
-  const limitations = profile.limitations || []
-  const painAreas = profile.painAreas || []
+  const prefs = getTrainingPreferences(profile)
+  const goal = (prefs.goal || resolveTrainingGoal(profile as any) || 'hypertrophy') as TrainingGoal
+  const level = prefs.level as ExperienceLevel
+  const days = prefs.daysPerWeek
+  const sessionMin = prefs.sessionDurationMin
+  const hasEquipment = prefs.equipment.length ? prefs.equipment : ['barbell', 'dumbbell']
+  const limitations = prefs.limitations
+  const painAreas = prefs.painAreas
 
   // 1. Evaluar cada método
   const scores = TRAINING_METHODS.map(m => ({
@@ -53,7 +55,7 @@ export function selectMethods(profile: UserProfile, recentVolume?: number, recen
   const justification = buildJustification(primaryStructure, primaryTraining, secondary, complementary, goal, level, days, sessionMin)
 
   // 10. Confidence basada en cuántos factores conocemos
-  const confidence = calculateConfidence(profile, recentVolume, recentFatigue)
+  const confidence = calculateConfidence(profile, recentVolume, recentFatigue, prefs)
 
   return {
     primary: primaryTraining,
@@ -133,13 +135,6 @@ function scoreMethod(
   return Math.max(0, Math.min(1, score))
 }
 
-/** Obtener días disponibles del perfil */
-function getAvailableDays(profile: UserProfile): number {
-  if (profile.schedule?.availableDays) {return profile.schedule.availableDays.length}
-  if (profile.cycle?.weekMap) {return profile.cycle.weekMap.filter(d => d !== null).length}
-  return 3 // default
-}
-
 /** Construir justificación en español */
 function buildJustification(
   structure: TrainingMethodId,
@@ -180,12 +175,12 @@ function buildJustification(
 }
 
 /** Calcular confianza de la recomendación */
-function calculateConfidence(profile: UserProfile, recentVolume?: number, recentFatigue?: number): number {
+function calculateConfidence(profile: UserProfile, recentVolume?: number, recentFatigue?: number, prefs?: ReturnType<typeof getTrainingPreferences>): number {
   let confidence = 0.5
 
-  if (profile.trainingGoal) {confidence += 0.1}
-  if (profile.experienceLevel) {confidence += 0.1}
-  if (profile.schedule?.availableDays) {confidence += 0.1}
+  if (prefs?.goal) {confidence += 0.1}
+  if ((profile as any).experienceLevel || (profile as any).level) {confidence += 0.1}
+  if ((profile as any).availableDays?.length || profile.schedule?.availableDays) {confidence += 0.1}
   if (profile.sessionDurationMin) {confidence += 0.05}
   if (profile.equipment) {confidence += 0.05}
   if (recentVolume !== null && recentVolume !== undefined) {confidence += 0.05}
