@@ -31,6 +31,17 @@ vi.mock('./groqConfig', () => ({
   getProxyUrl: vi.fn(() => ''),
   getGroqHeaders: () => ({ 'Content-Type': 'application/json' }),
 }))
+// El contrato de sesión real se cubre en aiAuth.test.ts; acá se aísla la
+// interpretación del pedido y la validación del catálogo.
+vi.mock('./aiAuth', () => ({
+  getAiAuthHeaders: async () => ({ Authorization: 'Bearer test-token' }),
+  aiLimitMessage: (status: number, code?: string) =>
+    status === 429 ? `LIMITE_IA:${code === 'quota_exhausted' ? 'Cuota agotada' : 'Limitado'}` : null,
+  isLimitError: (m: string) => m.startsWith('LIMITE_IA:'),
+  stripLimitPrefix: (m: string) => m.replace(/^LIMITE_IA:/, ''),
+  hasAiSession: () => true,
+  limitError: (m: string) => `LIMITE_IA:${m}`,
+}))
 
 import { getProxyUrl } from './groqConfig'
 import { generateRoutineWithAI, parseRoutineInstructions } from './routineBuilderIA'
