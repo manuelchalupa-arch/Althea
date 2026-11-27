@@ -1776,11 +1776,11 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
       setProfile(p)
       const legacyGoal=String(p.trainingGoal||p.goal||'')
       setGoal(legacyGoal.includes('strength')||legacyGoal.includes('fuerza')?'fuerza':legacyGoal.includes('fat_loss')||legacyGoal.includes('perdida')?'perdida_grasa':legacyGoal.includes('resistance')||legacyGoal.includes('resistencia')?'resistencia':'hipertrofia')
-      const profileDays=Array.isArray(p.availableDays)?p.availableDays:Array.isArray(p.schedule?.availableDays)?p.schedule.availableDays:[]
+      const profileDays=Array.isArray(p.availableDays)&&p.availableDays.length?p.availableDays:Array.isArray(p.schedule?.availableDays)?p.schedule.availableDays:[]
       setDays([...new Set(profileDays.map(Number).filter((d:number)=>Number.isInteger(d)&&d>=0&&d<=6))])
       setModality(p.trainingModality==='crossfit'?'crossfit':'gym')
       const eqMap:Record<string,string>={barra:'barbell',mancuernas:'dumbbell',maquina:'machine',polea:'cable',peso_corporal:'bodyweight',banda:'band'}
-      const eq=(Array.isArray(p.equipment)?p.equipment:[]).map((v:string)=>eqMap[v]||v)
+      const sourceEquipment=Array.isArray(p.equipment)&&p.equipment.length?p.equipment:Array.isArray(p.preferences?.preferredEquipment)?p.preferences.preferredEquipment:[]\n      const eq=sourceEquipment.map((v:string)=>eqMap[v]||v)
       setEquipment(eq)
       const tone=String(p.coachTone||p.coachIntensity||'profesional').toLowerCase()
       setCoachTone(tone.includes('padelero')||tone.includes('motiv')?'motivacional':tone.includes('arnold')||tone==='duro'?'duro':tone.includes('psycho')||tone==='extremo'?'extremo':'profesional')
@@ -1803,7 +1803,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
     else if(mode!=='profile')setModality('gym')
     if(mode==='profile' && profile){
       const map:Record<string,string>={barra:'barbell',mancuernas:'dumbbell',maquina:'machine',polea:'cable',peso_corporal:'bodyweight',banda:'band'}
-      setEquipment((profile.equipment||[]).map((v:string)=>map[v]||v))
+      setEquipment((Array.isArray(profile.equipment)&&profile.equipment.length?profile.equipment:profile.preferences?.preferredEquipment||[]).map((v:string)=>map[v]||v))
     }
   }
   const submit=()=>{
