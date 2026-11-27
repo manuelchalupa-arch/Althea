@@ -32,7 +32,7 @@ const TABLES = [
   'activitySessions', 'exerciseRecords', 'cycleVersions',
   'routines', 'sessions', 'setLogs',
   'feedbackThreads', 'feedbackMessages', 'feedbackOutbox',
-  'restTimerState', 'cfTimerState',
+  'restTimerState', 'cfTimerState', 'syncQueue', 'syncDeletes',
 ] as const
 
 async function seedRepresentative() {
@@ -144,6 +144,15 @@ async function seedRepresentative() {
     running: false, round: 1, movementIdx: 0, intervalIdx: 0,
     updatedAt: `${today}T10:00:00Z`,
   } as never)
+  // Se conservan las operaciones offline y las marcas de borrado para que una
+  // restauración no pierda escrituras pendientes ni permita resurrecciones.
+  await db.syncQueue.put({
+    id: 'routineStore:r1', table: 'routineStore', key: 'r1', status: 'pending',
+    attempts: 0, createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:00:00Z`,
+  } as never)
+  await db.syncDeletes.put({
+    id: 17, table: 'sessions', docId: 'legacy-deleted', deletedAt: `${today}T10:00:00Z`,
+  } as never)
 }
 
 async function snapshot(): Promise<Record<string, string>> {
@@ -182,8 +191,10 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     expect(data.feedbackOutbox.map((r: any) => r.id)).toContain('message:feedback-m1')
     expect(data.restTimerState.map((r: any) => r.id)).toContain('rest-1')
     expect(data.cfTimerState.map((r: any) => r.id)).toContain('cf-timer-1')
-    // Formato v3 y esquema Dexie v29; las copias antiguas siguen siendo compatibles.
-    expect(data.metadata.version).toBe(3)
+    expect(data.syncQueue.map((r: any) => r.id)).toContain('routineStore:r1')
+    expect(data.syncDeletes.map((r: any) => r.id)).toContain(17)
+    // Formato v4 y esquema Dexie v29; las copias antiguas siguen siendo compatibles.
+    expect(data.metadata.version).toBe(4)
     expect(data.metadata.schemaVersion).toBe(29)
   })
 
