@@ -959,7 +959,7 @@ async function applyImport(
   let activeTableName = 'base local'
   try {
     const transactionTables = [...new Set(tablesToImport.map(item => item.table))]
-    await db.transaction('rw', ...transactionTables, async () => {
+    await db.transaction('rw', transactionTables, async () => {
       for (const { table, data: tableData, key, countKey, name } of tablesToImport) {
         activeTableName = table.name
         if (!tableData.length) { continue }
