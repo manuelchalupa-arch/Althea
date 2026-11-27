@@ -30,7 +30,7 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
   const [cycle, setCycle] = useState<CycleConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'weeks' | 'methods'>('overview')
-  const [, setWeekDraft] = useState<{ days: number[]; startDate: string }>({ days: [], startDate: '' })
+  const [weekDraft, setWeekDraft] = useState<{ days: number[]; startDate: string; weeks: number }>({ days: [], startDate: todayKey(), weeks: 4 })
   const [error, setError] = useState<string | null>(null)
   const [activeVersion, setActiveVersion] = useState<CycleVersion | null>(null)
   const [versionNotice, setVersionNotice] = useState<string | null>(null)
@@ -335,25 +335,25 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <AltheaDatePicker
                 label="Fecha inicio"
-                value={todayKey()}
+                value={weekDraft.startDate}
                 onChange={(value) => setWeekDraft(d => ({ ...d, startDate: value }))}
                 ariaLabel="Fecha de inicio de la secuencia"
               />
               <AltheaInput
                 label="Semanas"
                 type="number"
-                value="4"
-                onChange={(e) => setWeekDraft(d => ({ ...d, weeks: parseInt(e.target.value) || 4 }))}
+                value={String(weekDraft.weeks)}
+                onChange={(e) => setWeekDraft(d => ({ ...d, weeks: Math.max(1, Math.min(52, parseInt(e.target.value) || 1)) }))}
               />
             </div>
             <AltheaButton 
               onClick={() => {
-                const sequences = generateWeekSequence(todayKey(), 4)
+                const sequences = generateWeekSequence(weekDraft.startDate || todayKey(), weekDraft.weeks || 4)
                 saveWeekSequences(sequences)
               }}
               className="w-full"
             >
-              Generar 4 semanas
+              Generar {weekDraft.weeks} semanas
             </AltheaButton>
           </AltheaCard>
         </div>
