@@ -213,7 +213,7 @@ describe('T028 — Demo Data + Export/Import', () => {
       const data = JSON.parse(text)
 
       expect(data.metadata).toBeDefined()
-      expect(data.metadata.version).toBe(3)
+      expect(data.metadata.version).toBe(4)
       expect(data.metadata.exportedAt).toBeDefined()
       expect(data.metadata.schemaVersion).toBe(29)
 
