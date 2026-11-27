@@ -705,7 +705,7 @@ function normalizeRoutine(
   } else {
     for (let dow = 0; dow < 7; dow++) {
       const value = Number(rawWeek[dow])
-      if (Number.isFinite(value) && value >= 1 && value <= days && !weekMap.includes(value)) weekMap[dow] = value
+      if (Number.isFinite(value) && value >= 1 && value <= days && !weekMap.includes(value)) { weekMap[dow] = value }
     }
     for (let d = 1; d <= days; d++) {
       if (weekMap.includes(d)) { continue }
@@ -945,7 +945,7 @@ async function collectContext(
       }
       if (selected.has('loadsReps')) {
         const sets: any[] = await db.table('setRecords').where('sessionId').equals(session.id).toArray().catch(() => [])
-        const actual = sets.filter(set => set.status === 'COMPLETED' && (set.actualReps > 0 || set.actualWeight != null))
+        const actual = sets.filter(set => set.status === 'COMPLETED' && (set.actualReps > 0 || (set.actualWeight !== null && set.actualWeight !== undefined)))
           .slice(0,8).map(set => `${set.exerciseId} ${set.actualWeight ?? 'sin peso'}kg×${set.actualReps}`)
         if (actual.length) { lines.push(`Cargas/reps reales: ${actual.join(';')}`) }
       }
