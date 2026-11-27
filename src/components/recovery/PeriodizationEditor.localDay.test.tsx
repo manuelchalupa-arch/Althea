@@ -1,5 +1,5 @@
 ﻿import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { db } from '@/services/storage/db'
 import { isDateInPeriod } from '@/services/training/metrics'
 import { todayKey, toDateKey } from '@/utils/dates'
