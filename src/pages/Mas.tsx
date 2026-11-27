@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import SemanticIcon from '../components/ui/SemanticIcon';
 import { DailyRemindersConfig } from '@/components/notifications/DailyRemindersConfig'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { db } from '@/services/storage/db'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
@@ -62,7 +62,7 @@ export default function Mas(){
     }
   }, [showNotifModal])
 
-  const handleNotificationDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleNotificationDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Tab') { return }
     const focusable = event.currentTarget.querySelectorAll<HTMLElement>(
       'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
