@@ -89,7 +89,7 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
       'Cuatro ejercicios de un grupo muscular principal con super series',
       'Tres ejercicios de grupo muscular secundario',
       'Cardio suave para bajar el ritmo cardíaco',
-    ].join('\\n')
+    ].join('\n')
     expect(parseRoutineSequence(description)).toEqual({ warmupCount: 1, primaryCount: 4, primarySupersets: true, secondaryCount: 3, cooldownCount: 1 })
     const r = await generateRoutineWithAI({ goal: 'hipertrofia', daysPerWeek: 1, focus: 'pectorals', injuryNote: '', description })
     const list = r.dayExercises[1]

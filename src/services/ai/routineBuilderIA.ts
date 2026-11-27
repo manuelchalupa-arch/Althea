@@ -10,6 +10,7 @@ import { getProxyUrl, getGroqHeaders } from './groqConfig'
 import { aiLimitMessage, getAiAuthHeaders, isLimitError, stripLimitPrefix } from './aiAuth'
 import { buildAiTrainingContext, getTrainingPreferences } from '@/utils/profilePreferences'
 import { exercisePurpose, type ExercisePurpose } from '@/utils/stretching'
+import { TRADITIONAL_SEEDS } from '@/data/traditionalCatalog'
 
 const RATE_LIMIT_KEY = 'groq:lastRequestAt'
 const MIN_GAP_MS = 12_000
@@ -203,16 +204,37 @@ function parseSpanishCount(value: string | undefined): number {
 
 /** Convierte el pedido de bloques consecutivos a una estructura verificable. */
 export function parseRoutineSequence(description = ''): RoutineSequenceRequirements | undefined {
-  const text = plainText(description).replace(/\s+/g, ' ')
-  const warm = text.match(/\b(un|uno|una|1)\s+ejercicios?\s+de\s+(?:estiramiento|calentamiento)/)
-  const primary = text.match(/\b(cuatro|4|cinco|5|tres|3|dos|2)\s+ejercicios?\b.{0,90}\bgrupo muscular principal\b/)
-  const secondary = text.match(/\b(cuatro|4|tres|3|dos|2)\s+ejercicios?\b.{0,90}\bgrupo muscular secundario\b/)
-  const cooldown = /\bcardio\b.{0,100}\b(?:suave|bajar|ritmo cardiaco|ritmo del corazon|recuperacion)\b/.test(text)
-  const warmupCount = parseSpanishCount(warm?.[1])
-  const primaryCount = parseSpanishCount(primary?.[1])
-  const secondaryCount = parseSpanishCount(secondary?.[1])
-  if (!warmupCount || !primaryCount || !secondaryCount || !cooldown) { return undefined }
-  return { warmupCount, primaryCount, primarySupersets: /super\s*series?|superseries?/.test(text), secondaryCount, cooldownCount: 1 }
+  // El usuario puede escribir cada instrucción en una línea o separarla con
+  // saltos pegados como texto literal. Se normalizan ambos casos antes de
+  // identificar cada bloque, sin depender del formato del textarea.
+  const sections = (description || '')
+    .split(/\\n|\r?\n|[.;]+/)
+    .map(part => plainText(part).replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
+  const countIn = (section: string, max: number) => {
+    const match = section.match(/\b(un|uno|una|1|dos|2|tres|3|cuatro|4|cinco|5|seis|6|siete|7)\s+ejercicios?\b/)
+    if (!match) { return 0 }
+    const words: Record<string, number> = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7 }
+    const count = Number(match[1]) || words[match[1]] || 0
+    return count > 0 && count <= max ? count : 0
+  }
+
+  const warmSection = sections.find(section => /\b(estiramiento|estiramientos|calentamiento|calentar)\b/.test(section))
+  const primarySection = sections.find(section => /\bgrupo muscular principal\b/.test(section))
+  const secondarySection = sections.find(section => /\bgrupo muscular secundario\b/.test(section))
+  const cardioSection = sections.find(section => /\bcardio\b/.test(section) && /\b(suave|bajar|ritmo cardiaco|ritmo del corazon|recuperacion)\b/.test(section))
+
+  const warmupCount = warmSection ? countIn(warmSection, 3) : 0
+  const primaryCount = primarySection ? countIn(primarySection, 8) : 0
+  const secondaryCount = secondarySection ? countIn(secondarySection, 8) : 0
+
+  if (!warmupCount || !primaryCount || !secondaryCount || !cardioSection) {
+    return undefined
+  }
+
+  const primarySupersets = Boolean(primarySection && /super\s*series?|superseries?/.test(primarySection))
+  return { warmupCount, primaryCount, primarySupersets, secondaryCount, cooldownCount: 1 }
 }
 
 export function parseRoutineInstructions(description = ''): RoutineInstructions {
@@ -394,8 +416,22 @@ async function loadMusclePools(
     pools[muscle] = picked
   }
 
+  // La IA también dispone de la biblioteca curada local de Althea. Este
+  // catálogo incluye estiramientos/movilidad que no siempre aparecen en la API.
+  const curatedWarmups: PoolEx[] = TRADITIONAL_SEEDS
+    .filter(seed => seed.purpose === 'stretch' || seed.purpose === 'warmup' || seed.purpose === 'mobility')
+    .filter(seed => !instructions.equipment || instructions.equipment.some(eq => seed.equipment.toLowerCase().includes(eq) || eq === 'bodyweight' && seed.equipment === 'peso corporal'))
+    .map(seed => ({
+      id: seed.gymId || seed.id,
+      name: seed.name,
+      eq: seed.equipment,
+      gif: seed.gymId ? `${GYM_BASE}/api/es/exercises/${seed.gymId}.gif` : '',
+      muscle: seed.muscle,
+      purpose: seed.purpose,
+    }))
   const warmRank = (p: PoolEx) => p.purpose === 'stretch' ? 0 : p.purpose === 'warmup' ? 1 : 2
-  pools.__warmup__ = warmupPool.sort((a, b) => warmRank(a) - warmRank(b)).slice(0, 8)
+  const uniqueWarmups = new Map([...curatedWarmups, ...warmupPool].map(item => [item.id, item]))
+  pools.__warmup__ = [...uniqueWarmups.values()].sort((a, b) => warmRank(a) - warmRank(b)).slice(0, 8)
   pools.__cardio__ = cardioPool.slice(0, 8)
   return pools
 }
