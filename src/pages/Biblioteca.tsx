@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 import { MUSCLE_LIBRARY_GROUPS } from '@/data/muscleLibraryConfig'
@@ -100,7 +100,10 @@ export default function Biblioteca(){
     }finally{ setLoading(false) }
   }, [showAll, purpose])
 
-  // Abrir la biblioteca con la consulta que originó una búsqueda global.
+  // Mantener la función vigente sin reiniciar el catálogo cuando cambia la
+  // finalidad elegida por el usuario; el efecto solo sigue la ruta entrante.
+  const loadRef = useRef(load)
+  loadRef.current = load
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const incomingQuery = params.get('buscar')
@@ -108,11 +111,11 @@ export default function Biblioteca(){
       setQ(incomingQuery)
       setShowAll(true)
       setSelectedKey('__all__')
-      void load('__all__', true, 'conventional')
+      void loadRef.current('__all__', true, 'conventional')
       return
     }
-    void load('__all__', false, 'conventional')
-  }, [location.key, location.search, load])
+    void loadRef.current('__all__', false, 'conventional')
+  }, [location.key, location.search])
 
   const BODY_PART_GROUP: Record<string, TraditionalGroupId> = {
     legs: 'piernas', chest: 'pecho', back: 'espalda', core: 'core',
