@@ -20,7 +20,7 @@ const parseKey = (key: string) => {
   return y && m && d ? new Date(y, m - 1, d) : new Date()
 }
 
-export function AltheaDatePicker({ value, onChange, label, ariaLabel, className = '', min, max }: AltheaDatePickerProps) {
+export function AltheaDatePicker({ value, onChange, label, ariaLabel, className = '', min, max, testId }: AltheaDatePickerProps) {
   const selected = value ? parseKey(value) : null
   const [open, setOpen] = useState(false)
   const [month, setMonth] = useState(() => {
