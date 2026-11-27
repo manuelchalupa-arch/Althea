@@ -31,7 +31,6 @@ const COACH_INTENSIDAD: { value: CoachIntensity; label: string; description: str
   { value: 'extremo', label: 'Extremo', description: 'Máxima intensidad, sin excusas (con guardrails)' },
 ]
 const MOVIMIENTOS = ['Sentadilla', 'Peso muerto', 'Press banca', 'Dominadas', 'Burpees', 'Saltos', 'Zancadas']
-const INTENSIDAD_ENTRENO = [1, 2, 3, 4, 5]
 
 const INPUT_CLS = 'w-full bg-surface border-2 border-outline rounded-lg p-3 min-h-[52px] font-body-md text-base text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30'
 
@@ -87,7 +86,6 @@ export default function Onboarding(){
   const [horarioEntreno,setHorarioEntreno]=useState('18:00')
   const [coachIntensity,setCoachIntensity]=useState<CoachIntensity>('profesional')
   const [needs,setNeeds]=useState('')
-  const [intensidadEntreno,setIntensidadEntreno]=useState<number>(3)
   const [availabilityNotes,setAvailabilityNotes]=useState('')
 
   // Biblioteca local (no se persiste en el perfil)
@@ -126,7 +124,6 @@ export default function Onboarding(){
         if (d.restDesc) { setRestDesc(d.restDesc) }
         if (d.excludedMovements) { setExcludedMovements(d.excludedMovements) }
         if (d.excluded) { setExcluded(d.excluded) }
-        if (d.intensidadEntreno) { setIntensidadEntreno(d.intensidadEntreno) }
         if (d.availabilityNotes) { setAvailabilityNotes(d.availabilityNotes) }
       }
       setDraftLoaded(true)
@@ -138,7 +135,7 @@ export default function Onboarding(){
       modalidad, objPrincipal, objCustom, objSec, nivel, diasDisponibles, equipamiento,
       duracionSesion, horarioEntreno, coachIntensity, needs, hasPain, painAreas,
       limDesc, restrictions, restDesc, excludedMovements, excluded,
-      intensidadEntreno, availabilityNotes,
+      availabilityNotes,
     })
   }
 
@@ -199,7 +196,6 @@ export default function Onboarding(){
       trainingTime: horarioEntreno,
       schedule: { ...(existing.schedule || {}), availableDays: diasDisponibles, preferredTime: horarioEntreno, sessionTimeAvailable: duracionSesion },
       trainingModality: modalidad || undefined,
-      trainingIntensity: intensidadEntreno as 1|2|3|4|5,
       coachIntensity,
       coachTone: existing.coachTone || undefined,
       onboardingDone: true,
@@ -415,13 +411,6 @@ export default function Onboarding(){
                   <input type="time" value={horarioEntreno} onChange={e=>setHorarioEntreno(e.target.value)} className={INPUT_CLS}/>
                 </Field>
               </div>
-              <Field label="Intensidad de entrenamiento (1 suave · 5 exigente)">
-                <div className="flex flex-wrap gap-1.5">
-                  {INTENSIDAD_ENTRENO.map(n=>(
-                    <button key={n} type="button" onClick={()=>setIntensidadEntreno(n)} aria-pressed={intensidadEntreno===n} className={chipCls(intensidadEntreno===n)}>{n}</button>
-                  ))}
-                </div>
-              </Field>
               <Field label="Disponibilidad variable (opcional)">
                 <input value={availabilityNotes} onChange={e=>setAvailabilityNotes(e.target.value)} placeholder="Ej.: turnos rotativos, some fines de semana" className={INPUT_CLS}/>
               </Field>
