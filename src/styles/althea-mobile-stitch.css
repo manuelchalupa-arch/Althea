@@ -55,7 +55,7 @@
     padding-left: var(--althea-mobile-gutter);
     padding-right: var(--althea-mobile-gutter);
     padding-top: 8px;
-    padding-bottom: calc(var(--althea-mobile-nav-height) + 12px);
+    padding-bottom: calc(var(--althea-mobile-nav-height) + var(--safe-bottom) + 12px);
   }
 
   .althea-panel,
@@ -162,4 +162,21 @@
     --althea-mobile-card-pad: 8px;
   }
   .shell-content { max-width: 100%; }
+}
+
+
+/* Guardas de responsive móvil: ninguna columna o texto puede forzar el ancho
+   del viewport; el contenido queda separado de la barra y sus áreas seguras. */
+@media (max-width: 767px) {
+  html, body, #root { max-width: 100%; overflow-x: clip; }
+  .shell-content,
+  .shell-content > *,
+  .shell-content :is(.althea-panel, .althea-level-2, .althea-level-3, .althea-level-4) {
+    min-width: 0;
+  }
+  .shell-content :is(input, textarea, select, button) { max-width: 100%; }
+  .shell-content :is(p, h1, h2, h3, label, a, span) { overflow-wrap: anywhere; }
+  .shell-content img,
+  .shell-content svg,
+  .shell-content canvas { max-width: 100%; }
 }
