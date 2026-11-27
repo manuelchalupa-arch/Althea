@@ -79,10 +79,11 @@ export default function AppNav() {
   const moduleEntries = modules.map(toAltheaEntry)
   // Móvil: 5 destinos fijos. CrossFit va inmediatamente después de Nutrición;
   // Progreso/Calendario/etc. se alcanzan desde Más.
-  const mobileEntries = [
-    ...primaryItems.filter(i => ['home', 'training', 'nutrition', 'crossfit'].includes(i.icon as string)),
-    moreItem,
-  ].map(toAltheaEntry)
+  const mobileOrder = ['home', 'training', 'nutrition', 'crossfit', 'more']
+  const mobileEntries = mobileOrder
+    .map(icon => NAV_ITEMS.find(item => item.icon === icon))
+    .filter((item): item is NavItem => Boolean(item))
+    .map(toAltheaEntry)
 
   const toggle = () => {
     const nx = !collapsed
@@ -182,7 +183,7 @@ export default function AppNav() {
 
       <nav
         aria-label="Navegación principal"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 min-h-16 bg-surface/90 backdrop-blur-xl border-t border-primary/20 py-1.5 px-2 shadow-al-md pb-safe"
+        className="app-mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-50 min-h-16 bg-surface/90 backdrop-blur-xl border-t border-primary/20 py-1.5 px-2 shadow-al-md pb-safe"
       >
         <div className="max-w-[480px] mx-auto flex items-center justify-around gap-1">
           <AltheaNav
