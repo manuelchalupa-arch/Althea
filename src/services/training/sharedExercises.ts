@@ -28,16 +28,14 @@ export async function listSharedExercises(): Promise<CustomExercise[]> {
 }
 
 export async function publishSharedExercise(ex: CustomExercise): Promise<CustomExercise> {
-  try {
-    const auth = getAuth()
-    const uid = auth.currentUser?.uid
-    if (!uid) {throw new Error('Debes iniciar sesión para compartir')}
-  } catch {}
+  const uid = getAuth().currentUser?.uid
+  if (!uid) { throw new Error('Debes iniciar sesión para compartir') }
   const id = ex.id && ex.id.startsWith('custom/') ? ex.id : newCustomId()
   const rec: CustomExercise = {
     ...ex,
     id,
     origin: 'USER_CREATED',
+    createdBy: uid,
     updatedAt: new Date().toISOString(),
     createdAt: ex.createdAt || new Date().toISOString(),
   } as CustomExercise
