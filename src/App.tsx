@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import { Suspense, lazy, lazy as reactLazy } from 'react'
+import { Suspense, lazy } from 'react'
 import AppNav from '@/components/layout/AppNav'
 import { RequiredActionGate } from '@/components/notifications/RequiredActionGate'
 import { AppHeader, TempleBackdrop } from '@/components/brand/temple'
@@ -39,7 +39,7 @@ const FeedbackThreadPage = lazy(() => import('@/pages/FeedbackThreadPage'))
 // falla la descarga del chunk, se permite UNA recarga para obtener el manifiesto
 // actual; se evita un bucle infinito y la información local sigue en Dexie.
 const CHAT_CHUNK_RETRY_KEY = 'althea:chat-chunk-retry'
-const ChatWidget = reactLazy(() => import('@/components/chat/ChatWidget').then(module => {
+const ChatWidget = lazy(() => import('@/components/chat/ChatWidget').then(module => {
   try { sessionStorage.removeItem(CHAT_CHUNK_RETRY_KEY) } catch { /* noop */ }
   return module
 }).catch(error => {
