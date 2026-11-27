@@ -31,7 +31,6 @@ function foodDetail(food: FoodSearchResult): string {
 
 export default function GlobalSearchDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
-  const open = true
   const dialogRef = useRef<HTMLElement | null>(null)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResults>(EMPTY_RESULTS)
@@ -74,7 +73,7 @@ export default function GlobalSearchDialog({ onClose }: { onClose: () => void })
   useEffect(() => {
     setFoodToLog(null)
     setFoodError(null)
-    if (!open || term.length < 2) {
+    if (term.length < 2) {
       setResults(EMPTY_RESULTS)
       setFoodRecords([])
       setLoading(false)
@@ -149,7 +148,7 @@ export default function GlobalSearchDialog({ onClose }: { onClose: () => void })
       active = false
       window.clearTimeout(timer)
     }
-  }, [open, term])
+  }, [term])
 
   const sections = useMemo(() => ([
     { kind: 'exercise' as const, title: 'Ejercicios', icon: Dumbbell, items: results.exercise },
