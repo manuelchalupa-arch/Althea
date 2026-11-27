@@ -1758,14 +1758,14 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
     crossfit:['barbell','dumbbell','kettlebell','bodyweight','band'],
   }
   const methods = (() => {
-    if(!profile) return ['hypertrophy','strength','functional'] as TrainingMethodId[]
+    if (!profile) { return ['hypertrophy','strength','functional'] as TrainingMethodId[] }
     const trainingGoal = goal==='hipertrofia'?'hypertrophy':goal==='fuerza'?'strength':goal==='perdida_grasa'?'fat_loss':goal==='resistencia'?'general_health':'general_health'
     const recommendation=selectMethods({...profile,trainingGoal,availableDays:days,equipment} as any)
     const candidates=[recommendation.primary,...recommendation.secondary]
       .filter((id,index,arr)=>arr.indexOf(id)===index)
       .filter(id=>getMethod(id)?.category!=='structure' && getMethod(id)?.category!=='preparation')
     const fallback:TrainingMethodId[]=['hypertrophy','strength','functional','strength_endurance','hiit','cardio_endurance']
-    for(const id of fallback){if(candidates.length>=3)break;if(!candidates.includes(id))candidates.push(id)}
+    for (const id of fallback) {\n      if (candidates.length >= 3) { break }\n      if (!candidates.includes(id)) { candidates.push(id) }\n    }
     return candidates.slice(0,3)
   })()
 
@@ -1799,7 +1799,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
   const toggleHistory=(id:string)=>setHistoryOptions(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
   const chooseEquipmentMode=(mode:string)=>{
     setEquipmentMode(mode)
-    if(presets[mode])setEquipment(presets[mode])
+    if (presets[mode]) { setEquipment(presets[mode]) }
     if(mode==='crossfit')setModality('crossfit')
     else if(mode!=='profile')setModality('gym')
     if(mode==='profile' && profile){
