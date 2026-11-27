@@ -196,12 +196,6 @@ function addMuscleAliases(sentence: string, out: Set<string>) {
   }
 }
 
-function parseSpanishCount(value: string | undefined): number {
-  if (!value) { return 0 }
-  const words: Record<string, number> = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7 }
-  return Number(value) || words[value] || 0
-}
-
 /** Convierte el pedido de bloques consecutivos a una estructura verificable. */
 export function parseRoutineSequence(description = ''): RoutineSequenceRequirements | undefined {
   // Se admite texto corrido, saltos reales o "\\n" literal.
