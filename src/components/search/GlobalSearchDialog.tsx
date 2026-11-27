@@ -215,8 +215,7 @@ export default function GlobalSearchDialog({ onClose }: { onClose: () => void })
 
   return (
     <>
-      {open && (
-        <div
+      <div
           className="fixed inset-0 z-[90] flex items-start justify-center bg-black/65 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-[max(12px,env(safe-area-inset-bottom))] sm:pt-[8vh]"
           onMouseDown={(event) => { if (event.target === event.currentTarget) { close() } }}
         >
@@ -333,8 +332,7 @@ export default function GlobalSearchDialog({ onClose }: { onClose: () => void })
               Resultados locales · funciona sin conexión · Esc para cerrar
             </footer>
           </section>
-        </div>
-      )}
+      </div>
     </>
   )
 }
