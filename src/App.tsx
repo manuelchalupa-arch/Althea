@@ -291,7 +291,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
     <div className="shell-safe-top">
     <RequiredActionGate>
       <TempleBackdrop />
-      {!hideNav && <AppHeader />}
+      {!hideNav && <AppHeader onRequestUpdate={() => setUpdateDialogOpen(true)} />}
       {!hideNav && <MeanderFrieze height={3} color="rgb(var(--c-gold-rgb) / 0.4)" className="shell-content-nudge" />}
       <div data-section={accentSectionForPath(loc.pathname)} className="shell-content relative z-10 mx-auto px-3 sm:px-5 lg:px-6 xl:px-8 2xl:px-10 pt-4 pb-24 md:pb-10 transition-[margin-left] duration-200">
       <Routes>

@@ -3,7 +3,6 @@ import { RefreshCw, MessageSquare } from 'lucide-react'
 import GlobalSearchLauncher from '@/components/search/GlobalSearchLauncher'
 import { ThemeToggle } from './ThemeToggle'
 import { AltheaAvatar } from './AltheaAvatar'
-import { confirmAndUpdate } from '@/services/pwa/manualUpdate'
 import { accentSectionForPath as navSectionForPath } from '@/components/navigation/sections'
 
 export type TempleSection =
@@ -77,7 +76,7 @@ export const SECTION_TITLES: Record<TempleSection, string> = {
   default: 'Althea',
 }
 
-export function AppHeader() {
+export function AppHeader({ onRequestUpdate }: { onRequestUpdate: () => void }) {
   const loc = useLocation()
   const nav = useNavigate()
   const section = sectionForPath(loc.pathname)
@@ -120,7 +119,7 @@ export function AppHeader() {
         <ThemeToggle />
         <button
           type="button"
-          onClick={confirmAndUpdate}
+          onClick={onRequestUpdate}
           aria-label="Buscar actualización y recargar"
           title="Actualizar la app"
           className="inline-flex items-center justify-center w-11 h-11 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
