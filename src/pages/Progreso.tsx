@@ -10,6 +10,7 @@ import { unifiedAllCompletedSets } from '@/services/history'
 import { buildMuscleResolver, type MuscleResolver } from '@/services/training/muscleAttribution'
 import { todayKey, dayKeyOffset, toDateKey, daysBetween } from '@/utils/dates'
 import { MuscleAtlas } from '@/components/progress/MuscleAtlas'
+import { AltheaDatePicker } from '@/components/althea/AltheaDatePicker'
 import { buildAtlasMuscleData } from '@/components/progress/muscleAtlasData'
 import { buildRegionContributions, type SportItem } from '@/components/progress/muscleContributions'
 import { sportsAttribution } from '@/services/training/activityMuscleMap'
@@ -905,23 +906,18 @@ function AtlasMetricControl({ metric, onMetric, wrapClass, btnClass }: {
   )
 }
 
-function AtlasCustomRange({ start, end, onStart, onEnd, error, inputClass }: {
+function AtlasCustomRange({ start, end, onStart, onEnd, error }: {
   start: string
   end: string
   onStart: (v: string) => void
   onEnd: (v: string) => void
   error: string | null
-  inputClass: string
 }) {
   return (
     <div>
       <div className="grid grid-cols-2 gap-2">
-        <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Desde
-          <input type="date" value={start} onChange={e => onStart(e.target.value)} className={inputClass} />
-        </label>
-        <label className="font-label-caps text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Hasta
-          <input type="date" value={end} onChange={e => onEnd(e.target.value)} className={inputClass} />
-        </label>
+        <div><AltheaDatePicker label="Desde" value={start} onChange={onStart} className="w-full" /></div>
+        <div><AltheaDatePicker label="Hasta" value={end} onChange={onEnd} className="w-full" /></div>
       </div>
       {error && <p className="atlas-error" role="alert">{error}</p>}
     </div>
