@@ -380,6 +380,17 @@ describe('Render de páginas no muta datos (Etapa 9)', () => {
     const closeButton = screen.getByRole('button', { name: 'Cerrar notificaciones y recordatorios' })
     expect(closeButton.className).toContain('min-h-[44px]')
 
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    )
+    expect(focusable.length).toBeGreaterThan(1)
+    focusable[0].focus()
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true })
+    expect(document.activeElement).toBe(focusable[focusable.length - 1])
+    focusable[focusable.length - 1].focus()
+    fireEvent.keyDown(dialog, { key: 'Tab' })
+    expect(document.activeElement).toBe(focusable[0])
+
     fireEvent.keyDown(window, { key: 'Escape' })
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Notificaciones y recordatorios' })).not.toBeInTheDocument()
