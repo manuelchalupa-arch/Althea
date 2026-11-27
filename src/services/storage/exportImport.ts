@@ -143,7 +143,7 @@ export interface ExportMetadata {
 }
 
 export interface ImportOptions {
-  mode: 'merge' | 'replace' | 'replace-all'
+  mode: 'merge'
   confirmOverwrite?: boolean
   skipValidation?: boolean
   onProgress?: (stage: string, current: number, total: number) => void
@@ -1013,12 +1013,6 @@ async function applyImport(
           && !existingPrimaryKeys.has(keyValue)
           && !(name === 'trainingSessions' && existingSessionIds.has(record?.sessionId))
       })
-    }
-    
-    if (options.mode === 'replace' && conflictIds.size > 0) {
-      for (const id of conflictIds) {
-        await table.delete(id)
-      }
     }
     
         if (recordsToImport.length > 0) {
