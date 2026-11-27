@@ -58,7 +58,7 @@ jobs:
           FIREBASE_PRODUCTION_PROJECT_ID: demo-althea-production
         run: npx --yes firebase-tools emulators:exec --project demo-althea --only auth,firestore "node scripts/firestore-isolation-e2e.mjs"
   dependency-remediation:
-    if: ${{ github.event_name == 'push' && github.event.head_commit.message == 'chore(deps): trigger audited dependency refresh' }}
+    if: "${{ github.event_name == 'push' && github.event.head_commit.message == 'chore(deps): trigger audited dependency refresh' }}"
     runs-on: ubuntu-latest
     permissions:
       contents: write
