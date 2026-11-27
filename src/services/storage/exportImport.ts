@@ -958,7 +958,7 @@ async function applyImport(
   
   let activeTableName = 'base local'
   try {
-    const transactionTables = tablesToImport.map(item => item.table)
+    const transactionTables = [...new Set(tablesToImport.map(item => item.table))]
     await db.transaction('rw', ...transactionTables, async () => {
       for (const { table, data: tableData, key, countKey, name } of tablesToImport) {
         activeTableName = table.name
@@ -1302,27 +1302,7 @@ export async function importJSON(file: File, options: ImportOptions = { mode: 'm
   
   options.onProgress?.('Iniciando importación', 0, 1)
   
-  const applied = await db.transaction('rw', [
-    db.routineStore, db.routineDays, db.routineExercises,
-    db.trainingSessions, db.sessionExercises, db.setRecords,
-    db.sessionEvents, db.postWorkoutSurveys, db.negativeSets,
-    db.exerciseObservations, db.recoveryChecks, db.hydrationLogs,
-    db.bodyMeasurements, db.userProfile, db.customExercises,
-    db.weeklySequences, db.chatMessages, db.chatConversations,
-    db.nutritionDiary, db.nutritionAdherence, db.sessionOverrides,
-    db.coachMemory, db.decisionLog, db.knowledgeDocuments,
-    db.exerciseKnowledge, db.scoreSnapshots, db.onboardingDrafts,
-    db.painLogs, db.cfWods, db.cfSchedule, db.cfResults, db.cfMarks,
-    db.activitySessions, db.exerciseRecords, db.cycleVersions,
-    db.hydrationBottles, db.hydrationBottleLogs, db.notifConfigs, db.notifLog,
-    db.unifiedNotifConfigs, db.requiredActionStates, db.customFoods,
-    db.exerciseState, db.sessionChanges, db.sessionObservations,
-    db.routines, db.sessions, db.setLogs,
-    db.feedbackThreads, db.feedbackMessages, db.feedbackOutbox,
-    db.restTimerState, db.cfTimerState, db.syncQueue, db.syncDeletes,
-  ], async () => {
-    return await applyImport(migrated, options, conflicts)
-  })
+  const applied = await applyImport(migrated, options, conflicts)
   
   const verification = await verifyImport(migrated)
   if (!verification.passed) {
