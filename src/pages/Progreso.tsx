@@ -624,7 +624,6 @@ export default function Progresos() {
             onStart={setCustomStart}
             onEnd={setCustomEnd}
             error={winError}
-            inputClass="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]"
           />
         )}
 
@@ -759,7 +758,6 @@ export default function Progresos() {
           onStart={setCustomStart}
           onEnd={setCustomEnd}
           error={winError}
-          inputClass="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[44px]"
         />
       )}
       {loading ? (
