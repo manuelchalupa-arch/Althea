@@ -3,6 +3,7 @@ import { AltheaBadge } from '@/components/althea/AltheaBadge'
 import { AltheaButton } from '@/components/althea/AltheaButton'
 import { AltheaCard } from '@/components/althea/AltheaCard'
 import { AltheaInput, AltheaSelect, AltheaTextarea } from '@/components/althea/AltheaInput'
+import { AltheaDatePicker } from '@/components/althea/AltheaDatePicker'
 import { CF_MOVEMENTS, findCfMovement } from '@/services/crossfit/cfMovementCatalog'
 import { classifyModalities, sessionKindOf } from '@/services/crossfit/classify'
 import { newScheduleEntry, newWod } from '@/services/crossfit/cfStore'
@@ -353,11 +354,12 @@ export default function CrossfitConstructor() {
             onChange={(e) => setInstructions(e.target.value)}
             placeholder={'Calentar 10 min\n3 rondas de preparación\nEjecutar el WOD'}
           />
-          <AltheaInput
+          <AltheaDatePicker
             label="Programar en fecha (opcional)"
-            type="date"
             value={scheduleDate}
-            onChange={(e) => setScheduleDate(e.target.value)}
+            onChange={setScheduleDate}
+            ariaLabel="Fecha de programación del WOD"
+            className="w-full"
           />
 
           {error && <p role="alert" className="text-sm text-error">{error}</p>}
