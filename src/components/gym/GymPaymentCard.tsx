@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AltheaDatePicker } from '@/components/althea/AltheaDatePicker'
 import { todayKey, isDateKey, parseLocalDateKey, toLocalDateKey, daysBetween } from '@/utils/dates'
 
 const STORAGE_KEY = 'althea:gymPaymentDate'
@@ -65,14 +66,12 @@ export default function GymPaymentCard() {
           {!payment || editing ? (
             <label className="flex flex-wrap items-center gap-2 mt-1.5 text-[13px]">
               <span className="opacity-80 shrink-0">¿Cuándo pagaste?</span>
-              <input
-                type="date"
-                data-testid="gym-card-input"
-                aria-label="Fecha de pago del gimnasio"
-                defaultValue={payment ?? ''}
-                autoFocus={!payment}
-                onChange={(e) => save(e.target.value)}
-                className="min-w-0 bg-transparent border border-outline-variant/60 rounded-lg px-2 py-1.5 text-[14px] text-inherit focus:outline-none"
+              <AltheaDatePicker
+                testId="gym-card-input"
+                ariaLabel="Fecha de pago del gimnasio"
+                value={payment ?? ''}
+                onChange={save}
+                className="min-w-0"
               />
             </label>
           ) : (
