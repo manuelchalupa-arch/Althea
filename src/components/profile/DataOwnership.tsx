@@ -94,7 +94,8 @@ export function DataOwnership() {
     setError(null)
     setBusy(true)
     try {
-      const r = await importJSON(pendingFile, { mode: 'merge' })
+      // La confirmación autoriza la estrategia merge: los IDs en conflicto se conservan localmente.
+      const r = await importJSON(pendingFile, { mode: 'merge', confirmOverwrite: true })
       setResult(r)
       setPhase('done')
       setNotice(r.success
@@ -237,7 +238,7 @@ export function DataOwnership() {
               <p className="text-sm text-on-surface">
                 <span className="font-medium">Combinar (recomendado)</span>
                 <span className="block text-xs text-on-surface-variant">
-                  Agrega los registros del respaldo y conserva la información actual.
+                  Agrega los registros que faltan. Los registros existentes se conservan y no se sobrescriben.
                 </span>
               </p>
               <p className="text-xs text-on-surface-variant">
@@ -276,11 +277,11 @@ export function DataOwnership() {
               </div>
             ))}
           </dl>
-          {result.errors.length > 0 && (
+          {(!result.verification.passed || result.errors.length > 0) && (
             <div className="flex items-start gap-2 rounded bg-tertiary/10 border border-tertiary/30 p-2">
               <AlertTriangle size={14} className="text-tertiary shrink-0 mt-0.5" aria-hidden="true" />
               <ul className="text-xs text-on-surface-variant space-y-0.5">
-                {result.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+                {[...result.errors, ...result.verification.details.filter(d => d !== 'Verificación completada')].slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
               </ul>
             </div>
           )}
