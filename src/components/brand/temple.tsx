@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { RefreshCw } from 'lucide-react'
+import GlobalSearchDialog from '@/components/search/GlobalSearchDialog'
 import { ThemeToggle } from './ThemeToggle'
 import { AltheaAvatar } from './AltheaAvatar'
 import { confirmAndUpdate } from '@/services/pwa/manualUpdate'
@@ -97,7 +98,8 @@ export function AppHeader() {
         <div className="flex-1" />
       </div>
       {/* Acciones superiores: Feedback solo en Inicio; el chat tiene un único acceso flotante inferior. */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <GlobalSearchDialog />
         <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-medium">
           <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-primary" /> Coach activo
         </span>
