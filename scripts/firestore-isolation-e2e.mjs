@@ -200,11 +200,39 @@ async function updateSharedExercise(token, docId, createdBy, name) {
   })
 }
 
-async function verifyAuthEmail(token) {
+async function verifyAuthEmail(email, token) {
+  if (!isEmu) {
+    throw new Error('La verificación automatizada por código OOB está limitada al emulador local.')
+  }
+
+  // El emulador debe seguir el flujo real de Firebase: solicitar código,
+  // recuperar el OOB del endpoint local y confirmarlo. accounts:update no
+  // permite simular emailVerified=true enviando ese campo directamente.
+  const request = await fetch(`${IDENTITY}:sendOobCode?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken: token }),
+  })
+  const requestData = await request.json().catch(() => ({}))
+  if (!request.ok) return { res: request, data: requestData }
+
+  const codesResponse = await fetch(
+    `http://127.0.0.1:9099/emulator/v1/projects/${encodeURIComponent(projectId)}/oobCodes`,
+  )
+  const codesData = await codesResponse.json().catch(() => ({}))
+  if (!codesResponse.ok) return { res: codesResponse, data: codesData }
+
+  const verificationCode = codesData.oobCodes?.find((entry) =>
+    entry.email === email && entry.requestType === 'VERIFY_EMAIL',
+  )
+  if (!verificationCode?.oobCode) {
+    return { res: new Response(null, { status: 500 }), data: { error: { message: 'verification_code_not_found' } } }
+  }
+
   const res = await fetch(`${IDENTITY}:update?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken: token, emailVerified: true, returnSecureToken: true }),
+    body: JSON.stringify({ oobCode: verificationCode.oobCode, returnSecureToken: true }),
   })
   const data = await res.json().catch(() => ({}))
   return { res, data }
@@ -417,7 +445,7 @@ if (isEmu) {
         if (unverified.status === 403) ok('feedback: el correo de administrador sin verificar no obtiene privilegios')
         else bad(`feedback: el administrador no verificado debía recibir 403, obtuvo ${unverified.status}`)
 
-        const verification = await verifyAuthEmail(adminAccount.data.idToken)
+        const verification = await verifyAuthEmail('manuelchalupa@gmail.com', adminAccount.data.idToken)
         if (!verification.res.ok) {
           bad(`Auth emulator: no se pudo verificar el correo de prueba (${verification.res.status})`)
         } else {
