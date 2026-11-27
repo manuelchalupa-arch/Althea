@@ -26,6 +26,7 @@ import { acquireSlot, releaseSlot, resetConcurrency } from './concurrency.js'
 
 const MAX_BODY_BYTES = 64 * 1024
 const DEFAULT_AI_TIMEOUT_MS = 60_000
+const DEFAULT_ROUTINE_TIMEOUT_MS = 120_000
 const DEFAULT_MODEL = '@cf/google/gemma-4-26b-a4b-it'
 const DEFAULT_MAX_CONCURRENCY = 6
 
@@ -37,7 +38,7 @@ const TASKS = {
     responseFormat: { type: 'text' },
   },
   routine: {
-    maxTokens: 8192,
+    maxTokens: 4096,
     stream: false,
     responseFormat: { type: 'json_object' },
   },
@@ -259,12 +260,21 @@ async function handleAi(request, env, cors, timeoutMs, uid) {
   const validated = validateChatPayload(parsed)
   if (!validated.ok) return errorResponse(422, validated.code, limitHeaders)
 
+  // Las rutinas devuelven JSON completo y requieren más margen que el chat.
+  // El límite se acota para evitar que una variable mal configurada deje slots retenidos.
+  const configuredRoutineTimeout = Number(env.AI_ROUTINE_TIMEOUT_MS)
+  const effectiveTimeoutMs = validated.task === 'routine'
+    ? (Number.isFinite(configuredRoutineTimeout) && configuredRoutineTimeout > 0
+      ? Math.min(configuredRoutineTimeout, 180_000)
+      : DEFAULT_ROUTINE_TIMEOUT_MS)
+    : timeoutMs
+
   if (!env.AI || typeof env.AI.run !== 'function') {
     return errorResponse(503, 'ai_not_configured', limitHeaders)
   }
 
   const maxConcurrency = Number(env.AI_MAX_CONCURRENCY) || DEFAULT_MAX_CONCURRENCY
-  const slot = await acquireSlot(env, maxConcurrency, timeoutMs + 15_000)
+  const slot = await acquireSlot(env, maxConcurrency, effectiveTimeoutMs + 15_000)
   if (!slot.ok) {
     return errorResponse(429, 'busy', { ...limitHeaders, 'Retry-After': '2' })
   }
@@ -302,7 +312,7 @@ async function handleAi(request, env, cors, timeoutMs, uid) {
       user: uid,
     }
 
-    const result = await withTimeout(env.AI.run(model, input), timeoutMs)
+    const result = await withTimeout(env.AI.run(model, input), effectiveTimeoutMs)
     const headers = {
       ...limitHeaders,
       ...quotaHeaders,
