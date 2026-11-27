@@ -904,8 +904,34 @@ function buildPrompt(ctx: {
   const description = (wants.description || '').trim()
   const label = splitLabel(instructions.split)
 
-  const exLines = Object.entries(ctx.exercises)
-    .map(([m, exs]) => `${m}:${exs.map(e => `${e.id}|${e.name}|${e.eq}`).join(';')}`)
+  // El Worker limita cada mensaje a 12.000 caracteres. Enviamos una
+  // muestra equilibrada por grupo (incluye warmup/cardio) para el modelo;
+  // la normalización posterior conserva y consulta el catálogo local completo.
+  const groups = Object.entries(ctx.exercises).sort(([a], [b]) => {
+    const score = (key: string) => key === '__warmup__' ? -3
+      : key === '__cardio__' ? -2
+        : instructions.priorities.includes(key) ? -1 : 0
+    return score(a) - score(b)
+  })
+  const selected = new Map<string, string[]>()
+  let selectedCount = 0
+  let selectedChars = 0
+  for (let round = 0; round < 16 && selectedCount < 72; round++) {
+    for (const [muscle, list] of groups) {
+      const exercise = list[round]
+      if (!exercise || selectedCount >= 72) { continue }
+      const entry = `${exercise.id}|${exercise.name}|${exercise.eq}`
+      const delta = entry.length + 1
+      if (selectedChars + delta > 7000) { continue }
+      const bucket = selected.get(muscle) || []
+      bucket.push(entry)
+      selected.set(muscle, bucket)
+      selectedCount++
+      selectedChars += delta
+    }
+  }
+  const exLines = [...selected.entries()]
+    .map(([muscle, items]) => `${muscle}:${items.join(';')}`)
     .join('\n')
 
   const hardRules = [
@@ -925,7 +951,7 @@ function buildPrompt(ctx: {
     instructions.gradualProgression ? '- Progresión gradual y explícita.' : '',
   ].filter(Boolean).join('\n')
 
-  return `Eres un entrenador personal experto en fuerza e hipertrofia. Genera una rutina de entrenamiento en formato JSON.
+  const prompt = `Eres un entrenador personal experto en fuerza e hipertrofia. Genera una rutina de entrenamiento en formato JSON.
 
 PEDIDO DEL USUARIO (texto libre, es la fuente principal; interpretalo literalmente):
 ${description || '(sin pedido libre; usá los datos estructurados de abajo)'}
@@ -1005,6 +1031,10 @@ Responde SOLO con este JSON (sin explicaciones, sin markdown):
     "keyFeatures": ["Característica 1", "Característica 2"]
   }
 }`
+  if (prompt.length > 10_500) {
+    throw new Error('La información del perfil y el pedido superan el tamaño seguro para la IA. Acortá el texto de instrucciones y volvé a intentarlo.')
+  }
+  return prompt
 }
 
 function extractJSON(text: string): string {
