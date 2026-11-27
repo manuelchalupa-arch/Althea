@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { db } from '@/services/storage/db'
 import { Calendar, X, AlertCircle, CheckCircle, Brain, Zap } from 'lucide-react'
 import { AltheaButton, AltheaCard, AltheaInput } from '@/components/althea'
+import { AltheaDatePicker } from '@/components/althea/AltheaDatePicker'
 import {
   getCycleFromProfile,
   getTrainingDayForDate,
@@ -332,11 +333,11 @@ export function PeriodizationEditor({ onClose }: PeriodizationEditorProps) {
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <AltheaInput
+              <AltheaDatePicker
                 label="Fecha inicio"
-                type="date"
                 value={todayKey()}
-                onChange={(e) => setWeekDraft(d => ({ ...d, startDate: e.target.value }))}
+                onChange={(value) => setWeekDraft(d => ({ ...d, startDate: value }))}
+                ariaLabel="Fecha de inicio de la secuencia"
               />
               <AltheaInput
                 label="Semanas"
