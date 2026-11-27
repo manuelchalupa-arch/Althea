@@ -192,7 +192,7 @@ export default function Perfil() {
   const [firebaseReady, setFirebaseReady] = useState(false)
   const [coachTone, setCoachTone] = useState('')
   const [coachLevel, setCoachLevel] = useState(3)
-  const [trainPrefs, setTrainPrefs] = useState({ duration: 60, time: '18:00', level: 'intermediate', modality: 'gym', availability: '' })
+  const [trainPrefs, setTrainPrefs] = useState({ duration: 60, time: '18:00', level: 'intermediate', modality: 'gym', availability: '', equipment: [] as string[], availableDays: [] as number[] })
   const [excluded, setExcluded] = useState<string[]>([])
   const { isVisible: isSectionVisible, toggle: toggleSection } = useVisibleSections()
   const [showBiblio, setShowBiblio] = useState(false)
@@ -215,6 +215,8 @@ export default function Perfil() {
           level: resolveExperienceLevel(p),
           modality: p.trainingModality === 'crossfit' ? 'crossfit' : 'gym',
           availability: p.availabilityNotes || '',
+          equipment: Array.isArray(p.equipment) ? p.equipment : [],
+          availableDays: Array.isArray(p.availableDays) && p.availableDays.length ? p.availableDays : Array.isArray(p.schedule?.availableDays) ? p.schedule.availableDays : [],
         })
         setExcluded(p.excludedExercises || [])
         setForm({
@@ -330,8 +332,10 @@ export default function Perfil() {
       experienceLevel: trainPrefs.level,
       level: trainPrefs.level === 'beginner' ? 'principiante' : trainPrefs.level === 'advanced' ? 'avanzado' : 'intermedio',
       trainingModality: trainPrefs.modality,
+      equipment: trainPrefs.equipment,
+      availableDays: trainPrefs.availableDays,
       availabilityNotes: trainPrefs.availability,
-      schedule: { ...(profile.schedule || {}), preferredTime: trainPrefs.time, sessionTimeAvailable: duration },
+      schedule: { ...(profile.schedule || {}), availableDays: trainPrefs.availableDays, preferredTime: trainPrefs.time, sessionTimeAvailable: duration },
     }
     await db.userProfile.put({ ...profile, ...patch, updatedAt: new Date().toISOString() })
     setProfile({ ...profile, ...patch })
@@ -600,6 +604,31 @@ export default function Perfil() {
                 <option value="crossfit">CrossFit</option>
               </select>
             </label>
+          </div>
+          <div className="space-y-2">
+            <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Días disponibles para entrenar</span>
+            <div className="grid grid-cols-4 gap-2">
+              {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map((day,index)=>(
+                <button key={day} type="button" aria-pressed={trainPrefs.availableDays.includes(index)}
+                  onClick={()=>setTrainPrefs(p=>({...p,availableDays:p.availableDays.includes(index)?p.availableDays.filter(d=>d!==index):[...p.availableDays,index].sort((a,b)=>a-b)}))}
+                  className={`min-h-[42px] rounded-lg border text-xs font-medium ${trainPrefs.availableDays.includes(index)?'bg-primary/20 border-primary text-primary':'bg-surface-container/50 border-outline-variant text-on-surface-variant'}`}>{day}</button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Equipamiento disponible</span>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['barra','Barra'],['mancuernas','Mancuernas'],['maquina','Máquinas'],['polea','Poleas'],
+                ['peso_corporal','Peso corporal'],['banda','Bandas elásticas'],['kettlebell','Kettlebell'],['otro','Otro']
+              ].map(([value,label])=>(
+                <label key={value} className="flex items-center gap-2 rounded-lg border border-outline-variant p-2 text-xs text-on-surface">
+                  <input type="checkbox" checked={trainPrefs.equipment.includes(value)}
+                    onChange={()=>setTrainPrefs(p=>({...p,equipment:p.equipment.includes(value)?p.equipment.filter(x=>x!==value):[...p.equipment,value]}))}/>
+                  {label}
+                </label>
+              ))}
+            </div>
           </div>
           <label className="block">
             <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Disponibilidad variable</span>
