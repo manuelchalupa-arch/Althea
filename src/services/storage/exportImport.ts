@@ -676,25 +676,70 @@ async function verifyImport(importedData: ExportData): Promise<VerificationResul
       }
     }
     
-    // Verificar que las claves primarias recibidas realmente existan en Dexie.
-    // Así recordCounts deja de ser un valor fijo que siempre pasaba.
-    const countChecks = await Promise.all([
-      db.routineStore.bulkGet((importedData.routines ?? []).map(r => r.id)),
-      db.trainingSessions.bulkGet((importedData.trainingSessions ?? []).map(r => r.id)),
-      db.sessionExercises.bulkGet((importedData.sessionExercises ?? []).map(r => r.sessionExerciseId)),
-      db.setRecords.bulkGet((importedData.setRecords ?? []).map(r => r.setRecordId)),
-      db.hydrationBottles.bulkGet((importedData.hydrationBottles ?? []).map(r => r.id)),
-      db.hydrationBottleLogs.bulkGet((importedData.hydrationBottleLogs ?? []).map(r => r.id)),
-      db.customFoods.bulkGet((importedData.customFoods ?? []).map(r => r.id)),
-      db.unifiedNotifConfigs.bulkGet((importedData.unifiedNotifConfigs ?? []).map(r => r.id)),
-    ])
-    const missingImportedRecords = countChecks.reduce(
-      (sum, rows) => sum + rows.filter(row => row === undefined).length,
-      0,
-    )
+    // Comprobar cada tabla exportada. El conteo no se da por correcto por
+    // defecto: se verifican las claves que realmente quedaron en Dexie.
+    const countSpecs: Array<{ name: string; table: any; records: any[]; key: string }> = [
+      { name: 'Rutinas', table: db.routineStore, records: importedData.routines ?? [], key: 'id' },
+      { name: 'Días de rutina', table: db.routineDays, records: importedData.routineDays ?? [], key: 'id' },
+      { name: 'Ejercicios de rutina', table: db.routineExercises, records: importedData.routineExercises ?? [], key: 'id' },
+      { name: 'Sesiones', table: db.trainingSessions, records: importedData.trainingSessions ?? [], key: 'id' },
+      { name: 'Ejercicios de sesión', table: db.sessionExercises, records: importedData.sessionExercises ?? [], key: 'sessionExerciseId' },
+      { name: 'Series', table: db.setRecords, records: importedData.setRecords ?? [], key: 'setRecordId' },
+      { name: 'Eventos de sesión', table: db.sessionEvents, records: importedData.sessionEvents ?? [], key: 'eventId' },
+      { name: 'Encuestas', table: db.postWorkoutSurveys, records: importedData.postWorkoutSurveys ?? [], key: 'surveyId' },
+      { name: 'Series negativas', table: db.negativeSets, records: importedData.negativeSets ?? [], key: 'negativeSetId' },
+      { name: 'Observaciones de ejercicios', table: db.exerciseObservations, records: importedData.exerciseObservations ?? [], key: 'observationId' },
+      { name: 'Recuperación', table: db.recoveryChecks, records: importedData.recoveryChecks ?? [], key: 'id' },
+      { name: 'Hidratación', table: db.hydrationLogs, records: importedData.hydrationLogs ?? [], key: 'id' },
+      { name: 'Mediciones', table: db.bodyMeasurements, records: importedData.bodyMeasurements ?? [], key: 'id' },
+      { name: 'Perfil', table: db.userProfile, records: importedData.userProfile ?? [], key: 'id' },
+      { name: 'Ejercicios propios', table: db.customExercises, records: importedData.customExercises ?? [], key: 'id' },
+      { name: 'Secuencias semanales', table: db.weeklySequences, records: importedData.weeklySequences ?? [], key: 'id' },
+      { name: 'Mensajes del Coach', table: db.chatMessages, records: importedData.chatMessages ?? [], key: 'id' },
+      { name: 'Conversaciones del Coach', table: db.chatConversations, records: importedData.chatConversations ?? [], key: 'id' },
+      { name: 'Diario nutricional', table: db.nutritionDiary, records: importedData.nutritionDiary ?? [], key: 'id' },
+      { name: 'Adherencia nutricional', table: db.nutritionAdherence, records: importedData.nutritionAdherence ?? [], key: 'id' },
+      { name: 'Cambios de sesión', table: db.sessionOverrides, records: importedData.sessionOverrides ?? [], key: 'date' },
+      { name: 'Memoria del Coach', table: db.coachMemory, records: importedData.coachMemory ?? [], key: 'id' },
+      { name: 'Decisiones', table: db.decisionLog, records: importedData.decisionLog ?? [], key: 'id' },
+      { name: 'Documentos de conocimiento', table: db.knowledgeDocuments, records: importedData.knowledgeDocuments ?? [], key: 'id' },
+      { name: 'Conocimiento de ejercicios', table: db.exerciseKnowledge, records: importedData.exerciseKnowledge ?? [], key: 'id' },
+      { name: 'Puntuaciones', table: db.scoreSnapshots, records: importedData.scoreSnapshots ?? [], key: 'id' },
+      { name: 'Borradores de onboarding', table: db.onboardingDrafts, records: importedData.onboardingDrafts ?? [], key: 'id' },
+      { name: 'Registros de dolor', table: db.painLogs, records: importedData.painLogs ?? [], key: 'id' },
+      { name: 'WODs', table: db.cfWods, records: importedData.cfWods ?? [], key: 'id' },
+      { name: 'Programación CrossFit', table: db.cfSchedule, records: importedData.cfSchedule ?? [], key: 'id' },
+      { name: 'Resultados CrossFit', table: db.cfResults, records: importedData.cfResults ?? [], key: 'id' },
+      { name: 'Marcas CrossFit', table: db.cfMarks, records: importedData.cfMarks ?? [], key: 'id' },
+      { name: 'Actividad deportiva', table: db.activitySessions, records: importedData.activitySessions ?? [], key: 'id' },
+      { name: 'Récords de ejercicios', table: db.exerciseRecords, records: importedData.exerciseRecords ?? [], key: 'id' },
+      { name: 'Versiones de ciclos', table: db.cycleVersions, records: importedData.cycleVersions ?? [], key: 'id' },
+      { name: 'Botellas', table: db.hydrationBottles, records: importedData.hydrationBottles ?? [], key: 'id' },
+      { name: 'Registros por botella', table: db.hydrationBottleLogs, records: importedData.hydrationBottleLogs ?? [], key: 'id' },
+      { name: 'Avisos heredados', table: db.notifConfigs, records: importedData.notifConfigs ?? [], key: 'id' },
+      { name: 'Historial de avisos', table: db.notifLog, records: importedData.notifLog ?? [], key: 'id' },
+      { name: 'Avisos unificados', table: db.unifiedNotifConfigs, records: importedData.unifiedNotifConfigs ?? [], key: 'id' },
+      { name: 'Acciones obligatorias', table: db.requiredActionStates, records: importedData.requiredActionStates ?? [], key: 'id' },
+      { name: 'Alimentos personalizados', table: db.customFoods, records: importedData.customFoods ?? [], key: 'id' },
+      { name: 'Estado de ejercicios', table: db.exerciseState, records: importedData.exerciseState ?? [], key: 'id' },
+      { name: 'Cambios históricos', table: db.sessionChanges, records: importedData.sessionChanges ?? [], key: 'id' },
+      { name: 'Observaciones históricas', table: db.sessionObservations, records: importedData.sessionObservations ?? [], key: 'id' },
+    ]
+    const countResults = await Promise.all(countSpecs.map(async ({ name, table, records, key }) => {
+      if (records.length === 0) { return { name, missing: 0 } }
+      const ids = records.map(record => record?.[key])
+      const invalidKeys = ids.filter(id => id === undefined || id === null || id === '').length
+      const validIds = ids.filter(id => id !== undefined && id !== null && id !== '')
+      const found = await table.bulkGet(validIds)
+      const missing = invalidKeys + found.filter((record: unknown) => record === undefined).length
+      return { name, missing }
+    }))
+    const missingImportedRecords = countResults.reduce((sum, result) => sum + result.missing, 0)
     checks.recordCounts = missingImportedRecords === 0
     if (!checks.recordCounts) {
-      details.push(`Registros del respaldo no encontrados después de importar: ${missingImportedRecords}`)
+      const affected = countResults.filter(result => result.missing > 0)
+        .map(result => `${result.name}: ${result.missing}`)
+      details.push(`Registros no verificados después de importar: ${affected.join(', ')}`)
     }
 
     const routineIds = new Set((await db.routineStore.toArray()).map(r => r.id))
