@@ -4,7 +4,6 @@ import { NAV_ITEMS, MAS_GROUPS, type NavItem } from '@/components/brand/icons'
 import { AltheaNav, type AltheaNavEntry } from '@/components/navigation/AltheaNav'
 import { AltheaIcon, type AltheaIconName } from '@/components/brand/AltheaIconRegistry'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
-import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { accentSectionForPath } from '@/components/navigation/sections'
 
 export const MOBILE_NAV_OFFSET = 'calc(env(safe-area-inset-bottom, 0px) + 74px)'
@@ -48,7 +47,6 @@ export default function AppNav() {
     } catch { return false }
   })
   const { isVisible } = useVisibleSections()
-  const { hasActiveSession } = useActiveTrainingSession()
   const { pathname } = useLocation()
 
   // Publica el offset de la barra móvil como variable CSS para que los FAB
@@ -57,14 +55,12 @@ export default function AppNav() {
     try { document.documentElement.style.setProperty('--mobile-nav-offset', MOBILE_NAV_OFFSET) } catch { /* noop */ }
   }, [])
 
-  // Desktop: estructura amplia (primarios + módulos en la barra lateral).
-  const primaryItems = NAV_ITEMS.filter(i => {
-    if (!isVisible(i.icon as string)) { return false }
-    // Entrenar es un destino de sesión: solo aparece mientras hay una sesión
-    // activa. La entrada única es Inicio → Comenzar.
-    if (i.icon === 'training') { return hasActiveSession }
-    return ['home', 'nutrition', 'progress', 'crossfit'].includes(i.icon as string)
-  })
+  // Los cinco destinos principales son permanentes en móvil y escritorio.
+  // La pantalla Entrenar muestra su estado vacío cuando no existe sesión activa;
+  // el acceso no desaparece de la navegación.
+  const primaryItems = NAV_ITEMS.filter(i =>
+    ['home', 'training', 'nutrition', 'progress', 'crossfit'].includes(i.icon as string)
+  )
   // Deduplicar por ICONO, no por ruta: '/progreso' y '/progresos' son dos
   // strings que renderizan la misma pagina (Progreso.tsx). Comparar por icono
   // cubre ese caso y cualquier alias futuro.
