@@ -172,6 +172,45 @@ function buildContextBlock(ctx: UnifiedContext): string {
     parts.push(`Recuperación: ${c.recovery.lastScore}/100${c.recovery.trend ? ` (${c.recovery.trend})` : ''}`)
   }
 
+  if (c.nutriDaily && c.nutriDaily.diarioCount > 0) {
+    parts.push(`Diario nutricional de hoy: ${c.nutriDaily.diarioCount} registros; último alimento: ${c.nutriDaily.ultimoAlimento}.`)
+  }
+
+  if (c.nutritionContext) {
+    const n = c.nutritionContext
+    const facts = [
+      `IMC registrado/calculado: ${n.bmi} (${n.bmiCategory})`,
+      `objetivo calórico calculado: ${n.calorieGoal} kcal/día`,
+      n.proteinGoal ? `objetivo de proteína: ${n.proteinGoal}` : '',
+      n.nutritionPreferences.length ? `preferencias/restricciones: ${n.nutritionPreferences.slice(0, 5).join(', ')}` : '',
+    ].filter(Boolean)
+    parts.push(`Perfil nutricional: ${facts.join(' · ')}`)
+  }
+
+  if (c.bodyMeasurements?.length) {
+    const measurements = [...c.bodyMeasurements].sort((a, b) => a.date.localeCompare(b.date))
+    const latest = measurements[measurements.length - 1]
+    const latestFacts = [
+      latest.weightKg !== undefined ? `peso ${latest.weightKg} kg` : '',
+      latest.bodyFatPct !== undefined ? `grasa corporal ${latest.bodyFatPct}%` : '',
+      latest.muscleMassKg !== undefined ? `masa muscular ${latest.muscleMassKg} kg` : '',
+      latest.waistCm !== undefined ? `cintura ${latest.waistCm} cm` : '',
+      latest.hipCm !== undefined ? `cadera ${latest.hipCm} cm` : '',
+      latest.chestCm !== undefined ? `pecho ${latest.chestCm} cm` : '',
+    ].filter(Boolean)
+    if (latestFacts.length) {
+      parts.push(`Última medición corporal (${latest.date}): ${latestFacts.join(' · ')}`)
+    }
+    if (measurements.length > 1) {
+      const weightPoints = measurements.filter(m => m.weightKg !== undefined)
+      if (weightPoints.length > 1) {
+        parts.push(`Evolución de peso: ${weightPoints.map(m => `${m.date} ${m.weightKg} kg`).join(' → ')}`)
+      }
+    }
+  }
+
+  if (c.mapaMuscular) { parts.push(`Mapa muscular (últimos 30 días): ${c.mapaMuscular}`) }
+
   if (c.nutritionAnalysis) {
     const a = c.nutritionAnalysis
     const nutParts: string[] = []

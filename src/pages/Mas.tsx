@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom'
 import SemanticIcon from '../components/ui/SemanticIcon';
 import { DailyRemindersConfig } from '@/components/notifications/DailyRemindersConfig'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { db } from '@/services/storage/db'
 import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
 import { MAS_GROUPS } from '@/components/brand/icons'
 import { unifiedAllCompletedSets } from '@/services/history'
-import { AltheaCard, AltheaCardHeader, AltheaKPICard, AltheaBadge, AltheaLoading } from '@/components/althea'
+import { AltheaCard, AltheaCardHeader, AltheaKPICard, AltheaBadge } from '@/components/althea'
 import InstallAppButton from '@/components/install/InstallAppButton'
 import { todayKey, dayKeyOffset, toDateKey, parseLocalDateKey } from '@/utils/dates'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
@@ -31,6 +31,8 @@ const GROUP_SEMANTIC_ICON: Record<string, string> = {
 export default function Mas(){
   const [routineCount, setRoutineCount] = useState(0)
   const [showNotifModal, setShowNotifModal] = useState(false)
+  const notificationButtonRef = useRef<HTMLButtonElement | null>(null)
+  const notificationCloseRef = useRef<HTMLButtonElement | null>(null)
   const [stats, setStats] = useState<MasStats | null>(null)
   // (D) Misma fuente de verdad que Inicio/AppNav: sesión activa no finalizada.
   const { hasActiveSession } = useActiveTrainingSession()
@@ -40,6 +42,42 @@ export default function Mas(){
       getAllRoutines().then(list => setRoutineCount(list.length))
     )
   }, [])
+
+  // El modal tiene semántica de diálogo, cierre por Escape y bloquea el scroll
+  // de fondo. Al cerrarlo devuelve el foco al botón que lo abrió.
+  useEffect(() => {
+    if (!showNotifModal) { return }
+    const previousOverflow = document.body.style.overflow
+    const notificationButton = notificationButtonRef.current
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setShowNotifModal(false) }
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKeyDown)
+    notificationCloseRef.current?.focus()
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+      notificationButton?.focus()
+    }
+  }, [showNotifModal])
+
+  const handleNotificationDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab') { return }
+    const focusable = event.currentTarget.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    )
+    if (!focusable.length) { return }
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   // Métricas reales desde Dexie; sin datos → "Sin datos" (nunca ficticios).
   // Solo lo que ESTA pantalla muestra: Más es centro de accesos, no tablero.
@@ -93,11 +131,7 @@ export default function Mas(){
         <InstallAppButton />
       </header>
 
-      {!stats ? (
-        <AltheaLoading lines={4} />
-      ) : (
-        <>
-          {/* ═══ RESUMEN (breve: 3 elementos, no un tablero) ═══ */}
+      {stats ? (
           <section aria-label="Resumen de actividad">
             <AltheaCardHeader title="Resumen" subtitle="Tu actividad en un vistazo" icon="monitoring" />
             <div className="grid grid-cols-2 gap-3">
@@ -111,15 +145,16 @@ export default function Mas(){
                   <span className="text-aux text-[11px]">Rutina activa</span>
                   <AltheaBadge variant="primary">{stats.weekNumber ? `Semana ${stats.weekNumber}` : 'Sin ciclo'}</AltheaBadge>
                 </div>
-                <p className="font-headline-md text-lg text-on-surface font-semibold truncate">{stats.routineName ?? 'Sin rutina activa'}</p>
+                <p className="font-headline-md text-lg text-on-surface font-semibold whitespace-normal break-words">{stats.routineName ?? 'Sin rutina activa'}</p>
                 <p className="font-body-md text-sm text-on-surface-variant mt-0.5">
                   {stats.daysPerWeek !== undefined ? `${stats.daysPerWeek}× por semana` : 'Sin datos de frecuencia'}
                 </p>
               </AltheaCard>
             </div>
           </section>
+      ) : null}
 
-          {/* ═══ SECCIONES (fuente única MAS_GROUPS: mismos destinos que la barra lateral) ═══ */}
+      {/* ═══ SECCIONES (fuente única MAS_GROUPS: mismos destinos que la barra lateral) ═══ */}
           <section aria-label="Accesos a secciones">
             <AltheaCardHeader title="Secciones" subtitle="Todo el contenido de Althea, ordenado" icon="tune" />
             {hasActiveSession && (
@@ -150,7 +185,7 @@ export default function Mas(){
                         <AltheaCard level={2} padding="sm" hover className="h-full">
                           <div className="flex items-center gap-3">
                             <SemanticIcon name={GROUP_SEMANTIC_ICON[l.icon] ?? 'apps'} size={20} className="text-[20px] text-accent shrink-0" />
-                            <p className="font-body-md text-[15px] text-on-surface font-medium flex-1 min-w-0 truncate">{l.label}</p>
+                            <p className="font-body-md text-[15px] leading-snug text-on-surface font-medium flex-1 min-w-0 whitespace-normal break-words">{l.label}</p>
                             <SemanticIcon name="chevron_right" size={20} className="text-[20px] text-on-surface-variant shrink-0" />
                           </div>
                         </AltheaCard>
@@ -162,13 +197,15 @@ export default function Mas(){
             })}
           </section>
 
-          {/* ═══ CONFIGURACIÓN GENERAL ═══ */}
-          <section aria-label="Configuración general">
+      {/* ═══ CONFIGURACIÓN GENERAL ═══ */}
+      <section aria-label="Configuración general">
             <AltheaCardHeader title="Configuración" subtitle="Recordatorios y avisos" icon="notifications_active" />
             <AltheaCard level={2} padding="md">
               <button
+                type="button"
+                ref={notificationButtonRef}
                 onClick={() => setShowNotifModal(true)}
-                className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-surface-container-high border border-outline-variant hover:border-primary/50 transition-colors text-left"
+                className="w-full min-h-[48px] flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-surface-container-high border border-outline-variant hover:border-primary/50 transition-colors text-left"
               >
                 <span className="flex items-center gap-2">
                   <SemanticIcon name="notifications_active" size={20} className="text-primary" />
@@ -178,25 +215,31 @@ export default function Mas(){
               </button>
               <p className="font-body-sm text-xs text-on-surface-variant mt-2">Configurá horarios, títulos y activación de recordatorios diarios.</p>
             </AltheaCard>
-          </section>
-        </>
-      )}
+      </section>
 
       {showNotifModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          data-modal-open="true"
+          className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-black/60 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-[max(12px,env(safe-area-inset-bottom))] sm:items-center sm:p-4"
           onClick={() => setShowNotifModal(false)}
         >
           <div
-            className="w-full max-w-lg max-h-[85vh] overflow-auto rounded-2xl bg-surface-container border border-outline-variant p-5 space-y-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mas-notif-title"
+            onKeyDown={handleNotificationDialogKeyDown}
+            tabIndex={-1}
+            className="althea-modal w-full max-w-lg max-h-[calc(100dvh-24px)] overflow-y-auto overscroll-contain rounded-2xl bg-surface-container border border-outline-variant p-3 sm:p-5 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
-              <h2 className="font-headline-lg text-lg text-on-surface font-semibold">Notificaciones y recordatorios</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 id="mas-notif-title" className="min-w-0 font-headline-lg text-lg text-on-surface font-semibold">Notificaciones y recordatorios</h2>
               <button
+                type="button"
+                ref={notificationCloseRef}
                 onClick={() => setShowNotifModal(false)}
-                aria-label="Cerrar"
-                className="w-9 h-9 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                aria-label="Cerrar notificaciones y recordatorios"
+                className="min-w-[44px] min-h-[44px] rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors shrink-0"
               >
                 <SemanticIcon name="close" size={18} />
               </button>

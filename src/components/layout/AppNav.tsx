@@ -4,7 +4,6 @@ import { NAV_ITEMS, MAS_GROUPS, type NavItem } from '@/components/brand/icons'
 import { AltheaNav, type AltheaNavEntry } from '@/components/navigation/AltheaNav'
 import { AltheaIcon, type AltheaIconName } from '@/components/brand/AltheaIconRegistry'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
-import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { accentSectionForPath } from '@/components/navigation/sections'
 
 export const MOBILE_NAV_OFFSET = 'calc(env(safe-area-inset-bottom, 0px) + 74px)'
@@ -48,7 +47,6 @@ export default function AppNav() {
     } catch { return false }
   })
   const { isVisible } = useVisibleSections()
-  const { hasActiveSession } = useActiveTrainingSession()
   const { pathname } = useLocation()
 
   // Publica el offset de la barra móvil como variable CSS para que los FAB
@@ -57,15 +55,13 @@ export default function AppNav() {
     try { document.documentElement.style.setProperty('--mobile-nav-offset', MOBILE_NAV_OFFSET) } catch { /* noop */ }
   }, [])
 
-  // Desktop: estructura amplia (primarios + módulos en la barra lateral).
-  const primaryItems = NAV_ITEMS.filter(i => {
-    if (!isVisible(i.icon as string)) { return false }
-    // Entrenar es un destino de sesión: solo aparece mientras hay una sesión
-    // activa. La entrada única es Inicio → Comenzar.
-    if (i.icon === 'training') { return hasActiveSession }
-    return ['home', 'nutrition', 'progress', 'crossfit'].includes(i.icon as string)
-  })
-  const moreItem = NAV_ITEMS.find(i => i.icon === 'more')!
+  // Los cinco destinos principales son permanentes en móvil y escritorio.
+  // La pantalla Entrenar muestra su estado vacío cuando no existe sesión activa;
+  // el acceso no desaparece de la navegación.
+  const primaryOrder = ['home', 'training', 'nutrition', 'crossfit', 'more']
+  const primaryItems = primaryOrder
+    .map(icon => NAV_ITEMS.find(item => item.icon === icon))
+    .filter((item): item is NavItem => Boolean(item))
   // Deduplicar por ICONO, no por ruta: '/progreso' y '/progresos' son dos
   // strings que renderizan la misma pagina (Progreso.tsx). Comparar por icono
   // cubre ese caso y cualquier alias futuro.
@@ -79,10 +75,11 @@ export default function AppNav() {
   const moduleEntries = modules.map(toAltheaEntry)
   // Móvil: 5 destinos fijos. CrossFit va inmediatamente después de Nutrición;
   // Progreso/Calendario/etc. se alcanzan desde Más.
-  const mobileEntries = [
-    ...primaryItems.filter(i => ['home', 'training', 'nutrition', 'crossfit'].includes(i.icon as string)),
-    moreItem,
-  ].map(toAltheaEntry)
+  const mobileOrder = ['home', 'training', 'nutrition', 'crossfit', 'more']
+  const mobileEntries = mobileOrder
+    .map(icon => NAV_ITEMS.find(item => item.icon === icon))
+    .filter((item): item is NavItem => Boolean(item))
+    .map(toAltheaEntry)
 
   const toggle = () => {
     const nx = !collapsed
@@ -180,9 +177,8 @@ export default function AppNav() {
         </div>
       </aside>
 
-      <nav
-        aria-label="Navegación principal"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 min-h-16 bg-surface/90 backdrop-blur-xl border-t border-primary/20 py-1.5 px-2 shadow-al-md pb-safe"
+      <div
+        className="app-mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-50 min-h-16 bg-surface/90 backdrop-blur-xl border-t border-primary/20 py-1.5 px-2 shadow-al-md pb-safe"
       >
         <div className="max-w-[480px] mx-auto flex items-center justify-around gap-1">
           <AltheaNav
@@ -192,7 +188,7 @@ export default function AppNav() {
             renderLink={renderNavLink}
           />
         </div>
-      </nav>
+      </div>
     </>
   )
 }

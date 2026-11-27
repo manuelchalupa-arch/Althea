@@ -153,6 +153,113 @@ async function cleanup(uid, token) {
   await deleteDoc(token, uid, 'sess-1', 'activitySessions').catch(() => {})
 }
 
+
+function rootDocPath(collection, docId) {
+  return `${DB}/${projectId}/databases/(default)/documents/${collection}/${docId}`
+}
+
+function firestoreFields(values) {
+  return Object.fromEntries(Object.entries(values).map(([key, value]) => [
+    key,
+    typeof value === 'string' ? { stringValue: value }
+      : typeof value === 'number' ? { integerValue: String(value) }
+        : typeof value === 'boolean' ? { booleanValue: value }
+          : { nullValue: null },
+  ]))
+}
+
+async function createRootDoc(token, collection, docId, values) {
+  return fetch(`${rootDocPath(collection, docId)}?currentDocument.exists=false`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ fields: firestoreFields(values) }),
+  })
+}
+
+async function readRootDoc(token, collection, docId) {
+  return fetch(rootDocPath(collection, docId), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+}
+
+async function setAdminUidAllowlist(uids) {
+  return fetch(rootDocPath('admins', 'uids'), {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer owner',
+    },
+    body: JSON.stringify({
+      fields: {
+        uids: { arrayValue: { values: uids.map(uid => ({ stringValue: uid })) } },
+      },
+    }),
+  })
+}
+
+async function deleteAdminUidAllowlist() {
+  return fetch(rootDocPath('admins', 'uids'), {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer owner' },
+  })
+}
+
+async function createSharedExercise(token, docId, createdBy, name) {
+  return createRootDoc(token, 'sharedExercises', docId, { createdBy, name })
+}
+
+async function updateSharedExercise(token, docId, createdBy, name) {
+  return fetch(rootDocPath('sharedExercises', docId), {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ fields: firestoreFields({ createdBy, name }) }),
+  })
+}
+
+async function verifyAuthEmail(email, token) {
+  if (!isEmu) {
+    throw new Error('La verificación automatizada por código OOB está limitada al emulador local.')
+  }
+
+  // El emulador debe seguir el flujo real de Firebase: solicitar código,
+  // recuperar el OOB del endpoint local y confirmarlo. accounts:update no
+  // permite simular emailVerified=true enviando ese campo directamente.
+  const request = await fetch(`${IDENTITY}:sendOobCode?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken: token }),
+  })
+  const requestData = await request.json().catch(() => ({}))
+  if (!request.ok) return { res: request, data: requestData }
+
+  const codesResponse = await fetch(
+    `http://127.0.0.1:9099/emulator/v1/projects/${encodeURIComponent(projectId)}/oobCodes`,
+  )
+  const codesData = await codesResponse.json().catch(() => ({}))
+  if (!codesResponse.ok) return { res: codesResponse, data: codesData }
+
+  const verificationCode = codesData.oobCodes?.find((entry) =>
+    entry.email === email && entry.requestType === 'VERIFY_EMAIL',
+  )
+  if (!verificationCode?.oobCode) {
+    return { res: new Response(null, { status: 500 }), data: { error: { message: 'verification_code_not_found' } } }
+  }
+
+  const res = await fetch(`${IDENTITY}:update?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oobCode: verificationCode.oobCode, returnSecureToken: true }),
+  })
+  const data = await res.json().catch(() => ({}))
+  return { res, data }
+}
+
 // ── Prueba ──────────────────────────────────────────────────────────────────
 const stamp = Date.now()
 const emailA = `althea-probe-a-${stamp}@example.com`
@@ -290,10 +397,125 @@ console.log('\n[8] Round-trip de activitySessions: crear, leer, actualizar, borr
   else bad(`post-borrado: se esperaba 404, obtenido ${r4.status}`)
 }
 
-console.log('\n[9] Limpieza')
+
+if (isEmu) {
+  console.log('\n[9] Reglas de propiedad de la biblioteca compartida (solo emulador)')
+  const sharedId = `shared-probe-${stamp}`
+  const spoofId = `shared-spoof-${stamp}`
+
+  {
+    const own = await createSharedExercise(tokenA, sharedId, uidA, 'Ejercicio creado por A')
+    if (own.ok) ok('sharedExercises: A crea su propio ejercicio')
+    else bad(`sharedExercises: A no pudo crear su ejercicio (${own.status})`)
+
+    const readByB = await readRootDoc(tokenB, 'sharedExercises', sharedId)
+    if (readByB.ok) ok('sharedExercises: los usuarios autenticados pueden leer el catálogo')
+    else bad(`sharedExercises: lectura autenticada denegada (${readByB.status})`)
+
+    const hijack = await updateSharedExercise(tokenB, sharedId, uidB, 'Ficha secuestrada')
+    if (hijack.status === 403) ok('sharedExercises: B no puede modificar el ejercicio de A')
+    else bad(`sharedExercises: se esperaba 403 al modificar ficha ajena, obtenido ${hijack.status}`)
+
+    const ownerUpdate = await updateSharedExercise(tokenA, sharedId, uidA, 'Ejercicio actualizado por A')
+    if (ownerUpdate.ok) ok('sharedExercises: el autor puede actualizar su propia ficha')
+    else bad(`sharedExercises: el autor no pudo actualizar su ficha (${ownerUpdate.status})`)
+
+    const spoof = await createSharedExercise(tokenB, spoofId, uidA, 'Autor falsificado')
+    if (spoof.status === 403) ok('sharedExercises: no se puede crear una ficha suplantando otro UID')
+    else bad(`sharedExercises: se esperaba 403 al suplantar autor, obtenido ${spoof.status}`)
+
+    const blankName = await createSharedExercise(tokenA, `shared-empty-${stamp}`, uidA, '')
+    if (blankName.status === 403) ok('sharedExercises: rechaza nombres vacíos')
+    else bad(`sharedExercises: nombre vacío debía ser denegado, obtenido ${blankName.status}`)
+
+    const longName = await createSharedExercise(tokenA, `shared-long-${stamp}`, uidA, 'x'.repeat(81))
+    if (longName.status === 403) ok('sharedExercises: rechaza nombres de más de 80 caracteres')
+    else bad(`sharedExercises: nombre largo debía ser denegado, obtenido ${longName.status}`)
+
+    const anonymous = await readRootDoc(null, 'sharedExercises', sharedId)
+    if (anonymous.status === 401 || anonymous.status === 403) ok('sharedExercises: lectura anónima denegada')
+    else bad(`sharedExercises: lectura anónima debía ser denegada, obtuvo ${anonymous.status}`)
+
+    const remove = await fetch(rootDocPath('sharedExercises', sharedId), {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${tokenA}` },
+    })
+    if (remove.status === 403) ok('sharedExercises: el borrado no está disponible para clientes')
+    else bad(`sharedExercises: se esperaba 403 al borrar, obtenido ${remove.status}`)
+  }
+
+  console.log('\\n[10] Administración de feedback requiere UID autorizado y correo verificado (solo emulador)')
+  {
+    const adminEmail = `althea-probe-admin-${stamp}@example.com`
+    const adminAccount = await signup(adminEmail, password)
+    if (!adminAccount.data.localId || !adminAccount.data.idToken) {
+      bad('Auth emulator: no se pudo crear la cuenta de prueba administrativa')
+    } else {
+      const threadId = `admin-probe-${stamp}`
+      const thread = await createRootDoc(tokenA, 'feedbackThreads', threadId, {
+        ownerId: uidA,
+        category: 'error',
+        status: 'pendiente',
+        subject: 'Prueba local de autorización',
+        messageCount: 1,
+        unreadForOwner: 0,
+        unreadForAdmin: 1,
+      })
+      if (!thread.ok) {
+        bad(`feedbackThreads: no se pudo crear el hilo de prueba (${thread.status})`)
+      } else {
+        const unlisted = await readRootDoc(adminAccount.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
+        if (unlisted.status === 403) ok('feedback: usuario no listado no obtiene privilegios')
+        else bad(`feedback: usuario no listado debía recibir 403, obtuvo ${unlisted.status}`)
+
+        let verifiedToken = ''
+        const verification = await verifyAuthEmail(adminEmail, adminAccount.data.idToken)
+        if (!verification.res.ok) {
+          bad(`Auth emulator: no se pudo confirmar el correo de prueba (${verification.res.status})`)
+        } else {
+          const verifiedLogin = await signIn(adminEmail, password)
+          if (!verifiedLogin.res.ok || !verifiedLogin.data.idToken) {
+            bad(`Auth emulator: no se pudo renovar la sesión verificada (${verifiedLogin.res.status})`)
+          } else {
+            verifiedToken = verifiedLogin.data.idToken
+            const verifiedUnlisted = await readRootDoc(verifiedToken, 'feedbackThreads', threadId + '/internalNotes/probe')
+            if (verifiedUnlisted.status === 403) ok('feedback: correo verificado sin UID autorizado no obtiene privilegios')
+            else bad(`feedback: correo verificado no listado debía recibir 403, obtuvo ${verifiedUnlisted.status}`)
+          }
+        }
+
+        const allowlist = await setAdminUidAllowlist([adminAccount.data.localId])
+        if (!allowlist.ok) {
+          bad(`admins/uids: no se pudo preparar la lista de prueba (${allowlist.status})`)
+        } else {
+          const unverifiedListed = await readRootDoc(adminAccount.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
+          if (unverifiedListed.status === 403) ok('feedback: UID listado sin correo verificado sigue sin privilegios')
+          else bad(`feedback: UID listado sin verificar debía recibir 403, obtuvo ${unverifiedListed.status}`)
+
+          const privateList = await readRootDoc(verifiedToken || adminAccount.data.idToken, 'admins', 'uids')
+          if (privateList.status === 403) ok('admins/uids: la lista administrativa no es legible desde clientes')
+          else bad(`admins/uids: lectura directa debía recibir 403, obtuvo ${privateList.status}`)
+
+          if (verifiedToken) {
+            const verifiedListed = await readRootDoc(verifiedToken, 'feedbackThreads', threadId + '/internalNotes/probe')
+            if (verifiedListed.status === 404) ok('feedback: UID autorizado con correo verificado obtiene acceso administrativo')
+            else bad(`feedback: se esperaba 404 para UID autorizado y verificado, obtuvo ${verifiedListed.status}`)
+          }
+        }
+      }
+    }
+    const cleanupAdmin = await deleteAdminUidAllowlist()
+    if (!cleanupAdmin.ok && cleanupAdmin.status !== 404) {
+      bad(`admins/uids: no se pudo limpiar la lista temporal (${cleanupAdmin.status})`)
+    }
+  }
+}
+
+
+console.log('\n[11] Limpieza')
 await cleanup(uidA, tokenA)
 await cleanup(uidB, tokenB)
-console.log('  documentos de prueba eliminados')
+console.log('  documentos privados de prueba eliminados; los probes de reglas son efímeros en el emulador')
 
 console.log('\n' + '-'.repeat(62))
 console.log(`PASS=${passes.length}  FAIL=${failures.length}  BLOCKED=${blocked.length}`)

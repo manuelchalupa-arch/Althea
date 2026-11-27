@@ -8,6 +8,7 @@ import { todayKey } from '@/utils/dates'
 import Inicio from '@/pages/Inicio'
 import Calendario from '@/pages/Calendario'
 import Perfil from '@/pages/Perfil'
+import Mas from '@/pages/Mas'
 
 vi.mock('@/services/ai/aiService', () => ({
   aiService: { getChatCompletion: vi.fn().mockResolvedValue({ content: '' }) },
@@ -30,6 +31,9 @@ const TABLES = [
   'recoveryChecks', 'hydrationLogs', 'bodyMeasurements', 'nutritionDiary',
   'cfWods', 'cfSchedule', 'cfResults', 'cfMarks',
   'activitySessions', 'exerciseRecords', 'cycleVersions',
+  'routines', 'sessions', 'setLogs',
+  'feedbackThreads', 'feedbackMessages', 'feedbackOutbox',
+  'restTimerState', 'cfTimerState', 'syncQueue', 'syncDeletes',
 ] as const
 
 async function seedRepresentative() {
@@ -40,6 +44,10 @@ async function seedRepresentative() {
   await db.routineStore.put({
     id: 'r1', name: 'Push/Pull', updatedAt: '2026-11-01T10:00:00Z',
     dayExercises: { 1: [{ exId: 'press', name: 'Press banca', sets: 3, reps: 8, weight: 70 }] },
+  } as never)
+  await db.routineStore.put({
+    id: 'meta:activeId', activeId: 'r1',
+    createdAt: '2026-11-01T10:00:00Z', updatedAt: '2026-11-01T10:00:00Z',
   } as never)
   await db.trainingSessions.put({
     id: 'ts1', sessionId: 'ts1', userId: 'me', routineId: 'r1',
@@ -104,6 +112,52 @@ async function seedRepresentative() {
     id: 'cv1', scope: 'user', status: 'active', effectiveFrom: today,
     createdAt: `${today}T07:00:00Z`,
   } as never)
+  // Tablas heredadas: se conservan para compatibilidad de instalaciones antiguas.
+  await db.routines.put({
+    id: 'legacy-r1', name: 'Rutina heredada', createdAt: `${today}T07:00:00Z`, updatedAt: `${today}T07:00:00Z`,
+  } as never)
+  await db.sessions.put({
+    id: 'legacy-s1', routineId: 'legacy-r1', localDate: today,
+    startedAt: `${today}T10:00:00Z`, createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:10:00Z`,
+  } as never)
+  await db.setLogs.put({
+    id: 'legacy-set1', sessionId: 'legacy-s1', exerciseId: 'press',
+    createdAt: `${today}T10:05:00Z`, reps: 8, weight: 70,
+  } as never)
+  await db.feedbackThreads.put({
+    id: 'feedback-t1', ownerId: 'me', category: 'duda', subject: 'Prueba',
+    status: 'pendiente', createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:00:00Z`,
+    lastActivityAt: `${today}T10:00:00Z`, lastMessagePreview: 'Consulta',
+    lastMessageAuthorRole: 'user', messageCount: 1, unreadForOwner: 0, unreadForAdmin: 1,
+  } as never)
+  await db.feedbackMessages.put({
+    id: 'feedback-m1', threadId: 'feedback-t1', ownerId: 'me', authorId: 'me',
+    authorRole: 'user', text: 'Consulta de prueba', createdAt: `${today}T10:00:00Z`,
+    readByOwner: true, readByAdmin: false, syncStatus: 'pending',
+  } as never)
+  await db.feedbackOutbox.put({
+    id: 'message:feedback-m1', kind: 'message', docId: 'feedback-m1', threadId: 'feedback-t1',
+    payload: { message: { id: 'feedback-m1' } }, status: 'pending', attempts: 0,
+    createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:00:00Z`,
+  } as never)
+  await db.restTimerState.put({
+    id: 'rest-1', endsAt: null, pausedRemainingSec: 45, flash: false,
+    updatedAt: `${today}T10:00:00Z`,
+  })
+  await db.cfTimerState.put({
+    id: 'cf-timer-1', format: 'FOR_TIME', startedAtMs: 0, accumulatedMs: 0,
+    running: false, round: 1, movementIdx: 0, intervalIdx: 0,
+    updatedAt: `${today}T10:00:00Z`,
+  } as never)
+  // Se conservan las operaciones offline y las marcas de borrado para que una
+  // restauración no pierda escrituras pendientes ni permita resurrecciones.
+  await db.syncQueue.put({
+    id: 'routineStore:r1', table: 'routineStore', key: 'r1', status: 'pending',
+    attempts: 0, createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:00:00Z`,
+  } as never)
+  await db.syncDeletes.put({
+    table: 'sessions', docId: 'legacy-deleted', deletedAt: `${today}T10:00:00Z`,
+  } as never)
 }
 
 async function snapshot(): Promise<Record<string, string>> {
@@ -128,15 +182,150 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     await seedRepresentative()
     const data = JSON.parse(await (await exportJSON()).text())
     expect(data.cfWods.map((r: any) => r.id)).toContain('wod1')
+    expect(data.routineStoreMeta).toContainEqual(expect.objectContaining({ id: 'meta:activeId', activeId: 'r1' }))
     expect(data.cfSchedule.map((r: any) => r.id)).toContain('sch1')
     expect(data.cfResults.map((r: any) => r.id)).toContain('cf1')
     expect(data.cfMarks.map((r: any) => r.id)).toContain('mk1')
     expect(data.activitySessions.map((r: any) => r.id)).toContain('act1')
     expect(data.exerciseRecords.map((r: any) => r.id)).toContain('er1')
     expect(data.cycleVersions.map((r: any) => r.id)).toContain('cv1')
-    // Sin bump de versión: sigue siendo formato 2 / esquema 15.
-    expect(data.metadata.version).toBe(2)
-    expect(data.metadata.schemaVersion).toBe(15)
+    expect(data.legacyRoutines.map((r: any) => r.id)).toContain('legacy-r1')
+    expect(data.legacySessions.map((r: any) => r.id)).toContain('legacy-s1')
+    expect(data.legacySetLogs.map((r: any) => r.id)).toContain('legacy-set1')
+    expect(data.feedbackThreads.map((r: any) => r.id)).toContain('feedback-t1')
+    expect(data.feedbackMessages.map((r: any) => r.id)).toContain('feedback-m1')
+    expect(data.feedbackOutbox.map((r: any) => r.id)).toContain('message:feedback-m1')
+    expect(data.restTimerState.map((r: any) => r.id)).toContain('rest-1')
+    expect(data.cfTimerState.map((r: any) => r.id)).toContain('cf-timer-1')
+    expect(data.syncQueue.map((r: any) => r.id)).toContain('routineStore:r1')
+    expect(data.syncDeletes).toEqual(expect.arrayContaining([expect.objectContaining({ table: 'sessions', docId: 'legacy-deleted' })]))
+    // Formato v5 y esquema Dexie v29; las copias anteriores siguen siendo compatibles.
+    expect(data.metadata.version).toBe(5)
+    expect(data.metadata.schemaVersion).toBe(29)
+  })
+
+  it('combinar conserva borrados pendientes de otro dispositivo ante colisión de IDs autonuméricos', async () => {
+    await db.syncDeletes.put({
+      table: 'routines', docId: 'deleted-from-backup', deletedAt: `${today}T09:00:00Z`,
+    }, 1)
+    const file = new File([await (await exportJSON()).text()], 'sync-deletes.json', { type: 'application/json' })
+
+    // Simula otro dispositivo que reutilizó el mismo contador local para otro borrado.
+    await db.syncDeletes.delete(1)
+    await db.syncDeletes.put({
+      table: 'nutritionDiary', docId: 'local-deletion', deletedAt: `${today}T10:00:00Z`,
+    }, 1)
+
+    const result = await importJSON(file)
+    expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
+
+    const markers = await db.syncDeletes.toArray()
+    expect(markers).toHaveLength(2)
+    expect(markers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ table: 'nutritionDiary', docId: 'local-deletion' }),
+      expect.objectContaining({ table: 'routines', docId: 'deleted-from-backup' }),
+    ]))
+    expect(result.imported.syncDeletes).toBe(1)
+  })
+
+  it('combinar preserva los datos locales si una clave ya existe', async () => {
+    await seedRepresentative()
+    const file = new File([await (await exportJSON()).text()], 'backup.json', { type: 'application/json' })
+
+    // El archivo contiene Fran, pero esta instalación ya tiene otro contenido
+    // local con el mismo ID. Combinar debe preservar la versión local.
+    await db.cfWods.put({
+      id: 'wod1', name: 'WOD local conservado', format: 'FOR_TIME',
+      updatedAt: `${today}T12:00:00Z`,
+    } as never)
+
+    const result = await importJSON(file, { mode: 'merge', confirmOverwrite: true })
+    expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
+    expect(await db.cfWods.get('wod1')).toMatchObject({ name: 'WOD local conservado' })
+  })
+
+
+
+  it('importa respaldos v4 completos y tolera la ausencia de la selección de rutina activa', async () => {
+    await seedRepresentative()
+    const exported = JSON.parse(await (await exportJSON()).text())
+    exported.metadata.version = 4
+    delete exported.routineStoreMeta
+    exported.metadata.tables = exported.metadata.tables.filter((table: string) => table !== 'routineStoreMeta')
+    delete exported.metadata.recordCounts.routineStoreMeta
+    const file = new File([JSON.stringify(exported)], 'backup-v4.json', { type: 'application/json' })
+
+    await db.delete()
+    await db.open()
+    const result = await importJSON(file)
+    expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
+    expect(await db.routineStore.get('r1')).toMatchObject({ name: 'Push/Pull' })
+    expect(await db.routineStore.get('meta:activeId')).toBeUndefined()
+  })
+
+  it('combinar preserva la rutina activa local aunque el respaldo indique otra selección', async () => {
+    await seedRepresentative()
+    const exported = JSON.parse(await (await exportJSON()).text())
+    exported.routines.push({
+      id: 'r2', name: 'Rutina importada', updatedAt: `${today}T12:00:00Z`,
+      dayExercises: { 1: [{ exId: 'squat', name: 'Sentadilla', sets: 3, reps: 8, weight: 60 }] },
+    })
+    exported.metadata.recordCounts.routines = exported.routines.length
+    exported.routineStoreMeta = exported.routineStoreMeta.map((row: any) => ({ ...row, activeId: 'r2' }))
+    const file = new File([JSON.stringify(exported)], 'merge-active-routine.json', { type: 'application/json' })
+
+    const result = await importJSON(file, { mode: 'merge', confirmOverwrite: true })
+    expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
+    expect(await db.routineStore.get('r2')).toMatchObject({ name: 'Rutina importada' })
+    expect(await db.routineStore.get('meta:activeId')).toMatchObject({ activeId: 'r1' })
+  })
+
+  it('rechaza respaldos v5 incompletos o con conteos incorrectos sin modificar los datos locales', async () => {
+    await seedRepresentative()
+    const before = await snapshot()
+    const exported = JSON.parse(await (await exportJSON()).text())
+
+    const missingTable = JSON.parse(JSON.stringify(exported))
+    delete missingTable.hydrationBottleLogs
+
+    const wrongCount = JSON.parse(JSON.stringify(exported))
+    wrongCount.metadata.recordCounts.nutritionDiary += 1
+
+    for (const invalidData of [missingTable, wrongCount]) {
+      const file = new File([JSON.stringify(invalidData)], 'backup-incompleto.json', { type: 'application/json' })
+      const result = await importJSON(file)
+      expect(result.success).toBe(false)
+      expect(result.errors.length).toBeGreaterThan(0)
+      expect(await snapshot()).toEqual(before)
+    }
+  })
+
+  it('revierte todas las tablas si falla una escritura durante la restauración', async () => {
+    await seedRepresentative()
+    const file = new File([await (await exportJSON()).text()], 'backup-atomic.json', { type: 'application/json' })
+
+    // Dispositivo destino vacío. La primera parte de la importación intentará
+    // escribir rutinas y perfil antes de alcanzar nutrición.
+    await db.delete()
+    await db.open()
+
+    const nutritionWrite = vi.spyOn(db.nutritionDiary, 'bulkPut')
+      .mockRejectedValueOnce(new Error('fallo simulado de almacenamiento'))
+
+    try {
+      const result = await importJSON(file)
+      expect(result.success).toBe(false)
+      expect(result.errors.join(' ')).toContain('La importación se revirtió por completo')
+      expect(result.verification.passed).toBe(false)
+
+      // Ninguna tabla anterior al fallo puede quedar parcialmente restaurada.
+      expect(await db.routineStore.count()).toBe(0)
+      expect(await db.userProfile.count()).toBe(0)
+      expect(await db.trainingSessions.count()).toBe(0)
+      expect(await db.nutritionDiary.count()).toBe(0)
+    } finally {
+      nutritionWrite.mockRestore()
+    }
   })
 
   it('exportar → borrar todo → importar restaura idénticos los datos representativos', async () => {
@@ -156,6 +345,7 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
 
     const after = await snapshot()
     expect(after).toEqual(before)
+    expect(await db.routineStore.get('meta:activeId')).toMatchObject({ activeId: 'r1' })
 
     // Verificación puntual de valores clave (no solo conteos).
     const profile = await db.userProfile.get('me')
@@ -176,6 +366,37 @@ describe('Render de páginas no muta datos (Etapa 9)', () => {
     await seedRepresentative()
   })
 
+
+  it('Más mantiene accesibles sus accesos y abre un diálogo de notificaciones usable en móvil', async () => {
+    render(<MemoryRouter><Mas /></MemoryRouter>)
+
+    const openButton = await screen.findByRole('button', { name: /notificaciones y recordatorios/i })
+    expect(openButton.className).toContain('min-h-[48px]')
+
+    fireEvent.click(openButton)
+    const dialog = await screen.findByRole('dialog', { name: 'Notificaciones y recordatorios' })
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+
+    const closeButton = screen.getByRole('button', { name: 'Cerrar notificaciones y recordatorios' })
+    expect(closeButton.className).toContain('min-h-[44px]')
+
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    )
+    expect(focusable.length).toBeGreaterThan(1)
+    focusable[0].focus()
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true })
+    expect(document.activeElement).toBe(focusable[focusable.length - 1])
+    focusable[focusable.length - 1].focus()
+    fireEvent.keyDown(dialog, { key: 'Tab' })
+    expect(document.activeElement).toBe(focusable[0])
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Notificaciones y recordatorios' })).not.toBeInTheDocument()
+    })
+  }, 30000)
+
   it('Inicio, Calendario y Perfil dejan intactas las tablas sembradas', async () => {
     const before = await snapshot()
 
@@ -183,6 +404,13 @@ describe('Render de páginas no muta datos (Etapa 9)', () => {
     await waitFor(() => {
       expect(screen.getByText('¡Hola, Nico!')).toBeInTheDocument()
     })
+    const dashboardSummary = document.querySelector('[data-testid="inicio-dashboard-summaries"]')
+    const weekCalendar = document.querySelector('[data-testid="inicio-week-calendar"]')
+    expect(dashboardSummary).not.toBeNull()
+    expect(weekCalendar).not.toBeNull()
+    expect(dashboardSummary!.compareDocumentPosition(weekCalendar!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const stickyHero = document.querySelector('[data-testid="inicio-hero-sticky"]')
+    expect(stickyHero?.className).toContain('top-[calc(var(--safe-top)+56px)]')
 
     render(<MemoryRouter><Calendario /></MemoryRouter>)
     await waitFor(() => {

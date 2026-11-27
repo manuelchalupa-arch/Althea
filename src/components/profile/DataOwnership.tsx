@@ -39,7 +39,6 @@ export function DataOwnership() {
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
-  const [mode, setMode] = useState<'merge' | 'replace'>('merge')
 
   const reset = () => {
     setPhase('idle')
@@ -48,7 +47,6 @@ export function DataOwnership() {
     setPreview(null)
     setResult(null)
     setPendingFile(null)
-    setMode('merge')
     if (fileRef.current) { fileRef.current.value = '' }
   }
 
@@ -93,15 +91,11 @@ export function DataOwnership() {
 
   const doImport = async () => {
     if (!pendingFile) { return }
-    if (mode === 'replace' && !window.confirm(
-      'El modo "reemplazar" borra los datos actuales antes de importar.\n' +
-      'Se perderá todo lo que no esté en el archivo. ¿Continuar?'
-    )) { return }
-
     setError(null)
     setBusy(true)
     try {
-      const r = await importJSON(pendingFile, { mode })
+      // La confirmación autoriza la estrategia merge: los IDs en conflicto se conservan localmente.
+      const r = await importJSON(pendingFile, { mode: 'merge', confirmOverwrite: true })
       setResult(r)
       setPhase('done')
       setNotice(r.success
@@ -117,11 +111,27 @@ export function DataOwnership() {
   const counts = preview
     ? ([
         ['Rutinas', preview.summary.routines],
+        ['Días de rutina', preview.summary.routineDays],
+        ['Ejercicios de rutina', preview.summary.routineExercises],
+        ['Preferencia de rutina activa', preview.summary.routineStoreMeta],
         ['Sesiones', preview.summary.sessions],
         ['Ejercicios', preview.summary.sessionExercises],
         ['Series', preview.summary.setRecords],
         ['Check-ins', preview.summary.recoveryChecks],
+        ['Botellas configuradas', preview.summary.hydrationBottles],
+        ['Registros de hidratación', preview.summary.hydrationBottleLogs],
+        ['Alimentos personalizados', preview.summary.customFoods],
+        ['Configuraciones de avisos', preview.summary.notificationConfigs],
         ['Mediciones', preview.summary.bodyMeasurements],
+        ['Rutinas históricas', preview.summary.legacyRoutines],
+        ['Sesiones históricas', preview.summary.legacySessions],
+        ['Series históricas', preview.summary.legacySetLogs],
+        ['Hilos de feedback', preview.summary.feedbackThreads],
+        ['Mensajes de feedback', preview.summary.feedbackMessages],
+        ['Feedback pendiente de envío', preview.summary.feedbackOutbox],
+        ['Cronómetros guardados', preview.summary.restTimerState + preview.summary.cfTimerState],
+        ['Operaciones offline pendientes', preview.summary.syncQueue],
+        ['Borrados pendientes de sincronizar', preview.summary.syncDeletes],
       ] as const)
     : []
   const totalRecords = counts.reduce((a, [, v]) => a + v, 0)
@@ -129,10 +139,27 @@ export function DataOwnership() {
   const importedRows = result
     ? ([
         ['Rutinas', result.imported.routines],
+        ['Días de rutina', result.imported.routineDays],
+        ['Ejercicios de rutina', result.imported.routineExercises],
+        ['Preferencia de rutina activa', result.imported.routineStoreMeta],
         ['Sesiones', result.imported.sessions],
         ['Series', result.imported.setRecords],
         ['Check-ins', result.imported.recoveryChecks],
         ['Comidas', result.imported.nutritionDiary],
+        ['Botellas', result.imported.hydrationBottles],
+        ['Registros de hidratación', result.imported.hydrationBottleLogs],
+        ['Alimentos personalizados', result.imported.customFoods],
+        ['Configuraciones de avisos', result.imported.notifConfigs + result.imported.unifiedNotifConfigs],
+        ['Mediciones', result.imported.bodyMeasurements],
+        ['Rutinas históricas', result.imported.legacyRoutines],
+        ['Sesiones históricas', result.imported.legacySessions],
+        ['Series históricas', result.imported.legacySetLogs],
+        ['Hilos de feedback', result.imported.feedbackThreads],
+        ['Mensajes de feedback', result.imported.feedbackMessages],
+        ['Feedback pendiente de envío', result.imported.feedbackOutbox],
+        ['Cronómetros guardados', result.imported.restTimerState + result.imported.cfTimerState],
+        ['Operaciones offline pendientes', result.imported.syncQueue],
+        ['Borrados pendientes de sincronizar', result.imported.syncDeletes],
       ] as const)
     : []
 
@@ -237,38 +264,16 @@ export function DataOwnership() {
               <span className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">
                 Cómo importar
               </span>
-              <label className="flex items-start gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  aria-label="Combinar: añade lo que falta y conserva tus datos actuales"
-                  name="modo-importacion"
-                  checked={mode === 'merge'}
-                  onChange={() => setMode('merge')}
-                  className="mt-1 accent-primary"
-                />
-                <span>
-                  <span className="font-medium text-on-surface">Combinar (recomendado)</span>
-                  <span className="block text-xs text-on-surface-variant">
-                    Añade lo que falta. Conserva tus datos actuales.
-                  </span>
+              <p className="text-sm text-on-surface">
+                <span className="font-medium">Combinar (recomendado)</span>
+                <span className="block text-xs text-on-surface-variant">
+                  Agrega los registros que faltan. Los registros existentes se conservan y no se sobrescriben.
                 </span>
-              </label>
-              <label className="flex items-start gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  aria-label="Reemplazar todo: borra los datos actuales antes de importar"
-                  name="modo-importacion"
-                  checked={mode === 'replace'}
-                  onChange={() => setMode('replace')}
-                  className="mt-1 accent-primary"
-                />
-                <span>
-                  <span className="font-medium text-on-surface">Reemplazar todo</span>
-                  <span className="block text-xs text-on-surface-variant">
-                    Borra los datos actuales antes de importar.
-                  </span>
-                </span>
-              </label>
+              </p>
+              <p className="text-xs text-on-surface-variant">
+                El reemplazo completo está temporalmente deshabilitado para evitar
+                borrar información que el respaldo no contenga.
+              </p>
             </div>
           )}
 
@@ -276,12 +281,12 @@ export function DataOwnership() {
             <AltheaButton variant="ghost" fullWidth onClick={reset}>Cancelar</AltheaButton>
             {preview.canImport && (
               <AltheaButton
-                variant={mode === 'replace' ? 'danger' : 'primary'}
+                variant="primary"
                 fullWidth
                 loading={busy}
                 onClick={() => { void doImport() }}
               >
-                {mode === 'replace' ? 'Reemplazar e importar' : 'Importar'}
+                Importar y combinar
               </AltheaButton>
             )}
           </div>
@@ -301,11 +306,11 @@ export function DataOwnership() {
               </div>
             ))}
           </dl>
-          {result.errors.length > 0 && (
+          {(!result.verification.passed || result.errors.length > 0) && (
             <div className="flex items-start gap-2 rounded bg-tertiary/10 border border-tertiary/30 p-2">
               <AlertTriangle size={14} className="text-tertiary shrink-0 mt-0.5" aria-hidden="true" />
               <ul className="text-xs text-on-surface-variant space-y-0.5">
-                {result.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+                {[...result.errors, ...result.verification.details.filter(d => d !== 'Verificación completada')].slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
               </ul>
             </div>
           )}

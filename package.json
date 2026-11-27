@@ -25,7 +25,6 @@
     "check:release": "node scripts/check-release.mjs",
     "seed:exercises": "echo \"seed exercises via src/data/exercises.json\"",
     "deploy:hosting:staging": "npm run verify:env:staging && npm run build:staging && npm run check:release && node scripts/deploy-hosting.mjs staging",
-    "deploy:hosting:production": "npm run verify:env:production && npm run build && npm run check:release && node scripts/deploy-hosting.mjs production",
     "worker:deploy:staging": "cd worker && npx wrangler deploy -c wrangler.staging.toml",
     "worker:deploy:production": "cd worker && npx wrangler deploy -c wrangler.production.toml",
     "worker:kv:staging": "cd worker && npx wrangler kv namespace create RATE_LIMIT -c wrangler.staging.toml",
@@ -52,13 +51,12 @@
   },
   "dependencies": {
     "dexie": "^4.0.11",
-    "firebase": "^12.19.0",
+    "firebase": "^13.4.0",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.1.1",
-    "uuid": "^11.0.3",
-    "zod": "^3.23.8"
+    "uuid": "^11.0.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
@@ -90,5 +88,13 @@
     "vite": "^6.0.7",
     "vite-plugin-pwa": "^0.21.1",
     "vitest": "^5.0.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.7",
+    "re2js": "^2.8.7",
+    "workbox-build": {
+      "glob": "^14.0.6",
+      "minimatch": "^11.0.4"
+    }
   }
 }

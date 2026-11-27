@@ -111,16 +111,16 @@ describe('firestore.rules — el modelo está replicado en servidor (005)', () =
     expect(rules).toMatch(/resource\.data\.ownerId == request\.auth\.uid \|\| isFeedbackAdmin\(\)/)
   })
 
-  it('el rol admin se decide en servidor (correo del token OR lista de UIDs)', () => {
-    expect(rules).toContain("'manuelchalupa@gmail.com'")
-    expect(rules).toContain("'manuelchalu@gmail.com'")
+  it('el rol admin exige correo verificado y UID autorizado, sin emails hardcodeados', () => {
+    expect(rules).toMatch(/request\.auth\.token\.email_verified == true/)
     expect(rules).toMatch(/request\.auth\.uid in get\(.*admins\/uids.*\)\.data\.uids/)
+    expect(rules).not.toMatch(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
   })
 
-  it('admins/uids es inmutable para clientes (solo Console)', () => {
+  it('admins/uids es privado e inmutable para clientes (solo Console/Admin SDK)', () => {
     const block = rules.match(/match\s+\/admins\/uids\s*\{[\s\S]*?\n\s*\}/)
     expect(block).toBeTruthy()
-    expect(block?.[0]).toMatch(/allow create, update, delete: if false/)
+    expect(block?.[0]).toMatch(/allow read, write: if false/)
   })
 
   it('internalNotes es admin-only y el catch-all deniega todo', () => {

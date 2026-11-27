@@ -1,5 +1,5 @@
 ﻿import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { db } from '@/services/storage/db'
 import { isDateInPeriod } from '@/services/training/metrics'
 import { todayKey, toDateKey } from '@/utils/dates'
@@ -42,18 +42,21 @@ describe('S7 - Progreso: el filtro de periodo usa el dia civil local', () => {
 })
 
 describe('S7 - Periodizacion: "Fecha inicio" es el dia local', () => {
-  it('a las 21:30 el input ofrece hoy, no manana', async () => {
+  it('a las 21:30 el calendario ofrece hoy, no manana', async () => {
     await db.delete()
     await db.open()
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(atLocal(2026, 3, 10, 21, 30))
 
-    const { container } = render(<PeriodizationEditor />)
-    await waitFor(() => expect(container.querySelector('input[type="date"]')).not.toBeNull())
-
-    const input = container.querySelector('input[type="date"]') as HTMLInputElement
-    expect(input.value).toBe('2026-03-10')
-    expect(input.value).toBe(todayKey())
+    render(<PeriodizationEditor />)
+    const trigger = await screen.findByRole('button', { name: 'Fecha de inicio de la secuencia' })
+    // El control visual es un calendario accesible, no un input nativo.
+    expect(trigger.textContent).toContain('10/03/2026')
+    fireEvent.click(trigger)
+    const dialog = await screen.findByRole('dialog', { name: 'Fecha de inicio de la secuencia' })
+    const selectedDay = dialog.querySelector('button[aria-pressed="true"]')
+    expect(selectedDay?.textContent?.trim()).toBe('10')
+    expect(todayKey()).toBe('2026-03-10')
     // el dia UTC habria sido manana: ese era el bug
     expect(new Date().toISOString().slice(0, 10)).toBe('2026-03-11')
   })

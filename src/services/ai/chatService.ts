@@ -3,8 +3,6 @@ import { getProxyUrl, getGroqHeaders } from './groqConfig'
 import { aiLimitMessage, getAiAuthHeaders, hasAiSession, limitError } from './aiAuth'
 import { fetchWithRetry } from '../apiUtils'
 
-const MODEL = 'openai/gpt-oss-20b'
-
 const CHAT_SYSTEM_PROMPT = `Sos Althea, una asistente de fitness y nutrición para usuarios de Argentina y Latinoamérica.
 
 SOLO podés responder sobre estos temas:
@@ -88,12 +86,7 @@ export async function streamChat(
       body: JSON.stringify({
         task: 'chat',
         messages: fullMessages,
-        // Parámetros legacy: el Worker los ignora y fija los reales.
-        model: MODEL,
-        max_tokens: 512,
-        temperature: 0.7,
-        top_p: 0.9,
-        stream: true,
+        // El Worker fija el modelo, los límites y el formato según task.
       }),
     }, { maxRetries: 1 })
 

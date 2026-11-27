@@ -6,20 +6,54 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: althea-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npm run lint
-      # El build va ANTES de los tests: bundleBudget.test.ts mide dist/ y en CI
-      # es obligatorio (falla si falta dist), no un skip silencioso.
-      - run: npm run build
-      - run: npx vitest run
-      - run: npm run check:release
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Report complete dependency audit
+        run: |
+          npm audit --json > "$RUNNER_TEMP/althea-npm-audit.json" || true
+          node -e "const fs=require('node:fs'); const path=require('node:path'); let report; try { report=JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP,'althea-npm-audit.json'),'utf8')) } catch { console.log('Full dependency audit report unavailable'); process.exit(0) }; const packages=Object.entries(report.vulnerabilities || {}).map(([name,item])=>({name,severity:item.severity,direct:item.isDirect,fixAvailable:item.fixAvailable})); console.log(JSON.stringify({summary:report.metadata?.vulnerabilities || {},packages},null,2))"
+      - name: Gate all dependency vulnerabilities
+        run: npm audit --audit-level=low
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
+      - name: Unit and integration tests
+        run: npx vitest run
+      - name: Release bundle checks
+        run: npm run check:release
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Responsive browser tests
+        run: npm run playwright -- tests/fase2-qa.spec.ts --project=chromium
+      - name: Set up Java for Firebase emulators
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test Firestore security rules in local emulators
+        env:
+          E2E_EMULATOR: '1'
+          VITE_FIREBASE_PROJECT_ID: demo-althea
+          VITE_FIREBASE_API_KEY: demo-api-key
+          FIREBASE_STAGING_PROJECT_ID: demo-althea
+          FIREBASE_PRODUCTION_PROJECT_ID: demo-althea-production
+        run: npx --yes firebase-tools emulators:exec --project demo-althea --only auth,firestore "node scripts/firestore-isolation-e2e.mjs"

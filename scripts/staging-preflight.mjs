@@ -102,6 +102,12 @@ console.log(`cwd = ${ROOT}`)
 console.log('\n[1] Archivos base')
 assertFile('firebase.json')
 assertFile('package.json')
+const packageJson = readJson('package.json')
+if (packageJson?.scripts?.['deploy:hosting:production']) {
+  fail('FIREBASE_HOSTING_PRODUCTION_DEPLOY_ENABLED', 'la producción debe publicarse mediante Cloudflare Pages')
+} else {
+  ok('Firebase Hosting production deploy deshabilitado')
+}
 assertFile('.env.example')
 assertFile('.firebaserc.example')
 assertFile('firestore.rules')
@@ -140,7 +146,7 @@ if (firebase) {
     const connect = (csp.match(/connect-src\s+([^;]+)/) || [, ''])[1]
     // Orgs que la app contacta en runtime. Si alguno falta, el CSP lo
     // bloquea en silencio en el navegador.
-    for (const host of ['*.firebaseio.com', '*.workers.dev']) {
+    for (const host of ['*.firebaseio.com', 'althea-proxy-staging.manuelchalupa.workers.dev', 'althea-proxy-production.manuelchalupa.workers.dev']) {
       if (!connect.includes(host)) fail('CSP_MISSING_ORIGIN', host)
     }
     if (connect.trim() === '*') fail('CSP_WILDCARD_CONNECT_SRC')

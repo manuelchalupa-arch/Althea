@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocation } from 'react-router-dom'
 import { db, ensureSeeded } from '@/services/storage/db'
 import type { Exercise } from '@/types'
 import { DEFAULT_CYCLE, type CycleConfig, type LoadState, LOAD_STATE_LABEL, LOAD_STATE_COLOR, getWeekLoads } from '@/utils/cycle'
@@ -167,6 +168,7 @@ async function saveRoutines(list: RutinaData[], activeId: string | null){
 }
 
 export default function RutinaPage(){
+  const location = useLocation()
   const [exercises,setExercises]=useState<Exercise[]>([])
   const [customs,setCustoms]=useState<{id:string; name:string; origin?:string}[]>([])
   const [routines,setRoutines]=useState<RutinaData[]>([])
@@ -214,6 +216,16 @@ export default function RutinaPage(){
       }).catch(() => {})
     ).catch(() => {})
   }
+
+  // Si la navegación proviene de la búsqueda general, seleccionar la
+  // rutina exacta encontrada. No se modifica su contenido ni su versión.
+  useEffect(() => {
+    const state = location.state as { globalSearchKind?: string; globalSearchId?: string } | null
+    if (state?.globalSearchKind !== 'routine' || !state.globalSearchId) { return }
+    if (routines.some(routine => routine.id === state.globalSearchId)) {
+      setActiveId(state.globalSearchId)
+    }
+  }, [location.key, location.state, routines])
 
   useEffect(()=>{
     let alive = true

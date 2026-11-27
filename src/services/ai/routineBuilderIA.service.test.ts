@@ -50,7 +50,7 @@ describe('generador de rutinas conectado al servicio central', () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     const body = JSON.parse(init.body as string)
     expect(body.task).toBe('routine')
-    expect(body.stream).toBe(false)
+    expect(body.stream).toBeUndefined()
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer test-token')
     vi.unstubAllGlobals()
   })

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 import { MUSCLE_LIBRARY_GROUPS } from '@/data/muscleLibraryConfig'
 import * as Gym from '@/services/exerciseGym'
@@ -16,6 +17,7 @@ import { listSharedExercises } from '@/services/training/sharedExercises'
 
 const PURPOSES = EXERCISE_PURPOSES
 export default function Biblioteca(){
+  const location = useLocation()
   const [selectedKey,setSelectedKey]=useState<string>('__all__')
   const [exercises,setExercises]=useState<Gym.Exercise[]>([])
   const [tradIds,setTradIds]=useState<Set<string>>(new Set())
@@ -31,6 +33,9 @@ export default function Biblioteca(){
   const [showAll,setShowAll]=useState(false)
   // grupo muscular de cada id curado (el catálogo externo no lo trae)
   const [groupById,setGroupById]=useState<Record<string,TraditionalGroupId>>({})
+  const [globalSearch,setGlobalSearch]=useState(false)
+  const loadRequestRef = useRef(0)
+  const handledGlobalSearchRef = useRef<string | null>(null)
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true
 
   useEffect(()=>{
@@ -51,16 +56,23 @@ export default function Biblioteca(){
   const musclePct = (ex: Gym.Exercise)=> effectiveBreakdown(ex)
 
   // Síntesis: ejercicios curados + los propios del usuario, separados por finalidad.
-  const load = async (group: string, allMode: boolean = showAll, p: ExercisePurpose = purpose)=>{
+  const load = useCallback(async (group: string, allMode: boolean = showAll, p: ExercisePurpose | 'all' = purpose)=>{
+    const requestId = ++loadRequestRef.current
     setSelectedKey(group); setLoading(true); setError(null)
     const cacheKey = `trad:${p}:${group}${allMode ? ':all' : ''}`
     try{
       const all = await Gym.fetchAll()
+      if (requestId !== loadRequestRef.current) { return }
       const catalog = all.exercises || []
       const curated = traditionalForGroup(catalog, '__all__')
       setGroupById(Object.fromEntries(curated.map(t => [t.exercise.id, t.group])) as Record<string,TraditionalGroupId>)
       let tradEx: Gym.Exercise[] = []
-      if (p === 'conventional' && !allMode) {
+      if (p === 'all') {
+        const seen = new Set<string>()
+        for (const exercise of catalog) {
+          if (!seen.has(exercise.id)) { seen.add(exercise.id); tradEx.push(exercise) }
+        }
+      } else if (p === 'conventional' && !allMode) {
         // Biblioteca curada por grupo: solo fuerza/hipertrofia/cardio.
         tradEx = curated
           .filter(t => (t.purpose ?? 'conventional') === 'conventional' && (group === '__all__' || t.group === group))
@@ -72,9 +84,13 @@ export default function Biblioteca(){
         catalog.filter(e => exercisePurpose(e) === p).forEach(add)
         curated.filter(t => (t.purpose ?? 'conventional') === p).forEach(t => add(t.exercise))
       }
-      const customs = (await listCustomExercises(undefined, undefined).catch(()=>[]))
+      const customsRaw = await listCustomExercises(undefined, undefined).catch(()=>[])
+      if (requestId !== loadRequestRef.current) { return }
+      const sharedRaw = await listSharedExercises().catch(()=>[])
+      if (requestId !== loadRequestRef.current) { return }
+      const customs = p === 'all' ? customsRaw : customsRaw
         .filter(e => exercisePurpose(e as unknown as { category?: string; exerciseObjective?: string }) === p)
-      const shared = (await listSharedExercises().catch(()=>[]))
+      const shared = p === 'all' ? sharedRaw : sharedRaw
         .filter((e:any) => exercisePurpose(e as unknown as { category?: string; exerciseObjective?: string }) === p)
       setTradIds(new Set(tradEx.map(e => e.id)))
       const seenAll = new Set<string>()
@@ -89,17 +105,50 @@ export default function Biblioteca(){
       pushAll(tradEx)
       pushAll(customs)
       pushAll(shared)
+      if (requestId !== loadRequestRef.current) { return }
       setExercises(merged)
       Gym.cacheSet(cacheKey, merged)
     }catch(e:any){
+      if (requestId !== loadRequestRef.current) { return }
       const cached = Gym.cacheGet(cacheKey)
       if(cached){ setExercises(cached); setError('Mostrando caché offline (sin conexión).') }
       else {setError(e.message || 'Error al cargar')}
-    }finally{ setLoading(false) }
-  }
+    }finally{
+      if (requestId === loadRequestRef.current) { setLoading(false) }
+    }
+  }, [showAll, purpose])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(()=>{ load('__all__', false, 'conventional') },[])
+  // Mantener la función vigente sin reiniciar el catálogo cuando cambia la
+  // finalidad elegida por el usuario; el efecto solo sigue la ruta entrante.
+  const loadRef = useRef(load)
+  loadRef.current = load
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const incomingQuery = params.get('buscar')
+    if (incomingQuery) {
+      setQ(incomingQuery)
+      setShowAll(true)
+      setSelectedKey('__all__')
+      setGlobalSearch(true)
+      void loadRef.current('__all__', true, 'all')
+      return
+    }
+    void loadRef.current('__all__', false, 'conventional')
+  }, [location.key, location.search])
+
+  // La búsqueda general identifica el ejercicio exacto. Cuando el catálogo
+  // termina de cargar, abrimos su ficha en lugar de dejar solo una lista filtrada.
+  useEffect(() => {
+    const state = location.state as { globalSearchKind?: string; globalSearchId?: string } | null
+    if (state?.globalSearchKind !== 'exercise' || !state.globalSearchId || exercises.length === 0) { return }
+    const requestKey = `${location.key}:${state.globalSearchId}`
+    if (handledGlobalSearchRef.current === requestKey) { return }
+    const selected = exercises.find(ex => ex.id === state.globalSearchId)
+    if (selected) {
+      handledGlobalSearchRef.current = requestKey
+      setDetail(selected)
+    }
+  }, [location.key, location.state, exercises])
 
   const BODY_PART_GROUP: Record<string, TraditionalGroupId> = {
     legs: 'piernas', chest: 'pecho', back: 'espalda', core: 'core',
@@ -109,8 +158,9 @@ export default function Biblioteca(){
     groupById[ex.id] ?? BODY_PART_GROUP[ex.bodyPart] ?? '__all__'
 
   const filtered = exercises.filter(ex=>{
-    // La finalidad manda: nunca se mezclan categorías.
-    if (exercisePurpose(ex) !== purpose) {return false}
+    // El buscador global puede mostrar coincidencias de cualquier finalidad;
+    // al volver a los filtros locales, cada categoría permanece separada.
+    if (!(globalSearch && q.trim().length > 0) && exercisePurpose(ex) !== purpose) {return false}
     if (selectedKey !== '__all__' && groupOf(ex) !== selectedKey) {return false}
     if(onlyFavs && !favs.includes(ex.id)) {return false}
     if(!q) {return true;}
@@ -203,7 +253,7 @@ export default function Biblioteca(){
             type="button"
             aria-pressed={purpose === p.id}
             onClick={() => {
-              setPurpose(p.id); setShowAll(false); setOnlyFavs(false); setQ('')
+              setPurpose(p.id); setShowAll(false); setOnlyFavs(false); setQ(''); setGlobalSearch(false)
               void load('__all__', false, p.id)
             }}
             className={`py-2.5 min-h-[48px] rounded-lg border font-label-md text-[11px] font-semibold uppercase tracking-widest transition-colors ${purpose === p.id ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant hover:border-primary/50'}`}
@@ -248,7 +298,7 @@ export default function Biblioteca(){
       <div className="grid gap-3">
         {loading && exercises.length===0 && <AltheaLoading lines={4} />}
         {filtered.map(ex=>(
-          <div key={ex.id} onClick={()=>setDetail(ex)} className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 sm:p-4 shadow-al-sm min-w-0 cursor-pointer active:bg-surface-container-low/50 transition-colors">
+          <button key={ex.id} type="button" aria-label={`Ver detalle de ${ex.name}`} onClick={()=>setDetail(ex)} className="w-full text-left rounded-xl border border-outline-variant/40 bg-surface-container p-3 sm:p-4 shadow-al-sm min-w-0 cursor-pointer active:bg-surface-container-low/50 transition-colors">
             <div className="flex gap-3 p-3">
               <div className="w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-xl bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant flex items-center justify-center overflow-hidden relative">
                 {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).parentElement?.querySelector('.gif-fallback')?.classList.remove('hidden')}} className="w-full h-full object-contain" /> : <span className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">Sin GIF</span>}
@@ -268,7 +318,7 @@ export default function Biblioteca(){
                 </div>
               </div>
             </div>
-          </div>
+          </button>
         ))}
         {filtered.length===0 && !loading && <AltheaEmpty icon="search_off" title="Sin resultados" description="Probá otro grupo muscular o término de búsqueda." />}
       </div>

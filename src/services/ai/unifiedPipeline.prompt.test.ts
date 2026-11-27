@@ -36,6 +36,34 @@ describe('buildUnifiedSystemPrompt', () => {
     expect(prompt).toContain('[method-hipertrofia]')
   })
 
+  it('incluye diario nutricional, recuperación y evolución de medidas reales', () => {
+    const context = {
+      ...baseCtx.context,
+      nutriDaily: { diarioCount: 2, calendario: 'no', objetivo: 'hipertrofia', ultimoAlimento: 'Avena' },
+      nutritionContext: {
+        weight: 80, height: 180, bmi: 24.7, bmiCategory: 'normal',
+        activityLevel: 'moderado', estimatedBMR: 1700, estimatedTDEE: 2600,
+        calorieGoal: 2400, weightHistory: [], nutritionPreferences: ['sin lactosa'],
+        foodLogCount: 2,
+      },
+      bodyMeasurements: [
+        { date: '2026-10-01', weightKg: 82, waistCm: 88 },
+        { date: '2026-11-20', weightKg: 80, bodyFatPct: 18, muscleMassKg: 38, waistCm: 85 },
+      ],
+      recovery: { lastScore: 82, trend: 'estable', consecutiveLow: 0 },
+      mapaMuscular: 'Pecho alto; espalda media',
+      sueno: '7.5h',
+      energia: '8/10',
+    }
+    const prompt = buildUnifiedSystemPrompt({ ...baseCtx, context } as unknown as UnifiedContext)
+    expect(prompt).toContain('Diario nutricional de hoy: 2 registros')
+    expect(prompt).toContain('Última medición corporal (2026-11-20)')
+    expect(prompt).toContain('grasa corporal 18%')
+    expect(prompt).toContain('Evolución de peso')
+    expect(prompt).toContain('Recuperación: 82/100')
+    expect(prompt).toContain('Mapa muscular (últimos 30 días)')
+  })
+
   it('sin evidencia igual habilita conocimiento general y evita inventar citas', () => {
     const prompt = buildUnifiedSystemPrompt({ ...baseCtx, evidence: [] } as unknown as UnifiedContext)
     expect(prompt).toContain('Sin evidencia recuperada')

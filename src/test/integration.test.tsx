@@ -82,7 +82,9 @@ describe('Integration Tests', () => {
         updatedAt: new Date().toISOString(),
       })
       await db.sessionExercises.put({
-        sessionExerciseId: uuid(),
+        // Debe coincidir con sessionExercises.sessionExerciseId usado abajo
+        // por el SetRecord, para que el fixture represente una relación válida.
+        sessionExerciseId: 'test-session-1:press:set:1',
         sessionId: 'test-session-1',
         exerciseId: 'press',
         order: 0,
@@ -149,7 +151,7 @@ describe('Integration Tests', () => {
       
       const file = new File([exported], 'backup.json', { type: 'application/json' })
       const result = await importJSON(file)
-      expect(result.success).toBe(true)
+      expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
       
       // Verify data restored (new tables)
       const sessionCount = await db.trainingSessions.count()
