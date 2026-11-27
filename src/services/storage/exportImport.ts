@@ -542,55 +542,108 @@ async function detectConflicts(
   importedData: ExportData,
   options: ImportOptions
 ): Promise<ConflictInfo[]> {
+  if (options.mode !== 'merge') { return [] }
+
+  // La política de seguridad de la restauración es uniforme:
+  // si una clave primaria ya existe, el registro local prevalece en TODAS
+  // las tablas. No se decide por timestamp ni por el tipo de dato.
+  const tables = [
+    { name: 'routineStore', table: db.routineStore, records: importedData.routines ?? [], key: 'id' },
+    { name: 'routineDays', table: db.routineDays, records: importedData.routineDays ?? [], key: 'id' },
+    { name: 'routineExercises', table: db.routineExercises, records: importedData.routineExercises ?? [], key: 'id' },
+    { name: 'trainingSessions', table: db.trainingSessions, records: importedData.trainingSessions ?? [], key: 'id' },
+    { name: 'sessionExercises', table: db.sessionExercises, records: importedData.sessionExercises ?? [], key: 'sessionExerciseId' },
+    { name: 'setRecords', table: db.setRecords, records: importedData.setRecords ?? [], key: 'setRecordId' },
+    { name: 'sessionEvents', table: db.sessionEvents, records: importedData.sessionEvents ?? [], key: 'eventId' },
+    { name: 'postWorkoutSurveys', table: db.postWorkoutSurveys, records: importedData.postWorkoutSurveys ?? [], key: 'surveyId' },
+    { name: 'negativeSets', table: db.negativeSets, records: importedData.negativeSets ?? [], key: 'negativeSetId' },
+    { name: 'exerciseObservations', table: db.exerciseObservations, records: importedData.exerciseObservations ?? [], key: 'observationId' },
+    { name: 'recoveryChecks', table: db.recoveryChecks, records: importedData.recoveryChecks ?? [], key: 'id' },
+    { name: 'hydrationLogs', table: db.hydrationLogs, records: importedData.hydrationLogs ?? [], key: 'id' },
+    { name: 'bodyMeasurements', table: db.bodyMeasurements, records: importedData.bodyMeasurements ?? [], key: 'id' },
+    { name: 'userProfile', table: db.userProfile, records: importedData.userProfile ?? [], key: 'id' },
+    { name: 'customExercises', table: db.customExercises, records: importedData.customExercises ?? [], key: 'id' },
+    { name: 'weeklySequences', table: db.weeklySequences, records: importedData.weeklySequences ?? [], key: 'id' },
+    { name: 'chatMessages', table: db.chatMessages, records: importedData.chatMessages ?? [], key: 'id' },
+    { name: 'chatConversations', table: db.chatConversations, records: importedData.chatConversations ?? [], key: 'id' },
+    { name: 'nutritionDiary', table: db.nutritionDiary, records: importedData.nutritionDiary ?? [], key: 'id' },
+    { name: 'nutritionAdherence', table: db.nutritionAdherence, records: importedData.nutritionAdherence ?? [], key: 'id' },
+    { name: 'sessionOverrides', table: db.sessionOverrides, records: importedData.sessionOverrides ?? [], key: 'date' },
+    { name: 'coachMemory', table: db.coachMemory, records: importedData.coachMemory ?? [], key: 'id' },
+    { name: 'decisionLog', table: db.decisionLog, records: importedData.decisionLog ?? [], key: 'id' },
+    { name: 'knowledgeDocuments', table: db.knowledgeDocuments, records: importedData.knowledgeDocuments ?? [], key: 'id' },
+    { name: 'exerciseKnowledge', table: db.exerciseKnowledge, records: importedData.exerciseKnowledge ?? [], key: 'id' },
+    { name: 'scoreSnapshots', table: db.scoreSnapshots, records: importedData.scoreSnapshots ?? [], key: 'id' },
+    { name: 'onboardingDrafts', table: db.onboardingDrafts, records: importedData.onboardingDrafts ?? [], key: 'id' },
+    { name: 'painLogs', table: db.painLogs, records: importedData.painLogs ?? [], key: 'id' },
+    { name: 'cfWods', table: db.cfWods, records: importedData.cfWods ?? [], key: 'id' },
+    { name: 'cfSchedule', table: db.cfSchedule, records: importedData.cfSchedule ?? [], key: 'id' },
+    { name: 'cfResults', table: db.cfResults, records: importedData.cfResults ?? [], key: 'id' },
+    { name: 'cfMarks', table: db.cfMarks, records: importedData.cfMarks ?? [], key: 'id' },
+    { name: 'activitySessions', table: db.activitySessions, records: importedData.activitySessions ?? [], key: 'id' },
+    { name: 'exerciseRecords', table: db.exerciseRecords, records: importedData.exerciseRecords ?? [], key: 'id' },
+    { name: 'cycleVersions', table: db.cycleVersions, records: importedData.cycleVersions ?? [], key: 'id' },
+    { name: 'hydrationBottles', table: db.hydrationBottles, records: importedData.hydrationBottles ?? [], key: 'id' },
+    { name: 'hydrationBottleLogs', table: db.hydrationBottleLogs, records: importedData.hydrationBottleLogs ?? [], key: 'id' },
+    { name: 'notifConfigs', table: db.notifConfigs, records: importedData.notifConfigs ?? [], key: 'id' },
+    { name: 'notifLog', table: db.notifLog, records: importedData.notifLog ?? [], key: 'id' },
+    { name: 'unifiedNotifConfigs', table: db.unifiedNotifConfigs, records: importedData.unifiedNotifConfigs ?? [], key: 'id' },
+    { name: 'requiredActionStates', table: db.requiredActionStates, records: importedData.requiredActionStates ?? [], key: 'id' },
+    { name: 'customFoods', table: db.customFoods, records: importedData.customFoods ?? [], key: 'id' },
+    { name: 'exerciseState', table: db.exerciseState, records: importedData.exerciseState ?? [], key: 'id' },
+    { name: 'sessionChanges', table: db.sessionChanges, records: importedData.sessionChanges ?? [], key: 'id' },
+    { name: 'sessionObservations', table: db.sessionObservations, records: importedData.sessionObservations ?? [], key: 'id' },
+  ] as const
+
   const conflicts: ConflictInfo[] = []
-  
-  if (options.mode === 'replace-all') {return conflicts}
-  
-  const routineIds = new Set(importedData.routines.map(r => r.id))
-  const existingRoutines = await db.routineStore.where('id').anyOf([...routineIds]).toArray()
-  for (const existing of existingRoutines) {
-    const imported = importedData.routines.find(r => r.id === existing.id)
-    if (imported && JSON.stringify(existing) !== JSON.stringify(imported)) {
+  const seen = new Set<string>()
+
+  for (const spec of tables) {
+    const records = spec.records.filter((record: any) => record?.[spec.key] != null)
+    if (records.length === 0) { continue }
+
+    const keys = records.map((record: any) => record[spec.key])
+    const existingRows = await (spec.table as any).bulkGet(keys)
+    records.forEach((imported: any, index: number) => {
+      const local = existingRows[index]
+      if (!local || JSON.stringify(local) === JSON.stringify(imported)) { return }
+      const id = String(imported[spec.key])
+      const uniqueKey = `${spec.name}:${id}`
+      if (seen.has(uniqueKey)) { return }
+      seen.add(uniqueKey)
       conflicts.push({
-        table: 'routineStore',
-        id: existing.id,
-        local: existing,
+        table: spec.name,
+        id,
+        local,
         imported,
-        suggestedResolution: existing.updatedAt > imported.updatedAt ? 'keep-local' : 'keep-imported'
+        suggestedResolution: 'keep-local',
       })
-    }
+    })
   }
-  
-  const sessionIds = new Set(importedData.trainingSessions.map(s => s.sessionId))
-  const existingSessions = await db.trainingSessions.where('sessionId').anyOf([...sessionIds]).toArray()
-  for (const existing of existingSessions) {
-    const imported = importedData.trainingSessions.find(s => s.sessionId === existing.sessionId)
-    if (imported && JSON.stringify(existing) !== JSON.stringify(imported)) {
+
+  // trainingSessions también tiene un identificador lógico único sessionId.
+  // Evita que un respaldo con otro PK choque con una sesión local existente.
+  const incomingSessions = importedData.trainingSessions ?? []
+  if (incomingSessions.length > 0) {
+    const sessionIds = [...new Set(incomingSessions.map(session => session.sessionId).filter(Boolean))]
+    const existingSessions = await db.trainingSessions.where('sessionId').anyOf(sessionIds).toArray()
+    for (const local of existingSessions) {
+      const imported = incomingSessions.find(session => session.sessionId === local.sessionId)
+      if (!imported || JSON.stringify(local) === JSON.stringify(imported)) { continue }
+      const id = String(imported.id)
+      const uniqueKey = `trainingSessions:${id}`
+      if (seen.has(uniqueKey)) { continue }
+      seen.add(uniqueKey)
       conflicts.push({
         table: 'trainingSessions',
-        id: existing.id,
-        local: existing,
+        id,
+        local,
         imported,
-        suggestedResolution: existing.updatedAt > imported.updatedAt ? 'keep-local' : 'keep-imported'
+        suggestedResolution: 'keep-local',
       })
     }
   }
-  
-  const profileIds = new Set(importedData.userProfile.map(p => p.id))
-  const existingProfiles = await db.userProfile.where('id').anyOf([...profileIds]).toArray()
-  for (const existing of existingProfiles) {
-    const imported = importedData.userProfile.find(p => p.id === existing.id)
-    if (imported && JSON.stringify(existing) !== JSON.stringify(imported)) {
-      conflicts.push({
-        table: 'userProfile',
-        id: existing.id,
-        local: existing,
-        imported,
-        suggestedResolution: 'keep-local'
-      })
-    }
-  }
-  
+
   return conflicts
 }
 
@@ -682,11 +735,11 @@ async function applyImport(
   for (const { table, data: tableData, key, countKey, name } of tablesToImport) {
     if (!tableData.length) {continue}
     
-    const conflictIds = new Set(conflicts.filter(c => c.table === name).map(c => c.id))
+    const conflictIds = new Set(conflicts.filter(c => c.table === name).map(c => String(c.id)))
     
     let recordsToImport = tableData
     if (options.mode === 'merge') {
-      recordsToImport = tableData.filter((d: any) => !conflictIds.has(d[key]))
+      recordsToImport = tableData.filter((d: any) => !conflictIds.has(String(d[key])))
     }
     
     if (options.mode === 'replace' && conflictIds.size > 0) {
