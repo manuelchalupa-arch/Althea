@@ -21,7 +21,14 @@ const levelMap: Record<number, string> = {
 export function AltheaCard({ children, className = '', padding = 'md', hover = false, onClick, level = 2 }: AltheaCardProps) {
   return (
     <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
+      onKeyDown={event => {
+        if (!onClick || (event.key !== 'Enter' && event.key !== ' ')) { return }
+        event.preventDefault()
+        onClick()
+      }}
       className={`${levelMap[level]} ${padMap[padding]} ${hover ? 'hover:border-primary/60 hover:shadow-al-md transition-all cursor-pointer' : 'transition-colors'} ${className}`}
     >
       {children}
