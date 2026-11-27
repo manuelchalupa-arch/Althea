@@ -73,7 +73,7 @@ export default function GymPaymentCard() {
                 onChange={save}
                 className="min-w-0"
               />
-            </label>
+            </div>
           ) : (
             <p className="min-w-0 mt-1 text-[14px] font-medium">
               <span data-testid="gym-card-due">
