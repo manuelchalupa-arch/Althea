@@ -607,7 +607,7 @@ async function detectConflicts(
   const seen = new Set<string>()
 
   for (const spec of tables) {
-    const records = spec.records.filter((record: any) => record?.[spec.key] != null)
+    const records = spec.records.filter((record: any) => record?.[spec.key] !== undefined && record?.[spec.key] !== null)
     if (records.length === 0) { continue }
 
     const keys = records.map((record: any) => record[spec.key])
