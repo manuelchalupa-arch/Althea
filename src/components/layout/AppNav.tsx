@@ -59,7 +59,7 @@ export default function AppNav() {
   // La pantalla Entrenar muestra su estado vacío cuando no existe sesión activa;
   // el acceso no desaparece de la navegación.
   const primaryItems = NAV_ITEMS.filter(i =>
-    ['home', 'training', 'nutrition', 'progress', 'crossfit'].includes(i.icon as string)
+    ['home', 'training', 'nutrition', 'crossfit', 'more'].includes(i.icon as string)
   )
   // Deduplicar por ICONO, no por ruta: '/progreso' y '/progresos' son dos
   // strings que renderizan la misma pagina (Progreso.tsx). Comparar por icono
