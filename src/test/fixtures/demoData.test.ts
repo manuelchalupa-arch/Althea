@@ -213,7 +213,7 @@ describe('T028 — Demo Data + Export/Import', () => {
       const data = JSON.parse(text)
 
       expect(data.metadata).toBeDefined()
-      expect(data.metadata.version).toBe(4)
+      expect(data.metadata.version).toBe(5)
       expect(data.metadata.exportedAt).toBeDefined()
       expect(data.metadata.schemaVersion).toBe(29)
 
@@ -436,6 +436,9 @@ describe('T028 — Demo Data + Export/Import', () => {
         id: 'nutrition-new',
         name: 'Registro nuevo',
       })
+      // El formato v5 valida el manifiesto antes de analizar conflictos:
+      // actualizar también el conteo declarado del arreglo que modificó la prueba.
+      exported.metadata.recordCounts.nutritionDiary = exported.nutritionDiary.length
       const file = new File([JSON.stringify(exported)], 'merge-protection.json', { type: 'application/json' })
 
       const preview = await generateImportPreview(file)
