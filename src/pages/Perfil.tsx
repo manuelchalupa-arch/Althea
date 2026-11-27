@@ -586,13 +586,13 @@ export default function Perfil() {
                 onChange={e => setTrainPrefs(p => ({ ...p, duration: Number(e.target.value) }))}
                 className="w-full mt-1 bg-surface-container-high/50 border border-outline-variant rounded-lg p-3 font-body-md text-base text-on-surface" />
             </label>
-            <label className="block">
+            <div className="block">
               <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Horario habitual</span>
               <AltheaTimePicker value={trainPrefs.time}
                 onChange={value => setTrainPrefs(p => ({ ...p, time: value }))}
                 ariaLabel="Horario habitual de entrenamiento"
                 className="w-full" />
-            </label>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <label className="block">
