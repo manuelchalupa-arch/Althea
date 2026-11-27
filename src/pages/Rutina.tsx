@@ -1805,8 +1805,8 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
   const chooseEquipmentMode=(mode:string)=>{
     setEquipmentMode(mode)
     if (presets[mode]) { setEquipment(presets[mode]) }
-    if(mode==='crossfit')setModality('crossfit')
-    else if(mode!=='profile')setModality('gym')
+    if (mode === 'crossfit') { setModality('crossfit') }
+    else if (mode !== 'profile') { setModality('gym') }
     if(mode==='profile' && profile){
       const map:Record<string,string>={barra:'barbell',mancuernas:'dumbbell',maquina:'machine',polea:'cable',peso_corporal:'bodyweight',banda:'band'}
       setEquipment((Array.isArray(profile.equipment)&&profile.equipment.length?profile.equipment:profile.preferences?.preferredEquipment||[]).map((v:string)=>map[v]||v))
