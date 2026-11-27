@@ -204,26 +204,35 @@ function parseSpanishCount(value: string | undefined): number {
 
 /** Convierte el pedido de bloques consecutivos a una estructura verificable. */
 export function parseRoutineSequence(description = ''): RoutineSequenceRequirements | undefined {
-  // El usuario puede escribir cada instrucción en una línea o separarla con
-  // saltos pegados como texto literal. Se normalizan ambos casos antes de
-  // identificar cada bloque, sin depender del formato del textarea.
+  // Se admite texto corrido, saltos reales o "\\n" literal.
   const sections = (description || '')
-    .split(/\\n|\r?\n|[.;]+/)
+    .replace(/\\\\n/g, '\n')
+    .split(/\r?\n|[.;]+/)
     .map(part => plainText(part).replace(/\s+/g, ' ').trim())
     .filter(Boolean)
 
-  const countIn = (section: string, max: number) => {
-    const match = section.match(/\b(un|uno|una|1|dos|2|tres|3|cuatro|4|cinco|5|seis|6|siete|7)\s+ejercicios?\b/)
-    if (!match) { return 0 }
-    const words: Record<string, number> = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7 }
-    const count = Number(match[1]) || words[match[1]] || 0
-    return count > 0 && count <= max ? count : 0
+  const countIn = (section: string, max: number): number => {
+    const words = section.split(/\s+/)
+    for (let i = 0; i < words.length - 1; i++) {
+      const amount = parseSpanishCount(words[i])
+      if (amount > 0 && amount <= max && /^ejercicio(s)?$/.test(words[i + 1])) {
+        return amount
+      }
+    }
+    return 0
   }
 
-  const warmSection = sections.find(section => /\b(estiramiento|estiramientos|calentamiento|calentar)\b/.test(section))
-  const primarySection = sections.find(section => /\bgrupo muscular principal\b/.test(section))
-  const secondarySection = sections.find(section => /\bgrupo muscular secundario\b/.test(section))
-  const cardioSection = sections.find(section => /\bcardio\b/.test(section) && /\b(suave|bajar|ritmo cardiaco|ritmo del corazon|recuperacion)\b/.test(section))
+  const warmSection = sections.find(section =>
+    section.includes('estiramiento') || section.includes('calentamiento') || section.includes('calentar'),
+  )
+  const primarySection = sections.find(section => section.includes('grupo muscular principal'))
+  const secondarySection = sections.find(section => section.includes('grupo muscular secundario'))
+  const cardioSection = sections.find(section =>
+    section.includes('cardio') && (
+      section.includes('suave') || section.includes('bajar') ||
+      section.includes('ritmo cardiaco') || section.includes('recuperacion')
+    ),
+  )
 
   const warmupCount = warmSection ? countIn(warmSection, 3) : 0
   const primaryCount = primarySection ? countIn(primarySection, 8) : 0
@@ -233,8 +242,15 @@ export function parseRoutineSequence(description = ''): RoutineSequenceRequireme
     return undefined
   }
 
-  const primarySupersets = Boolean(primarySection && /super\s*series?|superseries?/.test(primarySection))
-  return { warmupCount, primaryCount, primarySupersets, secondaryCount, cooldownCount: 1 }
+  return {
+    warmupCount,
+    primaryCount,
+    primarySupersets: Boolean(primarySection && (
+      primarySection.includes('superserie') || primarySection.includes('super serie') || primarySection.includes('super-series')
+    )),
+    secondaryCount,
+    cooldownCount: 1,
+  }
 }
 
 export function parseRoutineInstructions(description = ''): RoutineInstructions {
