@@ -736,10 +736,30 @@ async function applyImport(
     if (!tableData.length) {continue}
     
     const conflictIds = new Set(conflicts.filter(c => c.table === name).map(c => String(c.id)))
-    
+
     let recordsToImport = tableData
     if (options.mode === 'merge') {
-      recordsToImport = tableData.filter((d: any) => !conflictIds.has(String(d[key])))
+      // Segunda barrera dentro de la transacción: aunque aparezca una
+      // escritura local después de generar el preview, jamás se sobrescribe.
+      const primaryKeys = tableData
+        .map((record: any) => record?.[key])
+        .filter((value: unknown) => value !== undefined && value !== null)
+      const existingRows = await table.bulkGet(primaryKeys)
+      const existingPrimaryKeys = new Set(
+        primaryKeys.filter((_: unknown, index: number) => existingRows[index] !== undefined).map(String),
+      )
+      let existingSessionIds = new Set<string>()
+      if (name === 'trainingSessions') {
+        const sessionIds = [...new Set(tableData.map((record: any) => record?.sessionId).filter(Boolean))]
+        const existingSessions = await db.trainingSessions.where('sessionId').anyOf(sessionIds).toArray()
+        existingSessionIds = new Set(existingSessions.map(session => session.sessionId))
+      }
+      recordsToImport = tableData.filter((record: any) => {
+        const keyValue = String(record?.[key])
+        return !conflictIds.has(keyValue)
+          && !existingPrimaryKeys.has(keyValue)
+          && !(name === 'trainingSessions' && existingSessionIds.has(record?.sessionId))
+      })
     }
     
     if (options.mode === 'replace' && conflictIds.size > 0) {
