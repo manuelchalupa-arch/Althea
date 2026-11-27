@@ -1859,7 +1859,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
             </div>
             <h4 className="font-body-md text-sm font-medium text-on-surface pt-1">Días exactos disponibles</h4>
             <div className="grid grid-cols-4 gap-2">
-              {dayLabels.map((label,d)=><button key={d} type="button" onClick={()=>toggleDay(d)} className={toggleCls(days.includes(d)}+" text-xs")} aria-pressed={days.includes(d)}>{label.slice(0,3)}</button>)}
+              {dayLabels.map((label,d)=><button key={d} type="button" onClick={()=>toggleDay(d)} className={`${toggleCls(days.includes(d))} text-xs`} aria-pressed={days.includes(d)}>{label.slice(0,3)}</button>)}
             </div>
             <p className="font-body-sm text-[11px] text-on-surface-variant">Se respetarán estos días concretos en el calendario. Los demás quedarán como descanso.</p>
           </>}
