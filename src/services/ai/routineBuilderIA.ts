@@ -200,15 +200,15 @@ function addMuscleAliases(sentence: string, out: Set<string>) {
 export function parseRoutineSequence(description = ''): RoutineSequenceRequirements | undefined {
   // Se admite texto corrido, saltos reales o "\\n" literal.
   const sections = (description || '')
-    .replace(/\\\\n/g, '\n')
     .split(/\r?\n|[.;]+/)
     .map(part => plainText(part).replace(/\s+/g, ' ').trim())
     .filter(Boolean)
 
   const countIn = (section: string, max: number): number => {
     const words = section.split(/\s+/)
+    const numberWords: Record<string, number> = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7 }
     for (let i = 0; i < words.length - 1; i++) {
-      const amount = parseSpanishCount(words[i])
+      const amount = Number(words[i]) || numberWords[words[i]] || 0
       if (amount > 0 && amount <= max && /^ejercicio(s)?$/.test(words[i + 1])) {
         return amount
       }
