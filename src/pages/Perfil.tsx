@@ -46,10 +46,10 @@ function getInitials(name: string) {
 }
 
 const COACH_TONES: { id: string; label: string; desc: string }[] = [
-  { id: 'ABUELITOS', label: 'Equilibrado', desc: 'Amable, te pide constancia' },
-  { id: 'PADELERO', label: 'Motivador', desc: 'Comprensivo, sin presión' },
-  { id: 'ARNOLD', label: 'Directo', desc: 'Firme, foco en el plan' },
-  { id: 'PSYCHO', label: 'Exigente', desc: 'Disciplinado, alta presión' },
+  { id: 'ABUELITOS', label: 'Profesional', desc: 'Técnico, equilibrado y basado en criterios científicos' },
+  { id: 'PADELERO', label: 'Motivacional', desc: 'Acompaña, refuerza la constancia y reconoce avances' },
+  { id: 'ARNOLD', label: 'Exigente', desc: 'Directo, disciplinado y orientado al cumplimiento del plan' },
+  { id: 'PSYCHO', label: 'Extremo', desc: 'Muy intenso en el tono, sin anular límites de seguridad' },
 ]
 
 const COACH_LEVELS = [1, 2, 3, 4, 5]
@@ -192,7 +192,7 @@ export default function Perfil() {
   const [firebaseReady, setFirebaseReady] = useState(false)
   const [coachTone, setCoachTone] = useState('')
   const [coachLevel, setCoachLevel] = useState(3)
-  const [trainPrefs, setTrainPrefs] = useState({ duration: 60, time: '18:00', level: 'intermediate', modality: 'gym', intensity: 3, availability: '' })
+  const [trainPrefs, setTrainPrefs] = useState({ duration: 60, time: '18:00', level: 'intermediate', modality: 'gym', availability: '' })
   const [excluded, setExcluded] = useState<string[]>([])
   const { isVisible: isSectionVisible, toggle: toggleSection } = useVisibleSections()
   const [showBiblio, setShowBiblio] = useState(false)
@@ -214,7 +214,6 @@ export default function Perfil() {
           time: p.trainingTime || p.schedule?.preferredTime || '18:00',
           level: resolveExperienceLevel(p),
           modality: p.trainingModality === 'crossfit' ? 'crossfit' : 'gym',
-          intensity: Number(p.exigencia?.entrenamiento || p.trainingIntensity || 3),
           availability: p.availabilityNotes || '',
         })
         setExcluded(p.excludedExercises || [])
@@ -331,8 +330,6 @@ export default function Perfil() {
       experienceLevel: trainPrefs.level,
       level: trainPrefs.level === 'beginner' ? 'principiante' : trainPrefs.level === 'advanced' ? 'avanzado' : 'intermedio',
       trainingModality: trainPrefs.modality,
-      trainingIntensity: trainPrefs.intensity,
-      exigencia: { ...(profile.exigencia || {}), entrenamiento: trainPrefs.intensity },
       availabilityNotes: trainPrefs.availability,
       schedule: { ...(profile.schedule || {}), preferredTime: trainPrefs.time, sessionTimeAvailable: duration },
     }
@@ -603,18 +600,6 @@ export default function Perfil() {
                 <option value="crossfit">CrossFit</option>
               </select>
             </label>
-          </div>
-          <div>
-            <div className="font-label-caps text-[9px] uppercase text-outline tracking-wider mb-2">Intensidad de entrenamiento · {trainPrefs.intensity} de 5</div>
-            <div className="grid grid-cols-5 gap-2">
-              {[1,2,3,4,5].map(n => (
-                <button key={n} onClick={() => setTrainPrefs(p => ({ ...p, intensity: n }))} aria-label={`Intensidad de entrenamiento ${n} de 5`}
-                  aria-pressed={trainPrefs.intensity === n}
-                  className="h-12 rounded-lg border font-headline-md font-bold bg-surface-container/50 border-outline-variant/50 transition">
-                  {n}
-                </button>
-              ))}
-            </div>
           </div>
           <label className="block">
             <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Disponibilidad variable</span>
