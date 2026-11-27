@@ -131,6 +131,11 @@ export function DataOwnership() {
         ['Series', result.imported.setRecords],
         ['Check-ins', result.imported.recoveryChecks],
         ['Comidas', result.imported.nutritionDiary],
+        ['Botellas', result.imported.hydrationBottles],
+        ['Registros de hidratación', result.imported.hydrationBottleLogs],
+        ['Alimentos personalizados', result.imported.customFoods],
+        ['Configuraciones de avisos', result.imported.notifConfigs + result.imported.unifiedNotifConfigs],
+        ['Mediciones', result.imported.bodyMeasurements],
       ] as const)
     : []
 
