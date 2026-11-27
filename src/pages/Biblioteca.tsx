@@ -33,6 +33,8 @@ export default function Biblioteca(){
   const [showAll,setShowAll]=useState(false)
   // grupo muscular de cada id curado (el catálogo externo no lo trae)
   const [groupById,setGroupById]=useState<Record<string,TraditionalGroupId>>({})
+  const [globalSearch,setGlobalSearch]=useState(false)
+  const loadRequestRef = useRef(0)
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true
 
   useEffect(()=>{
@@ -53,16 +55,23 @@ export default function Biblioteca(){
   const musclePct = (ex: Gym.Exercise)=> effectiveBreakdown(ex)
 
   // Síntesis: ejercicios curados + los propios del usuario, separados por finalidad.
-  const load = useCallback(async (group: string, allMode: boolean = showAll, p: ExercisePurpose = purpose)=>{
+  const load = useCallback(async (group: string, allMode: boolean = showAll, p: ExercisePurpose | 'all' = purpose)=>{
+    const requestId = ++loadRequestRef.current
     setSelectedKey(group); setLoading(true); setError(null)
     const cacheKey = `trad:${p}:${group}${allMode ? ':all' : ''}`
     try{
       const all = await Gym.fetchAll()
+      if (requestId !== loadRequestRef.current) { return }
       const catalog = all.exercises || []
       const curated = traditionalForGroup(catalog, '__all__')
       setGroupById(Object.fromEntries(curated.map(t => [t.exercise.id, t.group])) as Record<string,TraditionalGroupId>)
       let tradEx: Gym.Exercise[] = []
-      if (p === 'conventional' && !allMode) {
+      if (p === 'all') {
+        const seen = new Set<string>()
+        for (const exercise of catalog) {
+          if (!seen.has(exercise.id)) { seen.add(exercise.id); tradEx.push(exercise) }
+        }
+      } else if (p === 'conventional' && !allMode) {
         // Biblioteca curada por grupo: solo fuerza/hipertrofia/cardio.
         tradEx = curated
           .filter(t => (t.purpose ?? 'conventional') === 'conventional' && (group === '__all__' || t.group === group))
@@ -74,9 +83,13 @@ export default function Biblioteca(){
         catalog.filter(e => exercisePurpose(e) === p).forEach(add)
         curated.filter(t => (t.purpose ?? 'conventional') === p).forEach(t => add(t.exercise))
       }
-      const customs = (await listCustomExercises(undefined, undefined).catch(()=>[]))
+      const customsRaw = await listCustomExercises(undefined, undefined).catch(()=>[])
+      if (requestId !== loadRequestRef.current) { return }
+      const sharedRaw = await listSharedExercises().catch(()=>[])
+      if (requestId !== loadRequestRef.current) { return }
+      const customs = p === 'all' ? customsRaw : customsRaw
         .filter(e => exercisePurpose(e as unknown as { category?: string; exerciseObjective?: string }) === p)
-      const shared = (await listSharedExercises().catch(()=>[]))
+      const shared = p === 'all' ? sharedRaw : sharedRaw
         .filter((e:any) => exercisePurpose(e as unknown as { category?: string; exerciseObjective?: string }) === p)
       setTradIds(new Set(tradEx.map(e => e.id)))
       const seenAll = new Set<string>()
@@ -91,13 +104,17 @@ export default function Biblioteca(){
       pushAll(tradEx)
       pushAll(customs)
       pushAll(shared)
+      if (requestId !== loadRequestRef.current) { return }
       setExercises(merged)
       Gym.cacheSet(cacheKey, merged)
     }catch(e:any){
+      if (requestId !== loadRequestRef.current) { return }
       const cached = Gym.cacheGet(cacheKey)
       if(cached){ setExercises(cached); setError('Mostrando caché offline (sin conexión).') }
       else {setError(e.message || 'Error al cargar')}
-    }finally{ setLoading(false) }
+    }finally{
+      if (requestId === loadRequestRef.current) { setLoading(false) }
+    }
   }, [showAll, purpose])
 
   // Mantener la función vigente sin reiniciar el catálogo cuando cambia la
@@ -111,7 +128,8 @@ export default function Biblioteca(){
       setQ(incomingQuery)
       setShowAll(true)
       setSelectedKey('__all__')
-      void loadRef.current('__all__', true, 'conventional')
+      setGlobalSearch(true)
+      void loadRef.current('__all__', true, 'all')
       return
     }
     void loadRef.current('__all__', false, 'conventional')
@@ -125,8 +143,9 @@ export default function Biblioteca(){
     groupById[ex.id] ?? BODY_PART_GROUP[ex.bodyPart] ?? '__all__'
 
   const filtered = exercises.filter(ex=>{
-    // La finalidad manda: nunca se mezclan categorías.
-    if (exercisePurpose(ex) !== purpose) {return false}
+    // El buscador global puede mostrar coincidencias de cualquier finalidad;
+    // al volver a los filtros locales, cada categoría permanece separada.
+    if (!(globalSearch && q.trim().length > 0) && exercisePurpose(ex) !== purpose) {return false}
     if (selectedKey !== '__all__' && groupOf(ex) !== selectedKey) {return false}
     if(onlyFavs && !favs.includes(ex.id)) {return false}
     if(!q) {return true;}
@@ -219,7 +238,7 @@ export default function Biblioteca(){
             type="button"
             aria-pressed={purpose === p.id}
             onClick={() => {
-              setPurpose(p.id); setShowAll(false); setOnlyFavs(false); setQ('')
+              setPurpose(p.id); setShowAll(false); setOnlyFavs(false); setQ(''); setGlobalSearch(false)
               void load('__all__', false, p.id)
             }}
             className={`py-2.5 min-h-[48px] rounded-lg border font-label-md text-[11px] font-semibold uppercase tracking-widest transition-colors ${purpose === p.id ? 'bg-primary text-on-surface border-primary' : 'bg-surface-container-low/90 border-outline-variant text-on-surface-variant hover:border-primary/50'}`}
