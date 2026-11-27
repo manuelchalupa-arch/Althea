@@ -32,10 +32,12 @@ describe('AppNav — móvil: cinco destinos permanentes', () => {
     expect(labels).toEqual(['Inicio', 'Entrenar', 'Nutrición', 'CrossFit', 'Más'])
     // Un único nav semántico evita dos barras fijas superpuestas.
     expect(mobileBar!.querySelectorAll('nav')).toHaveLength(1)
-    // Desktop conserva estructura amplia (módulos en la barra lateral).
-    expect(screen.getAllByLabelText('Nutrición').length).toBeGreaterThan(0)
+    // Escritorio usa el mismo grupo principal y orden; Progreso queda en módulos.
+    const desktopNav = document.querySelector('aside[aria-label="Menú lateral"] nav[aria-label="Navegación principal"]')
+    expect(Array.from(desktopNav!.querySelectorAll('.althea-nav-item__label')).map(el => el.textContent)).toEqual([
+      'Inicio', 'Entrenar', 'Nutrición', 'CrossFit', 'Más',
+    ])
     expect(screen.getAllByLabelText('Progreso').length).toBeGreaterThan(0)
-    expect(screen.getAllByLabelText('Más').length).toBeGreaterThan(0)
   })
 
   it('con sesión activa conserva Entrenar sin duplicar destinos', async () => {
