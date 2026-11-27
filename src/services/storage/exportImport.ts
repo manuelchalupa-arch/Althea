@@ -47,6 +47,14 @@ export interface ImportPreview {
     customFoods: number
     notificationConfigs: number
     bodyMeasurements: number
+    legacyRoutines: number
+    legacySessions: number
+    legacySetLogs: number
+    feedbackThreads: number
+    feedbackMessages: number
+    feedbackOutbox: number
+    restTimerState: number
+    cfTimerState: number
     userProfile: boolean
     routinesNew: number
     routinesUpdated: number
@@ -112,6 +120,14 @@ export interface ImportResult {
     exerciseState: number
     sessionChanges: number
     sessionObservations: number
+    legacyRoutines: number
+    legacySessions: number
+    legacySetLogs: number
+    feedbackThreads: number
+    feedbackMessages: number
+    feedbackOutbox: number
+    restTimerState: number
+    cfTimerState: number
   }
   errors: string[]
   conflicts: ConflictInfo[]
@@ -181,6 +197,14 @@ export interface ExportData {
   exerciseState?: any[]
   sessionChanges?: any[]
   sessionObservations?: any[]
+  legacyRoutines?: any[]
+  legacySessions?: any[]
+  legacySetLogs?: any[]
+  feedbackThreads?: any[]
+  feedbackMessages?: any[]
+  feedbackOutbox?: any[]
+  restTimerState?: any[]
+  cfTimerState?: any[]
 }
 
 async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
@@ -232,6 +256,14 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     exerciseState,
     sessionChanges,
     sessionObservations,
+    legacyRoutines,
+    legacySessions,
+    legacySetLogs,
+    feedbackThreads,
+    feedbackMessages,
+    feedbackOutbox,
+    restTimerState,
+    cfTimerState,
   ] = await Promise.all([
     db.routineDays.toArray(),
     db.routineExercises.toArray(),
@@ -277,6 +309,14 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     db.exerciseState.toArray(),
     db.sessionChanges.toArray(),
     db.sessionObservations.toArray(),
+    db.routines.toArray(),
+    db.sessions.toArray(),
+    db.setLogs.toArray(),
+    db.feedbackThreads.toArray(),
+    db.feedbackMessages.toArray(),
+    db.feedbackOutbox.toArray(),
+    db.restTimerState.toArray(),
+    db.cfTimerState.toArray(),
   ])
 
   return {
@@ -325,6 +365,14 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     exerciseState,
     sessionChanges,
     sessionObservations,
+    legacyRoutines,
+    legacySessions,
+    legacySetLogs,
+    feedbackThreads,
+    feedbackMessages,
+    feedbackOutbox,
+    restTimerState,
+    cfTimerState,
   }
 }
 
@@ -430,6 +478,9 @@ function migrateExportData(data: any, fromVersion: number): ExportData {
     'hydrationBottles', 'hydrationBottleLogs', 'notifConfigs', 'notifLog',
     'unifiedNotifConfigs', 'requiredActionStates', 'customFoods',
     'exerciseState', 'sessionChanges', 'sessionObservations',
+    'legacyRoutines', 'legacySessions', 'legacySetLogs',
+    'feedbackThreads', 'feedbackMessages', 'feedbackOutbox',
+    'restTimerState', 'cfTimerState',
   ]
   for (const table of additiveTables) {
     if (!Array.isArray(migrated[table])) { migrated[table] = [] }
@@ -473,6 +524,9 @@ function validateExportData(data: any): { valid: boolean; errors: string[] } {
     'hydrationBottles', 'hydrationBottleLogs', 'notifConfigs', 'notifLog',
     'unifiedNotifConfigs', 'requiredActionStates', 'customFoods',
     'exerciseState', 'sessionChanges', 'sessionObservations',
+    'legacyRoutines', 'legacySessions', 'legacySetLogs',
+    'feedbackThreads', 'feedbackMessages', 'feedbackOutbox',
+    'restTimerState', 'cfTimerState',
   ]
   
   for (const table of requiredTables) {
@@ -561,6 +615,9 @@ async function applyImport(
       hydrationBottles: 0, hydrationBottleLogs: 0, notifConfigs: 0, notifLog: 0,
       unifiedNotifConfigs: 0, requiredActionStates: 0, customFoods: 0,
       exerciseState: 0, sessionChanges: 0, sessionObservations: 0,
+      legacyRoutines: 0, legacySessions: 0, legacySetLogs: 0,
+      feedbackThreads: 0, feedbackMessages: 0, feedbackOutbox: 0,
+      restTimerState: 0, cfTimerState: 0,
     },
     errors: [],
     conflicts,
@@ -612,6 +669,14 @@ async function applyImport(
     { table: db.exerciseState as any, data: data.exerciseState ?? [], key: 'id', countKey: 'exerciseState', name: 'exerciseState' },
     { table: db.sessionChanges as any, data: data.sessionChanges ?? [], key: 'id', countKey: 'sessionChanges', name: 'sessionChanges' },
     { table: db.sessionObservations as any, data: data.sessionObservations ?? [], key: 'id', countKey: 'sessionObservations', name: 'sessionObservations' },
+    { table: db.routines as any, data: data.legacyRoutines ?? [], key: 'id', countKey: 'legacyRoutines', name: 'legacyRoutines' },
+    { table: db.sessions as any, data: data.legacySessions ?? [], key: 'id', countKey: 'legacySessions', name: 'legacySessions' },
+    { table: db.setLogs as any, data: data.legacySetLogs ?? [], key: 'id', countKey: 'legacySetLogs', name: 'legacySetLogs' },
+    { table: db.feedbackThreads as any, data: data.feedbackThreads ?? [], key: 'id', countKey: 'feedbackThreads', name: 'feedbackThreads' },
+    { table: db.feedbackMessages as any, data: data.feedbackMessages ?? [], key: 'id', countKey: 'feedbackMessages', name: 'feedbackMessages' },
+    { table: db.feedbackOutbox as any, data: data.feedbackOutbox ?? [], key: 'id', countKey: 'feedbackOutbox', name: 'feedbackOutbox' },
+    { table: db.restTimerState as any, data: data.restTimerState ?? [], key: 'id', countKey: 'restTimerState', name: 'restTimerState' },
+    { table: db.cfTimerState as any, data: data.cfTimerState ?? [], key: 'id', countKey: 'cfTimerState', name: 'cfTimerState' },
   ]
   
   for (const { table, data: tableData, key, countKey, name } of tablesToImport) {
@@ -724,6 +789,14 @@ async function verifyImport(importedData: ExportData): Promise<VerificationResul
       { name: 'Estado de ejercicios', table: db.exerciseState, records: importedData.exerciseState ?? [], key: 'id' },
       { name: 'Cambios históricos', table: db.sessionChanges, records: importedData.sessionChanges ?? [], key: 'id' },
       { name: 'Observaciones históricas', table: db.sessionObservations, records: importedData.sessionObservations ?? [], key: 'id' },
+      { name: 'Rutinas heredadas', table: db.routines, records: importedData.legacyRoutines ?? [], key: 'id' },
+      { name: 'Sesiones heredadas', table: db.sessions, records: importedData.legacySessions ?? [], key: 'id' },
+      { name: 'Series heredadas', table: db.setLogs, records: importedData.legacySetLogs ?? [], key: 'id' },
+      { name: 'Hilos de feedback', table: db.feedbackThreads, records: importedData.feedbackThreads ?? [], key: 'id' },
+      { name: 'Mensajes de feedback', table: db.feedbackMessages, records: importedData.feedbackMessages ?? [], key: 'id' },
+      { name: 'Cola de feedback', table: db.feedbackOutbox, records: importedData.feedbackOutbox ?? [], key: 'id' },
+      { name: 'Cronómetro de descanso', table: db.restTimerState, records: importedData.restTimerState ?? [], key: 'id' },
+      { name: 'Cronómetro CrossFit', table: db.cfTimerState, records: importedData.cfTimerState ?? [], key: 'id' },
     ]
     const countResults = await Promise.all(countSpecs.map(async ({ name, table, records, key }) => {
       if (records.length === 0) { return { name, missing: 0 } }
@@ -776,7 +849,9 @@ export async function generateImportPreview(file: File): Promise<ImportPreview> 
         sessionEvents: 0, surveys: 0, negativeSets: 0, observations: 0,
         recoveryChecks: 0, hydrationLogs: 0, hydrationBottles: 0,
         hydrationBottleLogs: 0, customFoods: 0, notificationConfigs: 0,
-        bodyMeasurements: 0, userProfile: false,
+        bodyMeasurements: 0, legacyRoutines: 0, legacySessions: 0, legacySetLogs: 0,
+        feedbackThreads: 0, feedbackMessages: 0, feedbackOutbox: 0,
+        restTimerState: 0, cfTimerState: 0, userProfile: false,
         routinesNew: 0, routinesUpdated: 0, routinesSkipped: 0,
         conflicts: [],
       },
@@ -809,6 +884,14 @@ export async function generateImportPreview(file: File): Promise<ImportPreview> 
     customFoods: (migrated.customFoods ?? []).length,
     notificationConfigs: (migrated.notifConfigs ?? []).length + (migrated.unifiedNotifConfigs ?? []).length,
     bodyMeasurements: migrated.bodyMeasurements.length,
+    legacyRoutines: (migrated.legacyRoutines ?? []).length,
+    legacySessions: (migrated.legacySessions ?? []).length,
+    legacySetLogs: (migrated.legacySetLogs ?? []).length,
+    feedbackThreads: (migrated.feedbackThreads ?? []).length,
+    feedbackMessages: (migrated.feedbackMessages ?? []).length,
+    feedbackOutbox: (migrated.feedbackOutbox ?? []).length,
+    restTimerState: (migrated.restTimerState ?? []).length,
+    cfTimerState: (migrated.cfTimerState ?? []).length,
     userProfile: migrated.userProfile.length > 0,
     routinesNew: migrated.routines.filter(r => !existingIds.has(r.id)).length,
     routinesUpdated: migrated.routines.filter(r => existingIds.has(r.id)).length,
@@ -872,6 +955,9 @@ export async function importJSON(file: File, options: ImportOptions = { mode: 'm
     db.hydrationBottles, db.hydrationBottleLogs, db.notifConfigs, db.notifLog,
     db.unifiedNotifConfigs, db.requiredActionStates, db.customFoods,
     db.exerciseState, db.sessionChanges, db.sessionObservations,
+    db.routines, db.sessions, db.setLogs,
+    db.feedbackThreads, db.feedbackMessages, db.feedbackOutbox,
+    db.restTimerState, db.cfTimerState,
   ], async () => {
     return await applyImport(migrated, options, conflicts)
   })
