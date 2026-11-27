@@ -29,3 +29,18 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run responsive browser tests
         run: npm run playwright -- tests/fase2-qa.spec.ts --project=chromium
+      # Usa exactamente firestore.rules, pero solo contra emuladores locales.
+      # Los IDs y la API key son ficticios: no se conecta a staging ni a producción.
+      - name: Set up Java for Firebase emulators
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test Firestore security rules in local emulators
+        env:
+          E2E_EMULATOR: '1'
+          VITE_FIREBASE_PROJECT_ID: demo-althea
+          VITE_FIREBASE_API_KEY: demo-api-key
+          FIREBASE_STAGING_PROJECT_ID: demo-althea
+          FIREBASE_PRODUCTION_PROJECT_ID: demo-althea-production
+        run: npx --yes firebase-tools emulators:exec --project demo-althea --only auth,firestore "node scripts/firestore-isolation-e2e.mjs"
