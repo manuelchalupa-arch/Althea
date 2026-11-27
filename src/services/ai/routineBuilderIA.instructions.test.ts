@@ -103,6 +103,47 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
     expect(list[8].muscle).toBe('cardio')
   })
 
+  it('reintenta una vez cuando el modelo devuelve JSON malformado y conserva los días elegidos', async () => {
+    vi.mocked(getProxyUrl).mockReturnValue('https://proxy.test')
+    const trainingDays = [{ n: 1, name: 'Día 1' }, { n: 2, name: 'Día 2' }, { n: 3, name: 'Día 3' }]
+    const payload = {
+      name: 'Rutina recuperada',
+      cycle: {
+        startDate: '2026-11-27',
+        trainingDays,
+        weekMap: [null, 1, null, 2, null, 3, null],
+        methodId: 'hypertrophy',
+        methodJustification: 'Rutina de tres días',
+      },
+      dayExercises: {
+        1: [{ exId: 'pectorals/ex1', sets: 3, reps: 10, weight: 0 }],
+        2: [{ exId: 'quads/ex1', sets: 3, reps: 10, weight: 0 }],
+        3: [{ exId: 'lats/ex1', sets: 3, reps: 10, weight: 0 }],
+      },
+      explanation: {},
+    }
+    const response = (content: string) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content } }] }),
+    })
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response('La respuesta no es JSON'))
+      .mockResolvedValueOnce(response(JSON.stringify(payload)))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const routine = await generateRoutineWithAI({
+      goal: 'hipertrofia', daysPerWeek: 3, focus: 'general', injuryNote: '',
+      description: '3 días', allowedEquipment: ['dumbbell'],
+      availableDays: [1, 3, 5], methodId: 'hypertrophy',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const secondRequest = JSON.parse(String(fetchMock.mock.calls[1][1].body))
+    expect(secondRequest.messages[1].content).toContain('CORRECCIONES OBLIGATORIAS')
+    expect(routine.cycle.weekMap).toEqual([null, 1, null, 2, null, 3, null])
+  })
+
   it('valida equipamiento por tipo: máquina acepta lever, estiramiento corporal no requiere implementos y fuerza corporal sí', () => {
     const validate = (eq: string, purpose: 'conventional' | 'stretch', selected: string[], isStretch = false) => {
       const exId = 'test/exercise'

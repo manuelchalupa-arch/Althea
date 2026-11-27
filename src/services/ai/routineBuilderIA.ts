@@ -1549,6 +1549,15 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
         throw new Error(stripLimitPrefix(message))
       }
 
+      const retryableGenerationError =
+        /Respuesta vacía del servicio de IA|La IA no devolvió JSON válido|La rutina generada no tiene la estructura correcta|La IA no devolvió ejercicios del catálogo|Error del servicio de IA (?:500|502|503|504)|Failed to fetch|NetworkError|Load failed/i.test(message)
+      if (attempt === 0 && retryableGenerationError) {
+        corrections = [
+          `El intento anterior no fue utilizable (${message}). Generá nuevamente la rutina completa, respetando todos los campos y devolviendo JSON válido.`,
+        ]
+        continue
+      }
+
       console.error(
         '[Althea IA] Falló la generación.',
         {
