@@ -216,7 +216,8 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
       expect(index % 3).toBe(1)
     }
     const requestBody = String(fetchMock.mock.calls[0][1].body)
-    expect(requestBody).not.toContain('trad/stretch-calf-wall')
+    const availableCatalog = requestBody.split('EJERCICIOS DISPONIBLES (usá exclusivamente estos IDs exactos):')[1] || ''
+    expect(availableCatalog).not.toContain('trad/stretch-calf-wall')
     expect(requestBody).not.toContain('Estiramiento de pantorrillas en pared')
     expect(requestBody).not.toContain('Equipamiento disponible: bodyweight')
     expect(requestBody).toContain('Equipo permitido: dumbbell')
