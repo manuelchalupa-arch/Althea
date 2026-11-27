@@ -26,6 +26,8 @@ import {
 import { db } from '@/services/storage/db'
 import { AltheaCard, AltheaCardHeader, AltheaButton, AltheaSelect, AltheaInput } from '@/components/althea'
 import SemanticIcon from '@/components/ui/SemanticIcon'
+import { AltheaDatePicker } from '@/components/althea/AltheaDatePicker'
+import { AltheaTimePicker } from '@/components/althea/AltheaTimePicker'
 
 const SPEED_ACTIVITIES = new Set(['caminar', 'trotar', 'correr', 'bicicleta_exterior', 'bicicleta_fija'])
 
@@ -257,19 +259,8 @@ export default function ActivityWorkspace({ onSaved }: ActivityWorkspaceProps) {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <AltheaInput
-              label="Fecha"
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              max={todayLocal()}
-            />
-            <AltheaInput
-              label="Hora"
-              type="time"
-              value={time}
-              onChange={e => setTime(e.target.value)}
-            />
+            <AltheaDatePicker label="Fecha" value={date} onChange={setDate} max={todayLocal()} className="w-full" />
+            <AltheaTimePicker label="Hora" value={time} onChange={setTime} className="w-full" />
           </div>
 
           <AltheaInput
