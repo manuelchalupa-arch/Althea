@@ -13,7 +13,7 @@ import { AppHeader } from './temple'
 //      actividad en vivo, aunque no existe ningun estado coachEnabled que
 //      Anime al usuario.
 const renderAt = (path: string) =>
-  render(<MemoryRouter initialEntries={[path]}><AppHeader /></MemoryRouter>)
+  render(<MemoryRouter initialEntries={[path]}><AppHeader onRequestUpdate={() => {}} /></MemoryRouter>)
 
 describe('S8 - AppHeader: sin falsa funcionalidad', () => {
   it('no expone un boton de notificaciones sin accion', () => {

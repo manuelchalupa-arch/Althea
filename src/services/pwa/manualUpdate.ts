@@ -22,9 +22,3 @@ export async function applyUpdate(reload: () => void = () => window.location.rel
   }
   reload()
 }
-
-/** Confirmación única para el botón ⟳: evita perder un formulario abierto. */
-export function confirmAndUpdate(): void {
-  if (!window.confirm('¿Actualizar Althea? La app se reiniciará. Tus datos están seguros.')) { return }
-  void applyUpdate()
-}
