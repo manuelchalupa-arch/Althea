@@ -21,6 +21,7 @@ async function reachPreferences(user: User) {
   await user.click(nextBtn())
   await user.click(screen.getByText('Lun'))
   await user.click(nextBtn())
+  await user.click(screen.getByText('Personalizar equipamiento'))
   await user.click(screen.getByText('Mancuernas'))
   await user.click(nextBtn())
   await user.click(nextBtn()) // restricciones: se puede seguir sin ninguna
@@ -73,6 +74,30 @@ describe('Onboarding — alta mínima de entrenamiento', () => {
     await user.click(nextBtn())
     await user.click(nextBtn())
     expect(screen.getByText('Seleccioná al menos un equipamiento disponible')).toBeInTheDocument()
+  })
+
+  it('selecciona presets de espacio y guarda el equipamiento compatible', async () => {
+    const user = userEvent.setup()
+    renderOnboarding()
+    await ready()
+    await user.click(screen.getByText('Gimnasio tradicional'))
+    await user.click(nextBtn())
+    await user.click(screen.getByText('Ganar masa muscular'))
+    await user.click(nextBtn())
+    await user.click(screen.getByText('Principiante'))
+    await user.click(nextBtn())
+    await user.click(screen.getByText('Lun'))
+    await user.click(nextBtn())
+    await user.click(screen.getByText('Solo máquinas'))
+    await user.click(nextBtn())
+    await user.click(nextBtn())
+    await user.click(nextBtn())
+    await user.click(screen.getByText('COMENZAR →'))
+
+    await waitFor(async () => {
+      const profile: any = await db.userProfile.get('me')
+      expect(profile.equipment).toEqual(['maquina', 'polea'])
+    })
   })
 
   it('3. valida la duración en preferencias y permite seguir', async () => {
