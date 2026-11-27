@@ -162,7 +162,7 @@ const EQUIPMENT_TERMS: Array<[RegExp, string[]]> = [
   [/mancuernas?|dumbbells?/, ['dumbbell']],
   [/\bbarras?\b(?!\s*z)/, ['barbell']],
   [/\bbarra z\b|\bez.?bar\b/, ['ez-bar']],
-  [/\bmaquinas?\b|\bmachines?\b/, ['lever', 'machine', 'smith', 'sled', 'cable']],
+  [/\\bmaquinas?\\b|\\bmachines?\\b/, ['machine']],
   [/\bpoleas?\b|\bcables?\b/, ['cable']],
   [/\bbandas?\b|\belasticos?\b/, ['band']],
   [/kettlebells?|pesa rusa/, ['kettlebell']],
@@ -360,6 +360,42 @@ function maxSetsForLevel(level: string): number {
 type PoolEx = { id: string; name: string; eq: string; gif: string; muscle: string; purpose?: ExercisePurpose }
 type RoutineExercise = GeneratedRoutine['dayExercises'][number][number]
 
+function normalizeEquipmentName(value: string): string {
+  const normalized = String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_-]+/g, ' ')
+  const aliases: Record<string, string> = {
+    barra: 'barbell', barras: 'barbell',
+    mancuerna: 'dumbbell', mancuernas: 'dumbbell',
+    maquina: 'machine', maquinas: 'machine',
+    polea: 'cable', poleas: 'cable',
+    'peso corporal': 'bodyweight',
+    'sin equipo': 'none', ninguno: 'none', 'no equipment': 'none',
+    bandas: 'band', banda: 'band',
+  }
+  return aliases[normalized] || normalized
+}
+
+function isNoEquipmentValue(value: string): boolean {
+  const equipment = normalizeEquipmentName(value)
+  return equipment === 'bodyweight' || equipment === 'none'
+}
+
+/** El peso corporal no es un implemento para preparación, movilidad o estiramiento. */
+function isEquipmentFreePreparation(item: {
+  purpose?: ExercisePurpose; equipment?: string; category?: string; name?: string; focus?: string
+}): boolean {
+  return exercisePurpose(item) !== 'conventional' && isNoEquipmentValue(item.equipment || '')
+}
+
+/** "Máquinas" admite variantes del catálogo; poleas siguen siendo una opción separada. */
+function equipmentMatches(actual: string, allowed: string[]): boolean {
+  const actualKey = normalizeEquipmentName(actual)
+  return allowed.some(value => {
+    const selected = normalizeEquipmentName(value)
+    if (selected === 'machine') { return ['machine', 'lever', 'smith', 'sled'].includes(actualKey) }
+    return selected === actualKey
+  })
+}
+
 function hashStr(s: string): number {
   let h = 2166136261
   for (let i = 0; i < s.length; i++) {
@@ -397,7 +433,7 @@ async function loadMusclePools(
     const candidates = r.value.exercises
       .filter((e: Exercise) => !excluded.has(e.id) && !seen.has(e.id))
       .filter((e: Exercise) => !matchesAny(e.name, instructions.excludes))
-      .filter((e: Exercise) => !instructions.equipment || instructions.equipment.includes(e.equipment))
+      .filter((e: Exercise) => !instructions.equipment?.length || equipmentMatches(e.equipment, instructions.equipment) || isEquipmentFreePreparation(e))
       .map((e: Exercise) => {
         let score = 0
         if (matchesAny(e.name, instructions.includes)) { score += 100 }
@@ -439,7 +475,7 @@ async function loadMusclePools(
   // catálogo incluye estiramientos/movilidad que no siempre aparecen en la API.
   const curatedWarmups: PoolEx[] = TRADITIONAL_SEEDS
     .filter(seed => seed.purpose === 'stretch' || seed.purpose === 'warmup' || seed.purpose === 'mobility')
-    .filter(seed => !instructions.equipment || instructions.equipment.some(eq => seed.equipment.toLowerCase().includes(eq) || eq === 'bodyweight' && seed.equipment === 'peso corporal'))
+    .filter(seed => !instructions.equipment?.length || equipmentMatches(seed.equipment, instructions.equipment) || isEquipmentFreePreparation({ purpose: seed.purpose, equipment: seed.equipment, name: seed.name, focus: seed.focus }))
     .map(seed => ({
       id: seed.gymId || seed.id,
       name: seed.name,
@@ -534,6 +570,7 @@ function applyRequestedSequence(
   wants: UserWants,
   instructions: RoutineInstructions,
   make: (c: PoolEx) => RoutineExercise,
+  dayIndex = 0,
 ): RoutineExercise[] {
   const s = instructions.sequence
   if (!s) { return entry.list }
@@ -579,15 +616,18 @@ function applyRequestedSequence(
   }
 
   const old = new Map(entry.list.map(e=>[e.exId,e]))
-  const picked = (items:PoolEx[],n:number) => {
+  const picked = (items:PoolEx[],n:number,rotate=false) => {
     const existing=new Set(entry.list.map(e=>e.exId))
-    return [...items].sort((a,b)=>Number(existing.has(b.id))-Number(existing.has(a.id))).slice(0,n).map(c=>old.get(c.id)?{...old.get(c.id)!}:make(c))
+    const sorted=[...items].sort((a,b)=>Number(existing.has(b.id))-Number(existing.has(a.id)))
+    const start=rotate&&sorted.length?(dayIndex*n)%sorted.length:0
+    const ordered=rotate?[...sorted.slice(start),...sorted.slice(0,start)]:sorted
+    return ordered.slice(0,n).map(c=>old.get(c.id)?{...old.get(c.id)!}:make(c))
   }
   const mark = (items:RoutineExercise[], role:SequenceRole) => items.map(e=>({...e,sequenceRole:role}))
-  const warm = mark(picked(warmPool,s.warmupCount),'warmup').map(e=>({...e,isStretch:true,sets:1,reps:1,restSec:15,supersetId:null,supersetOrder:null}))
+  const warm = mark(picked(warmPool,s.warmupCount,true),'warmup').map(e=>({...e,isStretch:true,sets:1,reps:1,restSec:15,supersetId:null,supersetOrder:null}))
   const main = mark(picked(eligible(pools[primaryMuscle]||[]),s.primaryCount),'primary')
   const secondary = mark(picked(eligible(pools[secondaryMuscle]||[]),s.secondaryCount),'secondary')
-  const cool = mark(picked(cardioPool,s.cooldownCount),'cooldown').map(e=>({...e,sets:1,reps:5,durationMin:5,restSec:0,supersetId:null,supersetOrder:null}))
+  const cool = mark(picked(cardioPool,s.cooldownCount,true),'cooldown').map(e=>({...e,sets:1,reps:5,durationMin:5,restSec:0,supersetId:null,supersetOrder:null}))
   if (s.primarySupersets) {
     for (let i=0;i+1<main.length;i+=2) {
       const id=`ai-ss-${entry.name.replace(/[^a-z0-9]/gi,'').toLowerCase()}-${i/2+1}`
@@ -606,9 +646,15 @@ function normalizeRoutine(
 ): GeneratedRoutine {
   const days = clampDays(instructions.days ?? wants.daysPerWeek)
   const previous: any[] = Array.isArray(parsed.cycle?.trainingDays) ? parsed.cycle.trainingDays : []
+  // La rutina principal solo puede resolver ejercicios convencionales.
+  // Preparación, estiramientos y cardio se agregan después desde pools separados.
   const catalog = new Map<string, PoolEx>()
   for (const [muscle, list] of Object.entries(ctx.exercises)) {
-    for (const e of list) {catalog.set(e.id, { ...e, muscle: e.muscle || muscle })}
+    if (muscle.startsWith('__') || muscle === 'cardio') { continue }
+    for (const e of list) {
+      if (e.purpose && e.purpose !== 'conventional') { continue }
+      catalog.set(e.id, { ...e, muscle: e.muscle || muscle })
+    }
   }
   const catalogList = [...catalog.values()]
   const allMuscles = [...new Set(Object.entries(ctx.exercises).filter(([key]) => !key.startsWith('__') && key !== 'cardio').flatMap(([, list]) => list.map(e => e.muscle)))]
@@ -691,7 +737,7 @@ function normalizeRoutine(
   })
 
   if (instructions.sequence) {
-    for (const entry of entries) { entry.list = applyRequestedSequence(entry, ctx.exercises, wants, instructions, make); entry.max = entry.list.length }
+    for (const [dayIndex, entry] of entries.entries()) { entry.list = applyRequestedSequence(entry, ctx.exercises, wants, instructions, make, dayIndex); entry.max = entry.list.length }
   }
   parsed.cycle.trainingDays = entries.map((d, i) => ({ n: i + 1, name: d.name }))
   parsed.dayExercises = Object.fromEntries(entries.map((d, i) => [i + 1, d.list]))
@@ -736,7 +782,12 @@ function normalizeRoutine(
 
 function applySessionPreparation(routine: GeneratedRoutine, wants: UserWants, exercises: Record<string, PoolEx[]>): GeneratedRoutine {
   const warmups = exercises.__warmup__ || []
+  const warmupCandidates = warmups.filter(x => x.purpose === 'warmup' || x.purpose === 'mobility')
+  const stretchCandidates = warmups.filter(x => x.purpose === 'stretch')
   const cardio = exercises.__cardio__ || []
+  const usedWarmups = new Set<string>()
+  const usedStretches = new Set<string>()
+  const usedCardio = new Set<string>()
   const makePrep = (item: PoolEx, role: 'warmup'|'cooldown', stretch = false): RoutineExercise => ({
     ...newExercise(item, 1, 1),
     weight: 0,
@@ -745,26 +796,39 @@ function applySessionPreparation(routine: GeneratedRoutine, wants: UserWants, ex
     sequenceRole: role,
     isStretch: stretch,
   })
-  for (const key of Object.keys(routine.dayExercises).sort((a,b)=>Number(a)-Number(b))) {
+  const pickRotating = (pool: PoolEx[], dayIndex: number, usedToday: Set<string>, usedAcrossWeek: Set<string>): PoolEx | undefined => {
+    if (!pool.length) { return undefined }
+    const offset = dayIndex % pool.length
+    const ordered = [...pool.slice(offset), ...pool.slice(0, offset)]
+    return ordered.find(item => !usedToday.has(item.id) && !usedAcrossWeek.has(item.id))
+      || ordered.find(item => !usedToday.has(item.id))
+  }
+  const dayKeys = Object.keys(routine.dayExercises).sort((a,b)=>Number(a)-Number(b))
+  for (let dayIndex = 0; dayIndex < dayKeys.length; dayIndex++) {
+    const key = dayKeys[dayIndex]
     const core = routine.dayExercises[Number(key)] || []
-    const used = new Set<string>(core.map(ex => ex.exId))
+    const usedToday = new Set<string>(core.map(ex => ex.exId))
     const before: RoutineExercise[] = []
     const after: RoutineExercise[] = []
-    if (wants.warmupEnabled) {
-      const item = warmups.find(x => x.purpose === 'warmup' || x.purpose === 'mobility')
-      if (item && !used.has(item.id)) { before.push(makePrep(item, 'warmup')); used.add(item.id) }
+    const hasWarmup = core.some(ex => ex.sequenceRole === 'warmup')
+    const hasStretch = core.some(ex => ex.isStretch)
+    const hasCardio = core.some(ex => ex.muscle === 'cardio' || (ex.sequenceRole === 'cooldown' && !ex.isStretch))
+    if (wants.warmupEnabled && !hasWarmup) {
+      const item = pickRotating(warmupCandidates, dayIndex, usedToday, usedWarmups)
+      if (item) { before.push(makePrep(item, 'warmup')); usedToday.add(item.id); usedWarmups.add(item.id) }
     }
-    if (wants.cardioTiming === 'start' || wants.cardioTiming === 'both') {
-      const item = cardio.find(x => !used.has(x.id))
-      if (item) { before.push(makePrep(item, 'cooldown')); used.add(item.id) }
+    if ((wants.cardioTiming === 'start' || wants.cardioTiming === 'both') && !hasCardio) {
+      const item = pickRotating(cardio, dayIndex, usedToday, usedCardio)
+      if (item) { before.push(makePrep(item, 'cooldown')); usedToday.add(item.id); usedCardio.add(item.id) }
     }
-    if (wants.stretchingEnabled) {
-      const item = warmups.find(x => x.purpose === 'stretch' && !used.has(x.id))
-      if (item) { after.push(makePrep(item, 'warmup', true)); used.add(item.id) }
+    if (wants.stretchingEnabled && !hasStretch) {
+      const item = pickRotating(stretchCandidates, dayIndex, usedToday, usedStretches)
+      if (item) { after.push(makePrep(item, 'cooldown', true)); usedToday.add(item.id); usedStretches.add(item.id) }
+      else { throw new Error('No se encontró un estiramiento compatible en el catálogo. La rutina no se guardó incompleta.') }
     }
-    if (wants.cardioTiming === 'end' || wants.cardioTiming === 'both') {
-      const item = cardio.find(x => !used.has(x.id))
-      if (item) { after.push(makePrep(item, 'cooldown')); used.add(item.id) }
+    if ((wants.cardioTiming === 'end' || wants.cardioTiming === 'both') && !hasCardio) {
+      const item = pickRotating(cardio, dayIndex, usedToday, usedCardio)
+      if (item) { after.push(makePrep(item, 'cooldown')); usedToday.add(item.id); usedCardio.add(item.id) }
     }
     routine.dayExercises[Number(key)] = [...before, ...core, ...after]
   }
@@ -989,15 +1053,14 @@ function buildPrompt(ctx: {
   }
   const coachGuidance = coachStyleText[String(wants.coachTone || p.coachIntensity || 'profesional').toLowerCase()] || coachStyleText.profesional
 
-  // El Worker limita cada mensaje a 12.000 caracteres. Enviamos una
-  // muestra equilibrada por grupo (incluye warmup/cardio) para el modelo;
-  // la normalización posterior conserva y consulta el catálogo local completo.
-  const groups = Object.entries(ctx.exercises).sort(([a], [b]) => {
-    const score = (key: string) => key === '__warmup__' ? -3
-      : key === '__cardio__' ? -2
-        : instructions.priorities.includes(key) ? -1 : 0
-    return score(a) - score(b)
-  })
+  // El modelo solo recibe ejercicios convencionales. Preparación, estiramientos
+  // y cardio se mantienen en catálogos separados y los inserta Althea localmente.
+  const groups = Object.entries(ctx.exercises)
+    .filter(([key]) => !key.startsWith('__') && key !== 'cardio')
+    .sort(([a], [b]) => {
+      const score = (key: string) => instructions.priorities.includes(key) ? -1 : 0
+      return score(a) - score(b)
+    })
   const selected = new Map<string, string[]>()
   let selectedCount = 0
   let selectedChars = 0
@@ -1023,11 +1086,11 @@ function buildPrompt(ctx: {
     `- Días por semana: ${days}.`,
     exactDays ? `- Días exactos obligatorios: ${exactDays}. Asigná cada sesión exclusivamente a esos días; el resto es descanso.` : '',
     wants.methodId ? `- Método elegido por el usuario: ${selectedMethod?.nameEs || wants.methodId}. No lo sustituyas.` : '',
-    wants.warmupEnabled ? '- Incluir calentamiento al comienzo de cada sesión.' : '',
-    wants.stretchingEnabled ? '- Incluir estiramientos al final de cada sesión, sin forzar rangos ni provocar dolor.' : '',
-    wants.cardioTiming && wants.cardioTiming !== 'none' ? `- Althea agregará cardio ${wants.cardioTiming === 'both' ? 'al inicio y al final' : wants.cardioTiming === 'start' ? 'al inicio' : 'al final'}; no lo incluyas en el bloque principal. Intensidad ${wants.cardioIntensity === 'hard' ? 'alta' : 'suave'}.` : '',
-    (wants.warmupEnabled || wants.stretchingEnabled) ? '- Althea agregará el calentamiento/estiramiento elegido; no lo incluyas en el bloque principal.' : '',
-    instructions.sequence ? `- Secuencia OBLIGATORIA por día: ${instructions.sequence.warmupCount} estiramiento/calentamiento + ${instructions.sequence.primaryCount} ejercicios del grupo principal + ${instructions.sequence.secondaryCount} del grupo secundario + ${instructions.sequence.cooldownCount} cardio suave. Los ejercicios principales deben organizarse en superseries de a pares. No omitas ni cambies el orden.` : '',
+    '- dayExercises debe contener exclusivamente ejercicios convencionales. No incluyas calentamiento, estiramientos, movilidad ni cardio: Althea los incorpora desde catálogos separados.',
+    wants.warmupEnabled ? '- Althea insertará el calentamiento al comienzo de cada sesión.' : '',
+    wants.stretchingEnabled ? '- Althea insertará estiramientos sin implementos al final de cada sesión, sin forzar rangos ni provocar dolor.' : '',
+    wants.cardioTiming && wants.cardioTiming !== 'none' ? `- Althea insertará cardio ${wants.cardioTiming === 'both' ? 'al inicio y al final' : wants.cardioTiming === 'start' ? 'al inicio' : 'al final'}; no lo incluyas en dayExercises. Intensidad ${wants.cardioIntensity === 'hard' ? 'alta' : 'suave'}.` : '',
+    instructions.sequence ? `- Secuencia final OBLIGATORIA por día: ${instructions.sequence.warmupCount} preparación + ${instructions.sequence.primaryCount} ejercicio(s) principal(es) + ${instructions.sequence.secondaryCount} secundario(s) + ${instructions.sequence.cooldownCount} cardio. En dayExercises entregá solo los bloques principal/secundario; Althea inserta preparación/cardio. Los principales deben organizarse en superseries de a pares.` : '',
     label ? `- Split obligatorio: ${label}.` : '- Split: el que mejor responda al pedido.',
     `- Duración máxima: ${time} min → como máximo ${maxPerDay} ejercicios por día.`,
     instructions.priorities.length ? `- Prioridades (más volumen/frecuencia): ${instructions.priorities.map(displayMuscle).join(', ')}.` : '',
@@ -1203,7 +1266,7 @@ export function estimateRoutineMinutes(routine: GeneratedRoutine): number[] {
   })
 }
 
-type CatalogEntry = { id: string; name?: string; eq?: string }
+type CatalogEntry = { id: string; name?: string; eq?: string; purpose?: ExercisePurpose }
 
 /** Rechaza propuestas inválidas; la duración incompatible se informa con alternativa. */
 export function validateGeneratedRoutine(
@@ -1256,7 +1319,8 @@ export function validateGeneratedRoutine(
     for (const ex of list) {
       const entry = catalog.get(ex.exId)
       if (!entry) {issues.push(`Día ${n}: ejercicio inexistente en el catálogo (${ex.exId}).`); continue}
-      if (allowed.length && entry.eq && !allowed.includes(entry.eq)) {
+      const preparationWithoutImplement = (ex.isStretch || (entry.purpose !== undefined && entry.purpose !== 'conventional')) && isNoEquipmentValue(entry.eq || '')
+      if (allowed.length && entry.eq && !equipmentMatches(entry.eq, allowed) && !preparationWithoutImplement) {
         issues.push(`Día ${n}: ${entry.name || ex.exId} usa ${entry.eq}, equipamiento no disponible.`)
       }
       if (bannedIds.has(ex.exId)) {issues.push(`Día ${n}: ejercicio excluido (${ex.exId}).`)}
@@ -1297,7 +1361,7 @@ export function validateGeneratedRoutine(
 class RoutineValidationError extends Error {}
 
 function catalogOf(exercises: Record<string, CatalogEntry[]>): Map<string, CatalogEntry> {
-  return new Map(Object.values(exercises).flat().map(e => [e.id, e]))
+  return new Map(Object.values(exercises).flat().map(e => [e.id, { ...e, purpose: e.purpose }]))
 }
 
 function withProfilePreferences(wants: UserWants, profile: any): UserWants {
@@ -1336,8 +1400,10 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
   }
   const instructions = parseRoutineInstructions(effective.description || '')
 
-  if (!instructions.equipment && effective.allowedEquipment?.length) {
-    instructions.equipment = effective.allowedEquipment
+  // El equipamiento estructurado del cuestionario/perfil es la fuente de verdad.
+  // No volver a inferirlo del resumen textual generado por la propia interfaz.
+  if (effective.allowedEquipment?.length) {
+    instructions.equipment = [...effective.allowedEquipment]
   }
 
   if (!instructions.sessionMinutes && effective.durationMin) {

@@ -102,6 +102,53 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
     expect(list[8].muscle).toBe('cardio')
   })
 
+  it('acepta estiramientos sin implementos aunque no se haya seleccionado peso corporal y los rota por día', async () => {
+    vi.mocked(getProxyUrl).mockReturnValue('https://proxy.test')
+    const trainingDays = Array.from({ length: 5 }, (_, i) => ({ n: i + 1, name: `Día ${i + 1}` }))
+    const dayExercises = Object.fromEntries(trainingDays.map((day, i) => [
+      day.n,
+      [{ exId: ['pectorals','quads','lats','hamstrings','delts'][i] + '/ex1', sets: 3, reps: 10, weight: 0 }],
+    ]))
+    const payload = {
+      name: 'Rutina con estiramientos',
+      cycle: {
+        startDate: '2026-11-27',
+        trainingDays,
+        weekMap: [null, 1, 2, 3, 4, 5, null],
+        methodId: 'hypertrophy',
+        methodJustification: 'Hipertrofia con equipamiento disponible',
+      },
+      dayExercises,
+      explanation: {},
+    }
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify(payload) } }] }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const routine = await generateRoutineWithAI({
+      goal: 'hipertrofia', daysPerWeek: 5, focus: 'general', injuryNote: '',
+      description: '5 días', allowedEquipment: ['dumbbell'],
+      availableDays: [1, 2, 3, 4, 5], methodId: 'hypertrophy',
+      warmupEnabled: false, stretchingEnabled: true,
+    })
+
+    const all = Object.values(routine.dayExercises).flat()
+    const stretches = all.filter(ex => ex.isStretch)
+    expect(stretches).toHaveLength(5)
+    expect(new Set(stretches.map(ex => ex.exId)).size).toBe(5)
+    expect(stretches.every(ex => ex.sequenceRole === 'cooldown')).toBe(true)
+    for (const ex of all.filter(item => !item.isStretch)) {
+      const index = Number(ex.exId.split('/ex')[1])
+      expect(index % 3).toBe(1)
+    }
+    const requestBody = String(fetchMock.mock.calls[0][1].body)
+    expect(requestBody).not.toContain('trad/stretch-calf-wall')
+    expect(requestBody).not.toContain('Estiramiento de pantorrillas en pared')
+  })
+
   it('fallback 4 días torso/piernas: respeta el split y no repite ejercicios', async () => {
     const r = await generateRoutineWithAI(wants('Quiero 4 días torso/piernas', 4))
     const names = r.cycle.trainingDays.map((d) => d.name)
