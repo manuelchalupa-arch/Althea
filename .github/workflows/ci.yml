@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, fix/mobile-navigation-five-destinations]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -15,7 +15,6 @@ permissions:
 
 jobs:
   build-and-test:
-    if: github.event_name != 'push' || !contains(github.event.head_commit.message, 'dependency refresh')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -58,58 +57,3 @@ jobs:
           FIREBASE_STAGING_PROJECT_ID: demo-althea
           FIREBASE_PRODUCTION_PROJECT_ID: demo-althea-production
         run: npx --yes firebase-tools emulators:exec --project demo-althea --only auth,firestore "node scripts/firestore-isolation-e2e.mjs"
-  dependency-remediation:
-    if: github.event_name == 'push' && contains(github.event.head_commit.message, 'dependency refresh')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: fix/mobile-navigation-five-destinations
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: npm
-      - name: Install current lockfile
-        run: npm ci
-      - name: Patch Workbox transitive glob chain
-        run: |
-          npm pkg set 'overrides.workbox-build.glob=^14.0.6' 'overrides.workbox-build.minimatch=^11.0.4'
-          npm install
-          npm audit fix || true
-      - name: Require a clean full dependency audit
-        run: npm audit --audit-level=low
-      - name: Validate application
-        run: |
-          npx tsc --noEmit
-          npm run lint
-          npm run build
-          npx vitest run
-          npm run check:release
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Responsive browser tests
-        run: npm run playwright -- tests/fase2-qa.spec.ts --project=chromium
-      - name: Set up Java for Firebase emulators
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-      - name: Test Firestore security rules in local emulators
-        env:
-          E2E_EMULATOR: '1'
-          VITE_FIREBASE_PROJECT_ID: demo-althea
-          VITE_FIREBASE_API_KEY: demo-api-key
-          FIREBASE_STAGING_PROJECT_ID: demo-althea
-          FIREBASE_PRODUCTION_PROJECT_ID: demo-althea-production
-        run: npx --yes firebase-tools emulators:exec --project demo-althea --only auth,firestore "node scripts/firestore-isolation-e2e.mjs"
-      - name: Commit audited dependency updates
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          if ! git diff --cached --quiet; then
-            git commit -m "fix(deps): patch Workbox glob and minimatch advisories"
-            git push origin HEAD:fix/mobile-navigation-five-destinations
-          fi

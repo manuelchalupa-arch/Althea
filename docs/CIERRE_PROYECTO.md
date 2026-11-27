@@ -42,6 +42,7 @@ La CI prepara una lista temporal en el emulador con credenciales de propietario 
 
 - Firebase Web SDK actualizado a 13.4.0.
 - gRPC JS fijado por override en 1.14.7 y RE2JS actualizado a 2.10.0 para resolver avisos de seguridad transitivos de Firestore.
+- Workbox Build conserva su versión compatible 7.4.1 y usa overrides acotados: Glob 14.0.6 y Minimatch 11.0.9 en la cadena de precache.
 - Zod 3 dejó de ser dependencia directa porque no tenía importaciones en el código fuente; la versión transitiva resuelta es 4.6.7.
 - Vite y Vitest se actualizaron dentro de sus rangos compatibles.
 - La CI ejecuta npm audit sobre el árbol completo con umbral low. No se permite ignorar ni rebajar el umbral para obtener una ejecución verde.
