@@ -151,7 +151,7 @@ async function seedRepresentative() {
     attempts: 0, createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:00:00Z`,
   } as never)
   await db.syncDeletes.put({
-    id: 17, table: 'sessions', docId: 'legacy-deleted', deletedAt: `${today}T10:00:00Z`,
+    table: 'sessions', docId: 'legacy-deleted', deletedAt: `${today}T10:00:00Z`,
   } as never)
 }
 
@@ -192,7 +192,7 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     expect(data.restTimerState.map((r: any) => r.id)).toContain('rest-1')
     expect(data.cfTimerState.map((r: any) => r.id)).toContain('cf-timer-1')
     expect(data.syncQueue.map((r: any) => r.id)).toContain('routineStore:r1')
-    expect(data.syncDeletes.map((r: any) => r.id)).toContain(17)
+    expect(data.syncDeletes).toEqual(expect.arrayContaining([expect.objectContaining({ table: 'sessions', docId: 'legacy-deleted' })]))
     // Formato v4 y esquema Dexie v29; las copias antiguas siguen siendo compatibles.
     expect(data.metadata.version).toBe(4)
     expect(data.metadata.schemaVersion).toBe(29)
