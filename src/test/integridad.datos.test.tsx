@@ -198,7 +198,7 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
       updatedAt: `${today}T12:00:00Z`,
     } as never)
 
-    const result = await importJSON(file)
+    const result = await importJSON(file, { mode: 'merge', confirmOverwrite: true })
     expect(result.success).toBe(true)
     expect(await db.cfWods.get('wod1')).toMatchObject({ name: 'WOD local conservado' })
   })
