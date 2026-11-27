@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, X, Dumbbell, Apple, ClipboardList, ArrowUpRight, LoaderCircle } from 'lucide-react'
+import { X, Dumbbell, Apple, ClipboardList, ArrowUpRight, LoaderCircle } from 'lucide-react'
 import { db } from '@/services/storage/db'
 import { addDiaryEntry, nowLocalTime } from '@/services/storage/diaryStore'
 import { todayKey } from '@/utils/dates'
@@ -29,9 +29,9 @@ function foodDetail(food: FoodSearchResult): string {
   return `${food.source === 'recipe' ? 'Receta' : 'Por 100 g'} · ${Math.round(macros.calories)} kcal · ${Math.round(macros.proteins)} g proteína`
 }
 
-export default function GlobalSearchDialog() {
+export default function GlobalSearchDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
+  const open = true
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResults>(EMPTY_RESULTS)
   const [foodRecords, setFoodRecords] = useState<FoodSearchResult[]>([])
@@ -44,27 +44,14 @@ export default function GlobalSearchDialog() {
   const term = query.trim()
 
   const close = () => {
-    setOpen(false)
     setQuery('')
     setResults(EMPTY_RESULTS)
     setFoodRecords([])
     setFoodToLog(null)
     setFoodError(null)
     setLoading(false)
+    onClose()
   }
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        setOpen(true)
-      } else if (event.key === 'Escape') {
-        setOpen(false)
-      }
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
 
   useEffect(() => {
     setFoodToLog(null)
@@ -211,17 +198,6 @@ export default function GlobalSearchDialog() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Buscar ejercicios, alimentos y rutinas"
-        title="Buscar en Althea (Ctrl+K)"
-        aria-keyshortcuts="Control+K Meta+K"
-        className="inline-flex items-center justify-center w-11 h-11 rounded-full border border-outline-variant/60 bg-surface text-on-surface-variant hover:border-primary/50 hover:text-on-surface transition-colors shrink-0"
-      >
-        <Search size={19} aria-hidden="true" />
-      </button>
-
       {open && (
         <div
           className="fixed inset-0 z-[90] flex items-start justify-center bg-black/65 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-[max(12px,env(safe-area-inset-bottom))] sm:pt-[8vh]"
