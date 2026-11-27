@@ -1086,3 +1086,24 @@ dialog::backdrop {
   .althea-dialog { animation: none; }
   .althea-dialog__button { transition: none; }
 }
+
+
+/* Las ventanas existentes marcadas como althea-modal comparten el mismo
+   contenedor, independientemente de la pantalla que las invoque. */
+.althea-modal > :is(div, section, article) {
+  color: var(--c-on-surface);
+  background-color: var(--c-surface);
+  border: 2px solid var(--c-outline);
+  border-radius: 16px;
+  box-shadow: 0 10px 0 rgb(23 21 18 / 12%), 0 22px 54px rgb(0 0 0 / 28%);
+}
+.althea-modal :is(input, select, textarea) {
+  border-radius: 9px;
+}
+.althea-modal :is(input[type="date"], input[type="time"], input[type="datetime-local"],
+input[type="month"], input[type="week"], select) {
+  min-height: 48px;
+  border: 2px solid var(--c-outline);
+  background-color: var(--c-surface-container);
+  color: var(--c-on-surface);
+}
