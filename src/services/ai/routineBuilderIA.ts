@@ -708,9 +708,9 @@ function normalizeRoutine(
       if (Number.isFinite(value) && value >= 1 && value <= days && !weekMap.includes(value)) weekMap[dow] = value
     }
     for (let d = 1; d <= days; d++) {
-      if (weekMap.includes(d)) continue
+      if (weekMap.includes(d)) { continue }
       const free = [1, 2, 3, 4, 5, 6, 0].find(i => weekMap[i] === null)
-      if (free !== undefined) weekMap[free] = d
+      if (free !== undefined) { weekMap[free] = d }
     }
   }
   parsed.cycle.weekMap = weekMap
@@ -931,30 +931,30 @@ async function collectContext(
       if (selected.has('replaced')) {
         const replaced = exercises.filter(e => e.status === 'REPLACED' || e.replacement)
           .map(e => `${e.exerciseName || e.exerciseId}→${e.replacement?.replacementExerciseId || 'reemplazo'} (${e.replacement?.reason || 'motivo no registrado'})`)
-        if (replaced.length) lines.push(`Reemplazos: ${replaced.slice(0,4).join(';')}`)
+        if (replaced.length) { lines.push(`Reemplazos: ${replaced.slice(0,4).join(';')}`) }
       }
       if (selected.has('skipped')) {
         const skipped = exercises.filter(e => e.status === 'SKIPPED')
           .map(e => `${e.exerciseName || e.exerciseId}: ${e.skipReason || e.skipComment || 'sin motivo'}`)
-        if (skipped.length) lines.push(`Omitidos: ${skipped.slice(0,4).join(';')}`)
+        if (skipped.length) { lines.push(`Omitidos: ${skipped.slice(0,4).join(';')}`) }
       }
       if (selected.has('observations')) {
         const notes = exercises.filter(e => e.observation?.text || e.notes)
           .map(e => `${e.exerciseName || e.exerciseId}: ${e.observation?.text || e.notes}`)
-        if (notes.length) lines.push(`Observaciones: ${notes.slice(0,4).join(';')}`)
+        if (notes.length) { lines.push(`Observaciones: ${notes.slice(0,4).join(';')}`) }
       }
       if (selected.has('loadsReps')) {
         const sets: any[] = await db.table('setRecords').where('sessionId').equals(session.id).toArray().catch(() => [])
         const actual = sets.filter(set => set.status === 'COMPLETED' && (set.actualReps > 0 || set.actualWeight != null))
           .slice(0,8).map(set => `${set.exerciseId} ${set.actualWeight ?? 'sin peso'}kg×${set.actualReps}`)
-        if (actual.length) lines.push(`Cargas/reps reales: ${actual.join(';')}`)
+        if (actual.length) { lines.push(`Cargas/reps reales: ${actual.join(';')}`) }
       }
     }
     const surveys: any[] = await db.postWorkoutSurveys.toArray().catch(() => [])
     const recentSurveys = surveys.sort((a,b) => (a.calendarDate || '').localeCompare(b.calendarDate || '')).slice(-4)
     const painSignals = recentSurveys.filter(s => s.pain === 1)
       .map(s => `${s.calendarDate}: ${s.painZone || 'zona no indicada'} ${s.painDetail || ''}`)
-    if (painSignals.length) lines.push(`ALERTA DE DOLOR (siempre obligatoria): ${painSignals.join(';')}`)
+    if (painSignals.length) { lines.push(`ALERTA DE DOLOR (siempre obligatoria): ${painSignals.join(';')}`) }
     if (selected.has('rating') && recentSurveys.length) {
       lines.push(`Valoración de sesiones (1-5): ${recentSurveys.map(s => s.sessionRating).join(',')}`)
     }
@@ -1332,7 +1332,7 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
   const effective = withProfilePreferences(wants, profile)
   if (!effective.availableDays?.length) {
     const profileDays = Array.isArray(profile.availableDays) ? profile.availableDays : profile.schedule?.availableDays
-    if (Array.isArray(profileDays) && profileDays.length) effective.availableDays = profileDays.map(Number)
+    if (Array.isArray(profileDays) && profileDays.length) { effective.availableDays = profileDays.map(Number) }
   }
   const instructions = parseRoutineInstructions(effective.description || '')
 
