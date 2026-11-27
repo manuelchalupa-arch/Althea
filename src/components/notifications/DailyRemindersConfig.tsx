@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { loadUnifiedConfigs, saveUnifiedConfig, saveUnifiedConfigs, type UnifiedNotifConfig } from '@/services/notifications/unifiedNotifications'
+import { AltheaTimePicker } from '@/components/althea/AltheaTimePicker'
 
 const TYPES = ['comer', 'agua', 'recuperacion', 'entrenamiento'] as const
 
@@ -85,13 +86,14 @@ export function DailyRemindersConfig() {
             style={{ colorScheme: 'dark' }}
           />
           <div className="flex gap-2 items-center">
-            <input
-              type="time"
+            <AltheaTimePicker
               value={editing[c.id]?.time ?? c.time}
-              onChange={e => setEditing(prev => ({ ...prev, [c.id]: { ...prev[c.id], time: e.target.value } }))}
-              onBlur={e => updateField(c.id, { time: e.target.value, times: [e.target.value] })}
-              className="bg-surface-container-high border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface"
-              style={{ colorScheme: 'dark' }}
+              onChange={value => {
+                setEditing(prev => ({ ...prev, [c.id]: { ...prev[c.id], time: value } }))
+                void updateField(c.id, { time: value, times: [value] })
+              }}
+              ariaLabel={`Horario del recordatorio ${c.title}`}
+              className="min-w-[112px]"
             />
             <select
               value={c.recurrence}
