@@ -149,7 +149,7 @@ describe('Integration Tests', () => {
       
       const file = new File([exported], 'backup.json', { type: 'application/json' })
       const result = await importJSON(file)
-      expect(result.success).toBe(true)
+      expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
       
       // Verify data restored (new tables)
       const sessionCount = await db.trainingSessions.count()
