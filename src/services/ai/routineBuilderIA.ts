@@ -1234,11 +1234,7 @@ async function callAi(prompt: string): Promise<string> {
         { role: 'system', content: 'Eres un entrenador personal. Respondes SOLO con JSON valido, nada de texto explicativo.' },
         { role: 'user', content: prompt }
       ],
-      // Parámetros legacy: el Worker fija el modelo y el formato JSON.
-      top_p: 0.9,
-      max_tokens: 4096,
-      temperature: 0.7,
-      stream: false
+      // El Worker fija el modelo, el límite de salida y el formato JSON.
     })
   })
 

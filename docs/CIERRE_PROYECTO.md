@@ -27,6 +27,17 @@
 6. Toda restauración se realiza en una transacción Dexie y se verifica después. Un error debe revertir el conjunto completo.
 7. No enviar al Coach nombre, email ni identificadores. Solo se incluye contexto pertinente a las categorías autorizadas por el usuario.
 
+## Administración de feedback en Firebase
+
+La autorización administrativa no usa correos escritos en el repositorio. Antes de desplegar las reglas en producción:
+
+1. Obtener el UID de la cuenta propietaria desde Firebase Authentication del proyecto althea-4b1d0.
+2. Crear desde Firebase Console o Admin SDK el documento privado admins/uids con el campo uids como array que contenga ese UID.
+3. La cuenta debe tener email_verified=true en el token de Firebase Auth.
+4. Los clientes no pueden leer ni modificar admins/uids; la lista solo se consulta desde las reglas de Firestore.
+
+La CI prepara una lista temporal en el emulador con credenciales de propietario y prueba ambos requisitos por separado. No modifica el proyecto Firebase real.
+
 ## Comandos de validación
 
 ~~~bash
