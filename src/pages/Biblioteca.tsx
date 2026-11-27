@@ -35,6 +35,7 @@ export default function Biblioteca(){
   const [groupById,setGroupById]=useState<Record<string,TraditionalGroupId>>({})
   const [globalSearch,setGlobalSearch]=useState(false)
   const loadRequestRef = useRef(0)
+  const handledGlobalSearchRef = useRef<string | null>(null)
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true
 
   useEffect(()=>{
@@ -134,6 +135,20 @@ export default function Biblioteca(){
     }
     void loadRef.current('__all__', false, 'conventional')
   }, [location.key, location.search])
+
+  // La búsqueda general identifica el ejercicio exacto. Cuando el catálogo
+  // termina de cargar, abrimos su ficha en lugar de dejar solo una lista filtrada.
+  useEffect(() => {
+    const state = location.state as { globalSearchKind?: string; globalSearchId?: string } | null
+    if (state?.globalSearchKind !== 'exercise' || !state.globalSearchId || exercises.length === 0) { return }
+    const requestKey = `${location.key}:${state.globalSearchId}`
+    if (handledGlobalSearchRef.current === requestKey) { return }
+    const selected = exercises.find(ex => ex.id === state.globalSearchId)
+    if (selected) {
+      handledGlobalSearchRef.current = requestKey
+      setDetail(selected)
+    }
+  }, [location.key, location.state, exercises])
 
   const BODY_PART_GROUP: Record<string, TraditionalGroupId> = {
     legs: 'piernas', chest: 'pecho', back: 'espalda', core: 'core',
@@ -283,7 +298,7 @@ export default function Biblioteca(){
       <div className="grid gap-3">
         {loading && exercises.length===0 && <AltheaLoading lines={4} />}
         {filtered.map(ex=>(
-          <div key={ex.id} onClick={()=>setDetail(ex)} className="rounded-xl border border-outline-variant/40 bg-surface-container p-3 sm:p-4 shadow-al-sm min-w-0 cursor-pointer active:bg-surface-container-low/50 transition-colors">
+          <button key={ex.id} type="button" aria-label={`Ver detalle de ${ex.name}`} onClick={()=>setDetail(ex)} className="w-full text-left rounded-xl border border-outline-variant/40 bg-surface-container p-3 sm:p-4 shadow-al-sm min-w-0 cursor-pointer active:bg-surface-container-low/50 transition-colors">
             <div className="flex gap-3 p-3">
               <div className="w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-xl bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant flex items-center justify-center overflow-hidden relative">
                 {(ex.gifUrl || ex.imageDataUrl) ? <img src={ex.gifUrl || ex.imageDataUrl} alt={ex.name} loading="lazy" onError={e=>{(e.target as HTMLImageElement).style.display='none'; (e.target as HTMLImageElement).parentElement?.querySelector('.gif-fallback')?.classList.remove('hidden')}} className="w-full h-full object-contain" /> : <span className="font-label-md text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">Sin GIF</span>}
@@ -303,7 +318,7 @@ export default function Biblioteca(){
                 </div>
               </div>
             </div>
-          </div>
+          </button>
         ))}
         {filtered.length===0 && !loading && <AltheaEmpty icon="search_off" title="Sin resultados" description="Probá otro grupo muscular o término de búsqueda." />}
       </div>
