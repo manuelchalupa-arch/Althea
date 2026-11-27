@@ -150,7 +150,6 @@ export default function Onboarding(){
       if(step===3 && diasDisponibles.length===0) {throw new Error('Seleccioná al menos un día disponible')}
       if(step===4 && equipamiento.length===0) {throw new Error('Seleccioná al menos un equipamiento disponible')}
       if(step===6){
-        if(!horarioEntreno) {throw new Error('Seleccioná tu horario habitual')}
         if(duracionSesion < 20 || duracionSesion > 180) {throw new Error('Duración entre 20 y 180 minutos')}
       }
       setErr(null); return true
