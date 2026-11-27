@@ -74,7 +74,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     nutriDaily = { diarioCount: diario.length, calendario: 'no', objetivo, ultimoAlimento: diario[diario.length-1]?.name || '—' }
   }catch{}
   // hidratación tendencia
-  const hydLogs = await db.hydrationLogs.where('localDate').equals(today).toArray().catch(()=>[])
+  const hydLogs = hydLogs0
   const hydTrend: string = hydLogs.length ? `${hydLogs.reduce((a,b)=>a+b.amountMl,0)}ml hoy` : hidratacion
   // memoria coach + última observación + perfil completo (solo Dexie)
   const { getPrefs: getCoachPrefs, getAllDecisions: getCoachDecisions } = await import('./coachMemory')
