@@ -187,6 +187,22 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     expect(data.metadata.schemaVersion).toBe(29)
   })
 
+  it('combinar preserva los datos locales si una clave ya existe', async () => {
+    await seedRepresentative()
+    const file = new File([await (await exportJSON()).text()], 'backup.json', { type: 'application/json' })
+
+    // El archivo contiene Fran, pero esta instalación ya tiene otro contenido
+    // local con el mismo ID. Combinar debe preservar la versión local.
+    await db.cfWods.put({
+      id: 'wod1', name: 'WOD local conservado', format: 'FOR_TIME',
+      updatedAt: `${today}T12:00:00Z`,
+    } as never)
+
+    const result = await importJSON(file)
+    expect(result.success).toBe(true)
+    expect(await db.cfWods.get('wod1')).toMatchObject({ name: 'WOD local conservado' })
+  })
+
   it('exportar → borrar todo → importar restaura idénticos los datos representativos', async () => {
     await seedRepresentative()
     const before = await snapshot()
