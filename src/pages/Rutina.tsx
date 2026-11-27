@@ -1765,14 +1765,17 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
       .filter((id,index,arr)=>arr.indexOf(id)===index)
       .filter(id=>getMethod(id)?.category!=='structure' && getMethod(id)?.category!=='preparation')
     const fallback:TrainingMethodId[]=['hypertrophy','strength','functional','strength_endurance','hiit','cardio_endurance']
-    for (const id of fallback) {\n      if (candidates.length >= 3) { break }\n      if (!candidates.includes(id)) { candidates.push(id) }\n    }
+    for (const id of fallback) {
+      if (candidates.length >= 3) { break }
+      if (!candidates.includes(id)) { candidates.push(id) }
+    }
     return candidates.slice(0,3)
   })()
 
   useEffect(()=>{
     let live=true
     db.userProfile.get('me').then(p=>{
-      if(!live || !p)return
+      if (!live || !p) { return }
       setProfile(p)
       const legacyGoal=String(p.trainingGoal||p.goal||'')
       setGoal(legacyGoal.includes('strength')||legacyGoal.includes('fuerza')?'fuerza':legacyGoal.includes('fat_loss')||legacyGoal.includes('perdida')?'perdida_grasa':legacyGoal.includes('resistance')||legacyGoal.includes('resistencia')?'resistencia':'hipertrofia')
@@ -1790,9 +1793,11 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
     return ()=>{live=false}
   },[])
 
+  const recommendedMethod = methods[0]
+  const selectedMethodIsAvailable = methods.includes(methodId as TrainingMethodId)
   useEffect(()=>{
-    if(methods.length && (!methodId || !methods.includes(methodId))) setMethodId(methods[0])
-  },[methods.join('|'),methodId])
+    if (recommendedMethod && (!methodId || !selectedMethodIsAvailable)) { setMethodId(recommendedMethod) }
+  },[recommendedMethod, selectedMethodIsAvailable, methodId])
 
   const toggleDay=(day:number)=>setDays(prev=>prev.includes(day)?prev.filter(d=>d!==day):[...prev,day].sort((a,b)=>a-b))
   const toggleEquipment=(id:string)=>setEquipment(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
