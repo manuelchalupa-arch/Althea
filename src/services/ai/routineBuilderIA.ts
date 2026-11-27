@@ -475,6 +475,8 @@ async function loadMusclePools(
   // catálogo incluye estiramientos/movilidad que no siempre aparecen en la API.
   const curatedWarmups: PoolEx[] = TRADITIONAL_SEEDS
     .filter(seed => seed.purpose === 'stretch' || seed.purpose === 'warmup' || seed.purpose === 'mobility')
+    .filter(seed => !excluded.has(seed.id) && !(seed.gymId && excluded.has(seed.gymId)))
+    .filter(seed => !matchesAny(seed.name, instructions.excludes))
     .filter(seed => !instructions.equipment?.length || equipmentMatches(seed.equipment, instructions.equipment) || isEquipmentFreePreparation({ purpose: seed.purpose, equipment: seed.equipment, name: seed.name, focus: seed.focus }))
     .map(seed => ({
       id: seed.gymId || seed.id,
@@ -869,7 +871,8 @@ async function generateRoutineFallback(
   const desiredDays = clampDays(instructions.days ?? wants.daysPerWeek)
   const profile: any = await db.userProfile.get('me').catch(() => null) || {}
   const seed = hashStr([wants.description || '', wants.goal, wants.focus, desiredDays].join('|'))
-  const pools = await loadMusclePools(instructions, seed, profile.excludedExercises || [])
+  const excludedIds = [...new Set([...(profile.excludedExercises || []), ...(wants.excludedExerciseIds || [])])]
+  const pools = await loadMusclePools(instructions, seed, excludedIds)
   const catalog = Object.values(pools).flat()
   const fallbackMuscles = FULL_BODY.slice(0, 6)
   const templates: DayTemplate[] = instructions.split
@@ -965,6 +968,7 @@ async function collectContext(
   instructions: RoutineInstructions,
   seed: number,
   historyOptions: string[] = [],
+  excludedExerciseIds: string[] = [],
 ): Promise<{ profile: any; history: string; style: any; methodName: string; exercises: Record<string, CompactEx[]> }> {
   const profile = await db.userProfile.get('me').catch(() => null) as any || {}
   // Método vigente de la planificación (canónico). Snapshot profile.cycle como
@@ -1025,7 +1029,8 @@ async function collectContext(
     history = lines.join(' | ').slice(0, 2400)
   } catch { /* el historial nunca debe bloquear una rutina nueva */ }
 
-  const exercises = await loadMusclePools(instructions, seed, profile.excludedExercises || [])
+  const excludedIds = [...new Set([...(profile.excludedExercises || []), ...excludedExerciseIds])]
+  const exercises = await loadMusclePools(instructions, seed, excludedIds)
   return { profile, history, style, methodName: method?.nameEs || coachingMethod, exercises }
 }
 
@@ -1377,9 +1382,9 @@ function withProfilePreferences(wants: UserWants, profile: any): UserWants {
     level: wants.level || p.level,
     durationMin: wants.durationMin || p.sessionDurationMin,
     modality: wants.modality || p.modality,
-    allowedEquipment: wants.allowedEquipment || allowed,
-    excludedMovements: wants.excludedMovements || p.excludedMovements,
-    excludedExerciseIds: wants.excludedExerciseIds || p.excludedExercises,
+    allowedEquipment: wants.allowedEquipment?.length ? wants.allowedEquipment : allowed,
+    excludedMovements: [...new Set([...(p.excludedMovements || []), ...(wants.excludedMovements || [])])],
+    excludedExerciseIds: [...new Set([...(p.excludedExercises || []), ...(wants.excludedExerciseIds || [])])],
     trainingIntensity: wants.trainingIntensity || p.trainingIntensity,
   }
 }
@@ -1452,7 +1457,7 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
     )
   }
 
-  const ctx = await collectContext(instructions, seed, effective.historyOptions || [])
+  const ctx = await collectContext(instructions, seed, effective.historyOptions || [], effective.excludedExerciseIds || [])
   const catalog = catalogOf(ctx.exercises)
   let corrections: string[] = []
 

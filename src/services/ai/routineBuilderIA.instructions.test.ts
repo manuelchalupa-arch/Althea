@@ -202,6 +202,7 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
       description: 'Preferencias estructuradas del generador de rutinas.\nEquipamiento disponible: bodyweight.\nDías: lunes a viernes.', allowedEquipment: ['dumbbell'],
       availableDays: [1, 2, 3, 4, 5], methodId: 'hypertrophy',
       warmupEnabled: false, stretchingEnabled: true,
+      excludedMovements: ['pantorrillas'], excludedExerciseIds: ['trad/stretch-calf-wall'],
     })
 
     const all = Object.values(routine.dayExercises).flat()
@@ -209,6 +210,7 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
     expect(stretches).toHaveLength(5)
     expect(new Set(stretches.map(ex => ex.exId)).size).toBe(5)
     expect(stretches.every(ex => ex.sequenceRole === 'cooldown')).toBe(true)
+    expect(stretches.every(ex => !/pantorrillas/i.test(ex.name))).toBe(true)
     for (const ex of all.filter(item => !item.isStretch)) {
       const index = Number(ex.exId.split('/ex')[1])
       expect(index % 3).toBe(1)
