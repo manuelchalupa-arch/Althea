@@ -1013,7 +1013,7 @@ export async function importJSON(file: File, options: ImportOptions = { mode: 'm
     return {
       success: false,
       imported: {} as any,
-      errors: ['Conflictos detectados. Use confirmOverwrite=true o mode=replace para resolver.'],
+      errors: ['Hay registros con la misma clave. Confirmá Combinar para conservar los datos locales y omitir las filas duplicadas.'],
       conflicts,
       verification: { passed: false, checks: {} as any, details: ['Conflictos sin resolver'] },
     }
