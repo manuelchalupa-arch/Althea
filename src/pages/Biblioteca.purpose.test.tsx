@@ -78,4 +78,23 @@ describe('Biblioteca — separación por finalidad', () => {
     await waitFor(() => expect(screen.getByText('Prensa de piernas 45°')).toBeInTheDocument())
     expect(screen.queryByText('Estiramiento de cuádriceps con banda')).not.toBeInTheDocument()
   })
+
+  it('la búsqueda global encuentra ejercicios de cualquier finalidad y luego permite volver a filtrar', async () => {
+    render(
+      <MemoryRouter initialEntries={['/biblioteca?buscar=Estiramiento']}>
+        <Biblioteca />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Estiramiento, con manos en la pared, gemelo')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Press de banca con barra')).not.toBeInTheDocument()
+
+    fireEvent.click(purposeButton('Convencionales'))
+    await waitFor(() => {
+      expect(screen.getByText('Press de banca con barra')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Estiramiento, con manos en la pared, gemelo')).not.toBeInTheDocument()
+  })
 })
