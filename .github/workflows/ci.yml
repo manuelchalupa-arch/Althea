@@ -2,9 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/mobile-navigation-five-destinations]
   pull_request:
     branches: [main]
+
+concurrency:
+  group: althea-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
@@ -50,3 +57,46 @@ jobs:
           FIREBASE_STAGING_PROJECT_ID: demo-althea
           FIREBASE_PRODUCTION_PROJECT_ID: demo-althea-production
         run: npx --yes firebase-tools emulators:exec --project demo-althea --only auth,firestore "node scripts/firestore-isolation-e2e.mjs"
+  dependency-remediation:
+    if: github.event_name == 'push' && github.event.head_commit.message == 'chore(deps): trigger audited dependency refresh'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: fix/mobile-navigation-five-destinations
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install current lockfile
+        run: npm ci
+      - name: Apply compatible security updates
+        run: npm audit fix || true
+      - name: Update vulnerable runtime dependencies
+        run: |
+          npm pkg set dependencies.firebase="^13.4.0"
+          npm pkg delete dependencies.zod
+          npm pkg set 'overrides.@grpc/grpc-js=^1.14.7' 'overrides.re2js=^2.8.7'
+          npm install
+          npm audit fix || true
+      - name: Require a clean production dependency audit
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Validate dependency compatibility
+        run: |
+          npx tsc --noEmit
+          npm run lint
+          npm run build
+          npx vitest run
+      - name: Commit audited lockfile updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No dependency changes to commit."
+            exit 0
+          fi
+          git commit -m "fix(deps): remediate production dependency advisories"
+          git push origin HEAD:fix/mobile-navigation-five-destinations
