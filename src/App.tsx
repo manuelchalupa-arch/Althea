@@ -318,7 +318,9 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
       </Routes>
       </div>
       {!hideNav && <AppNav/>}
-      {!hideNav && (
+      {/* La página Coach ya contiene su propia conversación completa. No montar
+          el chat flotante allí para evitar dos interfaces de chat simultáneas. */}
+      {!hideNav && loc.pathname !== '/coach' && (
         <Suspense fallback={null}>
           <ChatWidget/>
         </Suspense>
