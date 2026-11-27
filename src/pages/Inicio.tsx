@@ -18,6 +18,7 @@ import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
 import { todayKey, daysBetween, parseLocalDateKey, toLocalDateKey, weekdayOfKey, addDaysToKey, toDateKey, isDateKey, weekStartKey } from '@/utils/dates'
 import type { ExpenditureResult } from '@/services/training/exerciseEnergy'
+import type { DiaryEntry } from '@/services/storage/diaryStore'
 
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X']
 
@@ -75,6 +76,9 @@ export default function Inicio(){
   const [weekOffset, setWeekOffset] = useState(0)
   const [dayStatus, setDayStatus] = useState<Record<string,{planned:boolean; dayN:number|null; dayName:string|null; sessionStatus:string|null; overridden:boolean; notDone:boolean; volume?:number; rating?:number|null}>>({})
   const [gasto, setGasto] = useState<{ hoy: ExpenditureResult; semana: ExpenditureResult } | null>(null)
+  const [nutritionSummary, setNutritionSummary] = useState<{ count: number; calories: number; protein: number } | null>(null)
+  const [recoverySummary, setRecoverySummary] = useState<{ date: string; score: number; energy: number; fatigue: number; sleepHours?: number } | null>(null)
+  const [progressSummary, setProgressSummary] = useState<{ date?: string; weightKg?: number; bodyFatPct?: number; waistCm?: number } | null>(null)
   const todayCompleted = dayStatus[todayStr]?.sessionStatus === 'COMPLETED'
   const todayNotDone = dayStatus[todayStr]?.notDone === true
   const [selectedDate] = useState<string>(todayStr)
@@ -131,6 +135,63 @@ export default function Inicio(){
     if (!mountedRef.current) { return }
     setPlanDays(out)
   }
+
+
+  // Resumen personal compacto para Inicio: solo valores reales de Dexie,
+  // sin estimaciones ni datos de demostración. El detalle permanece en cada módulo.
+  useEffect(() => {
+    let alive = true
+    const loadDashboardSummaries = async () => {
+      const [diaryRows, recoveryRows, measurementRows, profile] = await Promise.all([
+        db.nutritionDiary.where('date').equals(todayStr).toArray().catch(() => []),
+        db.recoveryChecks.toArray().catch(() => []),
+        db.bodyMeasurements.toArray().catch(() => []),
+        db.userProfile.get('me').catch(() => undefined),
+      ])
+      const meals = (diaryRows as DiaryEntry[]).filter(entry => entry.mealType !== 'Carga directa')
+      const allNutrition = diaryRows as DiaryEntry[]
+      const nutrition = {
+        count: meals.length,
+        calories: Math.round(allNutrition.reduce((sum, entry) => sum + Number(entry.macros?.calories || 0), 0)),
+        protein: Math.round(allNutrition.reduce((sum, entry) => sum + Number(entry.macros?.proteins || 0), 0)),
+      }
+      const lastRecovery = [...recoveryRows]
+        .filter(row => !row.isDemo)
+        .sort((a, b) => b.localDate.localeCompare(a.localDate))[0]
+      const lastMeasurement = [...measurementRows]
+        .filter(row => !row.isDemo)
+        .sort((a, b) => b.localDate.localeCompare(a.localDate))[0]
+      const profileWeight = typeof profile?.weightKg === 'number' ? profile.weightKg : undefined
+      if (!alive) { return }
+      setNutritionSummary(nutrition)
+      setRecoverySummary(lastRecovery ? {
+        date: lastRecovery.localDate,
+        score: lastRecovery.score,
+        energy: lastRecovery.energy,
+        fatigue: lastRecovery.fatigue,
+        sleepHours: lastRecovery.sleepHours,
+      } : null)
+      setProgressSummary(lastMeasurement ? {
+        date: lastMeasurement.localDate,
+        weightKg: lastMeasurement.weightKg ?? profileWeight,
+        bodyFatPct: lastMeasurement.bodyFatPct,
+        waistCm: lastMeasurement.waistCm,
+      } : profileWeight !== undefined ? { weightKg: profileWeight } : null)
+    }
+    void loadDashboardSummaries()
+    const refresh = () => { void loadDashboardSummaries() }
+    window.addEventListener('focus', refresh)
+    window.addEventListener('althea:nutrition-changed', refresh)
+    window.addEventListener('althea:recovery-changed', refresh)
+    window.addEventListener('althea:measurement-changed', refresh)
+    return () => {
+      alive = false
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('althea:nutrition-changed', refresh)
+      window.removeEventListener('althea:recovery-changed', refresh)
+      window.removeEventListener('althea:measurement-changed', refresh)
+    }
+  }, [todayStr])
 
   const weekKeys = useMemo(()=>{
     const base = parseLocalDateKey(todayStr)
@@ -620,6 +681,38 @@ export default function Inicio(){
             )}
           </div>
           )}
+        </section>
+
+
+        {/* Resumen transversal de datos personales — accesos rápidos a los módulos. */}
+        <section data-testid="inicio-dashboard-summaries" aria-label="Resumen de nutrición, recuperación y medidas" className="grid grid-cols-3 gap-2 sm:gap-3">
+          <Link to="/nutricion" className="min-w-0 min-h-[104px] rounded-xl border border-outline-variant/50 bg-surface-container p-2.5 sm:p-3 flex flex-col justify-between hover:border-primary/50 transition-colors">
+            <span className="font-label-caps text-[9px] sm:text-[10px] uppercase tracking-wide text-on-surface-variant">Nutrición</span>
+            <span className="font-headline-md text-base sm:text-lg font-semibold text-on-surface tabular-nums">
+              {nutritionSummary ? `${nutritionSummary.calories} kcal` : '—'}
+            </span>
+            <span className="text-[9px] sm:text-[10px] leading-tight text-on-surface-variant break-words">
+              {nutritionSummary ? `${nutritionSummary.count} comidas · P ${nutritionSummary.protein} g` : 'Sin datos del día'}
+            </span>
+          </Link>
+          <Link to="/recuperacion" className="min-w-0 min-h-[104px] rounded-xl border border-outline-variant/50 bg-surface-container p-2.5 sm:p-3 flex flex-col justify-between hover:border-primary/50 transition-colors">
+            <span className="font-label-caps text-[9px] sm:text-[10px] uppercase tracking-wide text-on-surface-variant">Recuperación</span>
+            <span className="font-headline-md text-base sm:text-lg font-semibold text-on-surface tabular-nums">
+              {recoverySummary ? `${recoverySummary.score}/100` : '—'}
+            </span>
+            <span className="text-[9px] sm:text-[10px] leading-tight text-on-surface-variant break-words">
+              {recoverySummary ? `${recoverySummary.sleepHours !== undefined ? `${recoverySummary.sleepHours} h sueño · ` : ''}Energía ${recoverySummary.energy}/10` : 'Sin check-in registrado'}
+            </span>
+          </Link>
+          <Link to="/progreso" className="min-w-0 min-h-[104px] rounded-xl border border-outline-variant/50 bg-surface-container p-2.5 sm:p-3 flex flex-col justify-between hover:border-primary/50 transition-colors">
+            <span className="font-label-caps text-[9px] sm:text-[10px] uppercase tracking-wide text-on-surface-variant">Medidas</span>
+            <span className="font-headline-md text-base sm:text-lg font-semibold text-on-surface tabular-nums">
+              {progressSummary?.weightKg !== undefined ? `${progressSummary.weightKg} kg` : '—'}
+            </span>
+            <span className="text-[9px] sm:text-[10px] leading-tight text-on-surface-variant break-words">
+              {progressSummary?.date ? `Último registro ${progressSummary.date.split('-').reverse().join('/')}` : progressSummary?.weightKg !== undefined ? 'Peso del perfil' : 'Sin mediciones'}
+            </span>
+          </Link>
         </section>
 
         {/* Consejo científico breve: uno por día, con fuente. */}
