@@ -42,6 +42,10 @@ export interface ImportPreview {
     observations: number
     recoveryChecks: number
     hydrationLogs: number
+    hydrationBottles: number
+    hydrationBottleLogs: number
+    customFoods: number
+    notificationConfigs: number
     bodyMeasurements: number
     userProfile: boolean
     routinesNew: number
@@ -715,8 +719,10 @@ export async function generateImportPreview(file: File): Promise<ImportPreview> 
       summary: {
         routines: 0, sessions: 0, sessionExercises: 0, setRecords: 0,
         sessionEvents: 0, surveys: 0, negativeSets: 0, observations: 0,
-        recoveryChecks: 0, hydrationLogs: 0, bodyMeasurements: 0,
-        userProfile: false, routinesNew: 0, routinesUpdated: 0, routinesSkipped: 0,
+        recoveryChecks: 0, hydrationLogs: 0, hydrationBottles: 0,
+        hydrationBottleLogs: 0, customFoods: 0, notificationConfigs: 0,
+        bodyMeasurements: 0, userProfile: false,
+        routinesNew: 0, routinesUpdated: 0, routinesSkipped: 0,
         conflicts: [],
       },
       conflicts: [],
@@ -743,6 +749,10 @@ export async function generateImportPreview(file: File): Promise<ImportPreview> 
     observations: migrated.exerciseObservations.length,
     recoveryChecks: migrated.recoveryChecks.length,
     hydrationLogs: migrated.hydrationLogs.length,
+    hydrationBottles: (migrated.hydrationBottles ?? []).length,
+    hydrationBottleLogs: (migrated.hydrationBottleLogs ?? []).length,
+    customFoods: (migrated.customFoods ?? []).length,
+    notificationConfigs: (migrated.notifConfigs ?? []).length + (migrated.unifiedNotifConfigs ?? []).length,
     bodyMeasurements: migrated.bodyMeasurements.length,
     userProfile: migrated.userProfile.length > 0,
     routinesNew: migrated.routines.filter(r => !existingIds.has(r.id)).length,
