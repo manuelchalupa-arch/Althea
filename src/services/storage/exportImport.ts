@@ -593,6 +593,14 @@ async function detectConflicts(
     { name: 'exerciseState', table: db.exerciseState, records: importedData.exerciseState ?? [], key: 'id' },
     { name: 'sessionChanges', table: db.sessionChanges, records: importedData.sessionChanges ?? [], key: 'id' },
     { name: 'sessionObservations', table: db.sessionObservations, records: importedData.sessionObservations ?? [], key: 'id' },
+    { name: 'legacyRoutines', table: db.routines, records: importedData.legacyRoutines ?? [], key: 'id' },
+    { name: 'legacySessions', table: db.sessions, records: importedData.legacySessions ?? [], key: 'id' },
+    { name: 'legacySetLogs', table: db.setLogs, records: importedData.legacySetLogs ?? [], key: 'id' },
+    { name: 'feedbackThreads', table: db.feedbackThreads, records: importedData.feedbackThreads ?? [], key: 'id' },
+    { name: 'feedbackMessages', table: db.feedbackMessages, records: importedData.feedbackMessages ?? [], key: 'id' },
+    { name: 'feedbackOutbox', table: db.feedbackOutbox, records: importedData.feedbackOutbox ?? [], key: 'id' },
+    { name: 'restTimerState', table: db.restTimerState, records: importedData.restTimerState ?? [], key: 'id' },
+    { name: 'cfTimerState', table: db.cfTimerState, records: importedData.cfTimerState ?? [], key: 'id' },
   ] as const
 
   const conflicts: ConflictInfo[] = []
