@@ -102,6 +102,16 @@ export interface ImportResult {
     activitySessions: number
     exerciseRecords: number
     cycleVersions: number
+    hydrationBottles: number
+    hydrationBottleLogs: number
+    notifConfigs: number
+    notifLog: number
+    unifiedNotifConfigs: number
+    requiredActionStates: number
+    customFoods: number
+    exerciseState: number
+    sessionChanges: number
+    sessionObservations: number
   }
   errors: string[]
   conflicts: ConflictInfo[]
