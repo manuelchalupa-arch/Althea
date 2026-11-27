@@ -10,6 +10,7 @@ type AltheaDatePickerProps = {
   className?: string
   min?: string
   max?: string
+  testId?: string
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -79,7 +80,7 @@ export function AltheaDatePicker({ value, onChange, label, ariaLabel, className 
   return (
     <>
       {label && <span className="block mb-1 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{label}</span>}
-      <button type="button" className={`althea-date-trigger ${className}`} aria-label={ariaLabel || label || 'Seleccionar fecha'} aria-haspopup="dialog" aria-expanded={open} onClick={() => { if (!open) { const d = selected ?? new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)) }; setOpen(v => !v) }}>
+      <button type="button" className={`althea-date-trigger ${className}`} aria-label={ariaLabel || label || 'Seleccionar fecha'} data-testid={undefined} data-testid={testId} aria-haspopup="dialog" aria-expanded={open} onClick={() => { if (!open) { const d = selected ?? new Date(); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)) }; setOpen(v => !v) }}>
         <CalendarDays size={18} aria-hidden="true" />
         <span>{display}</span>
       </button>
