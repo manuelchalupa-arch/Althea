@@ -23,3 +23,9 @@ jobs:
       - run: npm run build
       - run: npx vitest run
       - run: npm run check:release
+      # QA de interfaz en navegador real sobre 360/375/390/393/412/430 px,
+      # tablet y escritorio. Solo Chromium para mantener el tiempo de CI acotado.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run responsive browser tests
+        run: npm run playwright -- tests/fase2-qa.spec.ts --project=chromium
