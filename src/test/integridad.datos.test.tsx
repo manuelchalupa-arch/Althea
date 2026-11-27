@@ -200,15 +200,15 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
 
   it('combinar conserva borrados pendientes de otro dispositivo ante colisión de IDs autonuméricos', async () => {
     await db.syncDeletes.put({
-      id: 1, table: 'routines', docId: 'deleted-from-backup',
-    } as never)
+      table: 'routines', docId: 'deleted-from-backup', deletedAt: `${today}T09:00:00Z`,
+    }, 1)
     const file = new File([await (await exportJSON()).text()], 'sync-deletes.json', { type: 'application/json' })
 
     // Simula otro dispositivo que reutilizó el mismo contador local para otro borrado.
     await db.syncDeletes.delete(1)
     await db.syncDeletes.put({
-      id: 1, table: 'nutritionDiary', docId: 'local-deletion',
-    } as never)
+      table: 'nutritionDiary', docId: 'local-deletion', deletedAt: `${today}T10:00:00Z`,
+    }, 1)
 
     const result = await importJSON(file)
     expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
@@ -216,10 +216,9 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     const markers = await db.syncDeletes.toArray()
     expect(markers).toHaveLength(2)
     expect(markers).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 1, table: 'nutritionDiary', docId: 'local-deletion' }),
+      expect.objectContaining({ table: 'nutritionDiary', docId: 'local-deletion' }),
       expect.objectContaining({ table: 'routines', docId: 'deleted-from-backup' }),
     ]))
-    expect((markers.find(marker => marker.docId === 'deleted-from-backup') as { id?: number } | undefined)?.id).not.toBe(1)
     expect(result.imported.syncDeletes).toBe(1)
   })
 
