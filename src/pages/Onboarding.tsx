@@ -25,6 +25,18 @@ const EQUIPAMIENTO: { label: string; value: string }[] = [
   { label: 'Bandas elásticas', value: 'banda' },
   { label: 'Kettlebell', value: 'kettlebell' },
 ]
+
+// Presets de ubicación/modalidad. Se traducen al equipamiento existente del
+// perfil para mantener compatibilidad con rutinas y catálogos ya guardados.
+const EQUIPMENT_PRESETS: { id: string; label: string; equipment: string[] }[] = [
+  { id: 'gym-full', label: 'Gimnasio completo', equipment: ['barra', 'mancuernas', 'maquina', 'polea', 'peso_corporal', 'banda', 'kettlebell'] },
+  { id: 'gym-limited', label: 'Gimnasio limitado', equipment: ['mancuernas', 'maquina', 'peso_corporal'] },
+  { id: 'machines', label: 'Solo máquinas', equipment: ['maquina', 'polea'] },
+  { id: 'no-machines', label: 'Sin máquinas', equipment: ['barra', 'mancuernas', 'peso_corporal', 'banda', 'kettlebell'] },
+  { id: 'home', label: 'Entreno en casa', equipment: ['mancuernas', 'peso_corporal', 'banda', 'kettlebell'] },
+  { id: 'bodyweight', label: 'Solo peso corporal', equipment: ['peso_corporal'] },
+  { id: 'crossfit-box', label: 'Box de CrossFit', equipment: ['barra', 'mancuernas', 'peso_corporal', 'banda', 'kettlebell'] },
+]
 const COACH_INTENSIDAD: { value: CoachIntensity; label: string; description: string }[] = [
   { value: 'profesional', label: 'Profesional', description: 'Equilibrado y técnico, con exigencia medida' },
   { value: 'motivacional', label: 'Motivacional', description: 'Animador y de apoyo, celebra los logros' },
@@ -291,11 +303,28 @@ export default function Onboarding(){
         {step===4 && (
           <div className="space-y-3">
             <h1 className="font-headline-lg text-3xl lg:text-4xl font-semibold tracking-tight text-on-surface">¿Qué equipamiento tenés disponible?</h1>
-            <div className="flex flex-wrap gap-1">
-              {EQUIPAMIENTO.map(e=>(
-                <button key={e.value} onClick={()=>setEquipamiento(a=> a.includes(e.value)? a.filter(x=>x!==e.value):[...a,e.value])} className={`min-w-[44px] min-h-[44px] px-3 py-2 rounded-lg border font-body-md text-sm text-on-surface ${equipamiento.includes(e.value)?'bg-primary border-primary text-on-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{e.label}</button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {EQUIPMENT_PRESETS.map(preset=>(
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={()=>setEquipamiento(preset.equipment)}
+                  aria-pressed={preset.equipment.length===equipamiento.length && preset.equipment.every(item=>equipamiento.includes(item))}
+                  className={`min-h-[48px] p-3 rounded-lg border text-left font-body-md text-sm text-on-surface ${preset.equipment.length===equipamiento.length && preset.equipment.every(item=>equipamiento.includes(item))?'bg-primary border-primary text-on-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}
+                >
+                  {preset.label}
+                </button>
               ))}
             </div>
+            <details className="rounded-lg border border-outline-variant bg-surface-container-low/60 p-3">
+              <summary className="min-h-[44px] flex items-center cursor-pointer font-body-md text-sm font-semibold text-on-surface">Personalizar equipamiento</summary>
+              <p className="font-body-sm text-xs text-on-surface-variant mb-2">Ajustá la selección si tu espacio tiene una combinación diferente.</p>
+              <div className="flex flex-wrap gap-1">
+                {EQUIPAMIENTO.map(e=>(
+                  <button key={e.value} type="button" onClick={()=>setEquipamiento(a=> a.includes(e.value)? a.filter(x=>x!==e.value):[...a,e.value])} aria-pressed={equipamiento.includes(e.value)} className={`min-w-[44px] min-h-[44px] px-3 py-2 rounded-lg border font-body-md text-sm text-on-surface ${equipamiento.includes(e.value)?'bg-primary border-primary text-on-primary':'bg-surface-container-low/90 backdrop-blur-sm border-outline-variant'}`}>{e.label}</button>
+                ))}
+              </div>
+            </details>
           </div>
         )}
 
