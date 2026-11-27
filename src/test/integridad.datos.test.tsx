@@ -259,7 +259,7 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     await db.open()
     const result = await importJSON(file)
     expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
-    expect(await db.routineStore.get('r1')).toMatchObject({ name: 'Rutina de prueba' })
+    expect(await db.routineStore.get('r1')).toMatchObject({ name: 'Push/Pull' })
     expect(await db.routineStore.get('meta:activeId')).toBeUndefined()
   })
 
