@@ -656,7 +656,7 @@ async function detectConflicts(
     const existingSessions = await db.trainingSessions.where('sessionId').anyOf(sessionIds).toArray()
     for (const local of existingSessions) {
       const imported = incomingSessions.find(session => session.sessionId === local.sessionId)
-      if (!imported || JSON.stringify(local) === JSON.stringify(imported)) { continue }
+      if (!imported || recordsEquivalent(local, imported)) { continue }
       const id = String(imported.id)
       const uniqueKey = `trainingSessions:${id}`
       if (seen.has(uniqueKey)) { continue }
