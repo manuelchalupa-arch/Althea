@@ -185,6 +185,28 @@ async function readRootDoc(token, collection, docId) {
   })
 }
 
+async function setAdminUidAllowlist(uids) {
+  return fetch(rootDocPath('admins', 'uids'), {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer owner',
+    },
+    body: JSON.stringify({
+      fields: {
+        uids: { arrayValue: { values: uids.map(uid => ({ stringValue: uid })) } },
+      },
+    }),
+  })
+}
+
+async function deleteAdminUidAllowlist() {
+  return fetch(rootDocPath('admins', 'uids'), {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer owner' },
+  })
+}
+
 async function createSharedExercise(token, docId, createdBy, name) {
   return createRootDoc(token, 'sharedExercises', docId, { createdBy, name })
 }
@@ -422,11 +444,12 @@ if (isEmu) {
     else bad(`sharedExercises: se esperaba 403 al borrar, obtenido ${remove.status}`)
   }
 
-  console.log('\n[10] Administración de feedback exige correo verificado (solo emulador)')
+  console.log('\\n[10] Administración de feedback requiere UID autorizado y correo verificado (solo emulador)')
   {
-    const adminAccount = await signup('manuelchalupa@gmail.com', password)
+    const adminEmail = `althea-probe-admin-${stamp}@example.com`
+    const adminAccount = await signup(adminEmail, password)
     if (!adminAccount.data.localId || !adminAccount.data.idToken) {
-      bad('Auth emulator: no se pudo crear el usuario de prueba del administrador')
+      bad('Auth emulator: no se pudo crear la cuenta de prueba administrativa')
     } else {
       const threadId = `admin-probe-${stamp}`
       const thread = await createRootDoc(tokenA, 'feedbackThreads', threadId, {
@@ -441,27 +464,37 @@ if (isEmu) {
       if (!thread.ok) {
         bad(`feedbackThreads: no se pudo crear el hilo de prueba (${thread.status})`)
       } else {
-        const unverified = await readRootDoc(adminAccount.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
-        if (unverified.status === 403) ok('feedback: el correo de administrador sin verificar no obtiene privilegios')
-        else bad(`feedback: el administrador no verificado debía recibir 403, obtuvo ${unverified.status}`)
+        const unlisted = await readRootDoc(adminAccount.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
+        if (unlisted.status === 403) ok('feedback: un correo no incluido en la lista no obtiene privilegios')
+        else bad(`feedback: usuario no listado debía recibir 403, obtuvo ${unlisted.status}`)
 
-        const verification = await verifyAuthEmail('manuelchalupa@gmail.com', adminAccount.data.idToken)
-        if (!verification.res.ok) {
-          bad(`Auth emulator: no se pudo verificar el correo de prueba (${verification.res.status})`)
+        const allowlist = await setAdminUidAllowlist([adminAccount.data.localId])
+        if (!allowlist.ok) {
+          bad(`admins/uids: no se pudo preparar la lista de prueba (${allowlist.status})`)
         } else {
-          // accounts:update confirma el cambio de emailVerified, pero su respuesta
-          // no siempre incluye un idToken renovado. Volvemos a iniciar sesión para
-          // que el JWT incluya email_verified=true y probar la regla real.
-          const verifiedLogin = await signIn('manuelchalupa@gmail.com', password)
-          if (!verifiedLogin.res.ok || !verifiedLogin.data.idToken) {
-            bad(`Auth emulator: no se pudo renovar la sesión verificada (${verifiedLogin.res.status})`)
+          const unverifiedListed = await readRootDoc(adminAccount.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
+          if (unverifiedListed.status === 403) ok('feedback: un UID listado sin correo verificado sigue sin privilegios')
+          else bad(`feedback: UID listado sin verificar debía recibir 403, obtuvo ${unverifiedListed.status}`)
+
+          const verification = await verifyAuthEmail(adminEmail, adminAccount.data.idToken)
+          if (!verification.res.ok) {
+            bad(`Auth emulator: no se pudo confirmar el correo de prueba (${verification.res.status})`)
           } else {
-            const verified = await readRootDoc(verifiedLogin.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
-            if (verified.status === 404) ok('feedback: el correo verificado obtiene acceso administrativo')
-            else bad(`feedback: el correo verificado debía poder consultar la nota de prueba (404), obtuvo ${verified.status}`)
+            const verifiedLogin = await signIn(adminEmail, password)
+            if (!verifiedLogin.res.ok || !verifiedLogin.data.idToken) {
+              bad(`Auth emulator: no se pudo renovar la sesión verificada (${verifiedLogin.res.status})`)
+            } else {
+              const verified = await readRootDoc(verifiedLogin.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
+              if (verified.status === 404) ok('feedback: UID autorizado con correo verificado obtiene acceso administrativo')
+              else bad(`feedback: se esperaba 404 para UID autorizado y verificado, obtuvo ${verified.status}`)
+            }
           }
         }
       }
+    }
+    const cleanupAdmin = await deleteAdminUidAllowlist()
+    if (!cleanupAdmin.ok && cleanupAdmin.status !== 404) {
+      bad(`admins/uids: no se pudo limpiar la lista temporal (${cleanupAdmin.status})`)
     }
   }
 }
