@@ -44,6 +44,10 @@ async function seedRepresentative() {
     id: 'r1', name: 'Push/Pull', updatedAt: '2026-11-01T10:00:00Z',
     dayExercises: { 1: [{ exId: 'press', name: 'Press banca', sets: 3, reps: 8, weight: 70 }] },
   } as never)
+  await db.routineStore.put({
+    id: 'meta:activeId', activeId: 'r1',
+    createdAt: '2026-11-01T10:00:00Z', updatedAt: '2026-11-01T10:00:00Z',
+  } as never)
   await db.trainingSessions.put({
     id: 'ts1', sessionId: 'ts1', userId: 'me', routineId: 'r1',
     plannedDay: 1, actualDay: 1, calendarDate: today, sessionStatus: 'COMPLETED',
@@ -177,6 +181,7 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     await seedRepresentative()
     const data = JSON.parse(await (await exportJSON()).text())
     expect(data.cfWods.map((r: any) => r.id)).toContain('wod1')
+    expect(data.routineStoreMeta).toContainEqual(expect.objectContaining({ id: 'meta:activeId', activeId: 'r1' }))
     expect(data.cfSchedule.map((r: any) => r.id)).toContain('sch1')
     expect(data.cfResults.map((r: any) => r.id)).toContain('cf1')
     expect(data.cfMarks.map((r: any) => r.id)).toContain('mk1')
@@ -193,8 +198,8 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     expect(data.cfTimerState.map((r: any) => r.id)).toContain('cf-timer-1')
     expect(data.syncQueue.map((r: any) => r.id)).toContain('routineStore:r1')
     expect(data.syncDeletes).toEqual(expect.arrayContaining([expect.objectContaining({ table: 'sessions', docId: 'legacy-deleted' })]))
-    // Formato v4 y esquema Dexie v29; las copias antiguas siguen siendo compatibles.
-    expect(data.metadata.version).toBe(4)
+    // Formato v5 y esquema Dexie v29; las copias anteriores siguen siendo compatibles.
+    expect(data.metadata.version).toBe(5)
     expect(data.metadata.schemaVersion).toBe(29)
   })
 
@@ -238,6 +243,27 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     expect(await db.cfWods.get('wod1')).toMatchObject({ name: 'WOD local conservado' })
   })
 
+
+  it('rechaza respaldos v5 incompletos o con conteos incorrectos sin modificar los datos locales', async () => {
+    await seedRepresentative()
+    const before = await snapshot()
+    const exported = JSON.parse(await (await exportJSON()).text())
+
+    const missingTable = JSON.parse(JSON.stringify(exported))
+    delete missingTable.hydrationBottleLogs
+
+    const wrongCount = JSON.parse(JSON.stringify(exported))
+    wrongCount.metadata.recordCounts.nutritionDiary += 1
+
+    for (const invalidData of [missingTable, wrongCount]) {
+      const file = new File([JSON.stringify(invalidData)], 'backup-incompleto.json', { type: 'application/json' })
+      const result = await importJSON(file)
+      expect(result.success).toBe(false)
+      expect(result.errors.length).toBeGreaterThan(0)
+      expect(await snapshot()).toEqual(before)
+    }
+  })
+
   it('exportar → borrar todo → importar restaura idénticos los datos representativos', async () => {
     await seedRepresentative()
     const before = await snapshot()
@@ -255,6 +281,7 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
 
     const after = await snapshot()
     expect(after).toEqual(before)
+    expect(await db.routineStore.get('meta:activeId')).toMatchObject({ activeId: 'r1' })
 
     // Verificación puntual de valores clave (no solo conteos).
     const profile = await db.userProfile.get('me')
