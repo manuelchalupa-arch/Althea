@@ -18,19 +18,22 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Admin autorizado (005): correo exacto del token verificado O UID en la
-    // lista. El correo va PRIMERO para cortocircuitar el get(): sin la lista
-    // (documento inexistente) igual evalúa true para la cuenta creadora.
-    // Atajo: comparación sensible a mayúsculas y sin chequear email_verified.
-    // La cuenta real con Google es manuelchalupa@gmail.com; manuelchalu es el
-    // correo estipulado en la spec 005. Si cambia, agregar el UID en Console.
+    // El correo solo concede administración cuando Firebase lo marca como
+    // verificado. La lista de UID sigue siendo la vía explícita de alta manual.
     function isFeedbackAdmin() {
       return signedIn() && (
-        request.auth.token.email in [
-          'manuelchalupa@gmail.com',
-          'manuelchalu@gmail.com'
-        ]
-        || request.auth.uid in get(/databases/$(database)/documents/admins/uids).data.uids
+        (
+          request.auth.token.email_verified == true
+          && request.auth.token.email in [
+            'manuelchalupa@gmail.com',
+            'manuelchalu@gmail.com'
+          ]
+        )
+        || (
+          exists(/databases/$(database)/documents/admins/uids)
+          && get(/databases/$(database)/documents/admins/uids).data.uids is list
+          && request.auth.uid in get(/databases/$(database)/documents/admins/uids).data.uids
+        )
       );
     }
 
@@ -149,10 +152,19 @@ service cloud.firestore {
       }
     }
 
-    // Biblioteca compartida de ejercicios entre todos los usuarios
+    // Biblioteca compartida: solo el autor puede crear y actualizar su ficha.
+    // Un usuario autenticado no puede sobrescribir ejercicios publicados por otro.
+    // Los documentos previos sin createdBy quedan legibles pero inmutables.
     match /sharedExercises/{exerciseId} {
       allow read: if signedIn();
-      allow create, update: if signedIn()
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80;
+      allow update: if signedIn()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 80;
