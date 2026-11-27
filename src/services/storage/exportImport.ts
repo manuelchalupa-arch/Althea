@@ -10,7 +10,7 @@ import type { DecisionRecord } from '@/services/ai/decisionLogger'
 import type { KnowledgeDocument } from '@/services/ai/knowledgeBase'
 import type { ExerciseKnowledgeEntry } from '@/services/ai/exerciseKnowledge'
 
-export const EXPORT_FORMAT_VERSION = 3
+export const EXPORT_FORMAT_VERSION = 4
 export const APP_VERSION = '0.21.0'
 
 export interface ExportMetadata {
@@ -484,15 +484,15 @@ function migrateExportData(data: any, fromVersion: number): ExportData {
     if (!migrated.routineExercises) {migrated.routineExercises = []}
   }
   
-  // v3: sumar tablas aditivas de hidratación, notificaciones y alimentos
-  // personalizados. Los archivos v1/v2 siguen siendo compatibles.
+  // v3/v4: tablas aditivas de hidratación, notificaciones, alimentos,
+  // feedback, cronómetros y estado de sincronización. Archivos v1-v3 compatibles.
   const additiveTables = [
     'hydrationBottles', 'hydrationBottleLogs', 'notifConfigs', 'notifLog',
     'unifiedNotifConfigs', 'requiredActionStates', 'customFoods',
     'exerciseState', 'sessionChanges', 'sessionObservations',
     'legacyRoutines', 'legacySessions', 'legacySetLogs',
     'feedbackThreads', 'feedbackMessages', 'feedbackOutbox',
-    'restTimerState', 'cfTimerState', 'syncQueue', 'syncDeletes',
+    'restTimerState', 'cfTimerState', 'syncQueue', 'syncDeletes', 'syncQueue', 'syncDeletes',
   ]
   for (const table of additiveTables) {
     if (!Array.isArray(migrated[table])) { migrated[table] = [] }
@@ -520,6 +520,8 @@ function validateExportData(data: any): { valid: boolean; errors: string[] } {
     }
     if (!data.metadata.schemaVersion) {
       errors.push('Falta versión de esquema')
+    } else if (Number(data.metadata.schemaVersion) > 29) {
+      errors.push('El respaldo proviene de una versión de esquema más nueva. Actualizá Althea antes de importarlo para evitar pérdida de información.')
     }
   }
   
