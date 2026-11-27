@@ -13,7 +13,7 @@
  * coherencia, NO una prueba de que la CSP funcione en un navegador real: eso
  * requiere staging (STAGING-VALIDATED).
  *
- * La fuente viva es `public/_headers`: Netlify la sirve desde `dist/`. El
+ * La fuente viva es `public/_headers`: Cloudflare Pages la sirve desde `dist/`. El
  * `firebase.json` conserva la misma CSP por si se rehabilita Hosting, pero no
  * es lo que rige en producción; si se toca una fuente, sincronizar la otra.
  */
@@ -31,7 +31,7 @@ interface HeaderBlock {
   headers: Array<{ key: string; value: string }>
 }
 
-/** Formato `_headers` de Netlify: ruta sin sangría, cabeceras con sangría. */
+/** Formato `_headers` de Cloudflare Pages: ruta sin sangría, cabeceras con sangría. */
 function readBlocks(): HeaderBlock[] {
   const blocks: HeaderBlock[] = []
   let current: HeaderBlock | null = null
@@ -165,7 +165,8 @@ describe('CSP publicada', () => {
 
   it('el proxy del Worker está permitido', () => {
     const connect = directive(csp, 'connect-src')
-    expect(covers(connect, 'althea-proxy-staging.workers.dev')).toBe(true)
+    expect(covers(connect, 'althea-proxy-staging.manuelchalupa.workers.dev')).toBe(true)
+    expect(covers(connect, 'althea-proxy-production.manuelchalupa.workers.dev')).toBe(true)
   })
 
   it('aplica los controles de seguridad base', () => {
@@ -186,7 +187,7 @@ describe('CSP publicada', () => {
   })
 })
 
-describe('headers publicados (Netlify)', () => {
+describe('headers publicados (Cloudflare Pages)', () => {
   const blocks = readBlocks()
   const all = blocks.flatMap((h) => h.headers)
   const valueOf = (key: string) => all.find((h) => h.key === key)?.value

@@ -140,7 +140,7 @@ if (firebase) {
     const connect = (csp.match(/connect-src\s+([^;]+)/) || [, ''])[1]
     // Orgs que la app contacta en runtime. Si alguno falta, el CSP lo
     // bloquea en silencio en el navegador.
-    for (const host of ['*.firebaseio.com', '*.workers.dev']) {
+    for (const host of ['*.firebaseio.com', 'althea-proxy-staging.manuelchalupa.workers.dev', 'althea-proxy-production.manuelchalupa.workers.dev']) {
       if (!connect.includes(host)) fail('CSP_MISSING_ORIGIN', host)
     }
     if (connect.trim() === '*') fail('CSP_WILDCARD_CONNECT_SRC')

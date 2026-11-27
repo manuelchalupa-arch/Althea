@@ -25,7 +25,6 @@
     "check:release": "node scripts/check-release.mjs",
     "seed:exercises": "echo \"seed exercises via src/data/exercises.json\"",
     "deploy:hosting:staging": "npm run verify:env:staging && npm run build:staging && npm run check:release && node scripts/deploy-hosting.mjs staging",
-    "deploy:hosting:production": "npm run verify:env:production && npm run build && npm run check:release && node scripts/deploy-hosting.mjs production",
     "worker:deploy:staging": "cd worker && npx wrangler deploy -c wrangler.staging.toml",
     "worker:deploy:production": "cd worker && npx wrangler deploy -c wrangler.production.toml",
     "worker:kv:staging": "cd worker && npx wrangler kv namespace create RATE_LIMIT -c wrangler.staging.toml",

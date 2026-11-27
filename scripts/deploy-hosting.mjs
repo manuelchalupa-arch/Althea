@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Guard fail-closed para deploys de Firebase Hosting.
+ * Guard fail-closed para deploy de Firebase Hosting de STAGING únicamente.
+ * Producción se publica exclusivamente mediante Cloudflare Pages.
  *
  * Motivo: §12 del prompt de cierre — nunca depender de un proyecto
  * seleccionado accidentalmente por la CLI de Firebase. Este script exige
@@ -15,27 +16,24 @@
  *
  * Uso:
  *   npm run deploy:hosting:staging
- *   ALTHEA_ALLOW_PRODUCTION_DEPLOY=1 npm run deploy:hosting:production
  *
  * Falla (exit 1) si falta PROJECT_ID, si el id es una plantilla sin
  * reemplazar, si staging/production no coinciden con el proyecto declarado,
- * o si es production sin autorización explícita.
+ * o si se intenta usar Firebase Hosting para producción.
  */
 
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { envFileForMode, isMode, projectVarForMode, siteVarForMode, parseEnvFile } from './lib/env-config.mjs'
+import { envFileForMode, projectVarForMode, siteVarForMode, parseEnvFile } from './lib/env-config.mjs'
 
 const env = process.argv[2]
 
-if (!isMode(env)) {
-  console.error('[deploy-hosting] ERROR: ambiente debe ser "staging" o "production".')
+if (env !== 'staging') {
+  console.error('[deploy-hosting] BLOQUEADO: Firebase Hosting sólo admite staging. Producción se publica mediante Cloudflare Pages.')
   process.exit(1)
 }
-
-const ROOT = process.cwd()
 
 /** Lee una clave de `.env.<modo>`. Devuelve '' si no existe. */
 function fileValue(mode, key) {
@@ -122,39 +120,8 @@ function assertModeProject(mode, id) {
   }
 }
 
-/**
-  * Lee ALTHEA_ALLOW_PRODUCTION_DEPLOY del proceso ambiente o del .env.production.
-  */
-function readAllowProductionDeploy() {
-  if (process.env.ALTHEA_ALLOW_PRODUCTION_DEPLOY === '1') return true
-  // Fallback: leer del .env.production
-  const envPath = path.join(ROOT, '.env.production')
-  if (fs.existsSync(envPath)) {
-    const content = fs.readFileSync(envPath, 'utf8')
-    const match = content.match(/ALTHEA_ALLOW_PRODUCTION_DEPLOY\s*=\s*1/)
-    if (match) return true
-  }
-  return false
-}
-
-/**
-  * Producción exige autorización explícita. Nunca se activa sola.
-  */
-function assertProductionAuthorization() {
-  if (!readAllowProductionDeploy()) {
-    console.error(
-      '[deploy-hosting] FAIL-CLOSED: deploy de PRODUCCIÓN requiere autorización explícita.\n' +
-        '  Re-exportá ALTHEA_ALLOW_PRODUCTION_DEPLOY=1 sólo cuando el propietario lo autorice.\n' +
-        '  (Regla §29: nunca producción automática.)',
-    )
-    process.exit(1)
-  }
-}
 
 assertModeProject(env, projectId)
-if (env === 'production') {
-  assertProductionAuthorization()
-}
 
 const siteId = resolveSiteId(env)
 
@@ -164,9 +131,6 @@ console.log('─'.repeat(60))
 console.log(`  ENVIRONMENT = ${env.toUpperCase()}`)
 console.log(`  PROJECT_ID  = ${projectId}`)
 console.log(`  SITE_ID     = ${siteId || '(default del proyecto)'}`)
-if (env === 'production') {
-  console.log('  ⚠ PRODUCTION DEPLOY — autorizado por ALTHEA_ALLOW_PRODUCTION_DEPLOY=1')
-}
 console.log('─'.repeat(60))
 
 const args = ['deploy', '--only', 'hosting', '--project', projectId]
