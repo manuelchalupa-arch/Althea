@@ -54,8 +54,8 @@ describe('S7 - Periodizacion: "Fecha inicio" es el dia local', () => {
     expect(trigger.textContent).toContain('10/03/2026')
     fireEvent.click(trigger)
     const dialog = await screen.findByRole('dialog', { name: 'Fecha de inicio de la secuencia' })
-    const selectedDay = within(dialog).getByRole('button', { name: '10', exact: true })
-    expect(selectedDay).toHaveAttribute('aria-pressed', 'true')
+    const selectedDay = dialog.querySelector('button[aria-pressed="true"]')
+    expect(selectedDay?.textContent?.trim()).toBe('10')
     expect(todayKey()).toBe('2026-03-10')
     // el dia UTC habria sido manana: ese era el bug
     expect(new Date().toISOString().slice(0, 10)).toBe('2026-03-11')
