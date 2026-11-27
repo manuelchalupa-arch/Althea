@@ -33,10 +33,9 @@ export default function UpdateConfirmDialog({ open, onCancel, onConfirm }: Props
       if (event.target === event.currentTarget) { onCancel() }
     }}>
       <section className="althea-dialog althea-dialog--compact" role="alertdialog" aria-modal="true" aria-labelledby="althea-update-title" aria-describedby="althea-update-description">
-        <div className="althea-dialog__eyebrow">Actualización disponible</div>
         <h2 id="althea-update-title" className="althea-dialog__title">¿Actualizar Althea?</h2>
         <p id="althea-update-description" className="althea-dialog__description">
-          Se recargará la aplicación. Tus datos, rutinas e historial guardados se conservan.
+          La app se reiniciará. Tus datos están seguros.
         </p>
         <div className="althea-dialog__actions">
           <button ref={cancelRef} type="button" className="althea-dialog__button althea-dialog__button--secondary" onClick={onCancel}>Cancelar</button>
