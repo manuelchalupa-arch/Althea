@@ -19,15 +19,15 @@ export type CrossfitSectionId =
   | 'metodologia'
 
 const PRIMARY_SECTIONS: { id: CrossfitSectionId; label: string }[] = [
-  { id: 'inicio', label: 'Inicio' },
-  { id: 'wod', label: 'WOD del día' },
-  { id: 'programacion', label: 'Programación' },
+  { id: 'inicio', label: 'Hoy' },
+  { id: 'wod', label: 'WOD' },
 ]
 
-// Apartados secundarios: se muestran detrás de "Más" (4 accesos visibles
-// máximo; todo sigue a un toque). Se reordenan por frecuencia de uso.
+// Herramientas secundarias agrupadas para mantener la pantalla principal simple.
+// Ninguna función ni dato del módulo se elimina.
 const MORE_SECTIONS: { id: CrossfitSectionId; label: string }[] = [
-  { id: 'constructor', label: 'Constructor' },
+  { id: 'programacion', label: 'Programación' },
+  { id: 'constructor', label: 'Crear WOD' },
   { id: 'benchmarks', label: 'Benchmarks' },
   { id: 'progreso', label: 'Progreso' },
   { id: 'biblioteca', label: 'Biblioteca' },
@@ -94,11 +94,11 @@ export default function Crossfit() {
                 : 'border-transparent text-on-surface-variant hover:text-on-surface'
             }`}
           >
-            Más {showRest ? '▴' : '▾'}
+            Herramientas {showRest ? '▴' : '▾'}
           </button>
         </div>
         {showRest && (
-          <div id="cf-more-row" role="tablist" aria-label="Apartados CrossFit — más" className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-1">
+          <div id="cf-more-row" role="tablist" aria-label="Herramientas CrossFit" className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-1">
             {MORE_SECTIONS.map((s) => {
               const active = s.id === section
               return (
