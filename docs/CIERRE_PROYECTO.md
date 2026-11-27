@@ -64,7 +64,7 @@ La CI ejecuta además las reglas de Firestore en emuladores Auth y Firestore. El
 
 ## Publicación
 
-- El workflow el job deploy-production del workflow .github/workflows/ci.yml depende de build-and-test y solo se ejecuta en push a main si todas las pruebas terminaron correctamente. No ejecuta deploy en paralelo con las pruebas.
+- El job deploy-production del workflow .github/workflows/ci.yml depende de build-and-test y solo se ejecuta en push a main si todas las pruebas terminaron correctamente. No ejecuta el deploy en paralelo con las pruebas.
 - El workflow exige el secreto CLOUDFLARE_API_TOKEN y valida la configuración pública Firebase VITE_FIREBASE_* inyectada en el propio workflow; si falta el token o un valor, falla antes de publicar.
 - Usa Node 24, npm ci, build y check:release antes de desplegar Worker y Pages.
 - Frontend: Cloudflare Pages, salida dist/, producción en https://altheafit.pages.dev/.
