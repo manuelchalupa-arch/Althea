@@ -534,7 +534,7 @@ export default function Inicio(){
 
         {/* ─── HERO COMPACTO: saludo + estado del día + acciones ───
              sticky: las acciones (Continuar/Cambiar día) se mantienen visibles al hacer scroll. */}
-        <AltheaPanel className="p-5 sm:p-6 space-y-4 shadow-al-sm border border-outline-variant/50 sticky top-0 z-30">
+        <AltheaPanel data-testid="inicio-hero-sticky" className="p-5 sm:p-6 space-y-4 shadow-al-sm border border-outline-variant/50 sticky top-[calc(var(--safe-top)+56px)] md:top-[calc(var(--safe-top)+64px)] z-30">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3 flex-wrap">
@@ -598,6 +598,37 @@ export default function Inicio(){
             </div>
           </div>
         </AltheaPanel>
+
+                {/* Resumen transversal de datos personales — accesos rápidos a los módulos. */}
+                <section data-testid="inicio-dashboard-summaries" aria-label="Resumen de nutrición, recuperación y medidas" className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <Link to="/nutricion" className="min-w-0 min-h-[104px] rounded-xl border border-outline-variant/50 bg-surface-container p-2.5 sm:p-3 flex flex-col justify-between hover:border-primary/50 transition-colors">
+                    <span className="font-label-caps text-[9px] sm:text-[10px] uppercase tracking-wide text-on-surface-variant">Nutrición</span>
+                    <span className="font-headline-md text-base sm:text-lg font-semibold text-on-surface tabular-nums">
+                      {nutritionSummary ? `${nutritionSummary.calories} kcal` : '—'}
+                    </span>
+                    <span className="text-[9px] sm:text-[10px] leading-tight text-on-surface-variant break-words">
+                      {nutritionSummary ? `${nutritionSummary.count} comidas · P ${nutritionSummary.protein} g` : 'Sin datos del día'}
+                    </span>
+                  </Link>
+                  <Link to="/recuperacion" className="min-w-0 min-h-[104px] rounded-xl border border-outline-variant/50 bg-surface-container p-2.5 sm:p-3 flex flex-col justify-between hover:border-primary/50 transition-colors">
+                    <span className="font-label-caps text-[9px] sm:text-[10px] uppercase tracking-wide text-on-surface-variant">Recuperación</span>
+                    <span className="font-headline-md text-base sm:text-lg font-semibold text-on-surface tabular-nums">
+                      {recoverySummary ? `${recoverySummary.score}/100` : '—'}
+                    </span>
+                    <span className="text-[9px] sm:text-[10px] leading-tight text-on-surface-variant break-words">
+                      {recoverySummary ? `${recoverySummary.sleepHours !== undefined ? `${recoverySummary.sleepHours} h sueño · ` : ''}Energía ${recoverySummary.energy}/10` : 'Sin check-in registrado'}
+                    </span>
+                  </Link>
+                  <Link to="/progreso" className="min-w-0 min-h-[104px] rounded-xl border border-outline-variant/50 bg-surface-container p-2.5 sm:p-3 flex flex-col justify-between hover:border-primary/50 transition-colors">
+                    <span className="font-label-caps text-[9px] sm:text-[10px] uppercase tracking-wide text-on-surface-variant">Medidas</span>
+                    <span className="font-headline-md text-base sm:text-lg font-semibold text-on-surface tabular-nums">
+                      {progressSummary?.weightKg !== undefined ? `${progressSummary.weightKg} kg` : '—'}
+                    </span>
+                    <span className="text-[9px] sm:text-[10px] leading-tight text-on-surface-variant break-words">
+                      {progressSummary?.date ? `Último registro ${progressSummary.date.split('-').reverse().join('/')}` : progressSummary?.weightKg !== undefined ? 'Peso del perfil' : 'Sin mediciones'}
+                    </span>
+                  </Link>
+                </section>
 
         {/* ─── CALENDARIO SEMANAL COMPACTO: 7 días con el plan real (ciclo + cambios de día) ─── */}
         <div data-testid="inicio-week-calendar" className="border border-outline-variant/40 rounded-2xl p-3 shadow-al-sm bg-surface-container">
@@ -683,37 +714,6 @@ export default function Inicio(){
           )}
         </section>
 
-
-        {/* Resumen transversal de datos personales — accesos rápidos a los módulos. */}
-        <section data-testid="inicio-dashboard-summaries" aria-label="Resumen de nutrición, recuperación y medidas" className="grid grid-cols-3 gap-2 sm:gap-3">
-          <Link to="/nutricion" className="min-w-0 min-h-[104px] rounded-xl border border-outline-variant/50 bg-surface-container p-2.5 sm:p-3 flex flex-col justify-between hover:border-primary/50 transition-colors">
-            <span className="font-label-caps text-[9px] sm:text-[10px] uppercase tracking-wide text-on-surface-variant">Nutrición</span>
-            <span className="font-headline-md text-base sm:text-lg font-semibold text-on-surface tabular-nums">
-              {nutritionSummary ? `${nutritionSummary.calories} kcal` : '—'}
-            </span>
-            <span className="text-[9px] sm:text-[10px] leading-tight text-on-surface-variant break-words">
-              {nutritionSummary ? `${nutritionSummary.count} comidas · P ${nutritionSummary.protein} g` : 'Sin datos del día'}
-            </span>
-          </Link>
-          <Link to="/recuperacion" className="min-w-0 min-h-[104px] rounded-xl border border-outline-variant/50 bg-surface-container p-2.5 sm:p-3 flex flex-col justify-between hover:border-primary/50 transition-colors">
-            <span className="font-label-caps text-[9px] sm:text-[10px] uppercase tracking-wide text-on-surface-variant">Recuperación</span>
-            <span className="font-headline-md text-base sm:text-lg font-semibold text-on-surface tabular-nums">
-              {recoverySummary ? `${recoverySummary.score}/100` : '—'}
-            </span>
-            <span className="text-[9px] sm:text-[10px] leading-tight text-on-surface-variant break-words">
-              {recoverySummary ? `${recoverySummary.sleepHours !== undefined ? `${recoverySummary.sleepHours} h sueño · ` : ''}Energía ${recoverySummary.energy}/10` : 'Sin check-in registrado'}
-            </span>
-          </Link>
-          <Link to="/progreso" className="min-w-0 min-h-[104px] rounded-xl border border-outline-variant/50 bg-surface-container p-2.5 sm:p-3 flex flex-col justify-between hover:border-primary/50 transition-colors">
-            <span className="font-label-caps text-[9px] sm:text-[10px] uppercase tracking-wide text-on-surface-variant">Medidas</span>
-            <span className="font-headline-md text-base sm:text-lg font-semibold text-on-surface tabular-nums">
-              {progressSummary?.weightKg !== undefined ? `${progressSummary.weightKg} kg` : '—'}
-            </span>
-            <span className="text-[9px] sm:text-[10px] leading-tight text-on-surface-variant break-words">
-              {progressSummary?.date ? `Último registro ${progressSummary.date.split('-').reverse().join('/')}` : progressSummary?.weightKg !== undefined ? 'Peso del perfil' : 'Sin mediciones'}
-            </span>
-          </Link>
-        </section>
 
         {/* Consejo científico breve: uno por día, con fuente. */}
         <ScienceTip isRestDay={isRest} />
