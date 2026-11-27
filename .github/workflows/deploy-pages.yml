@@ -1,9 +1,11 @@
 name: Deploy Cloudflare Pages and AI Worker
 
+# La publicación de producción se ejecuta ÚNICAMENTE después de que la CI
+# completa haya terminado con éxito en main. Nunca compite con sus pruebas.
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -11,37 +13,59 @@ permissions:
 
 jobs:
   deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_ACCOUNT_ID: 170d478ee67d5da8036859410f64be3a
       HAS_CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
-      VITE_FIREBASE_API_KEY: AIzaSyCboMMOUuUhtqp96bVoN_WZaWhbv9ou-5I
-      VITE_FIREBASE_AUTH_DOMAIN: althea-4b1d0.firebaseapp.com
-      VITE_FIREBASE_PROJECT_ID: althea-4b1d0
-      VITE_FIREBASE_STORAGE_BUCKET: althea-4b1d0.firebasestorage.app
-      VITE_FIREBASE_MESSAGING_SENDER_ID: 756631647991
-      VITE_FIREBASE_APP_ID: 1:756631647991:web:919921eaee888115cbc5f2
+      VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
       VITE_GROQ_PROXY_URL: https://althea-proxy-production.manuelchalupa.workers.dev
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
         with:
-          node-version: 22
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npm run build
+      - name: Require Cloudflare deployment credentials
+        run: |
+          if [ "${HAS_CLOUDFLARE_TOKEN}" != "true" ]; then
+            echo "::error::Falta el secreto CLOUDFLARE_API_TOKEN; no se publica producción."
+            exit 1
+          fi
+      - name: Validate production build configuration
+        run: |
+          for name in VITE_FIREBASE_API_KEY VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID VITE_FIREBASE_STORAGE_BUCKET VITE_FIREBASE_MESSAGING_SENDER_ID VITE_FIREBASE_APP_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Falta la variable pública de build ${name} en GitHub Actions Variables."
+              exit 1
+            fi
+          done
+          test "$VITE_FIREBASE_PROJECT_ID" = "althea-4b1d0"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build production bundle
+        run: npm run build
+      - name: Check release bundle
+        run: npm run check:release
       - name: Deploy production AI Worker
-        if: env.HAS_CLOUDFLARE_TOKEN == 'true'
         run: npx wrangler@4.156.0 deploy --config worker/wrangler.production.toml
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       - name: Deploy to Cloudflare Pages
-        if: env.HAS_CLOUDFLARE_TOKEN == 'true'
         run: npx wrangler@4.156.0 pages deploy dist --project-name=altheafit --branch=main --commit-dirty=true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       - name: Verify production Worker reachability and Pages CORS
-        if: env.HAS_CLOUDFLARE_TOKEN == 'true'
         shell: bash
         run: |
           set -euo pipefail

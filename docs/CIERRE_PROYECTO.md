@@ -64,6 +64,9 @@ La CI ejecuta además las reglas de Firestore en emuladores Auth y Firestore. El
 
 ## Publicación
 
+- El workflow .github/workflows/deploy-pages.yml se dispara al terminar CI, pero publica únicamente si CI concluyó correctamente en main y el origen pertenece al repositorio. No ejecuta deploy en paralelo con las pruebas.
+- El workflow exige CLOUDFLARE_API_TOKEN y las variables públicas VITE_FIREBASE_* en GitHub Actions Variables; si falta alguna, falla antes de publicar.
+- Usa Node 24, npm ci, build y check:release antes de desplegar Worker y Pages.
 - Frontend: Cloudflare Pages, salida dist/, producción en https://altheafit.pages.dev/.
 - Firebase: Auth/Firestore del proyecto althea-4b1d0. Las reglas se despliegan por separado con Firebase CLI autorizado.
 - IA: Worker de producción althea-proxy-production, binding AI. Desplegarlo solo cuando cambie worker/.
