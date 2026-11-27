@@ -538,6 +538,25 @@ function validateExportData(data: any): { valid: boolean; errors: string[] } {
   return { valid: errors.length === 0, errors }
 }
 
+/** Comparación determinista: IndexedDB y JSON pueden devolver las mismas
+ * propiedades en distinto orden. Se normalizan claves y fechas antes de comparar. */
+function stableSerialize(value: any): string {
+  if (value instanceof Date) { return JSON.stringify(value.toISOString()) }
+  if (Array.isArray(value)) { return `[${value.map(stableSerialize).join(',')}]` }
+  if (value && typeof value === 'object') {
+    const entries = Object.keys(value)
+      .filter(key => value[key] !== undefined)
+      .sort()
+      .map(key => `${JSON.stringify(key)}:${stableSerialize(value[key])}`)
+    return `{${entries.join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+function recordsEquivalent(left: unknown, right: unknown): boolean {
+  return stableSerialize(left) === stableSerialize(right)
+}
+
 async function detectConflicts(
   importedData: ExportData,
   options: ImportOptions
@@ -614,7 +633,7 @@ async function detectConflicts(
     const existingRows = await (spec.table as any).bulkGet(keys)
     records.forEach((imported: any, index: number) => {
       const local = existingRows[index]
-      if (!local || JSON.stringify(local) === JSON.stringify(imported)) { return }
+      if (!local || recordsEquivalent(local, imported)) { return }
       const id = String(imported[spec.key])
       const uniqueKey = `${spec.name}:${id}`
       if (seen.has(uniqueKey)) { return }
@@ -1044,6 +1063,9 @@ export async function importJSON(file: File, options: ImportOptions = { mode: 'm
   })
   
   const verification = await verifyImport(migrated)
+  if (!verification.passed) {
+    applied.errors.push(...verification.details.map(detail => `Verificación: ${detail}`))
+  }
   
   return {
     ...applied,
