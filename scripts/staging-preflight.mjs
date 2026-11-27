@@ -102,6 +102,12 @@ console.log(`cwd = ${ROOT}`)
 console.log('\n[1] Archivos base')
 assertFile('firebase.json')
 assertFile('package.json')
+const packageJson = readJson('package.json')
+if (packageJson?.scripts?.['deploy:hosting:production']) {
+  fail('FIREBASE_HOSTING_PRODUCTION_DEPLOY_ENABLED', 'la producción debe publicarse mediante Cloudflare Pages')
+} else {
+  ok('Firebase Hosting production deploy deshabilitado')
+}
 assertFile('.env.example')
 assertFile('.firebaserc.example')
 assertFile('firestore.rules')

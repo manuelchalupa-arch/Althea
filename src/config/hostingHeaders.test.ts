@@ -187,6 +187,18 @@ describe('CSP publicada', () => {
   })
 })
 
+describe('destinos de publicación', () => {
+  it('no permite publicar producción mediante Firebase Hosting', () => {
+    const packageJson = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as {
+      scripts?: Record<string, string>
+    }
+    const deployGuard = readFileSync(resolve(ROOT, 'scripts', 'deploy-hosting.mjs'), 'utf8')
+    expect(packageJson.scripts?.['deploy:hosting:production']).toBeUndefined()
+    expect(deployGuard).toContain("if (env !== 'staging')")
+    expect(deployGuard).toContain('Producción se publica mediante Cloudflare Pages')
+  })
+})
+
 describe('headers publicados (Cloudflare Pages)', () => {
   const blocks = readBlocks()
   const all = blocks.flatMap((h) => h.headers)

@@ -18,7 +18,7 @@
  *   npm run deploy:hosting:staging
  *
  * Falla (exit 1) si falta PROJECT_ID, si el id es una plantilla sin
- * reemplazar, si staging/production no coinciden con el proyecto declarado,
+ * reemplazar, si staging no coincide con el proyecto declarado,
  * o si se intenta usar Firebase Hosting para producción.
  */
 
