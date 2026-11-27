@@ -8,10 +8,12 @@ import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye, Spa
 import BrandIcon from '@/components/brand/BrandIcon'
 import { IconDumbbell, IconFire, IconLightning, IconBody, IconTarget } from '@/components/brand/FitnessIcons'
 import { AltheaCard, AltheaBadge, AltheaButton, AltheaEmpty, AltheaLoading, StatusTag, AltheaPanel, AltheaStatRow } from '@/components/althea'
-import { generateRoutineWithAI, isRoutineAIAvailable, detectDaysMention, type GeneratedRoutine, type UserWants } from '@/services/ai/routineBuilderIA'
+import { generateRoutineWithAI, isRoutineAIAvailable, type GeneratedRoutine, type UserWants } from '@/services/ai/routineBuilderIA'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
 import { getActiveVersion, getCanonicalMethodId, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
 import { getMethod } from '@/services/ai/trainingMethodsDB'
+import { selectMethods } from '@/services/ai/methodSelector'
+import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import * as Gym from '@/services/exerciseGym'
 import { exercisePurpose, EXERCISE_PURPOSES, type ExercisePurpose } from '@/utils/stretching'
 import { displayEquipment, displayCategory, displayBodyPart, displayDifficulty } from '@/utils/exerciseLabels'
@@ -1727,164 +1729,217 @@ function RoutineAIPreview({routine, onConfirm, onRegenerate, onClose}:{routine:G
 
 function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWants)=>void; onClose:()=>void}){
   const [step,setStep]=useState(0)
+  const [profile,setProfile]=useState<any>(null)
   const [goal,setGoal]=useState('hipertrofia')
-  const [days,setDays]=useState(4)
-  const [focus,setFocus]=useState('general')
-  const [injury,setInjury]=useState('')
-  const [description,setDescription]=useState('')
-  const [conflict,setConflict]=useState<number|null>(null)
+  const [days,setDays]=useState<number[]>([])
+  const [methodId,setMethodId]=useState<TrainingMethodId | ''>('')
+  const [modality,setModality]=useState<'gym'|'crossfit'>('gym')
+  const [equipmentMode,setEquipmentMode]=useState('profile')
+  const [equipment,setEquipment]=useState<string[]>([])
+  const [warmupEnabled,setWarmupEnabled]=useState(true)
+  const [stretchingEnabled,setStretchingEnabled]=useState(false)
+  const [cardioTiming,setCardioTiming]=useState<'none'|'start'|'end'|'both'>('none')
+  const [cardioIntensity,setCardioIntensity]=useState<'light'|'hard'>('light')
+  const [coachTone,setCoachTone]=useState('profesional')
+  const [excludedText,setExcludedText]=useState('')
+  const [historyOptions,setHistoryOptions]=useState<string[]>(['previousRoutine','pain','replaced','skipped','rating','loadsReps','observations'])
+  const [error,setError]=useState('')
 
-  const submit = (daysPerWeek:number) => {
-    onGenerate({ goal, daysPerWeek, focus, injuryNote: injury, description: description.trim() })
-  }
-  // Solo se pregunta si el texto contradice lo elegido: cambia la rutina.
-  const requestGenerate = () => {
-    const mentioned = detectDaysMention(description)
-    if (mentioned && mentioned !== days) { setConflict(mentioned); return }
-    submit(days)
-  }
-
-  const goals = [
-    { id:'hipertrofia', label:'Hipertrofia', desc:'Más músculo y tamaño', icon:<IconDumbbell className="w-5 h-5" /> },
-    { id:'fuerza', label:'Fuerza', desc:'Más peso en compuestos', icon:<IconFire className="w-5 h-5" /> },
-    { id:'perdida_grasa', label:'Pérdida de grasa', desc:'Definición y calorías', icon:<IconLightning className="w-5 h-5" /> },
-    { id:'resistencia', label:'Resistencia', desc:'Más repeticiones y stamina', icon:<IconBody className="w-5 h-5" /> },
-    { id:'general', label:'General', desc:'Fitness y bienestar', icon:<IconTarget className="w-5 h-5" /> },
+  const dayLabels=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']
+  const equipmentOptions=[
+    {id:'barbell',label:'Barra'},{id:'dumbbell',label:'Mancuernas'},{id:'machine',label:'Máquinas'},
+    {id:'cable',label:'Poleas'},{id:'bodyweight',label:'Peso corporal'},{id:'band',label:'Bandas'},
+    {id:'kettlebell',label:'Kettlebell'},{id:'smith',label:'Smith'}
   ]
-  const focuses = [
-    { id:'general', label:'General', desc:'Todos los grupos musculares' },
-    { id:'tren_superior', label:'Tren superior', desc:'Pecho, espalda, hombros, brazos' },
-    { id:'tren_inferior', label:'Tren inferior', desc:'Piernas, glúteos, gemelos' },
-    { id:'empuje_tirón', label:'Empuje / Tirón', desc:'Días divididos por patrón' },
-    { id:'cuerpo_completo', label:'Cuerpo completo', desc:'Todos los músculos cada día' },
-  ]
+  const presets:Record<string,string[]> = {
+    full_gym:['barbell','dumbbell','machine','cable','bodyweight','band','kettlebell','smith'],
+    limited_gym:['barbell','dumbbell','bodyweight','band'],
+    home:['dumbbell','band','bodyweight'],
+    bodyweight:['bodyweight'],
+    crossfit:['barbell','dumbbell','kettlebell','bodyweight','band'],
+  }
+  const methods = (() => {
+    if(!profile) return [] as TrainingMethodId[]
+    const trainingGoal = goal==='hipertrofia'?'hypertrophy':goal==='fuerza'?'strength':goal==='perdida_grasa'?'fat_loss':goal==='resistencia'?'general_health':'general_health'
+    const recommendation=selectMethods({...profile,trainingGoal,availableDays:days,equipment} as any)
+    const candidates=[recommendation.primary,...recommendation.secondary]
+      .filter((id,index,arr)=>arr.indexOf(id)===index)
+      .filter(id=>getMethod(id)?.category!=='structure' && getMethod(id)?.category!=='preparation')
+    const fallback:TrainingMethodId[]=['hypertrophy','strength','functional','strength_endurance','hiit','cardio_endurance']
+    for(const id of fallback){if(candidates.length>=3)break;if(!candidates.includes(id))candidates.push(id)}
+    return candidates.slice(0,3)
+  })()
 
-  const GOAL_MAP: Record<string, string> = {
-    hipertrofia: 'Hipertrofia — volumen y crecimiento muscular',
-    fuerza: 'Fuerza — maksimizar carga en ejercicios compuestos',
-    perdida_grasa: 'Pérdida de grasa — déficit calórico y quema',
-    resistencia: 'Resistencia muscular — repeticiones altas y endurecimiento',
-    general: 'Fitness general — salud, bienestar y rendimiento',
+  useEffect(()=>{
+    let live=true
+    db.userProfile.get('me').then(p=>{
+      if(!live || !p)return
+      setProfile(p)
+      const legacyGoal=String(p.trainingGoal||p.goal||'')
+      setGoal(legacyGoal.includes('strength')||legacyGoal.includes('fuerza')?'fuerza':legacyGoal.includes('fat_loss')||legacyGoal.includes('perdida')?'perdida_grasa':legacyGoal.includes('resistance')||legacyGoal.includes('resistencia')?'resistencia':'hipertrofia')
+      const profileDays=Array.isArray(p.availableDays)?p.availableDays:Array.isArray(p.schedule?.availableDays)?p.schedule.availableDays:[]
+      setDays([...new Set(profileDays.map(Number).filter((d:number)=>Number.isInteger(d)&&d>=0&&d<=6))])
+      setModality(p.trainingModality==='crossfit'?'crossfit':'gym')
+      const eqMap:Record<string,string>={barra:'barbell',mancuernas:'dumbbell',maquina:'machine',polea:'cable',peso_corporal:'bodyweight',banda:'band'}
+      const eq=(Array.isArray(p.equipment)?p.equipment:[]).map((v:string)=>eqMap[v]||v)
+      setEquipment(eq)
+      const tone=String(p.coachTone||p.coachIntensity||'profesional').toLowerCase()
+      setCoachTone(tone.includes('padelero')||tone.includes('motiv')?'motivacional':tone.includes('arnold')||tone==='duro'?'exigente':tone.includes('psycho')||tone==='extremo'?'extremo':'profesional')
+      setExcludedText([...(p.excludedMovements||[])].join(', '))
+    }).catch(()=>{})
+    return ()=>{live=false}
+  },[])
+
+  useEffect(()=>{
+    if(!methodId && methods.length) setMethodId(methods[0])
+  },[methods.join('|'),methodId])
+
+  const toggleDay=(day:number)=>setDays(prev=>prev.includes(day)?prev.filter(d=>d!==day):[...prev,day].sort((a,b)=>a-b))
+  const toggleEquipment=(id:string)=>setEquipment(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
+  const toggleHistory=(id:string)=>setHistoryOptions(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])
+  const chooseEquipmentMode=(mode:string)=>{
+    setEquipmentMode(mode)
+    if(presets[mode])setEquipment(presets[mode])
+    else if(mode==='profile' && profile){
+      const map:Record<string,string>={barra:'barbell',mancuernas:'dumbbell',maquina:'machine',polea:'cable',peso_corporal:'bodyweight',banda:'band'}
+      setEquipment((profile.equipment||[]).map((v:string)=>map[v]||v))
+    }
+  }
+  const submit=()=>{
+    if(days.length===0){setError('Seleccioná al menos un día de entrenamiento.');setStep(0);return}
+    if(!methodId){setError('Seleccioná un método de entrenamiento.');setStep(1);return}
+    if(equipment.length===0){setError('Seleccioná el equipamiento disponible.');setStep(2);return}
+    const excluded=excludedText.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean)
+    const profileExcluded=Array.isArray(profile?.excludedMovements)?profile.excludedMovements:[]
+    const dayCount=days.length
+    const method=getMethod(methodId)
+    const methodName=method?.nameEs||methodId
+    const summary=[
+      'Preferencias estructuradas del generador de rutinas.',
+      `Objetivo: ${goal}.`,
+      `Método elegido: ${methodName}.`,
+      `Días: ${days.map(d=>dayLabels[d]).join(', ')}.`,
+      `Modalidad: ${modality==='crossfit'?'CrossFit':'gimnasio'}.`,
+      `Equipamiento disponible: ${equipment.join(', ')}.`,
+      `Coach: ${coachTone}.`,
+      `Calentamiento: ${warmupEnabled?'sí':'no'}; estiramientos: ${stretchingEnabled?'sí':'no'}.`,
+      `Cardio: ${cardioTiming}; intensidad: ${cardioIntensity}.`,
+      excluded.length? `No incluir movimientos: ${excluded.join(', ')}.`:'',
+    ].filter(Boolean).join('\n')
+    onGenerate({
+      goal, daysPerWeek:dayCount, focus:'general', injuryNote:'',
+      description:summary, level:profile?.experienceLevel||undefined,
+      durationMin:Number(profile?.sessionDurationMin)||60, modality,
+      allowedEquipment:equipment, excludedMovements:[...new Set([...profileExcluded,...excluded])],
+      excludedExerciseIds:profile?.excludedExercises||[], availableDays:days,
+      methodId, coachTone, historyOptions, equipmentLabel:equipmentMode,
+      warmupEnabled, stretchingEnabled, cardioTiming, cardioIntensity
+    })
   }
 
-  const canNext = step < 3
-  const canGenerate = step === 3
-
+  const steps=['Objetivo y días','Método','Equipamiento','Preparación y cardio','Coach e historial','Exclusiones']
+  const toggleCls=(active:boolean)=>`w-full text-left rounded-lg border p-3 min-h-[44px] ${active?'bg-primary/15 border-primary text-on-surface':'bg-surface border-outline-variant text-on-surface'}`
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} className="bg-surface/60 border-t md:border border-outline-variant rounded-t-2xl md:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-surface/80 backdrop-blur-md border-b border-outline-variant p-4 flex items-center justify-between z-10">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center"><Sparkles size={16} className="text-on-primary"/></div>
-            <div>
-              <div className="font-headline-lg text-base font-semibold text-on-surface">Crear rutina con IA</div>
-              <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Paso {step+1} de 4</div>
-            </div>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-surface border border-outline-variant flex items-center justify-center"><X size={16}/></button>
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-3 althea-modal" onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Generador de rutina con IA" className="bg-surface/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-lg max-h-[92dvh] overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-outline-variant flex items-center justify-between shrink-0">
+          <div><h3 className="font-headline-lg text-base font-semibold text-on-surface">Crear rutina con IA</h3><p className="font-label-md text-[10px] uppercase tracking-widest text-on-surface-variant">Paso {step+1} de {steps.length} · {steps[step]}</p></div>
+          <button onClick={onClose} aria-label="Cerrar" className="w-10 h-10 rounded-lg border border-outline-variant flex items-center justify-center"><X size={16}/></button>
         </div>
-
-        {/* Progress bar */}
-        <div className="h-1 bg-surface"><div className="h-full bg-gradient-to-r from-primary to-secondary transition-all" style={{width:`${((step+1)/4)*100}%`}}/></div>
-
-        {/* Step 0: Goal */}
-        {step===0 && (
-          <div className="p-4 space-y-3">
-            <h3 className="font-body-md text-sm text-on-surface font-medium">¿Qué buscás con esta rutina?</h3>
-            <div className="space-y-2">
-              {goals.map(g=>(
-                <button key={g.id} onClick={()=>setGoal(g.id)} aria-pressed={goal===g.id} className={`w-full text-left rounded border p-3 flex items-center gap-3 transition-all ${goal===g.id ? 'bg-primary/20 border-primary' : 'bg-surface border-outline-variant hover:border-outline-variant'}`}>
-                  <span aria-hidden>{g.icon}</span>
-                  <div>
-                    <div className="font-body-md text-sm text-on-surface font-medium">{g.label}</div>
-                    <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{g.desc}</div>
-                  </div>
-                </button>
-              ))}
+        <div className="h-1 bg-surface-container shrink-0"><div className="h-full bg-primary" style={{width:`${((step+1)/steps.length)*100}%`}}/></div>
+        <div className="p-4 space-y-3 overflow-y-auto min-h-0">
+          {step===0 && <>
+            <h4 className="font-body-md text-sm font-medium text-on-surface">Objetivo principal</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['hipertrofia','Hipertrofia'],['fuerza','Fuerza'],['perdida_grasa','Pérdida de grasa'],['resistencia','Resistencia'],['general','Salud y condición general']
+              ].map(([id,label])=><button key={id} type="button" onClick={()=>setGoal(id)} className={toggleCls(goal===id)} aria-pressed={goal===id}>{label}</button>)}
             </div>
-            <label className="block space-y-1 pt-1">
-              <span className="font-body-md text-sm text-on-surface font-medium">Contalo con tus palabras (opcional)</span>
-              <textarea value={description} onChange={e=>setDescription(e.target.value)} rows={4} aria-label="Describí la rutina que querés" placeholder="Ej: Quiero 4 días para ganar masa muscular. Tengo las piernas poco desarrolladas y quiero priorizarlas, también mejorar los brazos. Quiero incluir sentadillas y press de banca. No quiero burpees ni correr. Tengo experiencia intermedia y una hora por sesión." className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface resize-y min-h-[96px]"/>
-              <span className="block font-body-sm text-[11px] text-on-surface-variant">La IA interpreta objetivo, prioridades, ejercicios que querés o rechazás, equipamiento y tiempo. Si falta un dato que cambia la rutina, te preguntamos antes de generarla.</span>
-            </label>
-          </div>
-        )}
-
-        {/* Step 1: Days */}
-        {step===1 && (
-          <div className="p-4 space-y-3">
-            <h3 className="font-body-md text-sm text-on-surface font-medium">¿Cuántos días por semana entrenás?</h3>
-            <div className="grid grid-cols-5 gap-2">
-              {[2,3,4,5,6].map(d=>(
-                <button key={d} onClick={()=>setDays(d)} aria-pressed={days===d} className={`py-4 rounded border text-center font-bold text-lg transition-all ${days===d ? 'bg-primary text-on-surface border-primary' : 'bg-surface border-outline-variant font-body-md text-sm text-on-surface'}`}>
-                  {d}
-                </button>
-              ))}
+            <h4 className="font-body-md text-sm font-medium text-on-surface pt-1">Días exactos disponibles</h4>
+            <div className="grid grid-cols-4 gap-2">
+              {dayLabels.map((label,d)=><button key={d} type="button" onClick={()=>toggleDay(d)} className={toggleCls(days.includes(d)}+" text-xs")} aria-pressed={days.includes(d)}>{label.slice(0,3)}</button>)}
             </div>
-            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant text-center">{days === 2 ? 'Tren superior / Tren inferior' : days === 3 ? 'Empuje / Tirón / Piernas' : days === 4 ? 'Upper/Lower o Push/Pull/Legs+' : days === 5 ? 'Cuerpo completo + énfasis' : 'Push/Pull/Legs, 2x cada uno'}</p>
-          </div>
-        )}
-
-        {/* Step 2: Focus */}
-        {step===2 && (
-          <div className="p-4 space-y-3">
-            <h3 className="font-body-md text-sm text-on-surface font-medium">¿Qué enfoque preferís?</h3>
-            <div className="space-y-2">
-              {focuses.map(f=>(
-                <button key={f.id} onClick={()=>setFocus(f.id)} aria-pressed={focus===f.id} className={`w-full text-left rounded border p-3 transition-all ${focus===f.id ? 'bg-primary/20 border-primary' : 'bg-surface border-outline-variant'}`}>
-                  <div className="font-body-md text-sm text-on-surface font-medium">{f.label}</div>
-                  <div className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">{f.desc}</div>
-                </button>
-              ))}
+            <p className="font-body-sm text-[11px] text-on-surface-variant">Se respetarán estos días concretos en el calendario. Los demás quedarán como descanso.</p>
+          </>}
+          {step===1 && <>
+            <h4 className="font-body-md text-sm font-medium text-on-surface">Elegí uno de los métodos compatibles con tu objetivo, nivel, días y equipamiento</h4>
+            {methods.map((id,index)=>{
+              const m=getMethod(id)
+              return <button key={id} type="button" onClick={()=>setMethodId(id)} aria-pressed={methodId===id} className={toggleCls(methodId===id)}>
+                <div className="flex items-center justify-between gap-2"><span className="font-medium">{m?.nameEs||id}</span>{index===0&&<span className="text-[10px] uppercase tracking-wider text-primary">Recomendado</span>}</div>
+                <p className="text-xs text-on-surface-variant mt-1">{m?.descriptionEs||m?.description||'Método de entrenamiento'}</p>
+              </button>
+            })}
+            <p className="text-[11px] text-on-surface-variant">La distribución de grupos musculares la decide la IA según el método y la recuperación; no necesitás elegir músculos.</p>
+          </>}
+          {step===2 && <>
+            <h4 className="font-body-md text-sm font-medium text-on-surface">¿Dónde y con qué equipamiento entrenás?</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['profile','Usar mi perfil'],['full_gym','Gimnasio completo'],['limited_gym','Gimnasio limitado'],['home','Casa'],['bodyweight','Solo peso corporal'],['crossfit','Box de CrossFit'],['custom','Personalizado']
+              ].map(([id,label])=><button key={id} type="button" onClick={()=>chooseEquipmentMode(id)} className={toggleCls(equipmentMode===id)}>{label}</button>)}
             </div>
-          </div>
-        )}
-
-        {/* Step 3: Injuries */}
-        {step===3 && (
-          <div className="p-4 space-y-3">
-            <h3 className="font-body-md text-sm text-on-surface font-medium">¿Tenés alguna lesión o limitación?</h3>
-            <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">La IA evitará ejercicios que puedan empeorar tu condición.</p>
-            <textarea value={injury} onChange={e=>setInjury(e.target.value)} placeholder="Ej: dolor en hombro derecho, rodilla sensible, nada..." className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface h-24 resize-none"/>
-            <div className="flex gap-2">
-              <button onClick={()=>setInjury('')} aria-pressed={!injury} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${!injury ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Ninguna</button>
-              <button onClick={()=>setInjury('hombro')} aria-pressed={injury==='hombro'} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${injury==='hombro' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Hombro</button>
-              <button onClick={()=>setInjury('rodilla')} aria-pressed={injury==='rodilla'} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${injury==='rodilla' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Rodilla</button>
-              <button onClick={()=>setInjury('espalda baja')} aria-pressed={injury==='espalda baja'} className={`px-3 py-2 rounded border font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant ${injury==='espalda baja' ? 'bg-primary/20 border-primary text-primary' : 'bg-surface border-outline-variant'}`}>Espalda</button>
-            </div>
-          </div>
-        )}
-
-        {/* Summary + actions */}
-        <div className="sticky bottom-0 bg-surface/80 backdrop-blur-md border-t border-outline-variant p-4 space-y-3">
-          {conflict && (
-            <div className="rounded border border-secondary/50 bg-secondary/10 p-3 space-y-2">
-              <p className="font-body-md text-sm text-on-surface">En tu pedido indicás {conflict} días y elegiste {days}. ¿Con cuál armo la rutina?</p>
-              <div className="flex gap-2">
-                <button onClick={()=>{ setConflict(null); setDays(conflict); submit(conflict) }} className="flex-1 py-2 rounded border border-primary bg-primary/20 font-body-md text-sm text-on-surface">Usar {conflict} días</button>
-                <button onClick={()=>{ setConflict(null); submit(days) }} className="flex-1 py-2 rounded border border-outline-variant bg-surface font-body-md text-sm text-on-surface">Mantener {days}</button>
+            {equipmentMode==='custom' || equipmentMode==='profile' ? <div className="grid grid-cols-2 gap-2 pt-1">
+              {equipmentOptions.map(e=><label key={e.id} className="flex items-center gap-2 text-xs text-on-surface"><input type="checkbox" checked={equipment.includes(e.id)} onChange={()=>toggleEquipment(e.id)}/>{e.label}</label>)}
+            </div>:null}
+            <p className="text-[11px] text-on-surface-variant">Solo se usarán ejercicios compatibles con el equipo seleccionado.</p>
+          </>}
+          {step===3 && <>
+            <h4 className="font-body-md text-sm font-medium text-on-surface">Preparación de la sesión</h4>
+            <label className="flex items-center gap-2 text-sm text-on-surface"><input type="checkbox" checked={warmupEnabled} onChange={e=>setWarmupEnabled(e.target.checked)}/> Incluir calentamiento</label>
+            <label className="flex items-center gap-2 text-sm text-on-surface"><input type="checkbox" checked={stretchingEnabled} onChange={e=>setStretchingEnabled(e.target.checked)}/> Incluir estiramientos</label>
+            <div className="border-t border-outline-variant pt-3 space-y-2">
+              <h4 className="font-body-md text-sm font-medium text-on-surface">Cardio</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  ['none','No incluir'],['start','Al inicio'],['end','Al final'],['both','Inicio y final']
+                ].map(([id,label])=><button key={id} type="button" onClick={()=>setCardioTiming(id as any)} className={toggleCls(cardioTiming===id)}>{label}</button>)}
               </div>
+              {cardioTiming!=='none'&&<div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={()=>setCardioIntensity('light')} className={toggleCls(cardioIntensity==='light')}>Suave</button>
+                <button type="button" onClick={()=>setCardioIntensity('hard')} className={toggleCls(cardioIntensity==='hard')}>Intenso</button>
+              </div>}
             </div>
-          )}
-          {step===3 && (
-            <div className="rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant p-3 font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant space-y-1">
-              <div><span className="font-medium font-body-md text-sm text-on-surface">Objetivo:</span> {GOAL_MAP[goal]}</div>
-              <div><span className="font-medium font-body-md text-sm text-on-surface">Días:</span> {days}/semana</div>
-              <div><span className="font-medium font-body-md text-sm text-on-surface">Enfoque:</span> {focuses.find(f=>f.id===focus)?.label}</div>
-              {injury && <div><span className="font-medium font-body-md text-sm text-on-surface">Lesión:</span> {injury}</div>}
-              {description.trim() && <div className="normal-case tracking-normal font-body-sm text-[11px] text-on-surface-variant"><span className="font-medium font-body-md text-sm text-on-surface">Pedido:</span> {description.trim()}</div>}
+          </>}
+          {step===4 && <>
+            <h4 className="font-body-md text-sm font-medium text-on-surface">Estilo del Coach</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['profesional','Profesional'],['motivacional','Motivacional'],['duro','Exigente'],['extremo','Extremo']
+              ].map(([id,label])=><button key={id} type="button" onClick={()=>setCoachTone(id)} className={toggleCls(coachTone===id)}>{label}</button>)}
             </div>
-          )}
-          <div className="flex gap-2">
-            {step > 0 && <button onClick={()=>setStep(step-1)} className="py-3 px-4 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Atrás</button>}
-            <button onClick={onClose} className="flex-1 py-3 rounded  bg-surface-container-low/90 backdrop-blur-sm border border-outline-variant font-body-md text-sm text-on-surface">Cancelar</button>
-            {canNext && <button onClick={()=>setStep(step+1)} className="flex-1 py-3 rounded bg-primary text-on-surface font-medium">Siguiente</button>}
-            {canGenerate && <button onClick={requestGenerate} className="flex-1 py-3 rounded bg-gradient-to-r from-primary to-secondary text-on-primary font-medium flex items-center justify-center gap-1"><Sparkles size={14}/> Generar rutina</button>}
-          </div>
+            <p className="text-[11px] text-on-surface-variant">El estilo modifica la comunicación y el énfasis metodológico, nunca las reglas de seguridad ni la prescripción científica.</p>
+            <h4 className="font-body-md text-sm font-medium text-on-surface pt-1">¿Qué historial querés que use la IA?</h4>
+            {[
+              ['previousRoutine','Rutina anterior: evitar repeticiones sin motivo'],
+              ['pain','Dolores registrados (siempre se consideran por seguridad)'],
+              ['replaced','Ejercicios reemplazados y motivo'],
+              ['skipped','Ejercicios omitidos'],
+              ['rating','Valoración de las sesiones'],
+              ['loadsReps','Pesos y repeticiones reales'],
+              ['observations','Observaciones y comentarios']
+            ].map(([id,label])=><label key={id} className="flex items-start gap-2 text-xs text-on-surface"><input type="checkbox" checked={historyOptions.includes(id)} disabled={id==='pain'} onChange={()=>toggleHistory(id)} className="mt-0.5"/><span>{label}</span></label>)}
+          </>}
+          {step===5 && <>
+            <h4 className="font-body-md text-sm font-medium text-on-surface">Movimientos o ejercicios que no querés incluir</h4>
+            <textarea value={excludedText} onChange={e=>setExcludedText(e.target.value)} rows={3} placeholder="Ej.: burpees, saltos, sentadilla con barra..." className="w-full bg-surface border border-outline-variant rounded-lg p-3 text-sm text-on-surface resize-none"/>
+            <div className="rounded-lg bg-surface-container-low border border-outline-variant p-3 space-y-1 text-xs text-on-surface">
+              <p><b>Objetivo:</b> {goal}</p><p><b>Días:</b> {days.map(d=>dayLabels[d]).join(', ')||'Sin seleccionar'}</p>
+              <p><b>Método:</b> {getMethod(methodId||'hypertrophy')?.nameEs||'—'}</p><p><b>Modalidad:</b> {modality==='crossfit'?'CrossFit':'Gimnasio'}</p>
+              <p><b>Equipo:</b> {equipment.join(', ')||'Sin seleccionar'}</p>
+              <p><b>Coach:</b> {coachTone}</p>
+              <p><b>Preparación:</b> {warmupEnabled?'Calentamiento ':' '}{stretchingEnabled?'Estiramientos':''} · Cardio: {cardioTiming}</p>
+            </div>
+          </>}
+          {error&&<p role="alert" className="text-xs text-error">{error}</p>}
+        </div>
+        <div className="p-3 border-t border-outline-variant flex gap-2 shrink-0">
+          {step>0&&<button type="button" onClick={()=>{setError('');setStep(step-1)}} className="px-4 py-3 rounded-lg border border-outline-variant text-sm text-on-surface">Atrás</button>}
+          <button type="button" onClick={onClose} className="flex-1 py-3 rounded-lg border border-outline-variant text-sm text-on-surface">Cancelar</button>
+          {step<5?<button type="button" onClick={()=>{setError('');if(step===0&&days.length===0){setError('Seleccioná al menos un día.');return}if(step===2&&equipment.length===0){setError('Seleccioná el equipamiento.');return}setStep(step+1)}} className="flex-1 py-3 rounded-lg bg-primary text-on-primary font-medium">Siguiente</button>
+          :<button type="button" onClick={submit} className="flex-1 py-3 rounded-lg bg-primary text-on-primary font-medium flex items-center justify-center gap-1"><Sparkles size={14}/> Generar rutina</button>}
         </div>
       </div>
     </div>
   )
 }
-
