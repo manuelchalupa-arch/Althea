@@ -804,7 +804,8 @@ async function applyImport(
         if (existingLogical) { continue }
         const existingId = record?.id != null ? await db.syncDeletes.get(record.id) : undefined
         if (existingId) {
-          const { id: _localAutoId, ...withoutLocalAutoId } = record
+          const withoutLocalAutoId = { ...record }
+          delete withoutLocalAutoId.id
           recordsToImport.push(withoutLocalAutoId)
         } else {
           recordsToImport.push(record)
