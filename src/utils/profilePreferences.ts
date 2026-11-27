@@ -65,17 +65,19 @@ export interface TrainingPreferences {
 
 export function getTrainingPreferences(p: ProfileLike): TrainingPreferences {
   const profile = p || {}
-  const days = (profile.availableDays?.length
-    ?? profile.schedule?.availableDays?.length
-    ?? (Array.isArray(profile.cycle?.weekMap) ? profile.cycle.weekMap.filter((d: unknown) => d !== null).length : 0))
+  const rawAvailableDays: unknown[] = Array.isArray(profile.availableDays) && profile.availableDays.length
+    ? profile.availableDays
+    : Array.isArray(profile.schedule?.availableDays) ? profile.schedule.availableDays : []
+  const days = rawAvailableDays.length
+    || (Array.isArray(profile.cycle?.weekMap) ? profile.cycle.weekMap.filter((d: unknown) => d !== null).length : 0)
     || 3
   return {
     goal: resolveTrainingGoal(profile),
     secondaryGoals: asStrings(profile.goalsSecondary),
     level: resolveExperienceLevel(profile),
     daysPerWeek: Math.max(1, Math.min(7, Number(days) || 3)),
-    availableDays: [...new Set((Array.isArray(profile.availableDays) ? profile.availableDays : Array.isArray(profile.schedule?.availableDays) ? profile.schedule.availableDays : []).map((d: unknown) => Number(d)).filter((d: number) => Number.isInteger(d) && d >= 0 && d <= 6))],
-    equipment: canonicalEquipment(profile.equipment),
+    availableDays: [...new Set(rawAvailableDays.map(Number).filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6))],
+    equipment: canonicalEquipment(Array.isArray(profile.equipment) && profile.equipment.length ? profile.equipment : profile.preferences?.preferredEquipment),
     limitations: getTrainingLimitations(profile),
     painAreas: getPainAreas(profile),
     excludedExercises: getExcludedExercises(profile),
