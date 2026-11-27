@@ -734,6 +734,44 @@ function normalizeRoutine(
   return parsed as GeneratedRoutine
 }
 
+function applySessionPreparation(routine: GeneratedRoutine, wants: UserWants, exercises: Record<string, PoolEx[]>): GeneratedRoutine {
+  const warmups = exercises.__warmup__ || []
+  const cardio = exercises.__cardio__ || []
+  const used = new Set<string>()
+  let cardioIndex = 0
+  const makePrep = (item: PoolEx, role: 'warmup'|'cooldown', stretch = false): RoutineExercise => ({
+    ...newExercise(item, 1, 1),
+    weight: 0,
+    restSec: 0,
+    durationMin: role === 'cooldown' ? 5 : 3,
+    sequenceRole: role,
+    isStretch: stretch,
+  })
+  for (const key of Object.keys(routine.dayExercises).sort((a,b)=>Number(a)-Number(b))) {
+    const core = routine.dayExercises[Number(key)] || []
+    const before: RoutineExercise[] = []
+    const after: RoutineExercise[] = []
+    if (wants.warmupEnabled) {
+      const item = warmups.find(x => x.purpose === 'warmup' || x.purpose === 'mobility')
+      if (item && !used.has(item.id)) { before.push(makePrep(item, 'warmup')); used.add(item.id) }
+    }
+    if (wants.cardioTiming === 'start' || wants.cardioTiming === 'both') {
+      const item = cardio.find(x => !used.has(x.id))
+      if (item) { before.push(makePrep(item, 'cooldown')); used.add(item.id); cardioIndex++ }
+    }
+    if (wants.stretchingEnabled) {
+      const item = warmups.find(x => x.purpose === 'stretch' && !used.has(x.id))
+      if (item) { after.push(makePrep(item, 'warmup', true)); used.add(item.id) }
+    }
+    if (wants.cardioTiming === 'end' || wants.cardioTiming === 'both') {
+      const item = cardio.find(x => !used.has(x.id))
+      if (item) { after.push(makePrep(item, 'cooldown')); used.add(item.id); cardioIndex++ }
+    }
+    routine.dayExercises[Number(key)] = [...before, ...core, ...after]
+  }
+  return routine
+}
+
 function clampNum(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n))
 }
@@ -932,7 +970,6 @@ function buildPrompt(ctx: {
   profile: any; history: string; style: any; methodName: string; exercises: Record<string, CompactEx[]>
 }, wants: UserWants, instructions: RoutineInstructions, corrections: string[] = []): string {
   const p = ctx.profile || {}
-  const s = ctx.style
   const today = todayKey()
   const days = clampDays(instructions.days ?? wants.daysPerWeek)
   // El pedido explícito manda sobre la preferencia por defecto del perfil.
@@ -982,7 +1019,8 @@ function buildPrompt(ctx: {
     wants.methodId ? `- Método elegido por el usuario: ${selectedMethod?.nameEs || wants.methodId}. No lo sustituyas.` : '',
     wants.warmupEnabled ? '- Incluir calentamiento al comienzo de cada sesión.' : '',
     wants.stretchingEnabled ? '- Incluir estiramientos al final de cada sesión, sin forzar rangos ni provocar dolor.' : '',
-    wants.cardioTiming && wants.cardioTiming !== 'none' ? `- Cardio ${wants.cardioTiming === 'both' ? 'al inicio y al final' : wants.cardioTiming === 'start' ? 'al inicio' : 'al final'}; intensidad ${wants.cardioIntensity === 'hard' ? 'alta' : 'suave'}.` : '',
+    wants.cardioTiming && wants.cardioTiming !== 'none' ? `- Althea agregará cardio ${wants.cardioTiming === 'both' ? 'al inicio y al final' : wants.cardioTiming === 'start' ? 'al inicio' : 'al final'}; no lo incluyas en el bloque principal. Intensidad ${wants.cardioIntensity === 'hard' ? 'alta' : 'suave'}.` : '',
+    (wants.warmupEnabled || wants.stretchingEnabled) ? '- Althea agregará el calentamiento/estiramiento elegido; no lo incluyas en el bloque principal.' : '',
     instructions.sequence ? `- Secuencia OBLIGATORIA por día: ${instructions.sequence.warmupCount} estiramiento/calentamiento + ${instructions.sequence.primaryCount} ejercicios del grupo principal + ${instructions.sequence.secondaryCount} del grupo secundario + ${instructions.sequence.cooldownCount} cardio suave. Los ejercicios principales deben organizarse en superseries de a pares. No omitas ni cambies el orden.` : '',
     label ? `- Split obligatorio: ${label}.` : '- Split: el que mejor responda al pedido.',
     `- Duración máxima: ${time} min → como máximo ${maxPerDay} ejercicios por día.`,
@@ -1375,12 +1413,12 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
         )
       }
 
-      const routine = normalizeRoutine(
+      const routine = applySessionPreparation(normalizeRoutine(
         parsed,
         effective,
         instructions,
         ctx,
-      )
+      ), effective, ctx.exercises)
 
       const totalExercises = Object.values(routine.dayExercises)
         .reduce(
