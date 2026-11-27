@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import { Suspense, lazy as reactLazy } from 'react'
+import { Suspense, lazy, lazy as reactLazy } from 'react'
 import AppNav from '@/components/layout/AppNav'
 import { RequiredActionGate } from '@/components/notifications/RequiredActionGate'
 import { AppHeader, TempleBackdrop } from '@/components/brand/temple'
