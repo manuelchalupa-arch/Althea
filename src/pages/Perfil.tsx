@@ -12,6 +12,16 @@ import type { TrainingMethodId } from '@/services/ai/trainingMethods'
 import { getCanonicalMethodId } from '@/services/planning/cycleVersions'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { AltheaTimePicker } from '@/components/althea/AltheaTimePicker'
+
+const PROFILE_EQUIPMENT_PRESETS: { id: string; label: string; equipment: string[] }[] = [
+  { id: 'gym-full', label: 'Gimnasio completo', equipment: ['barra', 'mancuernas', 'maquina', 'polea', 'peso_corporal', 'banda', 'kettlebell'] },
+  { id: 'gym-limited', label: 'Gimnasio limitado', equipment: ['mancuernas', 'maquina', 'peso_corporal'] },
+  { id: 'machines', label: 'Solo máquinas', equipment: ['maquina', 'polea'] },
+  { id: 'no-machines', label: 'Sin máquinas', equipment: ['barra', 'mancuernas', 'peso_corporal', 'banda', 'kettlebell'] },
+  { id: 'home', label: 'Entreno en casa', equipment: ['mancuernas', 'peso_corporal', 'banda', 'kettlebell'] },
+  { id: 'bodyweight', label: 'Solo peso corporal', equipment: ['peso_corporal'] },
+  { id: 'crossfit-box', label: 'Box de CrossFit', equipment: ['barra', 'mancuernas', 'peso_corporal', 'banda', 'kettlebell'] },
+]
 import { SyncStatusCard } from '@/components/sync/SyncStatusCard'
 import { DataOwnership } from '@/components/profile/DataOwnership'
 import { IconDumbbell, IconFire, IconBody, IconHeart, IconWater, IconUtensils, IconSleep, IconClipboard, IconLightning, IconTarget, IconUser, IconShield } from '@/components/brand/FitnessIcons'
@@ -624,19 +634,34 @@ export default function Perfil() {
             </div>
           </div>
           <div className="space-y-2">
-            <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Equipamiento disponible</span>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                ['barra','Barra'],['mancuernas','Mancuernas'],['maquina','Máquinas'],['polea','Poleas'],
-                ['peso_corporal','Peso corporal'],['banda','Bandas elásticas'],['kettlebell','Kettlebell'],['otro','Otro']
-              ].map(([value,label])=>(
-                <label key={value} className="flex items-center gap-2 rounded-lg border border-outline-variant p-2 text-xs text-on-surface">
-                  <input type="checkbox" checked={trainPrefs.equipment.includes(value)}
-                    onChange={()=>setTrainPrefs(p=>({...p,equipment:p.equipment.includes(value)?p.equipment.filter(x=>x!==value):[...p.equipment,value]}))}/>
-                  {label}
-                </label>
-              ))}
+            <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Tipo de espacio y equipamiento</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {PROFILE_EQUIPMENT_PRESETS.map(preset => {
+                const selected = preset.equipment.length === trainPrefs.equipment.length && preset.equipment.every(item => trainPrefs.equipment.includes(item))
+                return (
+                  <button key={preset.id} type="button" aria-pressed={selected}
+                    onClick={() => setTrainPrefs(p => ({ ...p, equipment: [...preset.equipment] }))}
+                    className={`min-h-[44px] rounded-lg border p-2 text-left text-xs font-medium ${selected ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-container/50 border-outline-variant text-on-surface-variant'}`}>
+                    {preset.label}
+                  </button>
+                )
+              })}
             </div>
+            <details className="rounded-lg border border-outline-variant p-3">
+              <summary className="min-h-[44px] flex items-center cursor-pointer text-xs font-semibold text-on-surface">Personalizar equipamiento</summary>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  ['barra','Barra'],['mancuernas','Mancuernas'],['maquina','Máquinas'],['polea','Poleas'],
+                  ['peso_corporal','Peso corporal'],['banda','Bandas elásticas'],['kettlebell','Kettlebell'],['otro','Otro']
+                ].map(([value,label])=>(
+                  <label key={value} className="flex items-center gap-2 rounded-lg border border-outline-variant p-2 text-xs text-on-surface">
+                    <input type="checkbox" checked={trainPrefs.equipment.includes(value)}
+                      onChange={()=>setTrainPrefs(p=>({...p,equipment:p.equipment.includes(value)?p.equipment.filter(x=>x!==value):[...p.equipment,value]}))}/>
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </details>
           </div>
           <label className="block">
             <span className="font-label-caps text-[9px] uppercase text-outline tracking-wider">Disponibilidad variable</span>
