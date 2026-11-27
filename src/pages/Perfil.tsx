@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react'
 import SemanticIcon from '../components/ui/SemanticIcon';
 import { db } from '@/services/storage/db'
 import { v4 as uuid } from 'uuid'
@@ -85,14 +85,20 @@ function TimePickerModal({ value, onChange, onClose }: { value: string; onChange
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-2xl w-full max-w-xs p-5 space-y-4">
         <h3 className="font-headline-lg text-base font-semibold text-on-surface text-center">Seleccionar hora</h3>
-        <div className="flex items-center justify-center gap-2">
-          <select value={h} onChange={e => setH(e.target.value)} className="bg-surface-container-high border border-outline-variant rounded-lg p-3 font-headline-lg text-2xl text-on-surface w-20 text-center">
-            {Array.from({ length: 24 }, (_, i) => <option key={i} value={String(i).padStart(2, '0')}>{String(i).padStart(2, '0')}</option>)}
-          </select>
-          <span className="font-headline-lg text-2xl text-on-surface-variant">:</span>
-          <select value={m} onChange={e => setM(e.target.value)} className="bg-surface-container-high border border-outline-variant rounded-lg p-3 font-headline-lg text-2xl text-on-surface w-20 text-center">
-            {['00', '15', '30', '45'].map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
+        <div className="althea-time-picker__fields">
+          <div className="althea-time-stepper">
+            <span>Hora</span>
+            <button type="button" aria-label="Aumentar hora" onClick={() => setH(v => String((Number(v) + 1) % 24).padStart(2, '0'))}><Plus size={18}/></button>
+            <strong>{h}</strong>
+            <button type="button" aria-label="Disminuir hora" onClick={() => setH(v => String((Number(v) + 23) % 24).padStart(2, '0'))}><Minus size={18}/></button>
+          </div>
+          <span>:</span>
+          <div className="althea-time-stepper">
+            <span>Minutos</span>
+            <button type="button" aria-label="Aumentar minutos" onClick={() => setM(v => String((Number(v) + 15) % 60).padStart(2, '0'))}><Plus size={18}/></button>
+            <strong>{m}</strong>
+            <button type="button" aria-label="Disminuir minutos" onClick={() => setM(v => String((Number(v) + 45) % 60).padStart(2, '0'))}><Minus size={18}/></button>
+          </div>
         </div>
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 py-2.5 min-h-[48px] rounded-lg bg-surface-container-high border border-outline-variant font-label-caps text-[10px] uppercase text-on-surface-variant">Cancelar</button>
