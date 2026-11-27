@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, X, Dumbbell, Apple, ClipboardList, ArrowUpRight, LoaderCircle } from 'lucide-react'
 import { db } from '@/services/storage/db'
+import { addDiaryEntry, nowLocalTime } from '@/services/storage/diaryStore'
+import { todayKey } from '@/utils/dates'
 import { getAllRoutines } from '@/services/storage/routineStore'
 import { exerciseMatches } from '@/services/training/exerciseSearch'
 import { searchFoodsLocal, type FoodSearchResult } from '@/services/nutrition/foodSearch'
@@ -32,6 +34,11 @@ export default function GlobalSearchDialog() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResults>(EMPTY_RESULTS)
+  const [foodRecords, setFoodRecords] = useState<FoodSearchResult[]>([])
+  const [foodToLog, setFoodToLog] = useState<FoodSearchResult | null>(null)
+  const [foodAmount, setFoodAmount] = useState('100')
+  const [foodSaving, setFoodSaving] = useState(false)
+  const [foodError, setFoodError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const total = results.exercise.length + results.food.length + results.routine.length
   const term = query.trim()
@@ -40,6 +47,9 @@ export default function GlobalSearchDialog() {
     setOpen(false)
     setQuery('')
     setResults(EMPTY_RESULTS)
+    setFoodRecords([])
+    setFoodToLog(null)
+    setFoodError(null)
     setLoading(false)
   }
 
@@ -117,6 +127,7 @@ export default function GlobalSearchDialog() {
 
           if (active) {
             setResults({ exercise: exercises, food: foodItems, routine: routineItems })
+            setFoodRecords(foods)
           }
         } catch {
           if (active) { setResults(EMPTY_RESULTS) }
@@ -139,9 +150,60 @@ export default function GlobalSearchDialog() {
   ]), [results])
 
   const openResult = (item: SearchItem) => {
-    const destination = item.kind === 'exercise' ? '/biblioteca' : item.kind === 'food' ? '/nutricion' : '/rutina'
+    const destination = item.kind === 'exercise'
+      ? `/biblioteca?buscar=${encodeURIComponent(term)}`
+      : '/rutina'
     navigate(destination, { state: { globalSearchQuery: term, globalSearchKind: item.kind, globalSearchId: item.id } })
     close()
+  }
+
+  const registerFood = async () => {
+    if (!foodToLog) { return }
+    const amount = Number(foodAmount.replace(',', '.'))
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 10000) {
+      setFoodError('Ingresá una cantidad entre 1 y 10.000 g/ml.')
+      return
+    }
+    setFoodSaving(true)
+    setFoodError(null)
+    try {
+      const date = todayKey()
+      const factor = amount / 100
+      const macros = {
+        calories: foodToLog.per100.calories * factor,
+        proteins: foodToLog.per100.proteins * factor,
+        carbs: foodToLog.per100.carbs * factor,
+        fats: foodToLog.per100.fats * factor,
+      }
+      const addedAt = new Date().toISOString()
+      await addDiaryEntry({
+        id: `global-food-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        date,
+        name: foodToLog.label,
+        mealType: 'Comida',
+        servingLabel: `${amount} ${foodToLog.unit}`,
+        amount,
+        unit: foodToLog.unit,
+        time: nowLocalTime(),
+        macros,
+        ingredients: [{
+          foodId: foodToLog.id,
+          label: foodToLog.label,
+          grams: amount,
+          calories: macros.calories,
+          proteins: macros.proteins,
+          carbs: macros.carbs,
+          fats: macros.fats,
+        }],
+        addedAt,
+      })
+      navigate('/nutricion', { state: { globalSearchAddedFood: foodToLog.label } })
+      close()
+    } catch (error) {
+      setFoodError(error instanceof Error ? error.message : 'No se pudo registrar el alimento.')
+    } finally {
+      setFoodSaving(false)
+    }
   }
 
   return (
@@ -201,7 +263,37 @@ export default function GlobalSearchDialog() {
               {!loading && term.length >= 2 && total === 0 && (
                 <p className="py-5 text-center text-sm text-on-surface-variant">No se encontraron coincidencias locales para «{term}».</p>
               )}
-              {!loading && sections.map((section) => section.items.length > 0 && (
+
+              {foodToLog && (
+                <section className="rounded-xl border border-outline-variant bg-surface-container p-3 sm:p-4 space-y-3" aria-label="Registrar alimento en nutrición">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wide text-on-surface-variant">Registrar en Nutrición</p>
+                    <h2 className="text-base font-semibold text-on-surface break-words">{foodToLog.label}</h2>
+                    <p className="text-xs text-on-surface-variant">
+                      Por 100 {foodToLog.unit}: {Math.round(foodToLog.per100.calories)} kcal · P {Math.round(foodToLog.per100.proteins)} g · C {Math.round(foodToLog.per100.carbs)} g · G {Math.round(foodToLog.per100.fats)} g
+                    </p>
+                  </div>
+                  <label className="block text-sm text-on-surface" htmlFor="global-food-amount">Cantidad ({foodToLog.unit})</label>
+                  <input
+                    id="global-food-amount"
+                    type="number"
+                    min="1"
+                    max="10000"
+                    step="1"
+                    value={foodAmount}
+                    onChange={event => setFoodAmount(event.target.value)}
+                    className="w-full min-h-12 rounded-lg border border-outline-variant bg-surface px-3 text-base text-on-surface"
+                  />
+                  {foodError && <p role="alert" className="text-sm text-error">{foodError}</p>}
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setFoodToLog(null)} className="min-h-11 rounded-lg border border-outline-variant px-4 text-sm text-on-surface">Volver a resultados</button>
+                    <button type="button" onClick={() => { void registerFood() }} disabled={foodSaving} className="min-h-11 flex-1 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary disabled:opacity-50">
+                      {foodSaving ? 'Registrando…' : 'Registrar alimento'}
+                    </button>
+                  </div>
+                </section>
+              )}
+              {!loading && !foodToLog && sections.map((section) => section.items.length > 0 && (
                 <section key={section.kind} aria-label={section.title}>
                   <div className="flex items-center gap-2 mb-2">
                     <section.icon size={17} className="text-primary" aria-hidden="true" />
@@ -213,7 +305,18 @@ export default function GlobalSearchDialog() {
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => openResult(item)}
+                        onClick={() => {
+                          if (item.kind === 'food') {
+                            const food = foodRecords.find(result => result.id === item.id)
+                            if (food) {
+                              setFoodToLog(food)
+                              setFoodAmount(String(food.standardGrams || 100))
+                              setFoodError(null)
+                            }
+                          } else {
+                            openResult(item)
+                          }
+                        }}
                         className="w-full min-h-12 flex items-center gap-3 rounded-xl border border-transparent px-3 py-2 text-left hover:bg-surface-container hover:border-outline-variant/50 focus-visible:outline-2 focus-visible:outline-primary"
                       >
                         <span className="min-w-0 flex-1">
