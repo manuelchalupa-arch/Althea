@@ -39,7 +39,6 @@ export function DataOwnership() {
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
-  const [mode, setMode] = useState<'merge' | 'replace'>('merge')
 
   const reset = () => {
     setPhase('idle')
@@ -48,7 +47,6 @@ export function DataOwnership() {
     setPreview(null)
     setResult(null)
     setPendingFile(null)
-    setMode('merge')
     if (fileRef.current) { fileRef.current.value = '' }
   }
 
@@ -93,15 +91,10 @@ export function DataOwnership() {
 
   const doImport = async () => {
     if (!pendingFile) { return }
-    if (mode === 'replace' && !window.confirm(
-      'El modo "reemplazar" borra los datos actuales antes de importar.\n' +
-      'Se perderá todo lo que no esté en el archivo. ¿Continuar?'
-    )) { return }
-
     setError(null)
     setBusy(true)
     try {
-      const r = await importJSON(pendingFile, { mode })
+      const r = await importJSON(pendingFile, { mode: 'merge' })
       setResult(r)
       setPhase('done')
       setNotice(r.success
@@ -121,6 +114,10 @@ export function DataOwnership() {
         ['Ejercicios', preview.summary.sessionExercises],
         ['Series', preview.summary.setRecords],
         ['Check-ins', preview.summary.recoveryChecks],
+        ['Botellas configuradas', preview.summary.hydrationBottles],
+        ['Registros de hidratación', preview.summary.hydrationBottleLogs],
+        ['Alimentos personalizados', preview.summary.customFoods],
+        ['Configuraciones de avisos', preview.summary.notificationConfigs],
         ['Mediciones', preview.summary.bodyMeasurements],
       ] as const)
     : []
@@ -237,38 +234,16 @@ export function DataOwnership() {
               <span className="font-label-caps text-[10px] uppercase tracking-widest text-on-surface-variant">
                 Cómo importar
               </span>
-              <label className="flex items-start gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  aria-label="Combinar: añade lo que falta y conserva tus datos actuales"
-                  name="modo-importacion"
-                  checked={mode === 'merge'}
-                  onChange={() => setMode('merge')}
-                  className="mt-1 accent-primary"
-                />
-                <span>
-                  <span className="font-medium text-on-surface">Combinar (recomendado)</span>
-                  <span className="block text-xs text-on-surface-variant">
-                    Añade lo que falta. Conserva tus datos actuales.
-                  </span>
+              <p className="text-sm text-on-surface">
+                <span className="font-medium">Combinar (recomendado)</span>
+                <span className="block text-xs text-on-surface-variant">
+                  Agrega los registros del respaldo y conserva la información actual.
                 </span>
-              </label>
-              <label className="flex items-start gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  aria-label="Reemplazar todo: borra los datos actuales antes de importar"
-                  name="modo-importacion"
-                  checked={mode === 'replace'}
-                  onChange={() => setMode('replace')}
-                  className="mt-1 accent-primary"
-                />
-                <span>
-                  <span className="font-medium text-on-surface">Reemplazar todo</span>
-                  <span className="block text-xs text-on-surface-variant">
-                    Borra los datos actuales antes de importar.
-                  </span>
-                </span>
-              </label>
+              </p>
+              <p className="text-xs text-on-surface-variant">
+                El reemplazo completo está temporalmente deshabilitado para evitar
+                borrar información que el respaldo no contenga.
+              </p>
             </div>
           )}
 
@@ -276,12 +251,12 @@ export function DataOwnership() {
             <AltheaButton variant="ghost" fullWidth onClick={reset}>Cancelar</AltheaButton>
             {preview.canImport && (
               <AltheaButton
-                variant={mode === 'replace' ? 'danger' : 'primary'}
+                variant="primary"
                 fullWidth
                 loading={busy}
                 onClick={() => { void doImport() }}
               >
-                {mode === 'replace' ? 'Reemplazar e importar' : 'Importar'}
+                Importar y combinar
               </AltheaButton>
             )}
           </div>
