@@ -1839,7 +1839,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
     })
   }
 
-  const steps=['Objetivo y días','Método','Equipamiento','Preparación y cardio','Coach e historial','Exclusiones']
+  const steps=['Objetivo y días','Equipamiento','Método','Preparación y cardio','Coach e historial','Exclusiones']
   const toggleCls=(active:boolean)=>`w-full text-left rounded-lg border p-3 min-h-[44px] ${active?'bg-primary/15 border-primary text-on-surface':'bg-surface border-outline-variant text-on-surface'}`
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-3 althea-modal" onClick={onClose}>
@@ -1864,17 +1864,6 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
             <p className="font-body-sm text-[11px] text-on-surface-variant">Se respetarán estos días concretos en el calendario. Los demás quedarán como descanso.</p>
           </>}
           {step===1 && <>
-            <h4 className="font-body-md text-sm font-medium text-on-surface">Elegí uno de los métodos compatibles con tu objetivo, nivel, días y equipamiento</h4>
-            {methods.map((id,index)=>{
-              const m=getMethod(id)
-              return <button key={id} type="button" onClick={()=>setMethodId(id)} aria-pressed={methodId===id} className={toggleCls(methodId===id)}>
-                <div className="flex items-center justify-between gap-2"><span className="font-medium">{m?.nameEs||id}</span>{index===0&&<span className="text-[10px] uppercase tracking-wider text-primary">Recomendado</span>}</div>
-                <p className="text-xs text-on-surface-variant mt-1">{m?.descriptionEs||m?.description||'Método de entrenamiento'}</p>
-              </button>
-            })}
-            <p className="text-[11px] text-on-surface-variant">La distribución de grupos musculares la decide la IA según el método y la recuperación; no necesitás elegir músculos.</p>
-          </>}
-          {step===2 && <>
             <h4 className="font-body-md text-sm font-medium text-on-surface">¿Dónde y con qué equipamiento entrenás?</h4>
             <div className="grid grid-cols-2 gap-2">
               {[
@@ -1885,6 +1874,17 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
               {equipmentOptions.map(e=><label key={e.id} className="flex items-center gap-2 text-xs text-on-surface"><input type="checkbox" checked={equipment.includes(e.id)} onChange={()=>toggleEquipment(e.id)}/>{e.label}</label>)}
             </div>:null}
             <p className="text-[11px] text-on-surface-variant">Solo se usarán ejercicios compatibles con el equipo seleccionado.</p>
+          </>}
+          {step===2 && <>
+            <h4 className="font-body-md text-sm font-medium text-on-surface">Elegí uno de los métodos compatibles con tu objetivo, nivel, días y equipamiento</h4>
+            {methods.map((id,index)=>{
+              const m=getMethod(id)
+              return <button key={id} type="button" onClick={()=>setMethodId(id)} aria-pressed={methodId===id} className={toggleCls(methodId===id)}>
+                <div className="flex items-center justify-between gap-2"><span className="font-medium">{m?.nameEs||id}</span>{index===0&&<span className="text-[10px] uppercase tracking-wider text-primary">Recomendado</span>}</div>
+                <p className="text-xs text-on-surface-variant mt-1">{m?.descriptionEs||m?.description||'Método de entrenamiento'}</p>
+              </button>
+            })}
+            <p className="text-[11px] text-on-surface-variant">La distribución de grupos musculares la decide la IA según el método y la recuperación; no necesitás elegir músculos.</p>
           </>}
           {step===3 && <>
             <h4 className="font-body-md text-sm font-medium text-on-surface">Preparación de la sesión</h4>
@@ -1938,7 +1938,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
         <div className="p-3 border-t border-outline-variant flex gap-2 shrink-0">
           {step>0&&<button type="button" onClick={()=>{setError('');setStep(step-1)}} className="px-4 py-3 rounded-lg border border-outline-variant text-sm text-on-surface">Atrás</button>}
           <button type="button" onClick={onClose} className="flex-1 py-3 rounded-lg border border-outline-variant text-sm text-on-surface">Cancelar</button>
-          {step<5?<button type="button" onClick={()=>{setError('');if(step===0&&days.length===0){setError('Seleccioná al menos un día.');return}if(step===2&&equipment.length===0){setError('Seleccioná el equipamiento.');return}setStep(step+1)}} className="flex-1 py-3 rounded-lg bg-primary text-on-primary font-medium">Siguiente</button>
+          {step<5?<button type="button" onClick={()=>{setError('');if(step===0&&days.length===0){setError('Seleccioná al menos un día.');return}if(step===1&&equipment.length===0){setError('Seleccioná el equipamiento.');return}setStep(step+1)}} className="flex-1 py-3 rounded-lg bg-primary text-on-primary font-medium">Siguiente</button>
           :<button type="button" onClick={submit} className="flex-1 py-3 rounded-lg bg-primary text-on-primary font-medium flex items-center justify-center gap-1"><Sparkles size={14}/> Generar rutina</button>}
         </div>
       </div>
