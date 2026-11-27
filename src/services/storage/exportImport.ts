@@ -10,7 +10,7 @@ import type { DecisionRecord } from '@/services/ai/decisionLogger'
 import type { KnowledgeDocument } from '@/services/ai/knowledgeBase'
 import type { ExerciseKnowledgeEntry } from '@/services/ai/exerciseKnowledge'
 
-export const EXPORT_FORMAT_VERSION = 2
+export const EXPORT_FORMAT_VERSION = 3
 export const APP_VERSION = '0.21.0'
 
 export interface ExportMetadata {
@@ -157,6 +157,16 @@ export interface ExportData {
   activitySessions?: any[]
   exerciseRecords?: any[]
   cycleVersions?: any[]
+  hydrationBottles?: any[]
+  hydrationBottleLogs?: any[]
+  notifConfigs?: any[]
+  notifLog?: any[]
+  unifiedNotifConfigs?: any[]
+  requiredActionStates?: any[]
+  customFoods?: any[]
+  exerciseState?: any[]
+  sessionChanges?: any[]
+  sessionObservations?: any[]
 }
 
 async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
@@ -198,6 +208,16 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     activitySessions,
     exerciseRecords,
     cycleVersions,
+    hydrationBottles,
+    hydrationBottleLogs,
+    notifConfigs,
+    notifLog,
+    unifiedNotifConfigs,
+    requiredActionStates,
+    customFoods,
+    exerciseState,
+    sessionChanges,
+    sessionObservations,
   ] = await Promise.all([
     db.routineDays.toArray(),
     db.routineExercises.toArray(),
@@ -233,6 +253,16 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     db.activitySessions.toArray(),
     db.exerciseRecords.toArray(),
     db.cycleVersions.toArray(),
+    db.hydrationBottles.toArray(),
+    db.hydrationBottleLogs.toArray(),
+    db.notifConfigs.toArray(),
+    db.notifLog.toArray(),
+    db.unifiedNotifConfigs.toArray(),
+    db.requiredActionStates.toArray(),
+    db.customFoods.toArray(),
+    db.exerciseState.toArray(),
+    db.sessionChanges.toArray(),
+    db.sessionObservations.toArray(),
   ])
 
   return {
@@ -271,6 +301,16 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     activitySessions,
     exerciseRecords,
     cycleVersions,
+    hydrationBottles,
+    hydrationBottleLogs,
+    notifConfigs,
+    notifLog,
+    unifiedNotifConfigs,
+    requiredActionStates,
+    customFoods,
+    exerciseState,
+    sessionChanges,
+    sessionObservations,
   }
 }
 
@@ -284,7 +324,7 @@ function buildMetadata(data: Omit<ExportData, 'metadata'>): ExportMetadata {
     version: EXPORT_FORMAT_VERSION,
     appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
-    schemaVersion: 15,
+    schemaVersion: 29,
     tables,
     recordCounts,
     exportedBy: 'Althea PWA',
@@ -370,6 +410,17 @@ function migrateExportData(data: any, fromVersion: number): ExportData {
     if (!migrated.routineExercises) {migrated.routineExercises = []}
   }
   
+  // v3: sumar tablas aditivas de hidratación, notificaciones y alimentos
+  // personalizados. Los archivos v1/v2 siguen siendo compatibles.
+  const additiveTables = [
+    'hydrationBottles', 'hydrationBottleLogs', 'notifConfigs', 'notifLog',
+    'unifiedNotifConfigs', 'requiredActionStates', 'customFoods',
+    'exerciseState', 'sessionChanges', 'sessionObservations',
+  ]
+  for (const table of additiveTables) {
+    if (!Array.isArray(migrated[table])) { migrated[table] = [] }
+  }
+
   return migrated as ExportData
 }
 
@@ -405,6 +456,9 @@ function validateExportData(data: any): { valid: boolean; errors: string[] } {
     'onboardingDrafts', 'painLogs',
     'cfWods', 'cfSchedule', 'cfResults', 'cfMarks',
     'activitySessions', 'exerciseRecords', 'cycleVersions',
+    'hydrationBottles', 'hydrationBottleLogs', 'notifConfigs', 'notifLog',
+    'unifiedNotifConfigs', 'requiredActionStates', 'customFoods',
+    'exerciseState', 'sessionChanges', 'sessionObservations',
   ]
   
   for (const table of requiredTables) {
@@ -490,6 +544,9 @@ async function applyImport(
       scoreSnapshots: 0, onboardingDrafts: 0, painLogs: 0,
       cfWods: 0, cfSchedule: 0, cfResults: 0, cfMarks: 0,
       activitySessions: 0, exerciseRecords: 0, cycleVersions: 0,
+      hydrationBottles: 0, hydrationBottleLogs: 0, notifConfigs: 0, notifLog: 0,
+      unifiedNotifConfigs: 0, requiredActionStates: 0, customFoods: 0,
+      exerciseState: 0, sessionChanges: 0, sessionObservations: 0,
     },
     errors: [],
     conflicts,
@@ -531,6 +588,16 @@ async function applyImport(
     { table: db.activitySessions as any, data: data.activitySessions ?? [], key: 'id', countKey: 'activitySessions', name: 'activitySessions' },
     { table: db.exerciseRecords as any, data: data.exerciseRecords ?? [], key: 'id', countKey: 'exerciseRecords', name: 'exerciseRecords' },
     { table: db.cycleVersions as any, data: data.cycleVersions ?? [], key: 'id', countKey: 'cycleVersions', name: 'cycleVersions' },
+    { table: db.hydrationBottles as any, data: data.hydrationBottles ?? [], key: 'id', countKey: 'hydrationBottles', name: 'hydrationBottles' },
+    { table: db.hydrationBottleLogs as any, data: data.hydrationBottleLogs ?? [], key: 'id', countKey: 'hydrationBottleLogs', name: 'hydrationBottleLogs' },
+    { table: db.notifConfigs as any, data: data.notifConfigs ?? [], key: 'id', countKey: 'notifConfigs', name: 'notifConfigs' },
+    { table: db.notifLog as any, data: data.notifLog ?? [], key: 'id', countKey: 'notifLog', name: 'notifLog' },
+    { table: db.unifiedNotifConfigs as any, data: data.unifiedNotifConfigs ?? [], key: 'id', countKey: 'unifiedNotifConfigs', name: 'unifiedNotifConfigs' },
+    { table: db.requiredActionStates as any, data: data.requiredActionStates ?? [], key: 'id', countKey: 'requiredActionStates', name: 'requiredActionStates' },
+    { table: db.customFoods as any, data: data.customFoods ?? [], key: 'id', countKey: 'customFoods', name: 'customFoods' },
+    { table: db.exerciseState as any, data: data.exerciseState ?? [], key: 'id', countKey: 'exerciseState', name: 'exerciseState' },
+    { table: db.sessionChanges as any, data: data.sessionChanges ?? [], key: 'id', countKey: 'sessionChanges', name: 'sessionChanges' },
+    { table: db.sessionObservations as any, data: data.sessionObservations ?? [], key: 'id', countKey: 'sessionObservations', name: 'sessionObservations' },
   ]
   
   for (const { table, data: tableData, key, countKey, name } of tablesToImport) {
@@ -563,7 +630,7 @@ async function applyImport(
   return result
 }
 
-async function verifyImport(_importedData: ExportData): Promise<VerificationResult> {
+async function verifyImport(importedData: ExportData): Promise<VerificationResult> {
   const checks = {
     recordCounts: true,
     referentialIntegrity: true,
@@ -595,6 +662,27 @@ async function verifyImport(_importedData: ExportData): Promise<VerificationResu
       }
     }
     
+    // Verificar que las claves primarias recibidas realmente existan en Dexie.
+    // Así recordCounts deja de ser un valor fijo que siempre pasaba.
+    const countChecks = await Promise.all([
+      db.routineStore.bulkGet((importedData.routines ?? []).map(r => r.id)),
+      db.trainingSessions.bulkGet((importedData.trainingSessions ?? []).map(r => r.id)),
+      db.sessionExercises.bulkGet((importedData.sessionExercises ?? []).map(r => r.sessionExerciseId)),
+      db.setRecords.bulkGet((importedData.setRecords ?? []).map(r => r.setRecordId)),
+      db.hydrationBottles.bulkGet((importedData.hydrationBottles ?? []).map(r => r.id)),
+      db.hydrationBottleLogs.bulkGet((importedData.hydrationBottleLogs ?? []).map(r => r.id)),
+      db.customFoods.bulkGet((importedData.customFoods ?? []).map(r => r.id)),
+      db.unifiedNotifConfigs.bulkGet((importedData.unifiedNotifConfigs ?? []).map(r => r.id)),
+    ])
+    const missingImportedRecords = countChecks.reduce(
+      (sum, rows) => sum + rows.filter(row => row === undefined).length,
+      0,
+    )
+    checks.recordCounts = missingImportedRecords === 0
+    if (!checks.recordCounts) {
+      details.push(`Registros del respaldo no encontrados después de importar: ${missingImportedRecords}`)
+    }
+
     const routineIds = new Set((await db.routineStore.toArray()).map(r => r.id))
     const sessionRoutineIds = new Set((await db.trainingSessions.toArray()).map(s => s.routineId))
     for (const sRoutineId of sessionRoutineIds) {
@@ -672,6 +760,9 @@ export async function generateImportPreview(file: File): Promise<ImportPreview> 
 }
 
 export async function importJSON(file: File, options: ImportOptions = { mode: 'merge' }): Promise<ImportResult> {
+  if (options.mode !== 'merge') {
+    throw new Error('La importación por reemplazo está deshabilitada hasta implementar un reemplazo transaccional completo y verificable. Usá Combinar para conservar los datos actuales.')
+  }
   const txt = await file.text()
   let data = JSON.parse(txt)
   
@@ -713,6 +804,9 @@ export async function importJSON(file: File, options: ImportOptions = { mode: 'm
     db.exerciseKnowledge, db.scoreSnapshots, db.onboardingDrafts,
     db.painLogs, db.cfWods, db.cfSchedule, db.cfResults, db.cfMarks,
     db.activitySessions, db.exerciseRecords, db.cycleVersions,
+    db.hydrationBottles, db.hydrationBottleLogs, db.notifConfigs, db.notifLog,
+    db.unifiedNotifConfigs, db.requiredActionStates, db.customFoods,
+    db.exerciseState, db.sessionChanges, db.sessionObservations,
   ], async () => {
     return await applyImport(migrated, options, conflicts)
   })
