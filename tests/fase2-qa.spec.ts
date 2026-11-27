@@ -270,6 +270,9 @@ test.describe('FASE FINAL — R5: Cambiar día sin reiniciar (1366px)', () => {
     await page.goto('/entrenar')
     await page.waitForLoadState('networkidle')
 
+    // La acción está dentro del grupo plegado "Más opciones de la sesión"
+    // para evitar saturar la vista; el test debe abrirlo antes de usarla.
+    await page.locator('button[aria-label="Más opciones de la sesión"]:visible').first().click()
     const btn = page.getByRole('button', { name: 'Cambiar día de entrenamiento' })
     await expect(btn).toBeVisible({ timeout: 20000 })
 
