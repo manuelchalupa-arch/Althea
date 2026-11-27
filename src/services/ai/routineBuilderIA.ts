@@ -990,7 +990,7 @@ INSTRUCCIONES:
 5. No repitas el mismo ejercicio dentro del día. Entre días, evitá repetir el mismo ID si hay alternativa del mismo grupo muscular.
 6. Distribuí el volumen según las prioridades y el tiempo disponible.
 7. weekMap: 7 valores (Dom=0,Lun=1,Mar=2,Mié=3,Jue=4,Vie=5,Sáb=6). null=descanso, N=número de día. Cada día debe aparecer una vez.
-8. gifUrl: ${GYM_BASE}/api/es/exercises/{muscle}/{slug}.gif
+8. No repitas nombre, músculo ni gifUrl por ejercicio: Althea los completa desde el catálogo usando exId.
 9. "priorities": lista breve de las prioridades que interpretaste (ej. ["piernas","brazos"]).
 10. No hagas preguntas en la respuesta: las restricciones de arriba ya resuelven el pedido.
 
@@ -1011,12 +1011,9 @@ Responde SOLO con este JSON (sin explicaciones, sin markdown):
     "1": [
       {
         "exId": "chest/barbell-bench-press",
-        "name": "Press de banca",
-        "muscle": "pectorals",
         "sets": 4,
         "reps": 10,
-        "weight": 0,
-        "gifUrl": "${GYM_BASE}/api/es/exercises/pectorals/barbell-bench-press.gif"
+        "weight": 0
       }
     ],
     "2": []
@@ -1079,7 +1076,7 @@ async function callAi(prompt: string): Promise<string> {
       ],
       // Parámetros legacy: el Worker fija el modelo y el formato JSON.
       top_p: 0.9,
-      max_tokens: 8192,
+      max_tokens: 4096,
       temperature: 0.7,
       stream: false
     })
