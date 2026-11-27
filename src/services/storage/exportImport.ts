@@ -538,7 +538,7 @@ function validateExportData(data: any): { valid: boolean; errors: string[] } {
     'exerciseState', 'sessionChanges', 'sessionObservations',
     'legacyRoutines', 'legacySessions', 'legacySetLogs',
     'feedbackThreads', 'feedbackMessages', 'feedbackOutbox',
-    'restTimerState', 'cfTimerState',
+    'restTimerState', 'cfTimerState', 'syncQueue', 'syncDeletes',
   ]
   
   for (const table of requiredTables) {
@@ -632,6 +632,8 @@ async function detectConflicts(
     { name: 'feedbackOutbox', table: db.feedbackOutbox, records: importedData.feedbackOutbox ?? [], key: 'id' },
     { name: 'restTimerState', table: db.restTimerState, records: importedData.restTimerState ?? [], key: 'id' },
     { name: 'cfTimerState', table: db.cfTimerState, records: importedData.cfTimerState ?? [], key: 'id' },
+    { name: 'syncQueue', table: db.syncQueue, records: importedData.syncQueue ?? [], key: 'id' },
+    { name: 'syncDeletes', table: db.syncDeletes, records: importedData.syncDeletes ?? [], key: 'id' },
   ] as const
 
   const conflicts: ConflictInfo[] = []
