@@ -1780,7 +1780,8 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
       setDays([...new Set(profileDays.map(Number).filter((d:number)=>Number.isInteger(d)&&d>=0&&d<=6))])
       setModality(p.trainingModality==='crossfit'?'crossfit':'gym')
       const eqMap:Record<string,string>={barra:'barbell',mancuernas:'dumbbell',maquina:'machine',polea:'cable',peso_corporal:'bodyweight',banda:'band'}
-      const sourceEquipment=Array.isArray(p.equipment)&&p.equipment.length?p.equipment:Array.isArray(p.preferences?.preferredEquipment)?p.preferences.preferredEquipment:[]\n      const eq=sourceEquipment.map((v:string)=>eqMap[v]||v)
+      const sourceEquipment=Array.isArray(p.equipment)&&p.equipment.length?p.equipment:Array.isArray(p.preferences?.preferredEquipment)?p.preferences.preferredEquipment:[]
+      const eq=sourceEquipment.map((v:string)=>eqMap[v]||v)
       setEquipment(eq)
       const tone=String(p.coachTone||p.coachIntensity||'profesional').toLowerCase()
       setCoachTone(tone.includes('padelero')||tone.includes('motiv')?'motivacional':tone.includes('arnold')||tone==='duro'?'duro':tone.includes('psycho')||tone==='extremo'?'extremo':'profesional')
