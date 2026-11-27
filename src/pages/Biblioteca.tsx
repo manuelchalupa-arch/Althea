@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 import { MUSCLE_LIBRARY_GROUPS } from '@/data/muscleLibraryConfig'
@@ -53,7 +53,7 @@ export default function Biblioteca(){
   const musclePct = (ex: Gym.Exercise)=> effectiveBreakdown(ex)
 
   // Síntesis: ejercicios curados + los propios del usuario, separados por finalidad.
-  const load = async (group: string, allMode: boolean = showAll, p: ExercisePurpose = purpose)=>{
+  const load = useCallback(async (group: string, allMode: boolean = showAll, p: ExercisePurpose = purpose)=>{
     setSelectedKey(group); setLoading(true); setError(null)
     const cacheKey = `trad:${p}:${group}${allMode ? ':all' : ''}`
     try{
@@ -98,7 +98,7 @@ export default function Biblioteca(){
       if(cached){ setExercises(cached); setError('Mostrando caché offline (sin conexión).') }
       else {setError(e.message || 'Error al cargar')}
     }finally{ setLoading(false) }
-  }
+  }, [showAll, purpose])
 
   // Abrir la biblioteca con la consulta que originó una búsqueda global.
   useEffect(() => {
@@ -111,9 +111,8 @@ export default function Biblioteca(){
       void load('__all__', true, 'conventional')
       return
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     void load('__all__', false, 'conventional')
-  }, [location.key])
+  }, [location.key, location.search, load])
 
   const BODY_PART_GROUP: Record<string, TraditionalGroupId> = {
     legs: 'piernas', chest: 'pecho', back: 'espalda', core: 'core',
