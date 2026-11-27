@@ -113,8 +113,7 @@ export default function Mas(){
         <InstallAppButton />
       </header>
 
-      {stats && (
-          {/* ═══ RESUMEN (breve: 3 elementos, no un tablero) ═══ */}
+      {stats ? (
           <section aria-label="Resumen de actividad">
             <AltheaCardHeader title="Resumen" subtitle="Tu actividad en un vistazo" icon="monitoring" />
             <div className="grid grid-cols-2 gap-3">
@@ -135,7 +134,7 @@ export default function Mas(){
               </AltheaCard>
             </div>
           </section>
-      )}
+      ) : null}
 
       {/* ═══ SECCIONES (fuente única MAS_GROUPS: mismos destinos que la barra lateral) ═══ */}
           <section aria-label="Accesos a secciones">
