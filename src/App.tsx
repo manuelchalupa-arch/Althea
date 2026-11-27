@@ -33,12 +33,9 @@ const Actividad = lazy(() => import('@/pages/Actividad'))
 const Login = lazy(() => import('@/pages/Login'))
 const FeedbackEntry = lazy(() => import('@/pages/FeedbackEntry'))
 const FeedbackThreadPage = lazy(() => import('@/pages/FeedbackThreadPage'))
-// El chat es un FAB que está montado siempre, pero arrastra detrás todo el
-// subsistema de IA (chatService → unifiedPipeline → systemPrompt → contextBuilder
-// → *MethodsDB), que son ~150 KB de JS que el primer render no usa. Con import
-// estático esa cadena entra en el chunk inicial. Se difiere: el FAB aparece
-// tras cargar su chunk, sin bloquear el resto de la app.
-const ChatWidget = lazy(() => import('@/components/chat/ChatWidget'))
+// ChatWidget se importa de forma estática para evitar un chunk diferido que
+// venía fallando en producción tras las publicaciones de Cloudflare Pages.
+import ChatWidget from '@/components/chat/ChatWidget'
 
 // Fallback component for lazy loading
 function PageLoader() {
