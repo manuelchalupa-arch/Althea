@@ -10,8 +10,127 @@ import type { DecisionRecord } from '@/services/ai/decisionLogger'
 import type { KnowledgeDocument } from '@/services/ai/knowledgeBase'
 import type { ExerciseKnowledgeEntry } from '@/services/ai/exerciseKnowledge'
 
-export const EXPORT_FORMAT_VERSION = 4
+export const EXPORT_FORMAT_VERSION = 5
 export const APP_VERSION = '0.21.0'
+
+// Versiones de respaldo: v4 es compatible con los archivos generados por
+// la rama anterior; v5 agrega la selección de rutina activa y exige validar
+// el manifiesto completo antes de restaurar.
+const EXPORT_TABLES_V4 = [
+  'routines',
+  'routineDays',
+  'routineExercises',
+  'trainingSessions',
+  'sessionExercises',
+  'setRecords',
+  'sessionEvents',
+  'postWorkoutSurveys',
+  'negativeSets',
+  'exerciseObservations',
+  'recoveryChecks',
+  'hydrationLogs',
+  'bodyMeasurements',
+  'userProfile',
+  'customExercises',
+  'weeklySequences',
+  'chatMessages',
+  'chatConversations',
+  'nutritionDiary',
+  'nutritionAdherence',
+  'sessionOverrides',
+  'coachMemory',
+  'decisionLog',
+  'knowledgeDocuments',
+  'exerciseKnowledge',
+  'scoreSnapshots',
+  'onboardingDrafts',
+  'painLogs',
+  'cfWods',
+  'cfSchedule',
+  'cfResults',
+  'cfMarks',
+  'activitySessions',
+  'exerciseRecords',
+  'cycleVersions',
+  'hydrationBottles',
+  'hydrationBottleLogs',
+  'notifConfigs',
+  'notifLog',
+  'unifiedNotifConfigs',
+  'requiredActionStates',
+  'customFoods',
+  'exerciseState',
+  'sessionChanges',
+  'sessionObservations',
+  'legacyRoutines',
+  'legacySessions',
+  'legacySetLogs',
+  'feedbackThreads',
+  'feedbackMessages',
+  'feedbackOutbox',
+  'restTimerState',
+  'cfTimerState',
+  'syncQueue',
+  'syncDeletes',
+] as const
+const EXPORT_TABLES_V5 = [
+  'routines',
+  'routineDays',
+  'routineExercises',
+  'trainingSessions',
+  'sessionExercises',
+  'setRecords',
+  'sessionEvents',
+  'postWorkoutSurveys',
+  'negativeSets',
+  'exerciseObservations',
+  'recoveryChecks',
+  'hydrationLogs',
+  'bodyMeasurements',
+  'userProfile',
+  'customExercises',
+  'weeklySequences',
+  'chatMessages',
+  'chatConversations',
+  'nutritionDiary',
+  'nutritionAdherence',
+  'sessionOverrides',
+  'coachMemory',
+  'decisionLog',
+  'knowledgeDocuments',
+  'exerciseKnowledge',
+  'scoreSnapshots',
+  'onboardingDrafts',
+  'painLogs',
+  'cfWods',
+  'cfSchedule',
+  'cfResults',
+  'cfMarks',
+  'activitySessions',
+  'exerciseRecords',
+  'cycleVersions',
+  'hydrationBottles',
+  'hydrationBottleLogs',
+  'notifConfigs',
+  'notifLog',
+  'unifiedNotifConfigs',
+  'requiredActionStates',
+  'customFoods',
+  'exerciseState',
+  'sessionChanges',
+  'sessionObservations',
+  'legacyRoutines',
+  'legacySessions',
+  'legacySetLogs',
+  'feedbackThreads',
+  'feedbackMessages',
+  'feedbackOutbox',
+  'restTimerState',
+  'cfTimerState',
+  'syncQueue',
+  'syncDeletes',
+  'routineStoreMeta',
+] as const
 
 export interface ExportMetadata {
   version: number
@@ -33,6 +152,9 @@ export interface ImportOptions {
 export interface ImportPreview {
   summary: {
     routines: number
+    routineDays: number
+    routineExercises: number
+    routineStoreMeta: number
     sessions: number
     sessionExercises: number
     setRecords: number
@@ -80,6 +202,9 @@ export interface ImportResult {
   success: boolean
   imported: {
     routines: number
+    routineDays: number
+    routineExercises: number
+    routineStoreMeta: number
     sessions: number
     sessionExercises: number
     setRecords: number
@@ -181,6 +306,8 @@ export interface ExportData {
   scoreSnapshots: any[]
   onboardingDrafts: any[]
   painLogs: PainLog[]
+  /** Preferencia local necesaria para restaurar qué rutina estaba activa. */
+  routineStoreMeta: Array<{ id: string; activeId: string; createdAt: string; updatedAt: string }>
   // Añadidas aditivamente (sin bump de versión): antes el respaldo omitía
   // CrossFit, actividad, historial de ejercicios y versiones de ciclo.
   // Opcionales para seguir leyendo archivos antiguos.
@@ -216,6 +343,9 @@ export interface ExportData {
 async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
   const allRoutines = await db.routineStore.toArray()
   const routines = allRoutines.filter((r): r is RoutineData => 'dayExercises' in r)
+  const routineStoreMeta = allRoutines.filter((r): r is { id: string; activeId: string; createdAt: string; updatedAt: string } =>
+    'activeId' in r && typeof r.activeId === 'string'
+  )
   
   const [
     routineDays,
@@ -331,6 +461,7 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
 
   return {
     routines,
+    routineStoreMeta,
     routineDays,
     routineExercises,
     trainingSessions,
@@ -492,7 +623,7 @@ function migrateExportData(data: any, fromVersion: number): ExportData {
     'exerciseState', 'sessionChanges', 'sessionObservations',
     'legacyRoutines', 'legacySessions', 'legacySetLogs',
     'feedbackThreads', 'feedbackMessages', 'feedbackOutbox',
-    'restTimerState', 'cfTimerState', 'syncQueue', 'syncDeletes', 'syncQueue', 'syncDeletes',
+    'restTimerState', 'cfTimerState', 'syncQueue', 'syncDeletes', 'routineStoreMeta',
   ]
   for (const table of additiveTables) {
     if (!Array.isArray(migrated[table])) { migrated[table] = [] }
@@ -503,52 +634,93 @@ function migrateExportData(data: any, fromVersion: number): ExportData {
 
 function validateExportData(data: any): { valid: boolean; errors: string[] } {
   const errors: string[] = []
-  
-  if (!data || typeof data !== 'object') {
+
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
     errors.push('Datos inválidos: no es un objeto')
     return { valid: false, errors }
   }
-  
-  if (!data.metadata) {
+
+  const metadata = data.metadata
+  const formatVersion = Number(metadata?.version)
+
+  if (!metadata || typeof metadata !== 'object') {
     errors.push('Falta metadata de exportación')
   } else {
-    if (!data.metadata.version || data.metadata.version < 1 || data.metadata.version > EXPORT_FORMAT_VERSION) {
-      errors.push(`Versión de formato inválida: ${data.metadata.version} (actual: ${EXPORT_FORMAT_VERSION})`)
+    if (!Number.isInteger(formatVersion) || formatVersion < 1 || formatVersion > EXPORT_FORMAT_VERSION) {
+      errors.push(`Versión de formato inválida: ${metadata.version} (actual: ${EXPORT_FORMAT_VERSION})`)
     }
-    if (!data.metadata.exportedAt) {
+    if (typeof metadata.exportedAt !== 'string' || !metadata.exportedAt) {
       errors.push('Falta fecha de exportación')
     }
-    if (!data.metadata.schemaVersion) {
+    if (!Number.isInteger(Number(metadata.schemaVersion)) || Number(metadata.schemaVersion) < 1) {
       errors.push('Falta versión de esquema')
-    } else if (Number(data.metadata.schemaVersion) > 29) {
+    } else if (Number(metadata.schemaVersion) > 29) {
       errors.push('El respaldo proviene de una versión de esquema más nueva. Actualizá Althea antes de importarlo para evitar pérdida de información.')
     }
   }
-  
-  const requiredTables = [
-    'routines', 'trainingSessions', 'sessionExercises', 'setRecords',
-    'sessionEvents', 'postWorkoutSurveys', 'negativeSets', 'exerciseObservations',
-    'recoveryChecks', 'hydrationLogs', 'bodyMeasurements', 'userProfile',
-    'customExercises', 'weeklySequences', 'chatMessages', 'chatConversations',
-    'nutritionDiary', 'nutritionAdherence', 'sessionOverrides', 'coachMemory',
-    'decisionLog', 'knowledgeDocuments', 'exerciseKnowledge', 'scoreSnapshots',
-    'onboardingDrafts', 'painLogs',
-    'cfWods', 'cfSchedule', 'cfResults', 'cfMarks',
-    'activitySessions', 'exerciseRecords', 'cycleVersions',
-    'hydrationBottles', 'hydrationBottleLogs', 'notifConfigs', 'notifLog',
-    'unifiedNotifConfigs', 'requiredActionStates', 'customFoods',
-    'exerciseState', 'sessionChanges', 'sessionObservations',
-    'legacyRoutines', 'legacySessions', 'legacySetLogs',
-    'feedbackThreads', 'feedbackMessages', 'feedbackOutbox',
-    'restTimerState', 'cfTimerState', 'syncQueue', 'syncDeletes',
-  ]
-  
-  for (const table of requiredTables) {
-    if (!Array.isArray(data[table])) {
-      data[table] = []
+
+  // Los manifiestos v4/v5 contienen tanto la lista de tablas como sus conteos.
+  // Validarlos evita aceptar un respaldo truncado como si estuviera completo.
+  if (formatVersion >= 4 && formatVersion <= EXPORT_FORMAT_VERSION) {
+    const expectedTables: readonly string[] = formatVersion === 4 ? EXPORT_TABLES_V4 : EXPORT_TABLES_V5
+    const expectedSet = new Set(expectedTables)
+    const actualTables = Object.keys(data).filter(key => key !== 'metadata')
+    const declaredTables = metadata?.tables
+    const recordCounts = metadata?.recordCounts
+
+    if (!Array.isArray(declaredTables)) {
+      errors.push('El respaldo no contiene el manifiesto de tablas.')
+    } else {
+      const declared = new Set<string>(declaredTables.filter((table: unknown): table is string => typeof table === 'string'))
+      for (const table of expectedTables) {
+        if (!declared.has(table)) {
+          errors.push(`El respaldo está incompleto: falta la tabla ${table} en el manifiesto.`)
+        }
+      }
+      for (const table of declaredTables) {
+        if (typeof table !== 'string' || !expectedSet.has(table)) {
+          errors.push(`El manifiesto contiene una tabla desconocida: ${String(table)}.`)
+        }
+      }
+      for (const table of actualTables) {
+        if (!declared.has(table)) {
+          errors.push(`La tabla ${table} no figura en el manifiesto del respaldo.`)
+        }
+      }
+      for (const table of declaredTables) {
+        if (!actualTables.includes(table)) {
+          errors.push(`El respaldo está incompleto: no contiene la tabla ${String(table)}.`)
+        }
+      }
+    }
+
+    if (!recordCounts || typeof recordCounts !== 'object' || Array.isArray(recordCounts)) {
+      errors.push('El respaldo no contiene los conteos de registros.')
+    } else {
+      for (const table of expectedTables) {
+        if (!Array.isArray(data[table])) {
+          errors.push(`El respaldo está incompleto o dañado: ${table} no es una lista válida.`)
+          continue
+        }
+        const expectedCount = recordCounts[table]
+        if (!Number.isInteger(expectedCount) || expectedCount < 0 || expectedCount !== data[table].length) {
+          errors.push(`El conteo del respaldo no coincide en ${table}.`)
+        }
+      }
+      for (const table of Object.keys(recordCounts)) {
+        if (!expectedSet.has(table)) {
+          errors.push(`El manifiesto de conteos contiene una tabla desconocida: ${table}.`)
+        }
+      }
+    }
+  } else {
+    // Copias antiguas (v1-v3): se completan solo las tablas agregadas después
+    // de su formato. Nunca se aplica este fallback a un respaldo v4/v5 dañado.
+    for (const table of EXPORT_TABLES_V5) {
+      if (!Array.isArray(data[table])) { data[table] = [] }
     }
   }
-  
+
   return { valid: errors.length === 0, errors }
 }
 
@@ -582,6 +754,7 @@ async function detectConflicts(
   // las tablas. No se decide por timestamp ni por el tipo de dato.
   const tables = [
     { name: 'routineStore', table: db.routineStore, records: importedData.routines ?? [], key: 'id' },
+    { name: 'routineStoreMeta', table: db.routineStore, records: importedData.routineStoreMeta ?? [], key: 'id' },
     { name: 'routineDays', table: db.routineDays, records: importedData.routineDays ?? [], key: 'id' },
     { name: 'routineExercises', table: db.routineExercises, records: importedData.routineExercises ?? [], key: 'id' },
     { name: 'trainingSessions', table: db.trainingSessions, records: importedData.trainingSessions ?? [], key: 'id' },
@@ -702,7 +875,8 @@ async function applyImport(
   const result: Omit<ImportResult, 'verification'> = {
     success: false,
     imported: {
-      routines: 0, sessions: 0, sessionExercises: 0, setRecords: 0,
+      routines: 0, routineDays: 0, routineExercises: 0, routineStoreMeta: 0,
+      sessions: 0, sessionExercises: 0, setRecords: 0,
       sessionEvents: 0, surveys: 0, negativeSets: 0, observations: 0,
       recoveryChecks: 0, hydrationLogs: 0, bodyMeasurements: 0,
       userProfile: false, customExercises: 0, weeklySequences: 0,
@@ -725,8 +899,9 @@ async function applyImport(
   
   const tablesToImport = [
     { table: db.routineStore as any, data: data.routines ?? [], key: 'id', countKey: 'routines', name: 'routineStore' },
-    { table: db.routineDays as any, data: data.routineDays ?? [], key: 'id', countKey: 'routines', name: 'routineDays' },
-    { table: db.routineExercises as any, data: data.routineExercises ?? [], key: 'id', countKey: 'routines', name: 'routineExercises' },
+    { table: db.routineStore as any, data: data.routineStoreMeta ?? [], key: 'id', countKey: 'routineStoreMeta', name: 'routineStoreMeta' },
+    { table: db.routineDays as any, data: data.routineDays ?? [], key: 'id', countKey: 'routineDays', name: 'routineDays' },
+    { table: db.routineExercises as any, data: data.routineExercises ?? [], key: 'id', countKey: 'routineExercises', name: 'routineExercises' },
     { table: db.trainingSessions as any, data: data.trainingSessions ?? [], key: 'id', countKey: 'sessions', name: 'trainingSessions' },
     { table: db.sessionExercises as any, data: data.sessionExercises ?? [], key: 'sessionExerciseId', countKey: 'sessionExercises', name: 'sessionExercises' },
     { table: db.setRecords as any, data: data.setRecords ?? [], key: 'setRecordId', countKey: 'setRecords', name: 'setRecords' },
@@ -891,6 +1066,7 @@ async function verifyImport(importedData: ExportData): Promise<VerificationResul
     // defecto: se verifican las claves que realmente quedaron en Dexie.
     const countSpecs: Array<{ name: string; table: any; records: any[]; key: string }> = [
       { name: 'Rutinas', table: db.routineStore, records: importedData.routines ?? [], key: 'id' },
+      { name: 'Preferencia de rutina activa', table: db.routineStore, records: importedData.routineStoreMeta ?? [], key: 'id' },
       { name: 'Días de rutina', table: db.routineDays, records: importedData.routineDays ?? [], key: 'id' },
       { name: 'Ejercicios de rutina', table: db.routineExercises, records: importedData.routineExercises ?? [], key: 'id' },
       { name: 'Sesiones', table: db.trainingSessions, records: importedData.trainingSessions ?? [], key: 'id' },
@@ -1007,7 +1183,8 @@ export async function generateImportPreview(file: File): Promise<ImportPreview> 
   if (!validation.valid) {
     return {
       summary: {
-        routines: 0, sessions: 0, sessionExercises: 0, setRecords: 0,
+        routines: 0, routineDays: 0, routineExercises: 0, routineStoreMeta: 0,
+        sessions: 0, sessionExercises: 0, setRecords: 0,
         sessionEvents: 0, surveys: 0, negativeSets: 0, observations: 0,
         recoveryChecks: 0, hydrationLogs: 0, hydrationBottles: 0,
         hydrationBottleLogs: 0, customFoods: 0, notificationConfigs: 0,
@@ -1032,6 +1209,9 @@ export async function generateImportPreview(file: File): Promise<ImportPreview> 
   
   const summary = {
     routines: migrated.routines.length,
+    routineDays: migrated.routineDays.length,
+    routineExercises: migrated.routineExercises.length,
+    routineStoreMeta: (migrated.routineStoreMeta ?? []).length,
     sessions: migrated.trainingSessions.length,
     sessionExercises: migrated.sessionExercises.length,
     setRecords: migrated.setRecords.length,
