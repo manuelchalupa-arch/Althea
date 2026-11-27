@@ -65,7 +65,6 @@ export default function AppNav() {
     if (i.icon === 'training') { return hasActiveSession }
     return ['home', 'nutrition', 'progress', 'crossfit'].includes(i.icon as string)
   })
-  const moreItem = NAV_ITEMS.find(i => i.icon === 'more')!
   // Deduplicar por ICONO, no por ruta: '/progreso' y '/progresos' son dos
   // strings que renderizan la misma pagina (Progreso.tsx). Comparar por icono
   // cubre ese caso y cualquier alias futuro.
