@@ -642,6 +642,10 @@ async function detectConflicts(
   const seen = new Set<string>()
 
   for (const spec of tables) {
+    // Los marcadores syncDeletes usan PK autonumérica local. Se combinan por
+    // (tabla, documento) en applyImport para poder re-generar su id sin perder
+    // tombstones de otro dispositivo que hayan colisionado numéricamente.
+    if (spec.name === 'syncDeletes') { continue }
     const records = spec.records.filter((record: any) => record?.[spec.key] !== undefined && record?.[spec.key] !== null)
     if (records.length === 0) { continue }
 
@@ -783,7 +787,30 @@ async function applyImport(
     const conflictIds = new Set(conflicts.filter(c => c.table === name).map(c => String(c.id)))
 
     let recordsToImport = tableData
-    if (options.mode === 'merge') {
+    if (options.mode === 'merge' && name === 'syncDeletes') {
+      // syncDeletes usa id autonumérico local: el mismo id puede apuntar a
+      // distintos borrados en dos dispositivos. Deduplicar por tabla/docId y
+      // asignar un nuevo id si el id exportado ya está ocupado por otro tombstone.
+      const importedLogicalKeys = new Set<string>()
+      recordsToImport = []
+      for (const record of tableData) {
+        const hasLogicalKey = record?.table != null && record?.docId != null
+        const logicalKey = hasLogicalKey ? `${String(record.table)}\u0000${String(record.docId)}` : null
+        if (logicalKey && importedLogicalKeys.has(logicalKey)) { continue }
+        if (logicalKey) { importedLogicalKeys.add(logicalKey) }
+        const existingLogical = hasLogicalKey
+          ? await db.syncDeletes.where('table').equals(record.table).filter((row: any) => row.docId === record.docId).first()
+          : undefined
+        if (existingLogical) { continue }
+        const existingId = record?.id != null ? await db.syncDeletes.get(record.id) : undefined
+        if (existingId) {
+          const { id: _localAutoId, ...withoutLocalAutoId } = record
+          recordsToImport.push(withoutLocalAutoId)
+        } else {
+          recordsToImport.push(record)
+        }
+      }
+    } else if (options.mode === 'merge') {
       // Segunda barrera dentro de la transacción: aunque aparezca una
       // escritura local después de generar el preview, jamás se sobrescribe.
       const primaryKeys = tableData
@@ -916,7 +943,7 @@ async function verifyImport(importedData: ExportData): Promise<VerificationResul
       { name: 'Cronómetro de descanso', table: db.restTimerState, records: importedData.restTimerState ?? [], key: 'id' },
       { name: 'Cronómetro CrossFit', table: db.cfTimerState, records: importedData.cfTimerState ?? [], key: 'id' },
       { name: 'Cola de sincronización', table: db.syncQueue, records: importedData.syncQueue ?? [], key: 'id' },
-      { name: 'Marcadores de borrado', table: db.syncDeletes, records: importedData.syncDeletes ?? [], key: 'id' },
+      // syncDeletes se verifica por su identidad lógica (tabla + docId), no por el id autonumérico.
     ]
     const countResults = await Promise.all(countSpecs.map(async ({ name, table, records, key }) => {
       if (records.length === 0) { return { name, missing: 0 } }
@@ -928,11 +955,25 @@ async function verifyImport(importedData: ExportData): Promise<VerificationResul
       return { name, missing }
     }))
     const missingImportedRecords = countResults.reduce((sum, result) => sum + result.missing, 0)
-    checks.recordCounts = missingImportedRecords === 0
+    const importedDeleteMarkers = importedData.syncDeletes ?? []
+    let missingDeleteMarkers = 0
+    for (const marker of importedDeleteMarkers) {
+      if (marker?.table == null || marker?.docId == null) {
+        missingDeleteMarkers += 1
+        continue
+      }
+      const exists = await db.syncDeletes.where('table').equals(marker.table)
+        .filter((row: any) => row.docId === marker.docId).first()
+      if (!exists) { missingDeleteMarkers += 1 }
+    }
+    checks.recordCounts = missingImportedRecords === 0 && missingDeleteMarkers === 0
     if (!checks.recordCounts) {
       const affected = countResults.filter(result => result.missing > 0)
         .map(result => `${result.name}: ${result.missing}`)
       details.push(`Registros no verificados después de importar: ${affected.join(', ')}`)
+      if (missingDeleteMarkers > 0) {
+        details.push(`Marcadores de borrado no verificados: ${missingDeleteMarkers}`)
+      }
     }
 
     const routineIds = new Set((await db.routineStore.toArray()).map(r => r.id))
