@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, X, Dumbbell, Apple, ClipboardList, ArrowUpRight, LoaderCircle } from 'lucide-react'
 import { db } from '@/services/storage/db'
@@ -44,7 +44,7 @@ export default function GlobalSearchDialog({ onClose }: { onClose: () => void })
   const total = results.exercise.length + results.food.length + results.routine.length
   const term = query.trim()
 
-  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+  const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (event.key !== 'Tab') { return }
     const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
       'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
@@ -222,7 +222,7 @@ export default function GlobalSearchDialog({ onClose }: { onClose: () => void })
           onMouseDown={(event) => { if (event.target === event.currentTarget) { close() } }}
         >
           <section
-            ref={dialogRef as React.RefObject<HTMLElement>}
+            ref={(node) => { dialogRef.current = node }}
             role="dialog"
             aria-modal="true"
             aria-label="Búsqueda general de Althea"
