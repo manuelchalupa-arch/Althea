@@ -312,7 +312,7 @@ describe('Render de páginas no muta datos (Etapa 9)', () => {
 
     fireEvent.click(openButton)
     const dialog = await screen.findByRole('dialog', { name: 'Notificaciones y recordatorios' })
-    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
 
     const closeButton = screen.getByRole('button', { name: 'Cerrar notificaciones y recordatorios' })
     expect(closeButton.className).toContain('min-h-[44px]')
