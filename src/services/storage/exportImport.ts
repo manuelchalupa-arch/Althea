@@ -55,6 +55,8 @@ export interface ImportPreview {
     feedbackOutbox: number
     restTimerState: number
     cfTimerState: number
+    syncQueue: number
+    syncDeletes: number
     userProfile: boolean
     routinesNew: number
     routinesUpdated: number
@@ -128,6 +130,8 @@ export interface ImportResult {
     feedbackOutbox: number
     restTimerState: number
     cfTimerState: number
+    syncQueue: number
+    syncDeletes: number
   }
   errors: string[]
   conflicts: ConflictInfo[]
@@ -205,6 +209,8 @@ export interface ExportData {
   feedbackOutbox?: any[]
   restTimerState?: any[]
   cfTimerState?: any[]
+  syncQueue?: any[]
+  syncDeletes?: any[]
 }
 
 async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
@@ -264,6 +270,8 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     feedbackOutbox,
     restTimerState,
     cfTimerState,
+    syncQueue,
+    syncDeletes,
   ] = await Promise.all([
     db.routineDays.toArray(),
     db.routineExercises.toArray(),
@@ -317,6 +325,8 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     db.feedbackOutbox.toArray(),
     db.restTimerState.toArray(),
     db.cfTimerState.toArray(),
+    db.syncQueue.toArray(),
+    db.syncDeletes.toArray(),
   ])
 
   return {
@@ -373,6 +383,8 @@ async function collectAllData(): Promise<Omit<ExportData, 'metadata'>> {
     feedbackOutbox,
     restTimerState,
     cfTimerState,
+    syncQueue,
+    syncDeletes,
   }
 }
 
@@ -480,7 +492,7 @@ function migrateExportData(data: any, fromVersion: number): ExportData {
     'exerciseState', 'sessionChanges', 'sessionObservations',
     'legacyRoutines', 'legacySessions', 'legacySetLogs',
     'feedbackThreads', 'feedbackMessages', 'feedbackOutbox',
-    'restTimerState', 'cfTimerState',
+    'restTimerState', 'cfTimerState', 'syncQueue', 'syncDeletes',
   ]
   for (const table of additiveTables) {
     if (!Array.isArray(migrated[table])) { migrated[table] = [] }
@@ -697,7 +709,7 @@ async function applyImport(
       exerciseState: 0, sessionChanges: 0, sessionObservations: 0,
       legacyRoutines: 0, legacySessions: 0, legacySetLogs: 0,
       feedbackThreads: 0, feedbackMessages: 0, feedbackOutbox: 0,
-      restTimerState: 0, cfTimerState: 0,
+      restTimerState: 0, cfTimerState: 0, syncQueue: 0, syncDeletes: 0,
     },
     errors: [],
     conflicts,
@@ -757,6 +769,8 @@ async function applyImport(
     { table: db.feedbackOutbox as any, data: data.feedbackOutbox ?? [], key: 'id', countKey: 'feedbackOutbox', name: 'feedbackOutbox' },
     { table: db.restTimerState as any, data: data.restTimerState ?? [], key: 'id', countKey: 'restTimerState', name: 'restTimerState' },
     { table: db.cfTimerState as any, data: data.cfTimerState ?? [], key: 'id', countKey: 'cfTimerState', name: 'cfTimerState' },
+    { table: db.syncQueue as any, data: data.syncQueue ?? [], key: 'id', countKey: 'syncQueue', name: 'syncQueue' },
+    { table: db.syncDeletes as any, data: data.syncDeletes ?? [], key: 'id', countKey: 'syncDeletes', name: 'syncDeletes' },
   ]
   
   for (const { table, data: tableData, key, countKey, name } of tablesToImport) {
@@ -897,6 +911,8 @@ async function verifyImport(importedData: ExportData): Promise<VerificationResul
       { name: 'Cola de feedback', table: db.feedbackOutbox, records: importedData.feedbackOutbox ?? [], key: 'id' },
       { name: 'Cronómetro de descanso', table: db.restTimerState, records: importedData.restTimerState ?? [], key: 'id' },
       { name: 'Cronómetro CrossFit', table: db.cfTimerState, records: importedData.cfTimerState ?? [], key: 'id' },
+      { name: 'Cola de sincronización', table: db.syncQueue, records: importedData.syncQueue ?? [], key: 'id' },
+      { name: 'Marcadores de borrado', table: db.syncDeletes, records: importedData.syncDeletes ?? [], key: 'id' },
     ]
     const countResults = await Promise.all(countSpecs.map(async ({ name, table, records, key }) => {
       if (records.length === 0) { return { name, missing: 0 } }
@@ -951,7 +967,7 @@ export async function generateImportPreview(file: File): Promise<ImportPreview> 
         hydrationBottleLogs: 0, customFoods: 0, notificationConfigs: 0,
         bodyMeasurements: 0, legacyRoutines: 0, legacySessions: 0, legacySetLogs: 0,
         feedbackThreads: 0, feedbackMessages: 0, feedbackOutbox: 0,
-        restTimerState: 0, cfTimerState: 0, userProfile: false,
+        restTimerState: 0, cfTimerState: 0, syncQueue: 0, syncDeletes: 0, userProfile: false,
         routinesNew: 0, routinesUpdated: 0, routinesSkipped: 0,
         conflicts: [],
       },
@@ -992,6 +1008,8 @@ export async function generateImportPreview(file: File): Promise<ImportPreview> 
     feedbackOutbox: (migrated.feedbackOutbox ?? []).length,
     restTimerState: (migrated.restTimerState ?? []).length,
     cfTimerState: (migrated.cfTimerState ?? []).length,
+    syncQueue: (migrated.syncQueue ?? []).length,
+    syncDeletes: (migrated.syncDeletes ?? []).length,
     userProfile: migrated.userProfile.length > 0,
     routinesNew: migrated.routines.filter(r => !existingIds.has(r.id)).length,
     routinesUpdated: migrated.routines.filter(r => existingIds.has(r.id)).length,
@@ -1057,7 +1075,7 @@ export async function importJSON(file: File, options: ImportOptions = { mode: 'm
     db.exerciseState, db.sessionChanges, db.sessionObservations,
     db.routines, db.sessions, db.setLogs,
     db.feedbackThreads, db.feedbackMessages, db.feedbackOutbox,
-    db.restTimerState, db.cfTimerState,
+    db.restTimerState, db.cfTimerState, db.syncQueue, db.syncDeletes,
   ], async () => {
     return await applyImport(migrated, options, conflicts)
   })
