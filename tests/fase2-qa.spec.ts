@@ -215,8 +215,15 @@ test.describe('FASE 2 — Sesión en curso y finalización (390px)', () => {
 
     // La fixture tiene dos series: al confirmar la primera debe comenzar
     // el descanso entre series antes de permitir cambiar de ejercicio.
-    await expect(page.getByLabel('Terminar descanso')).toBeVisible({ timeout: 15000 })
-    await page.getByLabel('Ejercicio siguiente').click()
+    const restDialog = page.getByRole('dialog', { name: 'Descanso entre series' })
+    await expect(restDialog).toBeVisible({ timeout: 15000 })
+    await expect(restDialog).toHaveAttribute('aria-modal', 'true')
+
+    // El diálogo intercepta el puntero. El click forzado comprueba además
+    // que el guardado del estado bloquea el avance incluso si llega el evento.
+    const nextExercise = page.getByLabel('Ejercicio siguiente')
+    await expect(nextExercise).toBeVisible()
+    await nextExercise.click({ force: true })
     await expect(currentExercise).toBeVisible()
   })
 })
