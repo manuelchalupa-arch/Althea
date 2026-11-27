@@ -60,6 +60,24 @@ describe('Biblioteca — separación por finalidad', () => {
     expect(screen.queryByText('Salto, jack')).not.toBeInTheDocument()
   })
 
+  it('la búsqueda general abre la ficha exacta del ejercicio seleccionado y la tarjeta es accesible', async () => {
+    render(
+      <MemoryRouter initialEntries={[{
+        pathname: '/biblioteca',
+        search: '?buscar=Press de banca',
+        state: {
+          globalSearchKind: 'exercise',
+          globalSearchId: 'pectorals/barbell-bench-press',
+        },
+      }]}>
+        <Biblioteca />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Ver detalle de Press de banca con barra' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Marcar favorito' })).toBeInTheDocument()
+  })
+
   it('los grupos musculares siguen todos visibles con cualquier finalidad', async () => {
     render(<MemoryRouter><Biblioteca /></MemoryRouter>)
     await waitFor(() => expect(screen.getByText('Press de banca con barra')).toBeInTheDocument())
