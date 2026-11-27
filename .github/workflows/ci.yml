@@ -57,3 +57,83 @@ jobs:
           FIREBASE_STAGING_PROJECT_ID: demo-althea
           FIREBASE_PRODUCTION_PROJECT_ID: demo-althea-production
         run: npx --yes firebase-tools emulators:exec --project demo-althea --only auth,firestore "node scripts/firestore-isolation-e2e.mjs"
+
+  deploy-production:
+    name: Deploy production (Cloudflare Pages + Worker)
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build-and-test.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: 170d478ee67d5da8036859410f64be3a
+      # Firebase Web config is public client configuration, not a secret.
+      VITE_FIREBASE_API_KEY: AIzaSyCboMMOUuUhtqp96bVoN_WZaWhbv9ou-5I
+      VITE_FIREBASE_AUTH_DOMAIN: althea-4b1d0.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: althea-4b1d0
+      VITE_FIREBASE_STORAGE_BUCKET: althea-4b1d0.firebasestorage.app
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "756631647991"
+      VITE_FIREBASE_APP_ID: 1:756631647991:web:919921eaee888115cbc5f2
+      VITE_GROQ_PROXY_URL: https://althea-proxy-production.manuelchalupa.workers.dev
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Require Cloudflare deployment credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Falta CLOUDFLARE_API_TOKEN; no se publica producción."
+            exit 1
+          fi
+      - name: Validate production build configuration
+        run: |
+          for name in VITE_FIREBASE_API_KEY VITE_FIREBASE_AUTH_DOMAIN VITE_FIREBASE_PROJECT_ID VITE_FIREBASE_STORAGE_BUCKET VITE_FIREBASE_MESSAGING_SENDER_ID VITE_FIREBASE_APP_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Configuración pública de build incompleta: falta ${name}."
+              exit 1
+            fi
+          done
+          test "$VITE_FIREBASE_PROJECT_ID" = "althea-4b1d0"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build production bundle
+        run: npm run build
+      - name: Check release bundle
+        run: npm run check:release
+      - name: Deploy production AI Worker
+        run: npx wrangler@4.156.0 deploy --config worker/wrangler.production.toml
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      - name: Deploy to Cloudflare Pages
+        run: npx wrangler@4.156.0 pages deploy dist --project-name=altheafit --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      - name: Verify production Pages response
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..12}; do
+            status=$(curl --silent --show-error --output /tmp/althea-index.html --write-out '%{http_code}' https://altheafit.pages.dev/)
+            if [ "$status" = "200" ] && grep -q 'id="root"' /tmp/althea-index.html; then
+              echo "Cloudflare Pages production URL returned the application shell."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Cloudflare Pages did not serve the application shell after deployment."
+          exit 1
+      - name: Verify production Worker reachability and Pages CORS
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --output /tmp/althea-worker-body.json --dump-header /tmp/althea-worker-headers.txt --write-out '%{http_code}' \
+            --request POST 'https://althea-proxy-production.manuelchalupa.workers.dev' \
+            --header 'Origin: https://altheafit.pages.dev' \
+            --header 'Content-Type: application/json' \
+            --data '{"task":"routine","messages":[{"role":"user","content":"health-check"}]}')
+          test "$status" = "401"
+          grep -qi '^access-control-allow-origin: https://altheafit.pages.dev' /tmp/althea-worker-headers.txt
+          grep -q '"error":"unauthorized"' /tmp/althea-worker-body.json
+          echo "Worker reachable, production CORS accepted, Firebase authentication enforced."
