@@ -36,10 +36,9 @@ service cloud.firestore {
 
     // ── Lista de administradores ──────────────────────────────────────────
     match /admins/uids {
-      // Autoconsulta defensiva: solo un UID ya listado puede leer el documento.
-      allow get: if signedIn() && request.auth.uid in resource.data.uids;
-      allow list: if false;
-      allow create, update, delete: if false;
+      // La lista de roles es privada. isFeedbackAdmin() la consulta desde las
+      // reglas; ningún cliente puede leerla ni modificarla directamente.
+      allow read, write: if false;
     }
 
     // ── Conversaciones de feedback ────────────────────────────────────────

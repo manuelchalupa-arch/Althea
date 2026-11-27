@@ -465,29 +465,41 @@ if (isEmu) {
         bad(`feedbackThreads: no se pudo crear el hilo de prueba (${thread.status})`)
       } else {
         const unlisted = await readRootDoc(adminAccount.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
-        if (unlisted.status === 403) ok('feedback: un correo no incluido en la lista no obtiene privilegios')
+        if (unlisted.status === 403) ok('feedback: usuario no listado no obtiene privilegios')
         else bad(`feedback: usuario no listado debía recibir 403, obtuvo ${unlisted.status}`)
+
+        let verifiedToken = ''
+        const verification = await verifyAuthEmail(adminEmail, adminAccount.data.idToken)
+        if (!verification.res.ok) {
+          bad(`Auth emulator: no se pudo confirmar el correo de prueba (${verification.res.status})`)
+        } else {
+          const verifiedLogin = await signIn(adminEmail, password)
+          if (!verifiedLogin.res.ok || !verifiedLogin.data.idToken) {
+            bad(`Auth emulator: no se pudo renovar la sesión verificada (${verifiedLogin.res.status})`)
+          } else {
+            verifiedToken = verifiedLogin.data.idToken
+            const verifiedUnlisted = await readRootDoc(verifiedToken, 'feedbackThreads', threadId + '/internalNotes/probe')
+            if (verifiedUnlisted.status === 403) ok('feedback: correo verificado sin UID autorizado no obtiene privilegios')
+            else bad(`feedback: correo verificado no listado debía recibir 403, obtuvo ${verifiedUnlisted.status}`)
+          }
+        }
 
         const allowlist = await setAdminUidAllowlist([adminAccount.data.localId])
         if (!allowlist.ok) {
           bad(`admins/uids: no se pudo preparar la lista de prueba (${allowlist.status})`)
         } else {
           const unverifiedListed = await readRootDoc(adminAccount.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
-          if (unverifiedListed.status === 403) ok('feedback: un UID listado sin correo verificado sigue sin privilegios')
+          if (unverifiedListed.status === 403) ok('feedback: UID listado sin correo verificado sigue sin privilegios')
           else bad(`feedback: UID listado sin verificar debía recibir 403, obtuvo ${unverifiedListed.status}`)
 
-          const verification = await verifyAuthEmail(adminEmail, adminAccount.data.idToken)
-          if (!verification.res.ok) {
-            bad(`Auth emulator: no se pudo confirmar el correo de prueba (${verification.res.status})`)
-          } else {
-            const verifiedLogin = await signIn(adminEmail, password)
-            if (!verifiedLogin.res.ok || !verifiedLogin.data.idToken) {
-              bad(`Auth emulator: no se pudo renovar la sesión verificada (${verifiedLogin.res.status})`)
-            } else {
-              const verified = await readRootDoc(verifiedLogin.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
-              if (verified.status === 404) ok('feedback: UID autorizado con correo verificado obtiene acceso administrativo')
-              else bad(`feedback: se esperaba 404 para UID autorizado y verificado, obtuvo ${verified.status}`)
-            }
+          const privateList = await readRootDoc(verifiedToken || adminAccount.data.idToken, 'admins', 'uids')
+          if (privateList.status === 403) ok('admins/uids: la lista administrativa no es legible desde clientes')
+          else bad(`admins/uids: lectura directa debía recibir 403, obtuvo ${privateList.status}`)
+
+          if (verifiedToken) {
+            const verifiedListed = await readRootDoc(verifiedToken, 'feedbackThreads', threadId + '/internalNotes/probe')
+            if (verifiedListed.status === 404) ok('feedback: UID autorizado con correo verificado obtiene acceso administrativo')
+            else bad(`feedback: se esperaba 404 para UID autorizado y verificado, obtuvo ${verifiedListed.status}`)
           }
         }
       }
