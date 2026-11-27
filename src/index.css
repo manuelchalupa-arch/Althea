@@ -1437,9 +1437,3 @@ input[type="month"], input[type="week"], select) {
   .althea-dialog__actions { grid-template-columns: 1fr 1fr; }
   .althea-dialog__button { padding-inline: 8px; }
 }
-
-/* Reserva el área inferior del dispositivo y evita que la barra propia quede
-   pegada al borde físico en Android/iOS cuando el navegador informa safe-area. */
-nav[aria-label="Navegación principal"] {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
-}
