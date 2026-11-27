@@ -1759,7 +1759,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
     crossfit:['barbell','dumbbell','kettlebell','bodyweight','band'],
   }
   const methods = (() => {
-    if(!profile) return [] as TrainingMethodId[]
+    if(!profile) return ['hypertrophy','strength','functional'] as TrainingMethodId[]
     const trainingGoal = goal==='hipertrofia'?'hypertrophy':goal==='fuerza'?'strength':goal==='perdida_grasa'?'fat_loss':goal==='resistencia'?'general_health':'general_health'
     const recommendation=selectMethods({...profile,trainingGoal,availableDays:days,equipment} as any)
     const candidates=[recommendation.primary,...recommendation.secondary]
@@ -1791,7 +1791,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
   },[])
 
   useEffect(()=>{
-    if(!methodId && methods.length) setMethodId(methods[0])
+    if(methods.length && (!methodId || !methods.includes(methodId))) setMethodId(methods[0])
   },[methods.join('|'),methodId])
 
   const toggleDay=(day:number)=>setDays(prev=>prev.includes(day)?prev.filter(d=>d!==day):[...prev,day].sort((a,b)=>a-b))
