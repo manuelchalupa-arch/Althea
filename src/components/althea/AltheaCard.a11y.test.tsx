@@ -10,7 +10,7 @@ describe('AltheaCard accessibility', () => {
     render(<AltheaCard onClick={onClick}>Abrir rutina</AltheaCard>)
 
     const card = screen.getByRole('button', { name: 'Abrir rutina' })
-    expect(card).toHaveAttribute('tabindex', '0')
+    expect(card.getAttribute('tabindex')).toBe('0')
 
     card.focus()
     await user.keyboard('{Enter}')
@@ -21,7 +21,7 @@ describe('AltheaCard accessibility', () => {
   it('keeps non-interactive cards out of the tab order', () => {
     const { container } = render(<AltheaCard>Resumen</AltheaCard>)
     const card = container.firstElementChild
-    expect(card).not.toHaveAttribute('role')
-    expect(card).not.toHaveAttribute('tabindex')
+    expect(card?.getAttribute('role')).toBeNull()
+    expect(card?.getAttribute('tabindex')).toBeNull()
   })
 })
