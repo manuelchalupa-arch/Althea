@@ -863,6 +863,7 @@ type CompactEx = PoolEx
 async function collectContext(
   instructions: RoutineInstructions,
   seed: number,
+  historyOptions: string[] = [],
 ): Promise<{ profile: any; history: string; style: any; methodName: string; exercises: Record<string, CompactEx[]> }> {
   const profile = await db.userProfile.get('me').catch(() => null) as any || {}
   // Método vigente de la planificación (canónico). Snapshot profile.cycle como
@@ -879,26 +880,49 @@ async function collectContext(
 
   let history = ''
   try {
+    const selected = new Set(historyOptions)
     const sessions: any[] = await db.trainingSessions.toArray().catch(() => [])
     const done = sessions.filter(s => ['COMPLETED', 'PARTIAL'].includes(s.sessionStatus))
-      .sort((a, b) => (a.calendarDate || '').localeCompare(b.calendarDate || '')).slice(-3)
-    if (done.length > 0) {
-      const lines: string[] = []
-      for (const s of done) {
-        const ex: any[] = await db.sessionExercises.where('sessionId').equals(s.id).toArray().catch(() => [])
-        const names = ex.slice(0, 3).map((e: any) => e.exerciseName || e.exerciseId)
-        lines.push(`${s.calendarDate}:${s.sessionStatus === 'COMPLETED' ? 'OK' : 'PARCIAL'} ${ex.length}ex ${names.join(',')} ${Math.round(Number(s.totalVolume || 0))}kg`)
+      .sort((a, b) => (a.calendarDate || '').localeCompare(b.calendarDate || '')).slice(-4)
+    const lines: string[] = []
+    for (const session of done) {
+      const exercises: any[] = await db.sessionExercises.where('sessionId').equals(session.id).toArray().catch(() => [])
+      if (selected.has('previousRoutine')) {
+        const names = exercises.slice(0, 5).map(e => e.exerciseName || e.exerciseId)
+        lines.push(`${session.calendarDate} ${session.sessionStatus}: ${names.join(',')}`)
       }
-      const surveys: any[] = await db.postWorkoutSurveys.toArray().catch(() => [])
-      const last3 = surveys.slice(-3)
-      if (last3.length > 0) {
-        const avg = Math.round(last3.reduce((a: number, s: any) => a + (s.sessionRating || 3), 0) / last3.length)
-        const pain = last3.filter((s: any) => s.pain === 1).length
-        lines.push(`encuesta:${avg}/5${pain > 0 ? ` ${pain}dolor` : ''}`)
+      if (selected.has('replaced')) {
+        const replaced = exercises.filter(e => e.status === 'REPLACED' || e.replacement)
+          .map(e => `${e.exerciseName || e.exerciseId}→${e.replacement?.replacementExerciseId || 'reemplazo'} (${e.replacement?.reason || 'motivo no registrado'})`)
+        if (replaced.length) lines.push(`Reemplazos: ${replaced.slice(0,4).join(';')}`)
       }
-      history = lines.join(' | ')
+      if (selected.has('skipped')) {
+        const skipped = exercises.filter(e => e.status === 'SKIPPED')
+          .map(e => `${e.exerciseName || e.exerciseId}: ${e.skipReason || e.skipComment || 'sin motivo'}`)
+        if (skipped.length) lines.push(`Omitidos: ${skipped.slice(0,4).join(';')}`)
+      }
+      if (selected.has('observations')) {
+        const notes = exercises.filter(e => e.observation?.text || e.notes)
+          .map(e => `${e.exerciseName || e.exerciseId}: ${e.observation?.text || e.notes}`)
+        if (notes.length) lines.push(`Observaciones: ${notes.slice(0,4).join(';')}`)
+      }
+      if (selected.has('loadsReps')) {
+        const sets: any[] = await db.table('setRecords').where('sessionId').equals(session.id).toArray().catch(() => [])
+        const actual = sets.filter(set => set.status === 'COMPLETED' && (set.actualReps > 0 || set.actualWeight != null))
+          .slice(0,8).map(set => `${set.exerciseId} ${set.actualWeight ?? 'sin peso'}kg×${set.actualReps}`)
+        if (actual.length) lines.push(`Cargas/reps reales: ${actual.join(';')}`)
+      }
     }
-  } catch { /* noop */ }
+    const surveys: any[] = await db.postWorkoutSurveys.toArray().catch(() => [])
+    const recentSurveys = surveys.sort((a,b) => (a.calendarDate || '').localeCompare(b.calendarDate || '')).slice(-4)
+    const painSignals = recentSurveys.filter(s => s.pain === 1)
+      .map(s => `${s.calendarDate}: ${s.painZone || 'zona no indicada'} ${s.painDetail || ''}`)
+    if (painSignals.length) lines.push(`ALERTA DE DOLOR (siempre obligatoria): ${painSignals.join(';')}`)
+    if (selected.has('rating') && recentSurveys.length) {
+      lines.push(`Valoración de sesiones (1-5): ${recentSurveys.map(s => s.sessionRating).join(',')}`)
+    }
+    history = lines.join(' | ').slice(0, 2400)
+  } catch { /* el historial nunca debe bloquear una rutina nueva */ }
 
   const exercises = await loadMusclePools(instructions, seed, profile.excludedExercises || [])
   return { profile, history, style, methodName: method?.nameEs || coachingMethod, exercises }
@@ -982,15 +1006,11 @@ ${description || '(sin pedido libre; usá los datos estructurados de abajo)'}
 RESTRICCIONES DEL PEDIDO (obligatorias; mandan sobre cualquier valor por defecto):
 ${hardRules}
 
-DATOS DE ENTRENAMIENTO DEL USUARIO (solo lo relevante; sin nombre, email ni identificadores):
+DATOS DE ENTRENAMIENTO DEL USUARIO (sin datos personales):
 ${buildAiTrainingContext(p)}
-Objetivo del pedido: ${wants.goal}
-Nivel aplicado: ${level}
-Tiempo por sesión: ${time} min (máx. ${maxPerDay} ejercicios)
-Equipamiento permitido: ${equipment}
-Modalidad: ${wants.modality || p.trainingModality || 'gym'}
-Estilo coaching: ${ctx.methodName} (${s?.tone || 'ABUELITOS'}, riesgo ${s ? Math.round(s.riskLevel * 100) : 50}%)
-Historial: ${ctx.history || 'sin historial'}
+Pedido estructurado: objetivo ${wants.goal}; nivel ${level}; tiempo ${time} min; equipo ${equipment}; modalidad ${wants.modality || p.trainingModality || 'gym'}.
+Método elegido: ${selectedMethod?.nameEs || wants.methodId || ctx.methodName}. Coach: ${wants.coachTone || p.coachIntensity || 'profesional'}; solo modifica comunicación y énfasis, nunca seguridad.
+Historial habilitado por el usuario: ${ctx.history || 'sin historial relevante'}
 ${corrections.length ? `\nCORRECCIONES OBLIGATORIAS (la propuesta anterior fue rechazada):\n${corrections.map(c => `- ${c}`).join('\n')}` : ''}
 
 CÓMO INTERPRETAR EL PEDIDO LIBRE:
@@ -1317,7 +1337,7 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
     )
   }
 
-  const ctx = await collectContext(instructions, seed)
+  const ctx = await collectContext(instructions, seed, effective.historyOptions || [])
   const catalog = catalogOf(ctx.exercises)
   let corrections: string[] = []
 
