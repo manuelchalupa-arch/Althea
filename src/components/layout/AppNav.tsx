@@ -58,9 +58,10 @@ export default function AppNav() {
   // Los cinco destinos principales son permanentes en móvil y escritorio.
   // La pantalla Entrenar muestra su estado vacío cuando no existe sesión activa;
   // el acceso no desaparece de la navegación.
-  const primaryItems = NAV_ITEMS.filter(i =>
-    ['home', 'training', 'nutrition', 'crossfit', 'more'].includes(i.icon as string)
-  )
+  const primaryOrder = ['home', 'training', 'nutrition', 'crossfit', 'more']
+  const primaryItems = primaryOrder
+    .map(icon => NAV_ITEMS.find(item => item.icon === icon))
+    .filter((item): item is NavItem => Boolean(item))
   // Deduplicar por ICONO, no por ruta: '/progreso' y '/progresos' son dos
   // strings que renderizan la misma pagina (Progreso.tsx). Comparar por icono
   // cubre ese caso y cualquier alias futuro.
