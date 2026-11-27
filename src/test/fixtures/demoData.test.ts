@@ -316,7 +316,9 @@ describe('T028 — Demo Data + Export/Import', () => {
         updatedAt: new Date().toISOString(),
       })
       await db.sessionExercises.put({
-        sessionExerciseId: uuid(),
+        // Debe coincidir con sessionExercises.sessionExerciseId usado abajo
+        // por el SetRecord, para que el fixture represente una relación válida.
+        sessionExerciseId: 'test-session-1:press:set:1',
         sessionId: 'test-session-1',
         exerciseId: 'press',
         order: 0,
