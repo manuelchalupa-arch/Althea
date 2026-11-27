@@ -63,6 +63,8 @@ export type AIContext = {
   limitations?: string[]
   painAreas?: string[]
   nutritionContext?: { weight: number; height: number; bmi: number; bmiCategory: string; activityLevel: string; estimatedBMR: number; estimatedTDEE: number; calorieGoal: number; proteinGoal?: string; proteinRange?: any; weightHistory: { date: string; weight?: number }[]; nutritionPreferences: string[]; foodLogCount: number } | null
+  /** Últimas mediciones corporales reales (máximo 5), sin datos demo. */
+  bodyMeasurements?: { date: string; weightKg?: number; bodyFatPct?: number; muscleMassKg?: number; waistCm?: number; hipCm?: number; chestCm?: number }[]
   nivelExigencia?: number
   exigencia?: Record<string, unknown>
   peso?: string
