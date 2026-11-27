@@ -29,8 +29,8 @@ export function AltheaDatePicker({ value, onChange, label, ariaLabel, className 
   })
 
   useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
+    if (!open) { return }
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { setOpen(false) } }
     document.addEventListener('keydown', onKey)
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -49,7 +49,7 @@ export function AltheaDatePicker({ value, onChange, label, ariaLabel, className 
 
   const display = value ? parseKey(value).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Seleccionar fecha'
   const picker = open && createPortal(
-    <div className="althea-picker-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false) }}>
+    <div className="althea-picker-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setOpen(false) } }}>
       <section className="althea-picker althea-calendar" role="dialog" aria-modal="true" aria-label={ariaLabel || label || 'Seleccionar fecha'}>
         <div className="althea-picker__eyebrow">Calendario</div>
         <div className="althea-picker__heading">
@@ -62,7 +62,7 @@ export function AltheaDatePicker({ value, onChange, label, ariaLabel, className 
         <div className="althea-calendar__grid althea-calendar__weekdays">{['L','M','X','J','V','S','D'].map((d,i)=><span key={i}>{d}</span>)}</div>
         <div className="althea-calendar__grid">
           {days.map((day, i) => {
-            if (day === null) return <span key={`empty-${i}`} />
+            if (day === null) { return <span key={`empty-${i}`} /> }
             const key = toKey(new Date(month.getFullYear(), month.getMonth(), day))
             const disabled = (!!min && key < min) || (!!max && key > max)
             return <button key={key} type="button" disabled={disabled} aria-pressed={value === key} className={value === key ? 'is-selected' : ''} onClick={() => { onChange(key); setOpen(false) }}>{day}</button>
