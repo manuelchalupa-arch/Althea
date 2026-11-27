@@ -120,6 +120,13 @@ export function DataOwnership() {
         ['Alimentos personalizados', preview.summary.customFoods],
         ['Configuraciones de avisos', preview.summary.notificationConfigs],
         ['Mediciones', preview.summary.bodyMeasurements],
+        ['Rutinas históricas', preview.summary.legacyRoutines],
+        ['Sesiones históricas', preview.summary.legacySessions],
+        ['Series históricas', preview.summary.legacySetLogs],
+        ['Hilos de feedback', preview.summary.feedbackThreads],
+        ['Mensajes de feedback', preview.summary.feedbackMessages],
+        ['Feedback pendiente de envío', preview.summary.feedbackOutbox],
+        ['Cronómetros guardados', preview.summary.restTimerState + preview.summary.cfTimerState],
       ] as const)
     : []
   const totalRecords = counts.reduce((a, [, v]) => a + v, 0)
@@ -136,6 +143,13 @@ export function DataOwnership() {
         ['Alimentos personalizados', result.imported.customFoods],
         ['Configuraciones de avisos', result.imported.notifConfigs + result.imported.unifiedNotifConfigs],
         ['Mediciones', result.imported.bodyMeasurements],
+        ['Rutinas históricas', result.imported.legacyRoutines],
+        ['Sesiones históricas', result.imported.legacySessions],
+        ['Series históricas', result.imported.legacySetLogs],
+        ['Hilos de feedback', result.imported.feedbackThreads],
+        ['Mensajes de feedback', result.imported.feedbackMessages],
+        ['Feedback pendiente de envío', result.imported.feedbackOutbox],
+        ['Cronómetros guardados', result.imported.restTimerState + result.imported.cfTimerState],
       ] as const)
     : []
 
