@@ -89,6 +89,24 @@
     -webkit-backdrop-filter: blur(16px) saturate(1.2);
     border-top: 1px solid var(--althea-outline);
   }
+
+  /* AppNav es el único contenedor fijo. La navegación interna permanece
+     estática para evitar dos barras fixed anidadas y dos áreas seguras. */
+  .app-mobile-nav > div { width: 100%; }
+  .app-mobile-nav .althea-nav--bar {
+    position: static;
+    inset: auto;
+    bottom: auto;
+    z-index: auto;
+    width: 100%;
+    min-height: var(--althea-mobile-nav-height);
+    padding: 0;
+    background: transparent;
+    border: 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .app-mobile-nav .althea-nav--bar .althea-nav-item { width: 20%; }
   .althea-nav--bar .althea-nav-item[aria-current='page'] {
     background: rgb(var(--althea-accent-rgb) / 0.12);
     color: rgb(var(--althea-accent-rgb));
