@@ -956,8 +956,13 @@ async function applyImport(
     { table: db.syncDeletes as any, data: data.syncDeletes ?? [], key: 'id', countKey: 'syncDeletes', name: 'syncDeletes' },
   ]
   
-  for (const { table, data: tableData, key, countKey, name } of tablesToImport) {
-    if (!tableData.length) {continue}
+  let activeTableName = 'base local'
+  try {
+    const transactionTables = tablesToImport.map(item => item.table)
+    await db.transaction('rw', ...transactionTables, async () => {
+      for (const { table, data: tableData, key, countKey, name } of tablesToImport) {
+        activeTableName = table.name
+        if (!tableData.length) { continue }
     
     const conflictIds = new Set(conflicts.filter(c => c.table === name).map(c => String(c.id)))
 
@@ -1016,17 +1021,30 @@ async function applyImport(
       }
     }
     
-    try {
-      await table.bulkPut(recordsToImport as any[])
-      ;(result.imported as any)[countKey] = recordsToImport.length
-    } catch (e) {
-      result.errors.push(`Error importando ${table.name}: ${e instanceof Error ? e.message : 'desconocido'}`)
+        if (recordsToImport.length > 0) {
+          await table.bulkPut(recordsToImport as any[])
+        }
+        ;(result.imported as any)[countKey] = recordsToImport.length
+
+        options.onProgress?.(`Importando ${table.name}`, (result.imported as any)[countKey], tableData.length)
+      }
+    })
+    result.success = true
+  } catch (error) {
+    // La transacción única garantiza rollback de todas las tablas: no se deja
+    // una restauración a medias si falla una sola escritura.
+    result.errors.push(
+      `La importación se revirtió por completo en ${activeTableName}: ${error instanceof Error ? error.message : 'error desconocido'}`,
+    )
+    for (const key of Object.keys(result.imported)) {
+      if (key === 'userProfile') {
+        ;(result.imported as any)[key] = false
+      } else {
+        ;(result.imported as any)[key] = 0
+      }
     }
-    
-    options.onProgress?.(`Importando ${table.name}`, (result.imported as any)[countKey], tableData.length)
+    result.success = false
   }
-  
-  result.success = result.errors.length === 0
   return result
 }
 
