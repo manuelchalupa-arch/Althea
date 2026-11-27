@@ -245,6 +245,41 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
   })
 
 
+
+  it('importa respaldos v4 completos y tolera la ausencia de la selección de rutina activa', async () => {
+    await seedRepresentative()
+    const exported = JSON.parse(await (await exportJSON()).text())
+    exported.metadata.version = 4
+    delete exported.routineStoreMeta
+    exported.metadata.tables = exported.metadata.tables.filter((table: string) => table !== 'routineStoreMeta')
+    delete exported.metadata.recordCounts.routineStoreMeta
+    const file = new File([JSON.stringify(exported)], 'backup-v4.json', { type: 'application/json' })
+
+    await db.delete()
+    await db.open()
+    const result = await importJSON(file)
+    expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
+    expect(await db.routineStore.get('r1')).toMatchObject({ name: 'Rutina de prueba' })
+    expect(await db.routineStore.get('meta:activeId')).toBeUndefined()
+  })
+
+  it('combinar preserva la rutina activa local aunque el respaldo indique otra selección', async () => {
+    await seedRepresentative()
+    const exported = JSON.parse(await (await exportJSON()).text())
+    exported.routines.push({
+      id: 'r2', name: 'Rutina importada', updatedAt: `${today}T12:00:00Z`,
+      dayExercises: { 1: [{ exId: 'squat', name: 'Sentadilla', sets: 3, reps: 8, weight: 60 }] },
+    })
+    exported.metadata.recordCounts.routines = exported.routines.length
+    exported.routineStoreMeta = exported.routineStoreMeta.map((row: any) => ({ ...row, activeId: 'r2' }))
+    const file = new File([JSON.stringify(exported)], 'merge-active-routine.json', { type: 'application/json' })
+
+    const result = await importJSON(file, { mode: 'merge', confirmOverwrite: true })
+    expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
+    expect(await db.routineStore.get('r2')).toMatchObject({ name: 'Rutina importada' })
+    expect(await db.routineStore.get('meta:activeId')).toMatchObject({ activeId: 'r1' })
+  })
+
   it('rechaza respaldos v5 incompletos o con conteos incorrectos sin modificar los datos locales', async () => {
     await seedRepresentative()
     const before = await snapshot()
