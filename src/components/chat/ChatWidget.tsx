@@ -3,6 +3,13 @@ import { X, Send, Trash2 } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
 import { IconChatBubble } from '@/components/brand/FitnessIcons'
 import { streamChat, isChatAvailable, type ChatCompletionMessage } from '@/services/ai/chatService'
+import { isLimitError, stripLimitPrefix } from '@/services/ai/aiAuth'
+import {
+  prepareUnifiedContext,
+  buildUnifiedSystemPrompt,
+  composeUnifiedLocalReply,
+  validateUnifiedAnswer,
+} from '@/services/ai/unifiedPipeline'
 import { getActiveConversation, saveMessage, getMessages, type ChatMessage } from '@/services/ai/chatHistory'
 
 export default function ChatWidget() {
@@ -98,12 +105,37 @@ export default function ChatWidget() {
 
     try {
       const convId = await getActiveConversation('coach')
-      await saveMessage({ conversationId: convId, role: 'user', content: text, createdAt: new Date().toISOString() })
+      setConversationId(convId)
+      const prepared = await prepareUnifiedContext(text)
+      const userMessage = await saveMessage({
+        conversationId: convId, role: 'user', content: text, createdAt: new Date().toISOString(),
+      })
+      if (mountedRef.current) { setMessages(prev => [...prev, userMessage]) }
 
+      // La ventana flotante comparte el mismo contexto privado y el mismo
+      // validador de evidencia que la página completa del Coach.
       const history: ChatCompletionMessage[] = [
-        ...messages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        ...messages
+          .slice(-10)
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
         { role: 'user', content: text },
       ]
+
+      const saveLocalFallback = async () => {
+        const local = await composeUnifiedLocalReply(text, prepared)
+        const saved = await saveMessage({
+          conversationId: convId,
+          role: 'assistant',
+          content: local.text,
+          createdAt: new Date().toISOString(),
+          source: 'local',
+          sources: local.sourcesUsed.map(source => source.id),
+        })
+        if (mountedRef.current) {
+          setMessages(prev => [...prev.filter(message => message.id !== 'streaming'), saved])
+        }
+      }
 
       let assistantContent = ''
       await streamChat(
@@ -113,27 +145,66 @@ export default function ChatWidget() {
             if (!mountedRef.current) { return }
             assistantContent += token
             setMessages((prev) => {
-              const last = prev[prev.length - 1]
-              if (last?.role === 'assistant') {
-                return [...prev.slice(0, -1), { ...last, content: assistantContent }]
-              }
-              return [...prev, { id: 'streaming', conversationId: convId, role: 'assistant', content: assistantContent, createdAt: new Date().toISOString() }]
+              const withoutStreaming = prev.filter(message => message.id !== 'streaming')
+              return [
+                ...withoutStreaming,
+                {
+                  id: 'streaming',
+                  conversationId: convId,
+                  role: 'assistant',
+                  content: assistantContent,
+                  createdAt: new Date().toISOString(),
+                },
+              ]
             })
           },
           onDone: async (fullText) => {
-            await saveMessage({ conversationId: convId, role: 'assistant', content: fullText, createdAt: new Date().toISOString() })
-            if (mountedRef.current) { setLoading(false) }
+            try {
+              const validated = validateUnifiedAnswer(fullText, prepared.evidence)
+              if (!validated.text.trim()) {
+                await saveLocalFallback()
+              } else {
+                const assistantMessage = await saveMessage({
+                  conversationId: convId,
+                  role: 'assistant',
+                  content: validated.text,
+                  createdAt: new Date().toISOString(),
+                  source: 'groq',
+                  sources: validated.sourcesUsed.map(source => source.id),
+                })
+                if (mountedRef.current) {
+                  setMessages(prev => [...prev.filter(message => message.id !== 'streaming'), assistantMessage])
+                }
+              }
+            } finally {
+              if (mountedRef.current) { setLoading(false) }
+            }
           },
-          onError: (err) => {
-            if (!mountedRef.current) { return }
-            setError(err)
-            setLoading(false)
+          onError: async (err) => {
+            if (isLimitError(err)) {
+              if (mountedRef.current) {
+                setError(stripLimitPrefix(err))
+                setMessages(prev => prev.filter(message => message.id !== 'streaming'))
+                setLoading(false)
+              }
+              return
+            }
+            try {
+              await saveLocalFallback()
+            } catch {
+              if (mountedRef.current) { setError('No se pudo generar una respuesta local del Coach.') }
+            } finally {
+              if (mountedRef.current) { setLoading(false) }
+            }
           },
         },
+        { systemPrompt: buildUnifiedSystemPrompt(prepared) },
       )
     } catch {
       if (!mountedRef.current) { return }
-      setError('No se pudo enviar el mensaje')
+      setMessages(prev => prev.filter(message => message.id !== 'streaming'))
+      setError('No se pudo preparar el contexto del Coach. Probá de nuevo.')
+      setInput(text)
       setLoading(false)
     }
   }
