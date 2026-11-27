@@ -794,7 +794,7 @@ async function applyImport(
       const importedLogicalKeys = new Set<string>()
       recordsToImport = []
       for (const record of tableData) {
-        const hasLogicalKey = record?.table != null && record?.docId != null
+        const hasLogicalKey = record?.table !== undefined && record?.table !== null && record?.docId !== undefined && record?.docId !== null
         const logicalKey = hasLogicalKey ? `${String(record.table)}\u0000${String(record.docId)}` : null
         if (logicalKey && importedLogicalKeys.has(logicalKey)) { continue }
         if (logicalKey) { importedLogicalKeys.add(logicalKey) }
@@ -802,7 +802,7 @@ async function applyImport(
           ? await db.syncDeletes.where('table').equals(record.table).filter((row: any) => row.docId === record.docId).first()
           : undefined
         if (existingLogical) { continue }
-        const existingId = record?.id != null ? await db.syncDeletes.get(record.id) : undefined
+        const existingId = record?.id !== undefined && record?.id !== null ? await db.syncDeletes.get(record.id) : undefined
         if (existingId) {
           const withoutLocalAutoId = { ...record }
           delete withoutLocalAutoId.id
@@ -959,7 +959,7 @@ async function verifyImport(importedData: ExportData): Promise<VerificationResul
     const importedDeleteMarkers = importedData.syncDeletes ?? []
     let missingDeleteMarkers = 0
     for (const marker of importedDeleteMarkers) {
-      if (marker?.table == null || marker?.docId == null) {
+      if (marker?.table === undefined || marker?.table === null || marker?.docId === undefined || marker?.docId === null) {
         missingDeleteMarkers += 1
         continue
       }
