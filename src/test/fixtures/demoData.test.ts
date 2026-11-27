@@ -354,7 +354,7 @@ describe('T028 — Demo Data + Export/Import', () => {
       const file = new File([text], 'backup.json', { type: 'application/json' })
 
       const result = await importJSON(file)
-      expect(result.success).toBe(true)
+      expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
       // The import should restore the data
       const count = await db.trainingSessions.count()
       expect(count).toBeGreaterThan(0)
