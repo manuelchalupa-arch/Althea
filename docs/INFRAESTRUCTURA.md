@@ -76,7 +76,7 @@ No integrar si alguna comprobación falla.
 
 ## 8. Despliegue y rollback
 
-- .github/workflows/deploy-pages.yml espera el evento workflow_run del workflow CI y solo despliega cuando la ejecución de main terminó con éxito. Usa el SHA exacto que pasó las pruebas, Node 24 y falla antes de publicar si faltan token o variables públicas de Firebase.
+- .github/workflows/deploy-pages.yml espera el evento workflow_run del workflow CI y solo despliega cuando la ejecución de main terminó con éxito. Usa el SHA exacto que pasó las pruebas, Node 24 y falla antes de publicar si falta el token o algún valor de configuración pública Firebase.
 
 1. Aprobar CI y revisión del diff.
 2. Provisionar el UID administrativo en Firebase si aún no existe.
