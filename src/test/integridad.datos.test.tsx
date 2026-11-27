@@ -30,6 +30,9 @@ const TABLES = [
   'recoveryChecks', 'hydrationLogs', 'bodyMeasurements', 'nutritionDiary',
   'cfWods', 'cfSchedule', 'cfResults', 'cfMarks',
   'activitySessions', 'exerciseRecords', 'cycleVersions',
+  'routines', 'sessions', 'setLogs',
+  'feedbackThreads', 'feedbackMessages', 'feedbackOutbox',
+  'restTimerState', 'cfTimerState',
 ] as const
 
 async function seedRepresentative() {
@@ -104,6 +107,43 @@ async function seedRepresentative() {
     id: 'cv1', scope: 'user', status: 'active', effectiveFrom: today,
     createdAt: `${today}T07:00:00Z`,
   } as never)
+  // Tablas heredadas: se conservan para compatibilidad de instalaciones antiguas.
+  await db.routines.put({
+    id: 'legacy-r1', name: 'Rutina heredada', createdAt: `${today}T07:00:00Z`, updatedAt: `${today}T07:00:00Z`,
+  } as never)
+  await db.sessions.put({
+    id: 'legacy-s1', routineId: 'legacy-r1', localDate: today,
+    startedAt: `${today}T10:00:00Z`, createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:10:00Z`,
+  } as never)
+  await db.setLogs.put({
+    id: 'legacy-set1', sessionId: 'legacy-s1', exerciseId: 'press',
+    createdAt: `${today}T10:05:00Z`, reps: 8, weight: 70,
+  } as never)
+  await db.feedbackThreads.put({
+    id: 'feedback-t1', ownerId: 'me', category: 'duda', subject: 'Prueba',
+    status: 'pendiente', createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:00:00Z`,
+    lastActivityAt: `${today}T10:00:00Z`, lastMessagePreview: 'Consulta',
+    lastMessageAuthorRole: 'user', messageCount: 1, unreadForOwner: 0, unreadForAdmin: 1,
+  } as never)
+  await db.feedbackMessages.put({
+    id: 'feedback-m1', threadId: 'feedback-t1', ownerId: 'me', authorId: 'me',
+    authorRole: 'user', text: 'Consulta de prueba', createdAt: `${today}T10:00:00Z`,
+    readByOwner: true, readByAdmin: false, syncStatus: 'pending',
+  } as never)
+  await db.feedbackOutbox.put({
+    id: 'message:feedback-m1', kind: 'message', docId: 'feedback-m1', threadId: 'feedback-t1',
+    payload: { message: { id: 'feedback-m1' } }, status: 'pending', attempts: 0,
+    createdAt: `${today}T10:00:00Z`, updatedAt: `${today}T10:00:00Z`,
+  } as never)
+  await db.restTimerState.put({
+    id: 'rest-1', endsAt: null, pausedRemainingSec: 45, flash: false,
+    updatedAt: `${today}T10:00:00Z`,
+  })
+  await db.cfTimerState.put({
+    id: 'cf-timer-1', format: 'FOR_TIME', startedAtMs: 0, accumulatedMs: 0,
+    running: false, round: 1, movementIdx: 0, intervalIdx: 0,
+    updatedAt: `${today}T10:00:00Z`,
+  } as never)
 }
 
 async function snapshot(): Promise<Record<string, string>> {
@@ -134,6 +174,14 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     expect(data.activitySessions.map((r: any) => r.id)).toContain('act1')
     expect(data.exerciseRecords.map((r: any) => r.id)).toContain('er1')
     expect(data.cycleVersions.map((r: any) => r.id)).toContain('cv1')
+    expect(data.legacyRoutines.map((r: any) => r.id)).toContain('legacy-r1')
+    expect(data.legacySessions.map((r: any) => r.id)).toContain('legacy-s1')
+    expect(data.legacySetLogs.map((r: any) => r.id)).toContain('legacy-set1')
+    expect(data.feedbackThreads.map((r: any) => r.id)).toContain('feedback-t1')
+    expect(data.feedbackMessages.map((r: any) => r.id)).toContain('feedback-m1')
+    expect(data.feedbackOutbox.map((r: any) => r.id)).toContain('message:feedback-m1')
+    expect(data.restTimerState.map((r: any) => r.id)).toContain('rest-1')
+    expect(data.cfTimerState.map((r: any) => r.id)).toContain('cf-timer-1')
     // Formato v3 y esquema Dexie v29; las copias antiguas siguen siendo compatibles.
     expect(data.metadata.version).toBe(3)
     expect(data.metadata.schemaVersion).toBe(29)
