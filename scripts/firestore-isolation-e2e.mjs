@@ -418,12 +418,20 @@ if (isEmu) {
         else bad(`feedback: el administrador no verificado debía recibir 403, obtuvo ${unverified.status}`)
 
         const verification = await verifyAuthEmail(adminAccount.data.idToken)
-        if (!verification.res.ok || !verification.data.idToken) {
+        if (!verification.res.ok) {
           bad(`Auth emulator: no se pudo verificar el correo de prueba (${verification.res.status})`)
         } else {
-          const verified = await readRootDoc(verification.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
-          if (verified.status === 404) ok('feedback: el correo verificado obtiene acceso administrativo')
-          else bad(`feedback: el correo verificado debía poder consultar la nota de prueba (404), obtuvo ${verified.status}`)
+          // accounts:update confirma el cambio de emailVerified, pero su respuesta
+          // no siempre incluye un idToken renovado. Volvemos a iniciar sesión para
+          // que el JWT incluya email_verified=true y probar la regla real.
+          const verifiedLogin = await signIn('manuelchalupa@gmail.com', password)
+          if (!verifiedLogin.res.ok || !verifiedLogin.data.idToken) {
+            bad(`Auth emulator: no se pudo renovar la sesión verificada (${verifiedLogin.res.status})`)
+          } else {
+            const verified = await readRootDoc(verifiedLogin.data.idToken, 'feedbackThreads', threadId + '/internalNotes/probe')
+            if (verified.status === 404) ok('feedback: el correo verificado obtiene acceso administrativo')
+            else bad(`feedback: el correo verificado debía poder consultar la nota de prueba (404), obtuvo ${verified.status}`)
+          }
         }
       }
     }
