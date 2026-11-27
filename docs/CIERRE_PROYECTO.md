@@ -38,6 +38,14 @@ La autorización administrativa no usa correos escritos en el repositorio. Antes
 
 La CI prepara una lista temporal en el emulador con credenciales de propietario y prueba ambos requisitos por separado. No modifica el proyecto Firebase real.
 
+## Dependencias y cadena de suministro
+
+- Firebase Web SDK actualizado a 13.4.0.
+- gRPC JS fijado por override en 1.14.7 y RE2JS actualizado a 2.10.0 para resolver avisos de seguridad transitivos de Firestore.
+- Zod 3 dejó de ser dependencia directa porque no tenía importaciones en el código fuente; la versión transitiva resuelta es 4.6.7.
+- Vite y Vitest se actualizaron dentro de sus rangos compatibles.
+- La CI ejecuta npm audit sobre el árbol completo con umbral low. No se permite ignorar ni rebajar el umbral para obtener una ejecución verde.
+
 ## Comandos de validación
 
 ~~~bash
@@ -47,6 +55,7 @@ npm run lint
 npm run build
 npx vitest run
 npm run check:release
+npm audit --audit-level=low
 npm run playwright -- tests/fase2-qa.spec.ts --project=chromium
 ~~~
 

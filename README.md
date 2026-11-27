@@ -39,6 +39,7 @@ npm run lint
 npm run build
 npx vitest run
 npm run check:release
+npm audit --audit-level=low
 npm run playwright -- tests/fase2-qa.spec.ts --project=chromium
 ~~~
 

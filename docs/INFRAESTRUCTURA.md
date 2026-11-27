@@ -7,7 +7,7 @@
 > - IA: Cloudflare Worker althea-proxy-production, Workers AI binding AI, modelo @cf/google/gemma-4-26b-a4b-it. No requiere GROQ_API_KEY.
 > - El nombre VITE_GROQ_PROXY_URL se conserva por compatibilidad del frontend; su valor apunta al Worker de Cloudflare.
 > - La aplicación mantiene Dexie v29 como fuente canónica local. Esta entrega no introduce migraciones.
-> - La CI incluye TypeScript, ESLint, build, Vitest, escaneo de secretos, Playwright responsive y pruebas de reglas Firestore con emuladores locales.
+> - La CI incluye npm audit del árbol completo, TypeScript, ESLint, build, Vitest, escaneo de secretos, Playwright responsive y pruebas de reglas Firestore con emuladores locales.
 > - Las pruebas de emulador no despliegan reglas. La publicación de firestore.rules requiere una sesión autorizada de Firebase CLI y el proyecto explícito.
 >
 > Los apartados que mencionan Netlify, Groq, Hosting de Firebase o despliegues de octubre de 2026 documentan **estados históricos**; no deben usarse como instrucciones de operación vigentes. La guía actual está en README.md y docs/CIERRE_PROYECTO.md.
