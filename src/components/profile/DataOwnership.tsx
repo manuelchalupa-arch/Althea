@@ -111,6 +111,9 @@ export function DataOwnership() {
   const counts = preview
     ? ([
         ['Rutinas', preview.summary.routines],
+        ['Días de rutina', preview.summary.routineDays],
+        ['Ejercicios de rutina', preview.summary.routineExercises],
+        ['Preferencia de rutina activa', preview.summary.routineStoreMeta],
         ['Sesiones', preview.summary.sessions],
         ['Ejercicios', preview.summary.sessionExercises],
         ['Series', preview.summary.setRecords],
@@ -136,6 +139,9 @@ export function DataOwnership() {
   const importedRows = result
     ? ([
         ['Rutinas', result.imported.routines],
+        ['Días de rutina', result.imported.routineDays],
+        ['Ejercicios de rutina', result.imported.routineExercises],
+        ['Preferencia de rutina activa', result.imported.routineStoreMeta],
         ['Sesiones', result.imported.sessions],
         ['Series', result.imported.setRecords],
         ['Check-ins', result.imported.recoveryChecks],
