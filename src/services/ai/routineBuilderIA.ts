@@ -981,6 +981,13 @@ function buildPrompt(ctx: {
   const label = splitLabel(instructions.split)
   const exactDays = wants.availableDays?.length === days ? wants.availableDays.map(d => ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][d]).join(', ') : ''
   const selectedMethod = wants.methodId ? getMethod(wants.methodId) : null
+  const coachStyleText: Record<string, string> = {
+    profesional: 'comunicación técnica, equilibrada y explicaciones claras basadas en evidencia',
+    motivacional: 'refuerzo positivo, acompañamiento y foco en adherencia y constancia',
+    duro: 'feedback directo, objetivos concretos y responsabilidad, sin presión insegura',
+    extremo: 'tono muy enérgico y desafiante, sin elevar cargas, volumen o riesgo por encima de lo apropiado',
+  }
+  const coachGuidance = coachStyleText[String(wants.coachTone || p.coachIntensity || 'profesional').toLowerCase()] || coachStyleText.profesional
 
   // El Worker limita cada mensaje a 12.000 caracteres. Enviamos una
   // muestra equilibrada por grupo (incluye warmup/cardio) para el modelo;
@@ -1046,7 +1053,7 @@ ${hardRules}
 DATOS DE ENTRENAMIENTO DEL USUARIO (sin datos personales):
 ${buildAiTrainingContext(p)}
 Pedido estructurado: objetivo ${wants.goal}; nivel ${level}; tiempo ${time} min; equipo ${equipment}; modalidad ${wants.modality || p.trainingModality || 'gym'}.
-Método elegido: ${selectedMethod?.nameEs || wants.methodId || ctx.methodName}. Coach: ${wants.coachTone || p.coachIntensity || 'profesional'}; solo modifica comunicación y énfasis, nunca seguridad.
+Método elegido: ${selectedMethod?.nameEs || wants.methodId || ctx.methodName}. Coach: ${wants.coachTone || p.coachIntensity || 'profesional'} (${coachGuidance}); solo modifica comunicación y énfasis, nunca seguridad.
 Historial habilitado por el usuario: ${ctx.history || 'sin historial relevante'}
 ${corrections.length ? `\nCORRECCIONES OBLIGATORIAS (la propuesta anterior fue rechazada):\n${corrections.map(c => `- ${c}`).join('\n')}` : ''}
 
