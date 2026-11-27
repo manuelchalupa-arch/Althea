@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 import { MUSCLE_LIBRARY_GROUPS } from '@/data/muscleLibraryConfig'
 import * as Gym from '@/services/exerciseGym'
@@ -16,6 +17,7 @@ import { listSharedExercises } from '@/services/training/sharedExercises'
 
 const PURPOSES = EXERCISE_PURPOSES
 export default function Biblioteca(){
+  const location = useLocation()
   const [selectedKey,setSelectedKey]=useState<string>('__all__')
   const [exercises,setExercises]=useState<Gym.Exercise[]>([])
   const [tradIds,setTradIds]=useState<Set<string>>(new Set())
@@ -98,8 +100,20 @@ export default function Biblioteca(){
     }finally{ setLoading(false) }
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(()=>{ load('__all__', false, 'conventional') },[])
+  // Abrir la biblioteca con la consulta que originó una búsqueda global.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const incomingQuery = params.get('buscar')
+    if (incomingQuery) {
+      setQ(incomingQuery)
+      setShowAll(true)
+      setSelectedKey('__all__')
+      void load('__all__', true, 'conventional')
+      return
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void load('__all__', false, 'conventional')
+  }, [location.key])
 
   const BODY_PART_GROUP: Record<string, TraditionalGroupId> = {
     legs: 'piernas', chest: 'pecho', back: 'espalda', core: 'core',
