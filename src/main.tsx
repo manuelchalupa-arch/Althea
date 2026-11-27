@@ -7,6 +7,12 @@ import './styles/althea-tokens.css'
 import './styles/althea-brand.css'
 import './styles/althea-components.css'
 import './styles/althea-mobile-stitch.css'
+import { installDynamicImportRecovery } from '@/services/pwa/chunkRecovery'
+
+// Recupera sesiones que quedaron abiertas durante un deploy: si Vite no puede
+// descargar un chunk viejo, recarga una sola vez para obtener el HTML vigente.
+// La marca vive en sessionStorage y evita bucles si el recurso sigue fallando.
+installDynamicImportRecovery(window)
 
 // Migración legacy -> modelo oficial (una vez, idempotente, sin borrar datos).
 import('@/services/training/migrate').then(async ({ migrateLegacyTrainingData, wasMigratedV5 }) => {
