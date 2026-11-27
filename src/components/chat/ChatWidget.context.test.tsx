@@ -130,7 +130,7 @@ describe('ChatWidget — contexto unificado del Coach', () => {
 
     await openAndType('¿Cuántas calorías necesito?')
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('La sesión no está disponible.')
+    expect((await screen.findByRole('alert')).textContent).toContain('La sesión no está disponible.')
     expect(mocks.composeUnifiedLocalReply).not.toHaveBeenCalled()
   })
 })
