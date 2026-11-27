@@ -17,7 +17,7 @@ export function ModifyModal({ show, onClose, exerciseName, mod, setMod, onApply 
   if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
+      <div role="dialog" aria-modal="true" aria-label="Modificar ejercicio" tabIndex={-1} onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
         <h3 className="font-headline-lg text-base font-semibold text-on-surface">Modificar {exerciseName}</h3>
         <div className="grid grid-cols-3 gap-2">
           <label className="font-label-caps text-[10px] uppercase text-outline tracking-wider">Peso<input type="number" value={mod.weight} onChange={e=>setMod({...mod, weight: e.target.value === '' ? '' : Number(e.target.value)})} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/></label>
@@ -40,7 +40,7 @@ export function ViewerModal({ viewer, onClose }:{ viewer:any; onClose:()=>void }
   if(!viewer) {return null}
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2 althea-modal" onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
+      <div role="dialog" aria-modal="true" aria-label={viewer.name} tabIndex={-1} onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-2xl max-h-[90vh] overflow-auto">
         <div className="p-4 flex justify-between"><span className="font-headline-lg text-base font-semibold text-on-surface">{viewer.name}</span><button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center"><BrandIcon name="close" size={16}/></button></div>
         <div className="p-4">
           <div className="rounded bg-surface-container-low border border-outline-variant flex items-center justify-center min-h-[300px] p-2">
@@ -63,7 +63,7 @@ export function SwapModal({ show, onClose, muscleName, swapLoading, swapOptions,
   if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[80vh] overflow-auto">
+      <div role="dialog" aria-modal="true" aria-label="Cambiar ejercicio" tabIndex={-1} onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-3 max-h-[80vh] overflow-auto">
         <div className="flex justify-between items-center">
           <h3 className="font-headline-lg text-base font-semibold text-on-surface">Cambiar ejercicio — {muscleName || 'mismo grupo'}</h3>
           <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
@@ -116,7 +116,7 @@ export function SkipReasonModal({ show, onClose, exerciseName, skipReason, setSk
   if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
+      <div role="dialog" aria-modal="true" aria-label="Saltar ejercicio" tabIndex={-1} onClick={e=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
         <h3 className="font-headline-lg text-base font-semibold text-on-surface">Saltar {exerciseName}</h3>
         <p className="font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">Motivo (opcional)</p>
         <textarea value={skipReason} onChange={e=>setSkipReason(e.target.value)} placeholder="Ej: molestia en hombro, sin equipamiento, fatiga..." rows={3} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface"/>
@@ -137,7 +137,7 @@ export function CancelModal({ show, onClose, reason, setReason, comment, setComm
   if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
-      <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
+      <div role="dialog" aria-modal="true" aria-label="Cancelar entrenamiento" tabIndex={-1} onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
         <h3 className="font-headline-lg text-base font-semibold text-on-surface">Cancelar entrenamiento</h3>
         <p className="font-body-sm text-[13px] text-on-surface-variant">La cancelación requiere justificación y queda registrada.</p>
         <select value={reason} onChange={(e)=>setReason(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
@@ -162,7 +162,7 @@ export function AbandonModal({ show, onClose, reason, setReason, comment, setCom
   if(!show) {return null}
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal" onClick={onClose}>
-      <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
+      <div role="dialog" aria-modal="true" aria-label="Abandonar entrenamiento" tabIndex={-1} onClick={(e)=>e.stopPropagation()} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-md p-4 space-y-3">
         <h3 className="font-headline-lg text-base font-semibold text-on-surface">Abandonar entrenamiento</h3>
         <p className="font-body-sm text-[13px] text-on-surface-variant">Se conservan las series y ejercicios ya registrados. El abandono queda como dato histórico.</p>
         <select value={reason} onChange={(e)=>setReason(e.target.value)} className="w-full bg-surface-container border border-outline-variant rounded p-2 font-body-md text-[15px] text-on-surface">
@@ -214,7 +214,7 @@ export function AddExtraModal({ show, onClose, options, reason, setReason, comme
   // Portal a body: sin esto la nav móvil (z-50) queda encima de los botones del pie.
   return createPortal(
     <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[9999] p-0 sm:p-4 althea-modal" onClick={onClose}>
-      <div onClick={(e)=>e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-t-2xl sm:rounded-xl w-full max-w-lg lg:max-w-2xl p-3 sm:p-4 space-y-2 max-h-[92dvh] overflow-auto">
+      <div role="dialog" aria-modal="true" aria-label="Agregar ejercicio extra" tabIndex={-1} onClick={(e)=>e.stopPropagation()} className="bg-surface-container/95 backdrop-blur-md border border-outline-variant rounded-t-2xl sm:rounded-xl w-full max-w-lg lg:max-w-2xl p-3 sm:p-4 space-y-2 max-h-[92dvh] overflow-auto">
         <div className="flex justify-between items-center">
           <h3 className="font-headline-lg text-base font-semibold text-on-surface">Agregar ejercicio extra</h3>
           <button onClick={onClose} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center"><BrandIcon name="close" size={16}/></button>
@@ -302,9 +302,9 @@ export function FinishModal({ show, onClose, summary, rutinaName, weekNumber, pl
   const setSurvey = (k:string,v:any)=> setFinishSurvey((p:any) => ({...p,[k]:v}))
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 althea-modal">
-      <div className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-4 max-h-[90vh] overflow-auto">
+      <div role="dialog" aria-modal="true" aria-labelledby="finish-training-title" tabIndex={-1} className="bg-surface-container/90 backdrop-blur-md border border-outline-variant rounded-xl w-full max-w-lg lg:max-w-2xl p-4 space-y-4 max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between">
-          <h3 className="font-headline-lg text-base font-semibold text-on-surface">Finalizar entrenamiento</h3>
+          <h3 id="finish-training-title" className="font-headline-lg text-base font-semibold text-on-surface">Finalizar entrenamiento</h3>
           <span className="px-3 py-1 rounded-full bg-secondary-container/20 border border-secondary/30 text-secondary font-label-caps text-[10px] uppercase">FINALIZANDO</span>
         </div>
 
