@@ -229,7 +229,7 @@ describe('Cloudflare Workers AI', () => {
     expect(res.status).toBe(200)
     const call = aiRun(e).mock.calls[0]
     expect(call[1]).toMatchObject({
-      max_completion_tokens: 8192,
+      max_completion_tokens: 4096,
       stream: false,
       response_format: { type: 'json_object' },
     })
@@ -245,6 +245,20 @@ describe('Cloudflare Workers AI', () => {
   it('504 por timeout', async () => {
     const e = env({ AI_TIMEOUT_MS: '10', AI: { run: vi.fn(() => new Promise(() => {})) } })
     const res = await worker.fetch(request(), e)
+    expect(res.status).toBe(504)
+    expect((await res.json()).error).toBe('upstream_timeout')
+  })
+
+  it('rutina usa su timeout independiente', async () => {
+    const e = env({
+      AI_TIMEOUT_MS: '60000',
+      AI_ROUTINE_TIMEOUT_MS: '10',
+      AI: { run: vi.fn(() => new Promise(() => {})) },
+    })
+    const res = await worker.fetch(
+      request({ task: 'routine', messages: [{ role: 'user', content: 'rutina' }] }),
+      e,
+    )
     expect(res.status).toBe(504)
     expect((await res.json()).error).toBe('upstream_timeout')
   })
