@@ -8,6 +8,7 @@ import { todayKey } from '@/utils/dates'
 import Inicio from '@/pages/Inicio'
 import Calendario from '@/pages/Calendario'
 import Perfil from '@/pages/Perfil'
+import Mas from '@/pages/Mas'
 
 vi.mock('@/services/ai/aiService', () => ({
   aiService: { getChatCompletion: vi.fn().mockResolvedValue({ content: '' }) },
@@ -301,6 +302,26 @@ describe('Render de páginas no muta datos (Etapa 9)', () => {
     await db.open()
     await seedRepresentative()
   })
+
+
+  it('Más mantiene accesibles sus accesos y abre un diálogo de notificaciones usable en móvil', async () => {
+    render(<MemoryRouter><Mas /></MemoryRouter>)
+
+    const openButton = await screen.findByRole('button', { name: /notificaciones y recordatorios/i })
+    expect(openButton.className).toContain('min-h-[48px]')
+
+    fireEvent.click(openButton)
+    const dialog = await screen.findByRole('dialog', { name: 'Notificaciones y recordatorios' })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+
+    const closeButton = screen.getByRole('button', { name: 'Cerrar notificaciones y recordatorios' })
+    expect(closeButton.className).toContain('min-h-[44px]')
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Notificaciones y recordatorios' })).not.toBeInTheDocument()
+    })
+  }, 30000)
 
   it('Inicio, Calendario y Perfil dejan intactas las tablas sembradas', async () => {
     const before = await snapshot()
