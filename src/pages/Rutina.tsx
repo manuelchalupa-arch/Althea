@@ -6,7 +6,6 @@ import { DEFAULT_CYCLE, type CycleConfig, type LoadState, LOAD_STATE_LABEL, LOAD
 import { v4 as uuid } from 'uuid'
 import { Plus, Trash2, Clock, AlertTriangle, History, Dumbbell, Search, Eye, Sparkles, X, Check, RefreshCw, ChevronUp, ChevronDown, GripVertical } from 'lucide-react'
 import BrandIcon from '@/components/brand/BrandIcon'
-import { IconDumbbell, IconFire, IconLightning, IconBody, IconTarget } from '@/components/brand/FitnessIcons'
 import { AltheaCard, AltheaBadge, AltheaButton, AltheaEmpty, AltheaLoading, StatusTag, AltheaPanel, AltheaStatRow } from '@/components/althea'
 import { generateRoutineWithAI, isRoutineAIAvailable, type GeneratedRoutine, type UserWants } from '@/services/ai/routineBuilderIA'
 import { parseDayMuscles, displayMuscle } from '@/utils/muscleMap'
