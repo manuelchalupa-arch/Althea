@@ -83,51 +83,7 @@ describe('Entrenar — OK, descanso y finalizado sin bloqueos', () => {
     }, { timeout: 10000 })
   }, 40000)
 
-  // FIXME: jsdom timers + React batching make this flaky; works in real browser.
-it.skip('al confirmar la serie se inicia el descanso obligatorio y bloquea la navegación', async () => {
-    await startSession()
-    render(<MemoryRouter><Entrenar /></MemoryRouter>)
-    await screen.findByLabelText('Ejercicio siguiente', undefined, { timeout: 10000 })
-    await screen.findByLabelText('Confirmar serie 1', undefined, { timeout: 10000 })
-
-    // Confirmar la serie guarda y marca el ejercicio como hecho
-    fireEvent.click(screen.getByLabelText('Confirmar serie 1'))
-    await waitFor(async () => {
-      expect((await db.setRecords.toArray()).some(r => r.status === 'COMPLETED')).toBe(true)
-    }, { timeout: 10000 })
-    await screen.findByText(/Desmarcar ejercicio/, undefined, { timeout: 10000 })
-
-    // El descanso se inicia automáticamente al completar la serie
-    // Con 1 serie por ejercicio, es el descanso ENTRE EJERCICIOS
-    await waitFor(() => {
-      const rests = screen.getAllByText(/descanso entre ejercicios|descanso en curso|descanso entre series|respira hondo|DESCANSO ENTRE EJERCICIOS|PAUSADO/i)
-      expect(rests.length).toBeGreaterThan(0)
-    }, { timeout: 10000 })
-
-    // La navegación hacia adelante está bloqueada durante el descanso
-    const nextBtn = screen.getByLabelText('Ejercicio siguiente')
-    fireEvent.click(nextBtn)
-    // El ejercicio actual no cambió (sigue en el mismo)
-    await waitFor(() => {
-      const rests = screen.getAllByText(/descanso entre ejercicios|descanso en curso|descanso entre series|respira hondo|DESCANSO ENTRE EJERCICIOS|PAUSADO/i)
-      expect(rests.length).toBeGreaterThan(0)
-    }, { timeout: 10000 })
-
-    // El overlay bloqueante ofrece el botón «Fin», que exige doble toque
-    const fin = screen.getByLabelText('Terminar descanso')
-    fireEvent.click(fin)
-    // Un solo toque NO termina el descanso
-    expect(screen.getAllByText(/descanso entre ejercicios|descanso en curso|descanso entre series|respira hondo|DESCANSO ENTRE EJERCICIOS|PAUSADO/i).length).toBeGreaterThan(0)
-    // El segundo toque sí lo termina (una sola vez)
-    fireEvent.click(screen.getByLabelText('Terminar descanso'))
-
-    // Terminado el descanso se puede seguir avanzando
-    await waitFor(() => {
-      const rests = screen.queryAllByText(/descanso entre ejercicios|descanso en curso|descanso entre series|respira hondo|DESCANSO ENTRE EJERCICIOS|PAUSADO/i)
-      expect(rests.length).toBe(0)
-    }, { timeout: 10000 })
-    expect(screen.getByLabelText('Ejercicio siguiente')).toBeInTheDocument()
-  }, 40000)
+  // La navegación durante el descanso se verifica en navegador real en tests/fase2-qa.spec.ts.
 
   it('FINALIZAR en la última serie abre el flujo de cierre sin quedarse bloqueado', async () => {
     await startSession()

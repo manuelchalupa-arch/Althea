@@ -203,6 +203,22 @@ test.describe('FASE 2 — Sesión en curso y finalización (390px)', () => {
     await expect(heading).toBeVisible({ timeout: 15000 })
     await page.screenshot({ path: 'test-results/fase2-390-finishmodal.png' })
   })
+
+  test('el descanso obligatorio bloquea el avance al siguiente ejercicio', async ({ page }) => {
+    await seedBase(page, { session: true })
+    await page.goto('/entrenar')
+    await page.waitForLoadState('networkidle')
+
+    const currentExercise = page.getByRole('heading', { name: 'Press banca', exact: true })
+    await expect(currentExercise).toBeVisible({ timeout: 20000 })
+    await page.getByLabel('Confirmar serie 1').click()
+
+    // La fixture tiene dos series: al confirmar la primera debe comenzar
+    // el descanso entre series antes de permitir cambiar de ejercicio.
+    await expect(page.getByLabel('Terminar descanso')).toBeVisible({ timeout: 15000 })
+    await page.getByLabel('Ejercicio siguiente').click()
+    await expect(currentExercise).toBeVisible()
+  })
 })
 
 test.describe('FASE 2 — Persistencia local (390px)', () => {  test.use({ viewport: { width: 390, height: 844 } })
