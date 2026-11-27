@@ -48,6 +48,7 @@ export default function Mas(){
   useEffect(() => {
     if (!showNotifModal) { return }
     const previousOverflow = document.body.style.overflow
+    const notificationButton = notificationButtonRef.current
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { setShowNotifModal(false) }
     }
@@ -57,7 +58,7 @@ export default function Mas(){
     return () => {
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', onKeyDown)
-      notificationButtonRef.current?.focus()
+      notificationButton?.focus()
     }
   }, [showNotifModal])
 
