@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, X, Dumbbell, Apple, ClipboardList, ArrowUpRight, LoaderCircle } from 'lucide-react'
 import { db } from '@/services/storage/db'
@@ -32,6 +32,7 @@ function foodDetail(food: FoodSearchResult): string {
 export default function GlobalSearchDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const open = true
+  const dialogRef = useRef<HTMLElement | null>(null)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResults>(EMPTY_RESULTS)
   const [foodRecords, setFoodRecords] = useState<FoodSearchResult[]>([])
@@ -42,6 +43,23 @@ export default function GlobalSearchDialog({ onClose }: { onClose: () => void })
   const [loading, setLoading] = useState(false)
   const total = results.exercise.length + results.food.length + results.routine.length
   const term = query.trim()
+
+  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Tab') { return }
+    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    )
+    if (!focusable?.length) { return }
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   const close = () => {
     setQuery('')
@@ -204,9 +222,11 @@ export default function GlobalSearchDialog({ onClose }: { onClose: () => void })
           onMouseDown={(event) => { if (event.target === event.currentTarget) { close() } }}
         >
           <section
+            ref={dialogRef as React.RefObject<HTMLElement>}
             role="dialog"
             aria-modal="true"
             aria-label="Búsqueda general de Althea"
+            onKeyDown={handleDialogKeyDown}
             className="w-full max-w-2xl max-h-[calc(100dvh-24px)] overflow-hidden rounded-2xl border border-outline-variant bg-surface shadow-al-xl flex flex-col"
           >
             <div className="flex items-center gap-2 border-b border-outline-variant/50 p-3 sm:p-4">
