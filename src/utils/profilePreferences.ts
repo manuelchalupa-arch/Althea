@@ -68,6 +68,7 @@ export function getTrainingPreferences(p: ProfileLike): TrainingPreferences {
   const rawAvailableDays: unknown[] = Array.isArray(profile.availableDays) && profile.availableDays.length
     ? profile.availableDays
     : Array.isArray(profile.schedule?.availableDays) ? profile.schedule.availableDays : []
+  const normalizedAvailableDays = rawAvailableDays.map(d => Number(d)).filter(d => Number.isInteger(d) && d >= 0 && d <= 6)
   const days = rawAvailableDays.length
     || (Array.isArray(profile.cycle?.weekMap) ? profile.cycle.weekMap.filter((d: unknown) => d !== null).length : 0)
     || 3
@@ -76,7 +77,7 @@ export function getTrainingPreferences(p: ProfileLike): TrainingPreferences {
     secondaryGoals: asStrings(profile.goalsSecondary),
     level: resolveExperienceLevel(profile),
     daysPerWeek: Math.max(1, Math.min(7, Number(days) || 3)),
-    availableDays: [...new Set(rawAvailableDays.map(Number).filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6))],
+    availableDays: [...new Set<number>(normalizedAvailableDays)],
     equipment: canonicalEquipment(Array.isArray(profile.equipment) && profile.equipment.length ? profile.equipment : profile.preferences?.preferredEquipment),
     limitations: getTrainingLimitations(profile),
     painAreas: getPainAreas(profile),
