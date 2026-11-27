@@ -1,5 +1,18 @@
 # ALTHEA — Infraestructura, Seguridad y Staging
 
+> **Estado vigente — 2026-11-27.** Este encabezado prevalece sobre los registros históricos que siguen en el documento:
+>
+> - Frontend de producción: **Cloudflare Pages**, https://altheafit.pages.dev/.
+> - Backend: Firebase Auth + Firestore, proyecto de producción althea-4b1d0.
+> - IA: Cloudflare Worker althea-proxy-production, Workers AI binding AI, modelo @cf/google/gemma-4-26b-a4b-it. No requiere GROQ_API_KEY.
+> - El nombre VITE_GROQ_PROXY_URL se conserva por compatibilidad del frontend; su valor apunta al Worker de Cloudflare.
+> - La aplicación mantiene Dexie v29 como fuente canónica local. Esta entrega no introduce migraciones.
+> - La CI incluye TypeScript, ESLint, build, Vitest, escaneo de secretos, Playwright responsive y pruebas de reglas Firestore con emuladores locales.
+> - Las pruebas de emulador no despliegan reglas. La publicación de firestore.rules requiere una sesión autorizada de Firebase CLI y el proyecto explícito.
+>
+> Los apartados que mencionan Netlify, Groq, Hosting de Firebase o despliegues de octubre de 2026 documentan **estados históricos**; no deben usarse como instrucciones de operación vigentes. La guía actual está en README.md y docs/CIERRE_PROYECTO.md.
+
+
 Estado de este documento: refleja el hardening local del Worker y la
 preparación de la separación staging/producción. **No** certifica validación
 contra entornos reales.
