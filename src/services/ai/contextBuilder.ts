@@ -93,6 +93,22 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
   const excluded = getExcludedExercises(profile)
   const limitations = getTrainingLimitations(profile)
   const painAreas = getPainAreas(profile)
+  // Medidas recientes: independientes de que el perfil tenga peso y altura,
+  // para que el Coach pueda consultar evolución sin exigir completar el perfil.
+  const bodyRows = await db.bodyMeasurements.toArray().catch(() => [])
+  const bodyMeasurements = bodyRows
+    .filter(row => !row.isDemo)
+    .sort((a, b) => a.localDate.localeCompare(b.localDate))
+    .slice(-5)
+    .map(row => ({
+      date: row.localDate,
+      weightKg: row.weightKg,
+      bodyFatPct: row.bodyFatPct,
+      muscleMassKg: row.muscleMassKg,
+      waistCm: row.waistCm,
+      hipCm: row.hipCm,
+      chestCm: row.chestCm,
+    }))
   // NUTRITION_CONTEXT
   let nutritionContext: { weight: number; height: number; bmi: number; bmiCategory: string; activityLevel: string; estimatedBMR: number; estimatedTDEE: number; calorieGoal: number; proteinGoal?: string; proteinRange?: any; weightHistory: { date: string; weight?: number }[]; nutritionPreferences: string[]; foodLogCount: number } | null = null
   try{
@@ -105,14 +121,11 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
       const tdee2 = _tdee(tmb2, act2 as ActivityLevel, 4)
       const cg2 = _cg(tdee2, trainingGoal || profile?.goalPrimary || objetivo)
       const pr2 = _pr(w, trainingGoal || profile?.goalPrimary || objetivo)
-      // peso evolución
-      const bodies = await db.bodyMeasurements.toArray().catch(()=>[])
-      const sortedB = bodies.sort((a,b)=> a.localDate.localeCompare(b.localDate)).slice(-5)
       nutritionContext = {
         weight: w, height: h, bmi: Number(imc2.bmi), bmiCategory: String(imc2.bmiCat),
         activityLevel: String(act2), estimatedBMR: Number(tmb2), estimatedTDEE: Number(tdee2),
         calorieGoal: Number(cg2), proteinGoal: pr2?.text, proteinRange: pr2,
-        weightHistory: sortedB.map(b=> ({date:b.localDate, weight:b.weightKg})),
+        weightHistory: bodyMeasurements.map(b=> ({date:b.date, weight:b.weightKg})),
         // S4: antes leía profile.restrictions (ENTRENAMIENTO) como si fuera
         // nutricional. La fuente canónica es profile.nutritionPrefs.restrictions.
         nutritionPreferences: getNutritionRestrictions(profile),
@@ -254,6 +267,7 @@ export async function buildTrainingContext(exerciseId?:string, exerciseName?:str
     ultimaObservacion: ultimaObs ? `${ultimaObs.motivos?.join(', ')} — ${ultimaObs.comentario||''}` : null,
     needs, excluded, limitations, painAreas,
     nutritionContext,
+    bodyMeasurements,
     nivelExigencia: profile?.coachLevel || 3,
     exigencia: profile?.exigencia || {},
     // ─── Coach IA v2: nuevos campos ───
