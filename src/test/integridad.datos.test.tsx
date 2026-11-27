@@ -300,6 +300,34 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     }
   })
 
+  it('revierte todas las tablas si falla una escritura durante la restauración', async () => {
+    await seedRepresentative()
+    const file = new File([await (await exportJSON()).text()], 'backup-atomic.json', { type: 'application/json' })
+
+    // Dispositivo destino vacío. La primera parte de la importación intentará
+    // escribir rutinas y perfil antes de alcanzar nutrición.
+    await db.delete()
+    await db.open()
+
+    const nutritionWrite = vi.spyOn(db.nutritionDiary, 'bulkPut')
+      .mockRejectedValueOnce(new Error('fallo simulado de almacenamiento'))
+
+    try {
+      const result = await importJSON(file)
+      expect(result.success).toBe(false)
+      expect(result.errors.join(' ')).toContain('La importación se revirtió por completo')
+      expect(result.verification.passed).toBe(false)
+
+      // Ninguna tabla anterior al fallo puede quedar parcialmente restaurada.
+      expect(await db.routineStore.count()).toBe(0)
+      expect(await db.userProfile.count()).toBe(0)
+      expect(await db.trainingSessions.count()).toBe(0)
+      expect(await db.nutritionDiary.count()).toBe(0)
+    } finally {
+      nutritionWrite.mockRestore()
+    }
+  })
+
   it('exportar → borrar todo → importar restaura idénticos los datos representativos', async () => {
     await seedRepresentative()
     const before = await snapshot()
