@@ -198,6 +198,31 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     expect(data.metadata.schemaVersion).toBe(29)
   })
 
+  it('combinar conserva borrados pendientes de otro dispositivo ante colisión de IDs autonuméricos', async () => {
+    await db.syncDeletes.put({
+      id: 1, table: 'routines', docId: 'deleted-from-backup',
+    } as never)
+    const file = new File([await (await exportJSON()).text()], 'sync-deletes.json', { type: 'application/json' })
+
+    // Simula otro dispositivo que reutilizó el mismo contador local para otro borrado.
+    await db.syncDeletes.delete(1)
+    await db.syncDeletes.put({
+      id: 1, table: 'nutritionDiary', docId: 'local-deletion',
+    } as never)
+
+    const result = await importJSON(file)
+    expect(result.success, JSON.stringify({ errors: result.errors, verification: result.verification })).toBe(true)
+
+    const markers = await db.syncDeletes.toArray()
+    expect(markers).toHaveLength(2)
+    expect(markers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 1, table: 'nutritionDiary', docId: 'local-deletion' }),
+      expect.objectContaining({ table: 'routines', docId: 'deleted-from-backup' }),
+    ]))
+    expect(markers.find(marker => marker.docId === 'deleted-from-backup')?.id).not.toBe(1)
+    expect(result.imported.syncDeletes).toBe(1)
+  })
+
   it('combinar preserva los datos locales si una clave ya existe', async () => {
     await seedRepresentative()
     const file = new File([await (await exportJSON()).text()], 'backup.json', { type: 'application/json' })
