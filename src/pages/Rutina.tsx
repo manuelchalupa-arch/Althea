@@ -1784,7 +1784,7 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
       const eq=(Array.isArray(p.equipment)?p.equipment:[]).map((v:string)=>eqMap[v]||v)
       setEquipment(eq)
       const tone=String(p.coachTone||p.coachIntensity||'profesional').toLowerCase()
-      setCoachTone(tone.includes('padelero')||tone.includes('motiv')?'motivacional':tone.includes('arnold')||tone==='duro'?'exigente':tone.includes('psycho')||tone==='extremo'?'extremo':'profesional')
+      setCoachTone(tone.includes('padelero')||tone.includes('motiv')?'motivacional':tone.includes('arnold')||tone==='duro'?'duro':tone.includes('psycho')||tone==='extremo'?'extremo':'profesional')
       setExcludedText([...(p.excludedMovements||[])].join(', '))
     }).catch(()=>{})
     return ()=>{live=false}
@@ -1800,7 +1800,9 @@ function RoutineAIQuestionnaire({onGenerate, onClose}:{onGenerate:(wants:UserWan
   const chooseEquipmentMode=(mode:string)=>{
     setEquipmentMode(mode)
     if(presets[mode])setEquipment(presets[mode])
-    else if(mode==='profile' && profile){
+    if(mode==='crossfit')setModality('crossfit')
+    else if(mode!=='profile')setModality('gym')
+    if(mode==='profile' && profile){
       const map:Record<string,string>={barra:'barbell',mancuernas:'dumbbell',maquina:'machine',polea:'cable',peso_corporal:'bodyweight',banda:'band'}
       setEquipment((profile.equipment||[]).map((v:string)=>map[v]||v))
     }
