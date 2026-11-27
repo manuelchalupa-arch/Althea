@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
 /**
- * FASE 2 — QA de vista en anchos requeridos (360/375/390/412/430 + tablet +
+ * FASE 2 — QA de vista en anchos requeridos (360/375/390/393/412/430 + tablet +
  * escritorio) sobre datos LOCALES de pruebas.
  *
  * Técnica: modo offline (`althea:offlineMode`) para entrar sin credenciales y
@@ -14,6 +14,7 @@ const WIDTHS = [
   { w: 360, h: 800 },
   { w: 375, h: 812 },
   { w: 390, h: 844 },
+  { w: 393, h: 852 },
   { w: 412, h: 915 },
   { w: 430, h: 932 },
   { w: 768, h: 1024 },
@@ -25,6 +26,8 @@ const PAGES = [
   { path: '/entrenar', name: 'entrenar' },
   { path: '/calendario', name: 'calendario' },
   { path: '/perfil', name: 'perfil' },
+  { path: '/mas', name: 'mas' },
+  { path: '/nutricion', name: 'nutricion' },
   { path: '/crossfit', name: 'crossfit' },
   { path: '/rutina', name: 'rutinas' },
 ]
@@ -70,13 +73,19 @@ test.describe('FASE 2 — Navegación táctil (390px)', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    // 6 <nav> comparten el aria-label; el visible @mobile es el bottom bar (md:hidden, bottom-0).
-    const nav = page.locator('nav[aria-label="Navegación principal"][class*="bottom-0"]')
+    // El contenedor fijo aloja un único landmark nav interno; el nav ya no tiene
+    // posicionamiento propio (evita dos barras inferiores superpuestas).
+    const navContainer = page.locator('.app-mobile-nav')
+    await expect(navContainer).toBeVisible()
+    const nav = navContainer.getByRole('navigation', { name: 'Navegación principal' })
     await expect(nav).toBeVisible()
+    expect(await nav.locator('.althea-nav-item__label').allTextContents()).toEqual([
+      'Inicio', 'Entrenar', 'Nutrición', 'CrossFit', 'Más',
+    ])
 
-    const links = nav.locator('a, button')
+    const links = nav.locator('.althea-nav-item')
     const count = await links.count()
-    expect(count).toBeGreaterThan(0)
+    expect(count).toBe(5)
 
     const small: string[] = []
     for (let i = 0; i < count; i++) {
@@ -95,7 +104,7 @@ test.describe('FASE 2 — Navegación táctil (390px)', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
-    await page.locator('nav[aria-label="Navegación principal"][class*="bottom-0"]').getByRole('link', { name: 'Más' }).click()
+    await page.locator('.app-mobile-nav').getByRole('navigation', { name: 'Navegación principal' }).getByRole('link', { name: 'Más' }).click()
     await page.waitForURL('**/mas')
     await page.screenshot({ path: 'test-results/fase2-390-mas.png', fullPage: true })
 
@@ -105,6 +114,71 @@ test.describe('FASE 2 — Navegación táctil (390px)', () => {
 
     const dims = await horizontalOverflow(page)
     expect(dims.sw).toBeLessThanOrEqual(dims.iw + 1)
+  })
+})
+
+
+test.describe('FASE 2 — Accesibilidad de búsqueda y Más (390px)', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('búsqueda general mantiene el foco dentro del diálogo y permite cerrarlo', async ({ page }) => {
+    await seedBase(page)
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+
+    await page.getByRole('button', { name: 'Buscar ejercicios, alimentos y rutinas' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Búsqueda general de Althea' })
+    await expect(dialog).toBeVisible()
+    const searchInput = dialog.getByRole('searchbox', { name: 'Buscar ejercicios, alimentos o rutinas' })
+    const closeButton = dialog.getByRole('button', { name: 'Cerrar búsqueda' })
+    await expect(searchInput).toBeFocused()
+
+    await closeButton.focus()
+    await page.keyboard.press('Tab')
+    await expect(searchInput).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(closeButton).toBeFocused()
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+  })
+
+  test('Más mantiene el foco dentro de notificaciones y cierra con Escape', async ({ page }) => {
+    await seedBase(page)
+    await page.goto('/mas')
+    await page.waitForLoadState('networkidle')
+
+    await page.getByRole('button', { name: /notificaciones y recordatorios/i }).click()
+    const dialog = page.getByRole('dialog', { name: 'Notificaciones y recordatorios' })
+    await expect(dialog).toBeVisible()
+    const focusable = dialog.locator(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    )
+    const count = await focusable.count()
+    expect(count).toBeGreaterThan(1)
+    await focusable.first().focus()
+    await page.keyboard.press('Shift+Tab')
+    await expect(focusable.last()).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(focusable.first()).toBeFocused()
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+  })
+
+  test('CrossFit presenta Hoy y WOD; las herramientas quedan agrupadas', async ({ page }) => {
+    await seedBase(page)
+    await page.goto('/crossfit')
+    await page.waitForLoadState('networkidle')
+
+    const tablist = page.getByRole('tablist', { name: 'Apartados CrossFit' }).first()
+    await expect(tablist.getByRole('tab', { name: 'Hoy' })).toBeVisible()
+    await expect(tablist.getByRole('tab', { name: 'WOD' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Programación' })).toHaveCount(0)
+
+    await tablist.getByRole('button', { name: /Herramientas/ }).click()
+    await expect(page.getByRole('tab', { name: 'Programación' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Biblioteca' })).toBeVisible()
   })
 })
 
