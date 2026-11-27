@@ -619,7 +619,7 @@ export default function RutinaPage(){
                 <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fecha de revisión</span>
                 <AltheaDatePicker ariaLabel="Fecha de revisión al crear" value={newReviewDate} onChange={setNewReviewDate} className="w-full" />
                 <span className="block font-body-sm text-[12px] text-on-surface-variant">El aviso se muestra en Inicio; nunca bloquea el entrenamiento.</span>
-              </label>
+              </div>
               <div className="flex gap-2">
                 <AltheaButton variant="secondary" fullWidth onClick={()=>setShowNew(false)}>Cancelar</AltheaButton>
                 <AltheaButton fullWidth onClick={createNew}>Crear rutina</AltheaButton>
@@ -958,11 +958,11 @@ export default function RutinaPage(){
             <p className="font-body-sm text-[12px] text-on-surface-variant">{newMode==='asistida' ? 'Armás la rutina con el selector inteligente de ejercicios.' : 'Ejercicios manuales: nombre, series, reps, peso, descanso y músculo.'}</p>
             <p className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Nombre:</p>
             <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
-            <label className="block space-y-1">
+            <div className="block space-y-1">
               <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fecha de revisión</span>
               <AltheaDatePicker ariaLabel="Fecha de revisión al crear" value={newReviewDate} onChange={setNewReviewDate} className="w-full" />
               <span className="block font-body-sm text-[12px] text-on-surface-variant">El aviso se muestra en Inicio; nunca bloquea el entrenamiento.</span>
-            </label>
+            </div>
             <div className="flex gap-2">
               <AltheaButton variant="secondary" fullWidth onClick={()=>setShowNew(false)}>Cancelar</AltheaButton>
               <AltheaButton fullWidth onClick={()=>{
