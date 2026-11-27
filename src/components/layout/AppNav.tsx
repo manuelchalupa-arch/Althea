@@ -180,8 +180,7 @@ export default function AppNav() {
         </div>
       </aside>
 
-      <nav
-        aria-label="Navegación principal"
+      <div
         className="app-mobile-nav md:hidden fixed bottom-0 left-0 right-0 z-50 min-h-16 bg-surface/90 backdrop-blur-xl border-t border-primary/20 py-1.5 px-2 shadow-al-md pb-safe"
       >
         <div className="max-w-[480px] mx-auto flex items-center justify-around gap-1">
@@ -192,7 +191,7 @@ export default function AppNav() {
             renderLink={renderNavLink}
           />
         </div>
-      </nav>
+      </div>
     </>
   )
 }
