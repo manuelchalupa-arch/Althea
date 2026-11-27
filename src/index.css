@@ -944,3 +944,145 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 .shell-content svg:not(button *):not(a *):not(label *):not([role='button'] *) {
   opacity: var(--althea-info-opacity);
 }
+
+
+/* ==========================================================================
+   ALTHEA — SISTEMA GLOBAL DE VENTANAS Y SELECTORES
+   Una sola superficie visual para modales, confirmaciones, calendarios,
+   selectores de fecha/hora, desplegables y popovers.
+   ========================================================================== */
+.althea-dialog-backdrop,
+.althea-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgb(12 10 8 / 68%);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+.althea-dialog {
+  width: min(100%, 30rem);
+  max-height: min(88dvh, 48rem);
+  overflow: auto;
+  padding: 22px;
+  color: var(--c-on-surface);
+  background: var(--c-surface);
+  border: 2px solid var(--c-outline);
+  border-radius: 18px;
+  box-shadow: 0 12px 0 rgb(23 21 18 / 16%), 0 24px 64px rgb(0 0 0 / 32%);
+  animation: althea-dialog-enter 160ms ease-out both;
+}
+.althea-dialog--compact { width: min(100%, 26rem); }
+.althea-dialog__eyebrow {
+  margin-bottom: 8px;
+  color: var(--c-primary);
+  font: 800 .7rem/1.3 var(--font-body);
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+.althea-dialog__title {
+  margin: 0;
+  color: var(--c-on-surface);
+  font: 900 clamp(1.25rem, 5vw, 1.55rem)/1.12 var(--font-display);
+  text-transform: uppercase;
+}
+.althea-dialog__description {
+  margin: 12px 0 22px;
+  color: var(--c-on-surface-variant);
+  font: 500 1rem/1.5 var(--font-body);
+}
+.althea-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.althea-dialog__button {
+  min-width: 112px;
+  min-height: 48px;
+  padding: 10px 18px;
+  border: 2px solid var(--althea-btn-dark-border);
+  border-radius: 10px;
+  font: 800 .78rem/1.2 var(--font-display);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease, background 120ms ease;
+}
+.althea-dialog__button:active { transform: translateY(1px); }
+.althea-dialog__button--primary {
+  color: var(--c-on-primary);
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+}
+.althea-dialog__button--secondary {
+  color: var(--althea-btn-dark-text);
+  background: var(--althea-btn-dark);
+}
+@keyframes althea-dialog-enter {
+  from { opacity: 0; transform: translateY(7px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Superficie compartida de todos los controles nativos de selección. */
+:where(input[type="date"], input[type="time"], input[type="datetime-local"],
+input[type="month"], input[type="week"], select) {
+  min-height: 48px;
+  max-width: 100%;
+  color: var(--c-on-surface);
+  color-scheme: light;
+  background-color: var(--c-surface-container);
+  border: 2px solid var(--c-outline);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font: 600 1rem/1.3 var(--font-body);
+  accent-color: var(--c-primary);
+}
+.dark :where(input[type="date"], input[type="time"], input[type="datetime-local"],
+input[type="month"], input[type="week"], select) { color-scheme: dark; }
+:where(input[type="date"], input[type="time"], input[type="datetime-local"],
+input[type="month"], input[type="week"], select):focus-visible {
+  border-color: var(--c-primary);
+  outline: 2px solid color-mix(in srgb, var(--c-primary) 35%, transparent);
+  outline-offset: 2px;
+}
+:where(input[type="date"], input[type="time"], input[type="datetime-local"],
+input[type="month"], input[type="week"])::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: .85;
+  filter: none;
+}
+.dark :where(input[type="date"], input[type="time"], input[type="datetime-local"],
+input[type="month"], input[type="week"])::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+select { cursor: pointer; }
+select option {
+  color: var(--c-on-surface);
+  background: var(--c-surface);
+}
+dialog {
+  color: var(--c-on-surface);
+  background: var(--c-surface);
+  border: 2px solid var(--c-outline);
+  border-radius: 18px;
+  box-shadow: 0 18px 56px rgb(0 0 0 / 30%);
+}
+dialog::backdrop {
+  background: rgb(12 10 8 / 68%);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+@media (max-width: 520px) {
+  .althea-dialog { padding: 18px; border-radius: 16px; }
+  .althea-dialog__actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .althea-dialog__button { min-width: 0; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .althea-dialog { animation: none; }
+  .althea-dialog__button { transition: none; }
+}
