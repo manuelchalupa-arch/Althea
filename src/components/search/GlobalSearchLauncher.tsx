@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 
 const LazySearchDialog = lazy(() => import('./GlobalSearchDialog'))
@@ -6,6 +6,13 @@ const LazySearchDialog = lazy(() => import('./GlobalSearchDialog'))
 /** Botón ligero del header: descarga el catálogo de búsqueda solo al abrirlo. */
 export default function GlobalSearchLauncher() {
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const wasOpenRef = useRef(false)
+
+  useEffect(() => {
+    if (wasOpenRef.current && !open) { triggerRef.current?.focus() }
+    wasOpenRef.current = open
+  }, [open])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -22,6 +29,7 @@ export default function GlobalSearchLauncher() {
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Buscar ejercicios, alimentos y rutinas"
