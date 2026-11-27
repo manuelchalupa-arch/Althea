@@ -27,6 +27,8 @@ Ambas usan el mismo transporte (`src/services/ai/groqConfig.ts` + `src/services/
 - 20 peticiones/minuto por `uid` verificado y 240/minuto globales, en un **Durable Object** (contador serializado: vale entre isolates).
 - Presupuesto diario de neuronas reservado de forma **atómica** en el mismo Durable Object (`budget:AAAA-MM-DD`, UTC); KV queda solo como degradación best-effort.
 - 6 inferencias simultáneas **globales**, con slots que expiran por TTL si una petición muere sin liberarlos.
+- Timeout independiente: chat 60 s; generación de rutinas 120 s (máximo configurable 180 s).
+- El generador limita la salida a 4.096 tokens y omite metadatos que Althea completa desde el catálogo local.
 - `enable_thinking:false` y `store:false` para no gastar tokens en razonamiento ni almacenar salidas.
 - 401 sin sesión, 429 con `Retry-After` al agotar límites, 503 sin binding, 504 por timeout, 502 sanitizado.
 - Logs: solo códigos de estado; nunca prompts, respuestas ni tokens.
@@ -44,7 +46,7 @@ Llamadas directas al binding `AI` de la cuenta (sin la capa de auth del Worker):
 Capacidad con el presupuesto interno de 9.000 neuronas/día, usando la reserva conservadora del Worker (no es una medición de tráfico real):
 
 - Coach: ~32 neuronas por reserva (512 de salida + ~2.000 tokens de entrada) → ~280 mensajes/día.
-- Rutina: ~260 neuronas por reserva (8.192 de salida + ~4.000 tokens de entrada) → ~34 rutinas/día.
+- Rutina: ~260 neuronas por reserva (4.096 de salida + ~4.000 tokens de entrada) → ~34 rutinas/día.
 
 ## Configuración externa pendiente (la aplica el propietario al desplegar)
 
@@ -53,7 +55,7 @@ Capacidad con el presupuesto interno de 9.000 neuronas/día, usando la reserva c
    - `npm run worker:deploy:production`
 2. Verificar en los TOML el binding `[ai] binding = "AI"` y `FIREBASE_PROJECT_ID` (`althea-stg` / `althea-4b1d0`).
 3. La URL pública del proxy se mantiene en `VITE_GROQ_PROXY_URL` (o el default embebido). No hay secretos que cargar.
-4. Opcional: ajustar `AI_DAILY_NEURON_BUDGET`, `AI_MAX_CONCURRENCY` y `AI_TIMEOUT_MS` en los TOML.
+4. Opcional: ajustar `AI_DAILY_NEURON_BUDGET`, `AI_MAX_CONCURRENCY` y `AI_TIMEOUT_MS` y `AI_ROUTINE_TIMEOUT_MS` en los TOML.
 5. El antiguo secret `GROQ_API_KEY` ya no se usa: puede revocarse en la consola de Groq.
 
 ## Pruebas
