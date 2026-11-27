@@ -33,7 +33,7 @@ export function AltheaTimePicker({ value, onChange, label, ariaLabel, className 
         <div className="althea-time-picker__fields">
           <label>Hora<select aria-label="Hora" value={hour} onChange={e => setHour(e.target.value)}>{Array.from({length:24},(_,i)=>String(i).padStart(2,'0')).map(v=><option key={v}>{v}</option>)}</select></label>
           <span>:</span>
-          <label>Minutos<select aria-label="Minutos" value={minute} onChange={e => setMinute(e.target.value)}>{Array.from({length:Math.ceil(60/minuteStep)},(_,i)=>String(i*minuteStep).padStart(2,'0')).filter(v=>Number(v)<60).map(v=><option key={v}>{v}</option>)}</select></label>
+          <label>Minutos<select aria-label="Minutos" value={minute} onChange={e => setMinute(e.target.value)}>{Array.from(new Set([minute, ...Array.from({length:Math.ceil(60/minuteStep)},(_,i)=>String(i*minuteStep).padStart(2,'0')).filter(v=>Number(v)<60)])).sort().map(v=><option key={v}>{v}</option>)}</select></label>
         </div>
         <div className="althea-picker__actions">
           <button type="button" className="althea-picker__cancel" onClick={() => setOpen(false)}>Cancelar</button>
