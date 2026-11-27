@@ -134,9 +134,9 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
     expect(data.activitySessions.map((r: any) => r.id)).toContain('act1')
     expect(data.exerciseRecords.map((r: any) => r.id)).toContain('er1')
     expect(data.cycleVersions.map((r: any) => r.id)).toContain('cv1')
-    // Sin bump de versión: sigue siendo formato 2 / esquema 15.
-    expect(data.metadata.version).toBe(2)
-    expect(data.metadata.schemaVersion).toBe(15)
+    // Formato v3 y esquema Dexie v29; las copias antiguas siguen siendo compatibles.
+    expect(data.metadata.version).toBe(3)
+    expect(data.metadata.schemaVersion).toBe(29)
   })
 
   it('exportar → borrar todo → importar restaura idénticos los datos representativos', async () => {
