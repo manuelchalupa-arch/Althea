@@ -1282,3 +1282,44 @@ input[type="month"], input[type="week"], select) {
 @media (prefers-reduced-motion: reduce) {
   .althea-picker { animation: none; }
 }
+
+
+/* Superficie común para diálogos que ya usan el patrón accesible role=dialog. */
+[role="dialog"] > div:not(.althea-picker) {
+  color: var(--c-on-surface);
+  background-color: var(--c-surface);
+  border: 2px solid var(--c-outline);
+  border-radius: 16px;
+  box-shadow: 0 10px 0 rgb(23 21 18 / 12%), 0 22px 54px rgb(0 0 0 / 28%);
+}
+.althea-time-stepper {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.althea-time-stepper > span {
+  color: var(--c-on-surface-variant);
+  font: 800 .68rem/1.2 var(--font-body);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.althea-time-stepper > button {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 42px;
+  color: var(--c-on-surface);
+  background: var(--c-surface-container);
+  border: 2px solid var(--c-outline);
+  border-radius: 10px;
+}
+.althea-time-stepper > strong {
+  min-width: 76px;
+  padding: 9px 6px;
+  color: var(--c-on-surface);
+  background: var(--c-surface-container-high);
+  border: 2px solid var(--c-outline);
+  border-radius: 10px;
+  font: 900 1.65rem/1 var(--font-display);
+  text-align: center;
+}
