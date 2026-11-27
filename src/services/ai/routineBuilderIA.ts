@@ -737,8 +737,6 @@ function normalizeRoutine(
 function applySessionPreparation(routine: GeneratedRoutine, wants: UserWants, exercises: Record<string, PoolEx[]>): GeneratedRoutine {
   const warmups = exercises.__warmup__ || []
   const cardio = exercises.__cardio__ || []
-  const used = new Set<string>()
-  let cardioIndex = 0
   const makePrep = (item: PoolEx, role: 'warmup'|'cooldown', stretch = false): RoutineExercise => ({
     ...newExercise(item, 1, 1),
     weight: 0,
@@ -749,6 +747,7 @@ function applySessionPreparation(routine: GeneratedRoutine, wants: UserWants, ex
   })
   for (const key of Object.keys(routine.dayExercises).sort((a,b)=>Number(a)-Number(b))) {
     const core = routine.dayExercises[Number(key)] || []
+    const used = new Set<string>(core.map(ex => ex.exId))
     const before: RoutineExercise[] = []
     const after: RoutineExercise[] = []
     if (wants.warmupEnabled) {
@@ -757,7 +756,7 @@ function applySessionPreparation(routine: GeneratedRoutine, wants: UserWants, ex
     }
     if (wants.cardioTiming === 'start' || wants.cardioTiming === 'both') {
       const item = cardio.find(x => !used.has(x.id))
-      if (item) { before.push(makePrep(item, 'cooldown')); used.add(item.id); cardioIndex++ }
+      if (item) { before.push(makePrep(item, 'cooldown')); used.add(item.id) }
     }
     if (wants.stretchingEnabled) {
       const item = warmups.find(x => x.purpose === 'stretch' && !used.has(x.id))
