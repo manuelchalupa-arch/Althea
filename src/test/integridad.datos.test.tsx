@@ -219,7 +219,7 @@ describe('Respaldo/restauración verificable (Etapa 2)', () => {
       expect.objectContaining({ id: 1, table: 'nutritionDiary', docId: 'local-deletion' }),
       expect.objectContaining({ table: 'routines', docId: 'deleted-from-backup' }),
     ]))
-    expect(markers.find(marker => marker.docId === 'deleted-from-backup')?.id).not.toBe(1)
+    expect((markers.find(marker => marker.docId === 'deleted-from-backup') as { id?: number } | undefined)?.id).not.toBe(1)
     expect(result.imported.syncDeletes).toBe(1)
   })
 
