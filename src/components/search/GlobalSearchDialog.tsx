@@ -67,8 +67,11 @@ export default function GlobalSearchDialog() {
   }, [])
 
   useEffect(() => {
+    setFoodToLog(null)
+    setFoodError(null)
     if (!open || term.length < 2) {
       setResults(EMPTY_RESULTS)
+      setFoodRecords([])
       setLoading(false)
       return
     }
@@ -144,9 +147,9 @@ export default function GlobalSearchDialog() {
   }, [open, term])
 
   const sections = useMemo(() => ([
-    { kind: 'exercise' as const, title: 'Ejercicios', icon: Dumbbell, items: results.exercise, destination: '/biblioteca' },
-    { kind: 'food' as const, title: 'Alimentos', icon: Apple, items: results.food, destination: '/nutricion' },
-    { kind: 'routine' as const, title: 'Rutinas', icon: ClipboardList, items: results.routine, destination: '/rutina' },
+    { kind: 'exercise' as const, title: 'Ejercicios', icon: Dumbbell, items: results.exercise },
+    { kind: 'food' as const, title: 'Alimentos', icon: Apple, items: results.food },
+    { kind: 'routine' as const, title: 'Rutinas', icon: ClipboardList, items: results.routine },
   ]), [results])
 
   const openResult = (item: SearchItem) => {
