@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, MessageSquare } from 'lucide-react'
 import GlobalSearchDialog from '@/components/search/GlobalSearchDialog'
 import { ThemeToggle } from './ThemeToggle'
 import { AltheaAvatar } from './AltheaAvatar'
@@ -84,11 +84,11 @@ export function AppHeader() {
   return (
     <header
       data-section={navSectionForPath(loc.pathname)}
-      className="sticky top-[var(--safe-top)] z-30 flex items-center justify-between gap-3 pl-4 pr-4 sm:pl-6 sm:pr-6 lg:pl-8 lg:pr-8 h-14 md:h-16 w-full bg-surface/85 backdrop-blur-xl border-b border-outline-variant/50 [border-bottom-color:rgb(var(--althea-accent-rgb)/0.45)] supports-[backdrop-filter]:bg-surface/75 transition-colors"
+      className="sticky top-[var(--safe-top)] z-30 flex items-center justify-between gap-2 sm:gap-3 pl-3 pr-3 sm:pl-6 sm:pr-6 lg:pl-8 lg:pr-8 h-14 md:h-16 w-full bg-surface/85 backdrop-blur-xl border-b border-outline-variant/50 [border-bottom-color:rgb(var(--althea-accent-rgb)/0.45)] supports-[backdrop-filter]:bg-surface/75 transition-colors"
     >
       {/* Izquierda: wordmark de Althea (sin icono ni círculo) + apartado en su color */}
       <div className="flex items-center gap-3 min-w-0">
-        <span className="font-headline block text-[32px] md:text-[34px] font-semibold tracking-[0.2em] leading-none text-[rgb(var(--althea-accent-rgb))]">
+        <span className="font-headline block text-[26px] sm:text-[30px] md:text-[34px] font-semibold tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] leading-none text-[rgb(var(--althea-accent-rgb))]">
           ALTHEA
         </span>
         <span className="label-olymp hidden md:block truncate text-on-surface-variant">{SECTION_TITLES[section]}</span>
@@ -112,8 +112,9 @@ export function AppHeader() {
           <AltheaAvatar context="avatar" size={36} alt="Perfil" />
         </button>
         {loc.pathname === '/' && (
-          <Link to="/feedback" aria-label="Abrir Feedback" title="Feedback" className="inline-flex items-center justify-center min-w-11 min-h-11 px-3 rounded-full border border-outline-variant bg-surface text-on-surface text-xs font-semibold tracking-wide hover:bg-surface-container-high">
-            Feedback
+          <Link to="/feedback" aria-label="Abrir Feedback" title="Feedback" className="inline-flex items-center justify-center min-w-11 min-h-11 w-11 h-11 sm:w-auto sm:px-3 rounded-full border border-outline-variant bg-surface text-on-surface text-xs font-semibold tracking-wide hover:bg-surface-container-high">
+            <MessageSquare className="w-4 h-4 sm:hidden" aria-hidden="true" />
+            <span className="hidden sm:inline">Feedback</span>
           </Link>
         )}
         <ThemeToggle />
