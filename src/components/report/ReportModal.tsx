@@ -4,6 +4,7 @@ import {
   type ReportSelection, type ReportData, type ReportCategory,
 } from '@/services/report/reportService'
 import { downloadReportPdfWithBust } from '@/services/report/reportPdf'
+import { AltheaDatePicker } from '@/components/althea/AltheaDatePicker'
 
 type SectionId = 'mediciones' | 'entrenamiento' | 'nutricion' | 'recuperacion'
 
@@ -110,19 +111,8 @@ export function ReportModal({ open, onClose }: { open: boolean; onClose: () => v
             </div>
             {period === 'custom' && (
               <div className="grid grid-cols-2 gap-2 mt-3">
-                <label className="font-label-caps text-[10px] uppercase text-outline">
-                  Desde
-                  <input
-                    type="date"
-                    value={customStart}
-                    onChange={e => setCustomStart(e.target.value)}
-className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[48px]"
-                  />
-                </label>
-                <label className="font-label-caps text-[10px] uppercase text-outline">
-                  Hasta
-                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full mt-1 bg-surface-container border border-outline-variant rounded p-2 font-body-md text-sm text-on-surface min-h-[48px]" />
-                </label>
+                <AltheaDatePicker label="Desde" value={customStart} onChange={setCustomStart} className="w-full" />
+                <AltheaDatePicker label="Hasta" value={customEnd} onChange={setCustomEnd} className="w-full" />
               </div>
             )}
           </div>
