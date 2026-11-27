@@ -127,6 +127,8 @@ export function DataOwnership() {
         ['Mensajes de feedback', preview.summary.feedbackMessages],
         ['Feedback pendiente de envío', preview.summary.feedbackOutbox],
         ['Cronómetros guardados', preview.summary.restTimerState + preview.summary.cfTimerState],
+        ['Operaciones offline pendientes', preview.summary.syncQueue],
+        ['Borrados pendientes de sincronizar', preview.summary.syncDeletes],
       ] as const)
     : []
   const totalRecords = counts.reduce((a, [, v]) => a + v, 0)
@@ -150,6 +152,8 @@ export function DataOwnership() {
         ['Mensajes de feedback', result.imported.feedbackMessages],
         ['Feedback pendiente de envío', result.imported.feedbackOutbox],
         ['Cronómetros guardados', result.imported.restTimerState + result.imported.cfTimerState],
+        ['Operaciones offline pendientes', result.imported.syncQueue],
+        ['Borrados pendientes de sincronizar', result.imported.syncDeletes],
       ] as const)
     : []
 
