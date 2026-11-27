@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   build-and-test:
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, 'dependency refresh')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -89,6 +90,24 @@ jobs:
           npm run lint
           npm run build
           npx vitest run
+          npm run check:release
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run responsive browser tests
+        run: npm run playwright -- tests/fase2-qa.spec.ts --project=chromium
+      - name: Set up Java for Firebase emulators
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test Firestore security rules in local emulators
+        env:
+          E2E_EMULATOR: '1'
+          VITE_FIREBASE_PROJECT_ID: demo-althea
+          VITE_FIREBASE_API_KEY: demo-api-key
+          FIREBASE_STAGING_PROJECT_ID: demo-althea
+          FIREBASE_PRODUCTION_PROJECT_ID: demo-althea-production
+        run: npx --yes firebase-tools emulators:exec --project demo-althea --only auth,firestore "node scripts/firestore-isolation-e2e.mjs"
       - name: Commit audited lockfile updates
         run: |
           git config user.name "github-actions[bot]"
