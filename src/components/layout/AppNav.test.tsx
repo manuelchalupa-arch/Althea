@@ -9,14 +9,14 @@ import AppNav from './AppNav'
 
 const EXERCISES = [{ exId: 'press', name: 'Press', sets: 1, reps: 8, weight: 80 }]
 
-describe('AppNav — móvil: destinos fijos (Entrenar solo con sesión activa)', () => {
+describe('AppNav — móvil: cinco destinos permanentes', () => {
   beforeEach(async () => {
     try { await db.delete() } catch {}
     try { await db.open() } catch {}
     localStorage.clear()
   })
 
-  it('sin sesión no hay Entrenar en la navegación', async () => {
+  it('sin sesión mantiene los cinco destinos permanentes', async () => {
     render(
       <MemoryRouter>
         <AppNav />
@@ -25,23 +25,20 @@ describe('AppNav — móvil: destinos fijos (Entrenar solo con sesión activa)',
     await waitFor(() => {
       expect(screen.getAllByLabelText('Inicio').length).toBeGreaterThan(0)
     }, { timeout: 8000 })
-    // Entrada única de entrenamiento: Inicio → Comenzar.
-    await waitFor(() => {
-      expect(screen.queryAllByLabelText('Entrenar').length).toBe(0)
-    }, { timeout: 8000 })
-    // Móvil: 4 destinos sin sesión, con CrossFit junto a Nutrición.
-    const mobileBar = document.querySelector('nav[aria-label="Navegación principal"].md\\:hidden')
-      ?? document.querySelector('nav.md\\:hidden')
+    // La barra móvil conserva los cinco destinos, incluso sin sesión activa.
+    const mobileBar = document.querySelector('.app-mobile-nav')
     expect(mobileBar).not.toBeNull()
-    const labels = Array.from(mobileBar!.querySelectorAll('a')).map(a => a.getAttribute('aria-label'))
-    expect(labels).toEqual(['Inicio', 'Nutrición', 'CrossFit', 'Más'])
+    const labels = Array.from(mobileBar!.querySelectorAll('.althea-nav--bar a')).map(a => a.getAttribute('aria-label'))
+    expect(labels).toEqual(['Inicio', 'Entrenar', 'Nutrición', 'CrossFit', 'Más'])
+    // Un único nav semántico evita dos barras fijas superpuestas.
+    expect(mobileBar!.querySelectorAll('nav')).toHaveLength(1)
     // Desktop conserva estructura amplia (módulos en la barra lateral).
     expect(screen.getAllByLabelText('Nutrición').length).toBeGreaterThan(0)
     expect(screen.getAllByLabelText('Progreso').length).toBeGreaterThan(0)
     expect(screen.getAllByLabelText('Más').length).toBeGreaterThan(0)
   })
 
-  it('con sesión activa SÍ aparece Entrenar en la navegación', async () => {
+  it('con sesión activa conserva Entrenar sin duplicar destinos', async () => {
     const { sessionId } = await createReadySession({
       calendarDate: todayKey(), routineId: 'r1', routineName: 'Rutina',
       plannedDay: 1, plannedDayName: 'Pecho', actualDay: 1, actualDayName: 'Pecho',
