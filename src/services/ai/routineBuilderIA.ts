@@ -764,7 +764,7 @@ function applySessionPreparation(routine: GeneratedRoutine, wants: UserWants, ex
     }
     if (wants.cardioTiming === 'end' || wants.cardioTiming === 'both') {
       const item = cardio.find(x => !used.has(x.id))
-      if (item) { after.push(makePrep(item, 'cooldown')); used.add(item.id); cardioIndex++ }
+      if (item) { after.push(makePrep(item, 'cooldown')); used.add(item.id) }
     }
     routine.dayExercises[Number(key)] = [...before, ...core, ...after]
   }
