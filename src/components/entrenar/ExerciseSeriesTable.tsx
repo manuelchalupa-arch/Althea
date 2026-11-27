@@ -83,19 +83,21 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
   }, [plannedSets, plannedReps, plannedWeight])
 
   useEffect(()=>{
+    let active = true
     const load=async()=>{
       const { getLastSerieWithSource, getLastExecutionByExercise, unifiedCompletedSets } = await import('@/services/history')
+      if (!active) { return }
       try{
         if(exerciseId.startsWith('custom/')){
           const { getCustomExercise } = await import('@/services/training/customExercises')
           const c = await getCustomExercise(exerciseId)
-          if(c) {setExInfo({ muscle: c.muscle, secondaryMuscles: c.secondaryMuscles, muscleBreakdown: c.muscleBreakdown })}
+          if(c && active) {setExInfo({ muscle: c.muscle, secondaryMuscles: c.secondaryMuscles, muscleBreakdown: c.muscleBreakdown })}
         }
         const { fetchOne } = await import('@/services/exerciseGym')
         if(exerciseId.includes('/') && !exerciseId.startsWith('custom/')){
           const [m,slug]=exerciseId.split('/')
           const ex:any = await fetchOne(m,slug).catch(()=>null)
-          if(ex) {setExInfo(ex)}
+          if(ex && active) {setExInfo(ex)}
         }
       }catch{}
       const obj:Record<number,any>={}
@@ -103,10 +105,13 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
         const r=await getLastSerieWithSource(exerciseId, i+1)
         obj[i]=r
       }
+      if (!active) { return }
       setRefs(obj)
       const last = await getLastExecutionByExercise(exerciseId)
+      if (!active) { return }
       if(last) {setLastSession(last)}
       const all = await unifiedCompletedSets(exerciseId)
+      if (!active) { return }
       const bySession = new Map<string, {totalVolume:number; setsCount:number; date:string}>()
       for(const s of all){
         const key = s.sessionId || toDateKey(s.createdAt)
@@ -133,6 +138,7 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
           if(draft.weights) {for(const k of Object.keys(draft.weights)){ const i=Number(k); if(!baseC[i]) {const v=Number(draft.weights[k]); if(!isNaN(v) && v !== 0) {baseW[i]=v}} }}
           if(draft.reps) {for(const k of Object.keys(draft.reps)){ const i=Number(k); if(!baseC[i]) {const v=Number(draft.reps[k]); if(!isNaN(v)) {baseR[i]=v}} }}
         }
+        if (!active) { return }
         // Re-inicialización sin borrar lo tipeado: lo que el usuario editó a mano
         // (dirty) se conserva mientras esa fila no esté confirmada.
         setWeights(prev=>{
@@ -147,9 +153,10 @@ export default function ExerciseSeriesTable({ exerciseId, today, sets, plannedRe
         })
         setChecks(baseC)
       }catch{ /* noop */ }
-      setLoaded(true)
+      if (active) { setLoaded(true) }
     }
     load()
+    return () => { active = false }
   },[exerciseId, sets, plannedReps, plannedWeight, plannedSets, getPlannedForIndex, migrateDraftOnce, initialCompleted, initialSkipped])
 
   // Al cambiar de ejercicio no se heredan observaciones ni cargas de otro.

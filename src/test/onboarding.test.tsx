@@ -143,7 +143,7 @@ describe('Onboarding — alta mínima de entrenamiento', () => {
     })
   })
 
-  it('6. guarda objetivos secundarios y estilo Coach sin mezclar con intensidad', async () => {
+  it('6. guarda objetivos secundarios y estilo Coach sin guardar una intensidad de entrenamiento eliminada', async () => {
     const user = userEvent.setup()
     renderOnboarding()
     await ready()
@@ -151,14 +151,13 @@ describe('Onboarding — alta mínima de entrenamiento', () => {
     const chips = screen.getAllByText('Perder grasa / bajar de peso')
     await user.click(chips[0])
     await user.click(screen.getByText('Motivacional'))
-    await user.click(screen.getByText('4'))
     await finish(user)
 
     await waitFor(async () => {
       const p: any = await db.userProfile.get('me')
       expect(p.goalsSecondary).toContain('Perder grasa / bajar de peso')
       expect(p.coachIntensity).toBe('motivacional')
-      expect(p.trainingIntensity).toBe(4)
+      expect(p.trainingIntensity).toBeUndefined()
       expect(p.exigencia).toBeUndefined()
     })
   })
