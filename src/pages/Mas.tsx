@@ -7,7 +7,7 @@ import { useActiveTrainingSession } from '@/hooks/useActiveTrainingSession'
 import { useVisibleSections } from '@/hooks/useVisibleSections'
 import { MAS_GROUPS } from '@/components/brand/icons'
 import { unifiedAllCompletedSets } from '@/services/history'
-import { AltheaCard, AltheaCardHeader, AltheaKPICard, AltheaBadge, AltheaLoading } from '@/components/althea'
+import { AltheaCard, AltheaCardHeader, AltheaKPICard, AltheaBadge } from '@/components/althea'
 import InstallAppButton from '@/components/install/InstallAppButton'
 import { todayKey, dayKeyOffset, toDateKey, parseLocalDateKey } from '@/utils/dates'
 import { getActiveVersion, PROFILE_SCOPE } from '@/services/planning/cycleVersions'
@@ -127,7 +127,7 @@ export default function Mas(){
                   <span className="text-aux text-[11px]">Rutina activa</span>
                   <AltheaBadge variant="primary">{stats.weekNumber ? `Semana ${stats.weekNumber}` : 'Sin ciclo'}</AltheaBadge>
                 </div>
-                <p className="font-headline-md text-lg text-on-surface font-semibold truncate">{stats.routineName ?? 'Sin rutina activa'}</p>
+                <p className="font-headline-md text-lg text-on-surface font-semibold whitespace-normal break-words">{stats.routineName ?? 'Sin rutina activa'}</p>
                 <p className="font-body-md text-sm text-on-surface-variant mt-0.5">
                   {stats.daysPerWeek !== undefined ? `${stats.daysPerWeek}× por semana` : 'Sin datos de frecuencia'}
                 </p>
