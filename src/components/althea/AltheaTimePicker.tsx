@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Clock3 } from 'lucide-react'
+import { Clock3, Minus, Plus } from 'lucide-react'
 
 type AltheaTimePickerProps = {
   value: string
@@ -31,9 +31,19 @@ export function AltheaTimePicker({ value, onChange, label, ariaLabel, className 
         <div className="althea-picker__eyebrow">Horario</div>
         <h2 className="althea-time-picker__title">Seleccionar hora</h2>
         <div className="althea-time-picker__fields">
-          <label>Hora<select aria-label="Hora" value={hour} onChange={e => setHour(e.target.value)}>{Array.from({length:24},(_,i)=>String(i).padStart(2,'0')).map(v=><option key={v}>{v}</option>)}</select></label>
+          <div className="althea-time-stepper">
+            <span>Hora</span>
+            <button type="button" aria-label="Aumentar hora" onClick={() => setHour(v => String((Number(v) + 1) % 24).padStart(2, '0'))}><Plus size={18}/></button>
+            <strong>{hour}</strong>
+            <button type="button" aria-label="Disminuir hora" onClick={() => setHour(v => String((Number(v) + 23) % 24).padStart(2, '0'))}><Minus size={18}/></button>
+          </div>
           <span>:</span>
-          <label>Minutos<select aria-label="Minutos" value={minute} onChange={e => setMinute(e.target.value)}>{Array.from(new Set([minute, ...Array.from({length:Math.ceil(60/minuteStep)},(_,i)=>String(i*minuteStep).padStart(2,'0')).filter(v=>Number(v)<60)])).sort().map(v=><option key={v}>{v}</option>)}</select></label>
+          <div className="althea-time-stepper">
+            <span>Minutos</span>
+            <button type="button" aria-label="Aumentar minutos" onClick={() => setMinute(v => String((Number(v) + minuteStep) % 60).padStart(2, '0'))}><Plus size={18}/></button>
+            <strong>{minute}</strong>
+            <button type="button" aria-label="Disminuir minutos" onClick={() => setMinute(v => String((Number(v) - minuteStep + 60) % 60).padStart(2, '0'))}><Minus size={18}/></button>
+          </div>
         </div>
         <div className="althea-picker__actions">
           <button type="button" className="althea-picker__cancel" onClick={() => setOpen(false)}>Cancelar</button>
