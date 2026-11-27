@@ -3,14 +3,10 @@ rules_version = '2';
 // Althea: cada usuario accede SOLO a su subárbol users/{uid).
 // Sin autenticación no hay lectura ni escritura. Sin excepciones.
 //
-// Feedback (003): colección top-level feedbackThreads con subcolecciones
-// messages e internalNotes. La autorización administrativa acepta el correo
-// verificado del token (005) O un UID en la lista admins/uids, gestionada
-// EXCLUSIVAMENTE desde Firebase Console: los clientes no pueden crearlo,
-// modificarlo ni eliminarlo (las reglas de escritura están en false). Ningún
-// mecanismo de admin se basa en variables de frontend ni rutas ocultas: el
-// correo vive aquí, en servidor, y Firebase Auth garantiza que el token es
-// verificado.
+// Feedback: la administración exige email_verified=true y un UID incluido
+// en admins/uids. La lista se gestiona EXCLUSIVAMENTE desde Firebase Console
+// o Admin SDK; los clientes no pueden crearla, modificarla ni eliminarla.
+// No se guardan direcciones de correo administrativas en el repositorio.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -18,23 +14,14 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // El correo solo concede administración cuando Firebase lo marca como
-    // verificado. La lista de UID sigue siendo la vía explícita de alta manual.
+    // La administración requiere ambas condiciones: correo verificado y
+    // UID incluido en la lista privada. El email por sí solo nunca concede rol.
     function isFeedbackAdmin() {
-      return signedIn() && (
-        (
-          request.auth.token.email_verified == true
-          && request.auth.token.email in [
-            'manuelchalupa@gmail.com',
-            'manuelchalu@gmail.com'
-          ]
-        )
-        || (
-          exists(/databases/$(database)/documents/admins/uids)
-          && get(/databases/$(database)/documents/admins/uids).data.uids is list
-          && request.auth.uid in get(/databases/$(database)/documents/admins/uids).data.uids
-        )
-      );
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/admins/uids)
+        && get(/databases/$(database)/documents/admins/uids).data.uids is list
+        && request.auth.uid in get(/databases/$(database)/documents/admins/uids).data.uids;
     }
 
     function threadPath(threadId) {
