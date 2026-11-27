@@ -17,8 +17,8 @@ export function AltheaTimePicker({ value, onChange, label, ariaLabel, className 
   const [minute, setMinute] = useState((value.split(':')[1] || '00').padStart(2, '0'))
 
   useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
+    if (!open) { return }
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { setOpen(false) } }
     document.addEventListener('keydown', onKey)
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -26,7 +26,7 @@ export function AltheaTimePicker({ value, onChange, label, ariaLabel, className 
   }, [open])
 
   const picker = open && createPortal(
-    <div className="althea-picker-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false) }}>
+    <div className="althea-picker-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) { setOpen(false) } }}>
       <section className="althea-picker althea-time-picker" role="dialog" aria-modal="true" aria-label={ariaLabel || label || 'Seleccionar hora'}>
         <div className="althea-picker__eyebrow">Horario</div>
         <h2 className="althea-time-picker__title">Seleccionar hora</h2>
