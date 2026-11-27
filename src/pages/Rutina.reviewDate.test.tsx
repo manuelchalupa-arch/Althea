@@ -29,7 +29,9 @@ async function chooseCalendarDate(label: string, dateKey: string) {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Mes siguiente' }))
   }
   expect(dialog.querySelector('h2')?.textContent?.trim().toLocaleLowerCase('es-AR')).toBe(targetMonth.toLocaleLowerCase('es-AR'))
-  fireEvent.click(within(dialog).getByRole('button', { name: String(day), exact: true }))
+  const dayButton = Array.from(dialog.querySelectorAll('button')).find(button => button.textContent?.trim() === String(day) && !button.disabled)
+  if (!dayButton) { throw new Error(`No se encontró el día ${day} en ${targetMonth}`) }
+  fireEvent.click(dayButton)
 }
 
 describe('Rutina — fecha de revisión configurable (E)', () => {
