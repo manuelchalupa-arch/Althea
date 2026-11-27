@@ -162,7 +162,7 @@ const EQUIPMENT_TERMS: Array<[RegExp, string[]]> = [
   [/mancuernas?|dumbbells?/, ['dumbbell']],
   [/\bbarras?\b(?!\s*z)/, ['barbell']],
   [/\bbarra z\b|\bez.?bar\b/, ['ez-bar']],
-  [/\\bmaquinas?\\b|\\bmachines?\\b/, ['machine']],
+  [/\bmaquinas?\b|\bmachines?\b/, ['machine']],
   [/\bpoleas?\b|\bcables?\b/, ['cable']],
   [/\bbandas?\b|\belasticos?\b/, ['band']],
   [/kettlebells?|pesa rusa/, ['kettlebell']],
@@ -1041,7 +1041,12 @@ function buildPrompt(ctx: {
   const level = wants.level || instructions.level || p.experienceLevel || 'intermediate'
   const allowed = instructions.equipment || wants.allowedEquipment || p.equipment || []
   const equipment = allowed.join(', ') || 'gimnasio'
-  const description = (wants.description || '').trim()
+  const rawDescription = (wants.description || '').trim()
+  // El wizard envía un resumen interno de datos ya presentes en campos estructurados.
+  // No volver a presentarlo como texto libre porque puede contradecir las restricciones.
+  const description = rawDescription.startsWith('Preferencias estructuradas del generador de rutinas.')
+    ? ''
+    : rawDescription
   const label = splitLabel(instructions.split)
   const exactDays = wants.availableDays?.length === days ? wants.availableDays.map(d => ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][d]).join(', ') : ''
   const selectedMethod = wants.methodId ? getMethod(wants.methodId) : null

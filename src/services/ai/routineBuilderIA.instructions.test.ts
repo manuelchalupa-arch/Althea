@@ -49,7 +49,7 @@ vi.mock('./aiAuth', () => ({
 }))
 
 import { getProxyUrl } from './groqConfig'
-import { generateRoutineWithAI, parseRoutineInstructions, parseRoutineSequence } from './routineBuilderIA'
+import { generateRoutineWithAI, parseRoutineInstructions, parseRoutineSequence, validateGeneratedRoutine } from './routineBuilderIA'
 
 const wants = (description: string, daysPerWeek = 4) => ({
   goal: 'hipertrofia', daysPerWeek, focus: 'general', injuryNote: '', description,
@@ -81,6 +81,7 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
     expect(i.priorities).toEqual(expect.arrayContaining(['lats', 'delts']))
     expect(i.excludes.join(' ')).toContain('press banca')
     expect(i.level).toBeNull()
+    expect(parseRoutineInstructions('Solo tengo máquinas').equipment).toEqual(['machine'])
   })
 
   it('aplica la secuencia solicitada, con cuatro ejercicios principales en dos superseries', async () => {
@@ -100,6 +101,33 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
     expect(new Set(list.slice(1,5).map(e=>e.supersetId)).size).toBe(2)
     expect(list[5].muscle).not.toBe('pectorals')
     expect(list[8].muscle).toBe('cardio')
+  })
+
+  it('valida equipamiento por tipo: máquina acepta lever, estiramiento corporal no requiere implementos y fuerza corporal sí', () => {
+    const validate = (eq: string, purpose: 'conventional' | 'stretch', selected: string[], isStretch = false) => {
+      const exId = 'test/exercise'
+      const routine = {
+        name: 'Test',
+        cycle: {
+          trainingDays: [{ n: 1, name: 'Día 1' }],
+          weekMap: [null, 1, null, null, null, null, null],
+        },
+        dayExercises: { 1: [{ id: 'row-1', exId, name: 'Ejercicio test', sets: 1, reps: 10, weight: 0, isStretch }] },
+        explanation: {},
+      } as any
+      return validateGeneratedRoutine(
+        routine,
+        { goal: 'hipertrofia', daysPerWeek: 1, allowedEquipment: selected } as any,
+        { days: 1, equipment: null, excludes: [], includes: [], priorities: [] } as any,
+        new Map([[exId, { id: exId, name: 'Ejercicio test', eq, purpose }]]),
+      )
+    }
+
+    expect(validate('lever', 'conventional', ['machine']).ok).toBe(true)
+    expect(validate('peso corporal', 'stretch', ['dumbbell'], true).ok).toBe(true)
+    const bodyweightStrength = validate('bodyweight', 'conventional', ['dumbbell'])
+    expect(bodyweightStrength.ok).toBe(false)
+    expect(bodyweightStrength.issues.join(' ')).toContain('equipamiento no disponible')
   })
 
   it('acepta estiramientos sin implementos aunque no se haya seleccionado peso corporal y los rota por día', async () => {
@@ -130,7 +158,7 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
 
     const routine = await generateRoutineWithAI({
       goal: 'hipertrofia', daysPerWeek: 5, focus: 'general', injuryNote: '',
-      description: '5 días', allowedEquipment: ['dumbbell'],
+      description: 'Preferencias estructuradas del generador de rutinas.\nEquipamiento disponible: bodyweight.\nDías: lunes a viernes.', allowedEquipment: ['dumbbell'],
       availableDays: [1, 2, 3, 4, 5], methodId: 'hypertrophy',
       warmupEnabled: false, stretchingEnabled: true,
     })
@@ -147,6 +175,8 @@ describe('Rutinas IA — el pedido libre se interpreta y se aplica', () => {
     const requestBody = String(fetchMock.mock.calls[0][1].body)
     expect(requestBody).not.toContain('trad/stretch-calf-wall')
     expect(requestBody).not.toContain('Estiramiento de pantorrillas en pared')
+    expect(requestBody).not.toContain('Equipamiento disponible: bodyweight')
+    expect(requestBody).toContain('Equipo permitido: dumbbell')
   })
 
   it('fallback 4 días torso/piernas: respeta el split y no repite ejercicios', async () => {
