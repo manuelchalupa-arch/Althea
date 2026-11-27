@@ -64,7 +64,7 @@ export default function GymPaymentCard() {
         <div className="min-w-0 flex-1">
           <div className="font-label-caps text-[10px] uppercase tracking-widest opacity-80">Tu cuota del gimnasio</div>
           {!payment || editing ? (
-            <label className="flex flex-wrap items-center gap-2 mt-1.5 text-[13px]">
+            <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[13px]">
               <span className="opacity-80 shrink-0">¿Cuándo pagaste?</span>
               <AltheaDatePicker
                 testId="gym-card-input"
