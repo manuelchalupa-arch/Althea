@@ -880,6 +880,7 @@ export async function importJSON(file: File, options: ImportOptions = { mode: 'm
   
   return {
     ...applied,
+    success: applied.success && verification.passed,
     verification,
   }
 }
