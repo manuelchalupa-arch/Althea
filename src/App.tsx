@@ -13,7 +13,8 @@ import { weekdayOfKey } from '@/utils/dates'
 import { ErrorBoundary, EntrenarErrorBoundary, NutricionErrorBoundary, CoachErrorBoundary, ProgresoErrorBoundary } from '@/components/ErrorBoundary'
 import { SplashScreen, isMobileSplashConsumedThisDocument, MOBILE_SPLASH_BREAKPOINT } from '@/components/SplashScreen'
 import { accentSectionForPath } from '@/components/navigation/sections'
-import { confirmAndUpdate } from '@/services/pwa/manualUpdate'
+import { applyUpdate } from '@/services/pwa/manualUpdate'
+import UpdateConfirmDialog from '@/components/pwa/UpdateConfirmDialog'
 
 // Lazy load all pages to reduce initial bundle size
 const Inicio = lazy(() => import('@/pages/Inicio'))
@@ -83,6 +84,7 @@ function Layout() {
   const navigate = useNavigate()
   const hideNav = loc.pathname === '/onboarding' || loc.pathname === '/login'
   const [updateReady, setUpdateReady] = useState(false)
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
   const [needsLogin, setNeedsLogin] = useState(false)
   const [isFirebaseConfigured, setIsFirebaseConfigured] = useState(false)
@@ -312,13 +314,21 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
           <span>Nueva versión disponible</span>
           <button
             type="button"
-            onClick={confirmAndUpdate}
+            onClick={() => setUpdateDialogOpen(true)}
             aria-label="Actualizar ahora"
             title="Actualizar ahora"
             className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-on-tertiary/15 hover:bg-on-tertiary/25 transition-colors font-bold text-lg"
           >⟳</button>
         </div>
       )}
+      <UpdateConfirmDialog
+        open={updateDialogOpen}
+        onCancel={() => setUpdateDialogOpen(false)}
+        onConfirm={() => {
+          setUpdateDialogOpen(false)
+          void applyUpdate()
+        }}
+      />
       <OnlineBanner/>
       </RequiredActionGate>
     </div>
