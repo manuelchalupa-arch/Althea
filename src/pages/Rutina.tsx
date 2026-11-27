@@ -19,6 +19,7 @@ import { displayEquipment, displayCategory, displayBodyPart, displayDifficulty }
 import { traditionalForGroup, CUSTOM_FORM_MUSCLES, CUSTOM_FORM_EQUIPMENT, CUSTOM_FORM_CATEGORIES } from '@/data/traditionalCatalog'
 import BibliotecaCustomForm from './BibliotecaCustomForm'
 import { PeriodizationEditor } from '@/components/recovery/PeriodizationEditor'
+import { AltheaDatePicker } from '@/components/althea/AltheaDatePicker'
 import { MAX_ROUTINES } from '@/services/storage/routineStore'
 import { todayKey, addDaysToKey, toDateKey, daysBetween } from '@/utils/dates'
 import { normFold } from '@/utils/format'
@@ -616,7 +617,7 @@ export default function RutinaPage(){
               <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nombre: Rutina de verano" className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]"/>
               <label className="block space-y-1">
                 <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fecha de revisión</span>
-                <input type="date" aria-label="Fecha de revisión al crear" value={newReviewDate} onChange={e=>setNewReviewDate(e.target.value)} className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]" />
+                <AltheaDatePicker ariaLabel="Fecha de revisión al crear" value={newReviewDate} onChange={setNewReviewDate} className="w-full" />
                 <span className="block font-body-sm text-[12px] text-on-surface-variant">El aviso se muestra en Inicio; nunca bloquea el entrenamiento.</span>
               </label>
               <div className="flex gap-2">
@@ -705,9 +706,9 @@ export default function RutinaPage(){
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
           <span className="font-label-md text-[10px] font-semibold uppercase tracking-widest text-on-surface-variant">Fecha de revisión</span>
-          <input type="date" aria-label="Fecha de revisión" value={active.reviewDate ?? ''}
-            onChange={e=> updateActive(r=> ({...r, reviewDate: e.target.value || null}))}
-            className="sm:ml-auto bg-surface/60 backdrop-blur-sm border border-outline-variant rounded p-3 font-body-md text-sm text-on-surface min-h-[48px]" />
+          <AltheaDatePicker ariaLabel="Fecha de revisión" value={active.reviewDate ?? ''}
+            onChange={value=> updateActive(r=> ({...r, reviewDate: value || null}))}
+            className="sm:ml-auto w-full sm:w-auto" />
         </div>
         <p className="font-body-sm text-[12px] text-on-surface-variant">
           {(() => {
