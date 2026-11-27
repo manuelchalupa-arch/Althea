@@ -5,6 +5,7 @@ import { AltheaCard } from '@/components/althea/AltheaCard'
 import { AltheaEmpty } from '@/components/althea/AltheaEmpty'
 import { AltheaInput, AltheaSelect } from '@/components/althea/AltheaInput'
 import { AltheaKPICard } from '@/components/althea/AltheaKPI'
+import { AltheaDatePicker } from '@/components/althea/AltheaDatePicker'
 import { deleteMark, listMarks, listResults, listWods, newMark } from '@/services/crossfit/cfStore'
 import {
   avgRpe,
@@ -208,7 +209,7 @@ export default function CrossfitProgreso() {
               onChange={(e) => setValueKg(e.target.value)}
               placeholder="Ej.: 100"
             />
-            <AltheaInput label="Fecha" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <AltheaDatePicker label="Fecha" value={date} onChange={setDate} className="w-full" />
           </div>
           <AltheaInput
             label="Notas (opcional)"
