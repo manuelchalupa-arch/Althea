@@ -30,6 +30,15 @@ export interface UserWants {
   excludedMovements?: string[]
   excludedExerciseIds?: string[]
   trainingIntensity?: number
+  availableDays?: number[]
+  methodId?: TrainingMethodId
+  coachTone?: string
+  historyOptions?: string[]
+  equipmentLabel?: string
+  warmupEnabled?: boolean
+  stretchingEnabled?: boolean
+  cardioTiming?: 'none' | 'start' | 'end' | 'both'
+  cardioIntensity?: 'light' | 'hard'
 }
 
 /** Días mencionados explícitamente en el pedido libre ("4 días", "cuatro veces"). */
@@ -689,14 +698,20 @@ function normalizeRoutine(
 
   // weekMap: exactamente los días elegidos, sin referencias a días recortados.
   const rawWeek: any[] = Array.isArray(parsed.cycle.weekMap) ? parsed.cycle.weekMap : []
-  const weekMap: (number | null)[] = Array.from({ length: 7 }, (_, i) => {
-    const value = Number(rawWeek[i])
-    return Number.isFinite(value) && value >= 1 && value <= days ? value : null
-  })
-  for (let d = 1; d <= days; d++) {
-    if (weekMap.includes(d)) {continue}
-    const free = [1, 2, 3, 4, 5, 6, 0].find(i => weekMap[i] === null)
-    if (free !== undefined) {weekMap[free] = d}
+  const selectedWeekdays = [...new Set((wants.availableDays || []).map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))].slice(0, days)
+  const weekMap: (number | null)[] = Array(7).fill(null)
+  if (selectedWeekdays.length === days) {
+    selectedWeekdays.forEach((dow, i) => { weekMap[dow] = i + 1 })
+  } else {
+    for (let dow = 0; dow < 7; dow++) {
+      const value = Number(rawWeek[dow])
+      if (Number.isFinite(value) && value >= 1 && value <= days && !weekMap.includes(value)) weekMap[dow] = value
+    }
+    for (let d = 1; d <= days; d++) {
+      if (weekMap.includes(d)) continue
+      const free = [1, 2, 3, 4, 5, 6, 0].find(i => weekMap[i] === null)
+      if (free !== undefined) weekMap[free] = d
+    }
   }
   parsed.cycle.weekMap = weekMap
 
@@ -747,7 +762,7 @@ async function generateRoutineFallback(
   instructions: RoutineInstructions,
   reason?: string,
 ): Promise<GeneratedRoutine> {
-  const methodId = goalToMethodId(wants.goal)
+  const methodId = wants.methodId || goalToMethodId(wants.goal)
   const { buildCycleFromMethod } = await import('@/utils/cycle')
   const cycle = buildCycleFromMethod(methodId, undefined, todayKey())
   const desiredDays = clampDays(instructions.days ?? wants.daysPerWeek)
@@ -784,7 +799,8 @@ async function generateRoutineFallback(
   if (wants.modality === 'crossfit') {entries.forEach((d, i) => { d.name = `WOD ${i + 1}` })}
 
   const weekMap: (number | null)[] = [null, null, null, null, null, null, null]
-  ;[1, 2, 3, 4, 5, 6, 0].slice(0, desiredDays).forEach((dow, i) => {weekMap[dow] = i + 1})
+  const selectedDays = [...new Set((wants.availableDays || []).map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))].slice(0, desiredDays)
+  ;(selectedDays.length === desiredDays ? selectedDays : [1, 2, 3, 4, 5, 6, 0].slice(0, desiredDays)).forEach((dow, i) => {weekMap[dow] = i + 1})
 
   const label = splitLabel(instructions.split)
   const applied: string[] = []
@@ -857,7 +873,7 @@ async function collectContext(
     const pv = await getActiveVersion(PROFILE_SCOPE).catch(() => null)
     canonicalMethodId = pv?.methodId ?? pv?.cycle?.methodId ?? null
   } catch { /* noop */ }
-  const coachingMethod = (canonicalMethodId || profile?.cycle?.methodId || 'hypertrophy') as TrainingMethodId
+  const coachingMethod = (profile?.coachMethodView || canonicalMethodId || profile?.cycle?.methodId || 'hypertrophy') as TrainingMethodId
   const style = METHOD_COACHING_STYLES[coachingMethod]
   const method = getMethod(coachingMethod)
 
@@ -903,6 +919,8 @@ function buildPrompt(ctx: {
   const equipment = allowed.join(', ') || 'gimnasio'
   const description = (wants.description || '').trim()
   const label = splitLabel(instructions.split)
+  const exactDays = wants.availableDays?.length === days ? wants.availableDays.map(d => ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][d]).join(', ') : ''
+  const selectedMethod = wants.methodId ? getMethod(wants.methodId) : null
 
   // El Worker limita cada mensaje a 12.000 caracteres. Enviamos una
   // muestra equilibrada por grupo (incluye warmup/cardio) para el modelo;
@@ -916,13 +934,13 @@ function buildPrompt(ctx: {
   const selected = new Map<string, string[]>()
   let selectedCount = 0
   let selectedChars = 0
-  for (let round = 0; round < 16 && selectedCount < 72; round++) {
+  for (let round = 0; round < 10 && selectedCount < 48; round++) {
     for (const [muscle, list] of groups) {
       const exercise = list[round]
       if (!exercise || selectedCount >= 72) { continue }
       const entry = `${exercise.id}|${exercise.name}|${exercise.eq}`
       const delta = entry.length + 1
-      if (selectedChars + delta > 7000) { continue }
+      if (selectedChars + delta > 4200) { continue }
       const bucket = selected.get(muscle) || []
       bucket.push(entry)
       selected.set(muscle, bucket)
@@ -936,6 +954,11 @@ function buildPrompt(ctx: {
 
   const hardRules = [
     `- Días por semana: ${days}.`,
+    exactDays ? `- Días exactos obligatorios: ${exactDays}. Asigná cada sesión exclusivamente a esos días; el resto es descanso.` : '',
+    wants.methodId ? `- Método elegido por el usuario: ${selectedMethod?.nameEs || wants.methodId}. No lo sustituyas.` : '',
+    wants.warmupEnabled ? '- Incluir calentamiento al comienzo de cada sesión.' : '',
+    wants.stretchingEnabled ? '- Incluir estiramientos al final de cada sesión, sin forzar rangos ni provocar dolor.' : '',
+    wants.cardioTiming && wants.cardioTiming !== 'none' ? `- Cardio ${wants.cardioTiming === 'both' ? 'al inicio y al final' : wants.cardioTiming === 'start' ? 'al inicio' : 'al final'}; intensidad ${wants.cardioIntensity === 'hard' ? 'alta' : 'suave'}.` : '',
     instructions.sequence ? `- Secuencia OBLIGATORIA por día: ${instructions.sequence.warmupCount} estiramiento/calentamiento + ${instructions.sequence.primaryCount} ejercicios del grupo principal + ${instructions.sequence.secondaryCount} del grupo secundario + ${instructions.sequence.cooldownCount} cardio suave. Los ejercicios principales deben organizarse en superseries de a pares. No omitas ni cambies el orden.` : '',
     label ? `- Split obligatorio: ${label}.` : '- Split: el que mejor responda al pedido.',
     `- Duración máxima: ${time} min → como máximo ${maxPerDay} ejercicios por día.`,
@@ -944,7 +967,7 @@ function buildPrompt(ctx: {
     instructions.includes.length ? `- Debe incluir: ${instructions.includes.join(', ')}.` : '',
     instructions.excludes.length ? `- No incluir: ${instructions.excludes.join(', ')} (ni variantes equivalentes).` : '',
     `- Nivel: ${level}. ${instructions.lowVolumeHighIntensity ? 'Menos ejercicios y mayor intensidad.' : ''}`,
-    wants.trainingIntensity ? `- Intensidad del entrenamiento: ${wants.trainingIntensity}/5 (no es el tono del Coach).` : '',
+
     wants.excludedMovements?.length ? `- Movimientos prohibidos: ${wants.excludedMovements.join(', ')} (ni variantes).` : '',
     wants.excludedExerciseIds?.length ? `- IDs de ejercicios prohibidos: ${wants.excludedExerciseIds.join(', ')}.` : '',
     wants.modality === 'crossfit' ? '- Modalidad CrossFit: WOD/metcon/funcional; no splits por músculo aislado.' : '- Modalidad: gimnasio tradicional.',
@@ -1243,6 +1266,10 @@ async function fallbackWithDurationNotice(wants: UserWants, instructions: Routin
 export async function generateRoutineWithAI(wants: UserWants): Promise<GeneratedRoutine> {
   const profile = await db.userProfile.get('me').catch(() => null) as any || {}
   const effective = withProfilePreferences(wants, profile)
+  if (!effective.availableDays?.length) {
+    const profileDays = Array.isArray(profile.availableDays) ? profile.availableDays : profile.schedule?.availableDays
+    if (Array.isArray(profileDays) && profileDays.length) effective.availableDays = profileDays.map(Number)
+  }
   const instructions = parseRoutineInstructions(effective.description || '')
 
   if (!instructions.equipment && effective.allowedEquipment?.length) {
@@ -1315,9 +1342,7 @@ export async function generateRoutineWithAI(wants: UserWants): Promise<Generated
       }
 
       if (parsed.cycle) {
-        parsed.cycle.methodId = (
-          parsed.cycle.methodId || 'hypertrophy'
-        ) as TrainingMethodId
+        parsed.cycle.methodId = (effective.methodId || parsed.cycle.methodId || 'hypertrophy') as TrainingMethodId
 
         if (!parsed.cycle.startDate) {
           parsed.cycle.startDate = todayKey()
