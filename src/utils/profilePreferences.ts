@@ -49,6 +49,7 @@ export interface TrainingPreferences {
   secondaryGoals: string[]
   level: ExperienceLevel
   daysPerWeek: number
+  availableDays: number[]
   equipment: string[]
   limitations: string[]
   painAreas: string[]
@@ -73,6 +74,7 @@ export function getTrainingPreferences(p: ProfileLike): TrainingPreferences {
     secondaryGoals: asStrings(profile.goalsSecondary),
     level: resolveExperienceLevel(profile),
     daysPerWeek: Math.max(1, Math.min(7, Number(days) || 3)),
+    availableDays: [...new Set((Array.isArray(profile.availableDays) ? profile.availableDays : Array.isArray(profile.schedule?.availableDays) ? profile.schedule.availableDays : []).map((d: unknown) => Number(d)).filter((d: number) => Number.isInteger(d) && d >= 0 && d <= 6))],
     equipment: canonicalEquipment(profile.equipment),
     limitations: getTrainingLimitations(profile),
     painAreas: getPainAreas(profile),
@@ -95,13 +97,13 @@ export function buildAiTrainingContext(p: ProfileLike, routine?: { name?: string
     t.secondaryGoals.length ? `Objetivos secundarios: ${t.secondaryGoals.join(', ')}` : '',
     `Nivel: ${t.level}`,
     `Días disponibles por semana: ${t.daysPerWeek}`,
+    t.availableDays.length ? `Días exactos: ${t.availableDays.map(d => ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][d]).join(', ')}` : '',
     t.equipment.length ? `Equipamiento: ${t.equipment.join(', ')}` : '',
     t.limitations.length ? `Restricciones: ${t.limitations.join(', ')}` : '',
     t.painAreas.length ? `Zonas con dolor: ${t.painAreas.join(', ')}` : '',
     t.excludedExercises.length ? `Ejercicios excluidos: ${t.excludedExercises.join(', ')}` : '',
     t.excludedMovements.length ? `Movimientos excluidos: ${t.excludedMovements.join(', ')}` : '',
     `Duración de sesión: ${t.sessionDurationMin} min`,
-    t.trainingIntensity ? `Intensidad de entrenamiento: ${t.trainingIntensity}/5` : '',
     `Modalidad: ${t.modality}`,
     t.availabilityNotes ? `Disponibilidad: ${t.availabilityNotes}` : '',
     routine?.name ? `Rutina activa: ${routine.name}${routine.daysPerWeek ? ` (${routine.daysPerWeek} días/semana)` : ''}` : '',
