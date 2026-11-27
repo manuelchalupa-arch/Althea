@@ -330,6 +330,13 @@ describe('Render de páginas no muta datos (Etapa 9)', () => {
     await waitFor(() => {
       expect(screen.getByText('¡Hola, Nico!')).toBeInTheDocument()
     })
+    const dashboardSummary = document.querySelector('[data-testid="inicio-dashboard-summaries"]')
+    const weekCalendar = document.querySelector('[data-testid="inicio-week-calendar"]')
+    expect(dashboardSummary).not.toBeNull()
+    expect(weekCalendar).not.toBeNull()
+    expect(dashboardSummary!.compareDocumentPosition(weekCalendar!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const stickyHero = document.querySelector('[data-testid="inicio-hero-sticky"]')
+    expect(stickyHero?.className).toContain('top-[calc(var(--safe-top)+56px)]')
 
     render(<MemoryRouter><Calendario /></MemoryRouter>)
     await waitFor(() => {
