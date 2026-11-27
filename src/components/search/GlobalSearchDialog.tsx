@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Dumbbell, Apple, ClipboardList, ArrowUpRight, LoaderCircle } from 'lucide-react'
+import { Search, X, Dumbbell, Apple, ClipboardList, ArrowUpRight, LoaderCircle } from 'lucide-react'
 import { db } from '@/services/storage/db'
 import { addDiaryEntry, nowLocalTime } from '@/services/storage/diaryStore'
 import { todayKey } from '@/utils/dates'
