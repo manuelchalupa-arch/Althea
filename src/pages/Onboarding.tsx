@@ -7,6 +7,7 @@ import { CoachIntensity, Goal, ExperienceLevel } from '@/types'
 import { resolveTrainingGoal } from '@/utils/trainingGoal'
 import { prettyExId } from '@/utils/format'
 import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
+import { AltheaTimePicker } from '@/components/althea/AltheaTimePicker'
 
 const OBJETIVOS = ['Perder grasa / bajar de peso','Ganar masa muscular','Aumentar fuerza','Mejorar resistencia','Mejorar condición física','Mejorar movilidad','Mantenerme','Recomposición corporal','Otro']
 const NIVELES: { label: string; value: ExperienceLevel; detail: string }[] = [
@@ -407,7 +408,7 @@ export default function Onboarding(){
                   <input type="number" value={duracionSesion} onChange={e=>setDuracionSesion(Number(e.target.value))} min={20} max={180} className={INPUT_CLS}/>
                 </Field>
                 <Field label="Horario habitual">
-                  <input type="time" value={horarioEntreno} onChange={e=>setHorarioEntreno(e.target.value)} className={INPUT_CLS}/>
+                  <AltheaTimePicker value={horarioEntreno} onChange={setHorarioEntreno} ariaLabel="Horario habitual de entrenamiento" className={INPUT_CLS}/>
                 </Field>
               </div>
               <Field label="Disponibilidad variable (opcional)">
