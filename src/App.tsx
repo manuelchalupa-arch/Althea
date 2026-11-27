@@ -1,10 +1,10 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import { Suspense } from 'react'
+import { Suspense, lazy as reactLazy } from 'react'
 import AppNav from '@/components/layout/AppNav'
 import { RequiredActionGate } from '@/components/notifications/RequiredActionGate'
 import { AppHeader, TempleBackdrop } from '@/components/brand/temple'
 import { MeanderFrieze } from '@/components/brand/MeanderFrieze'
-import { useEffect, useState, lazy } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db } from '@/services/storage/db'
 import { resolveOnboardingGate } from '@/services/storage/onboardingGate'
@@ -34,9 +34,23 @@ const Actividad = lazy(() => import('@/pages/Actividad'))
 const Login = lazy(() => import('@/pages/Login'))
 const FeedbackEntry = lazy(() => import('@/pages/FeedbackEntry'))
 const FeedbackThreadPage = lazy(() => import('@/pages/FeedbackThreadPage'))
-// ChatWidget se importa de forma estática para evitar un chunk diferido que
-// venía fallando en producción tras las publicaciones de Cloudflare Pages.
-import ChatWidget from '@/components/chat/ChatWidget'
+// ChatWidget queda en un chunk separado para no cargar Firebase ni el Coach
+// antes de que se abra. Si Pages entrega HTML de una publicación anterior y
+// falla la descarga del chunk, se permite UNA recarga para obtener el manifiesto
+// actual; se evita un bucle infinito y la información local sigue en Dexie.
+const CHAT_CHUNK_RETRY_KEY = 'althea:chat-chunk-retry'
+const ChatWidget = reactLazy(() => import('@/components/chat/ChatWidget').then(module => {
+  try { sessionStorage.removeItem(CHAT_CHUNK_RETRY_KEY) } catch { /* noop */ }
+  return module
+}).catch(error => {
+  try {
+    if (!sessionStorage.getItem(CHAT_CHUNK_RETRY_KEY)) {
+      sessionStorage.setItem(CHAT_CHUNK_RETRY_KEY, '1')
+      window.location.reload()
+    }
+  } catch { /* noop */ }
+  throw error
+}))
 
 // Fallback component for lazy loading
 function PageLoader() {
