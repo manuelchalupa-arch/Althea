@@ -413,6 +413,39 @@ describe('T028 — Demo Data + Export/Import', () => {
       expect(preview.conflicts[0].table).toBe('routineStore')
     })
 
+    it('combinar preserva colisiones en tablas no principales e importa solo registros nuevos', async () => {
+      const localRecord = {
+        id: 'nutrition-conflict',
+        date: '2026-11-27',
+        name: 'Registro local',
+        mealType: 'Almuerzo',
+        servingLabel: '100 g',
+        amount: 100,
+        unit: 'g',
+        macros: { calories: 165, proteins: 31, carbs: 0, fats: 3.6 },
+        addedAt: new Date().toISOString(),
+      }
+      await db.nutritionDiary.put(localRecord as never)
+
+      const exported = JSON.parse(await (await exportJSON()).text())
+      exported.nutritionDiary[0].name = 'Registro importado distinto'
+      exported.nutritionDiary.push({
+        ...localRecord,
+        id: 'nutrition-new',
+        name: 'Registro nuevo',
+      })
+      const file = new File([JSON.stringify(exported)], 'merge-protection.json', { type: 'application/json' })
+
+      const preview = await generateImportPreview(file)
+      expect(preview.conflicts.some(conflict => conflict.table === 'nutritionDiary' && conflict.id === 'nutrition-conflict')).toBe(true)
+
+      const result = await importJSON(file, { mode: 'merge', confirmOverwrite: true })
+      expect(result.success).toBe(true)
+      expect(await db.nutritionDiary.get('nutrition-conflict')).toMatchObject({ name: 'Registro local' })
+      expect(await db.nutritionDiary.get('nutrition-new')).toMatchObject({ name: 'Registro nuevo' })
+      expect(result.imported.nutritionDiary).toBe(1)
+    })
+
     it('migración de versión antigua (v1) a actual', async () => {
       const oldFormatData = {
         metadata: { version: 1, exportedAt: new Date().toISOString(), schemaVersion: 10 },
