@@ -20,6 +20,7 @@ import UpdateConfirmDialog from '@/components/pwa/UpdateConfirmDialog'
 const Inicio = lazy(() => import('@/pages/Inicio'))
 const Entrenar = lazy(() => import('@/pages/Entrenar'))
 const Crossfit = lazy(() => import('@/pages/Crossfit'))
+const CrossfitInvitacion = lazy(() => import('@/pages/crossfit/CrossfitInvitacion'))
 const Progresos = lazy(() => import('@/pages/Progreso'))
 const Coach = lazy(() => import('@/pages/Coach'))
 const Mas = lazy(() => import('@/pages/Mas'))
@@ -271,7 +272,10 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
     if (authChecked) {
       import('@/services/firebase/auth').then(({ currentUser }) => {
         resolveOnboardingGate(currentUser()?.email).then(needsOnboarding => {
-          if (needsOnboarding && loc.pathname !== '/onboarding') {
+          // Una invitación pendiente no se pierde por el onboarding: la persona
+          // puede enviar su solicitud y después completar su perfil.
+          const isInviteRoute = loc.pathname.startsWith('/crossfit/invitacion/')
+          if (needsOnboarding && loc.pathname !== '/onboarding' && !isInviteRoute) {
             navigate('/onboarding', { replace: true })
           } else if (!needsOnboarding && loc.pathname === '/onboarding') {
             // Perfil completo (local o restaurado desde la nube): el onboarding
@@ -285,7 +289,8 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
 
   if (!authChecked) {return <div className="p-8 text-center">Cargando…</div>}
   if (needsLogin && loc.pathname !== '/login') {
-    return <Login onDone={() => { setNeedsLogin(false); navigate('/', { replace: true }) }} />
+    // Conserva la ruta actual (por ejemplo una invitación) después de entrar.
+    return <Login onDone={() => setNeedsLogin(false)} />
   }
   return (
     <div className="shell-safe-top">
@@ -301,6 +306,7 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
         <Route path="/feedback/thread/:id" element={<LazyPage><FeedbackThreadPage /></LazyPage>} />
         <Route path="/" element={<LazyPage><Inicio /></LazyPage>} />
         <Route path="/entrenar" element={<LazyPage><EntrenarErrorBoundary componentName="Entrenar"><Entrenar /></EntrenarErrorBoundary></LazyPage>} />
+        <Route path="/crossfit/invitacion/:token" element={<LazyPage><ErrorBoundary componentName="Invitacion"><CrossfitInvitacion /></ErrorBoundary></LazyPage>} />
         <Route path="/crossfit" element={<LazyPage><ErrorBoundary componentName="Crossfit"><Crossfit /></ErrorBoundary></LazyPage>} />
         <Route path="/progresos" element={<LazyPage><ProgresoErrorBoundary componentName="Progreso"><Progresos /></ProgresoErrorBoundary></LazyPage>} />
         <Route path="/progreso" element={<LazyPage><ProgresoErrorBoundary componentName="Progreso"><Progresos /></ProgresoErrorBoundary></LazyPage>} />
