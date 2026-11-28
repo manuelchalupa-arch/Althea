@@ -16,6 +16,8 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  Copy,
+  Link2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -56,6 +58,7 @@ import {
   Search,
   SearchX,
   Settings,
+  Share2,
   SlidersHorizontal,
   Sparkles,
   Target,
@@ -64,6 +67,8 @@ import {
   Trash2,
   TrendingDown,
   TrendingUp,
+  UserPlus,
+  Users,
   Utensils,
   Wheat,
   X,
@@ -167,6 +172,12 @@ const SEMANTIC_ICONS: Record<string, LucideIcon> = {
   grain: Wheat,
   logout: ArrowUpRight,
   sync: RotateCw,
+  // Grupos privados de CrossFit.
+  groups: Users,
+  person_add: UserPlus,
+  share: Share2,
+  link: Link2,
+  content_copy: Copy,
 } as Record<string, LucideIcon>
 
 export default function SemanticIcon({

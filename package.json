@@ -37,6 +37,8 @@
     "staging:auth:e2e": "node scripts/staging/auth-e2e.mjs",
     "staging:worker:live-check": "node scripts/worker-live-check.mjs",
     "staging:firestore:e2e": "node scripts/firestore-isolation-e2e.mjs",
+    "staging:groups:e2e": "node scripts/firestore-groups-e2e.mjs",
+    "staging:groups:tx": "node scripts/firestore-groups-transaction-e2e.mjs",
     "staging:hosting:check": "node scripts/hosting-route-check.mjs",
     "staging:verify:all": "node scripts/staging/validate-staging.mjs && node scripts/staging/pwa-check.mjs"
   },

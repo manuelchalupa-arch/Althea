@@ -22,5 +22,7 @@ export const ACCENT_SECTION_BY_PATH: Record<string, string> = {
 }
 
 export function accentSectionForPath(pathname: string): string {
+  // Las invitaciones viven bajo /crossfit/invitacion/:token.
+  if (pathname.startsWith('/crossfit/')) { return 'crossfit' }
   return ACCENT_SECTION_BY_PATH[pathname] ?? 'app'
 }

@@ -7,10 +7,12 @@ import CrossfitMetodologia from './crossfit/CrossfitMetodologia'
 import CrossfitProgramacion from './crossfit/CrossfitProgramacion'
 import CrossfitProgreso from './crossfit/CrossfitProgreso'
 import CrossfitBenchmarks from './crossfit/CrossfitBenchmarks'
+import CrossfitGrupos from './crossfit/CrossfitGrupos'
 
 export type CrossfitSectionId =
   | 'inicio'
   | 'wod'
+  | 'grupos'
   | 'programacion'
   | 'constructor'
   | 'biblioteca'
@@ -21,6 +23,8 @@ export type CrossfitSectionId =
 const PRIMARY_SECTIONS: { id: CrossfitSectionId; label: string }[] = [
   { id: 'inicio', label: 'Hoy' },
   { id: 'wod', label: 'WOD' },
+  // Visible a propósito: los grupos no se esconden dentro de Herramientas.
+  { id: 'grupos', label: 'Grupos' },
 ]
 
 // Herramientas secundarias agrupadas para mantener la pantalla principal simple.
@@ -40,7 +44,10 @@ const MORE_SECTIONS: { id: CrossfitSectionId; label: string }[] = [
  * `data-section="crossfit"` (accentSectionForPath).
  */
 export default function Crossfit() {
-  const [section, setSection] = useState<CrossfitSectionId>('inicio')
+  // Los enlaces de invitación vuelven a ?seccion=grupos para abrir "Mis grupos".
+  const [section, setSection] = useState<CrossfitSectionId>(() =>
+    new URLSearchParams(window.location.search).get('seccion') === 'grupos' ? 'grupos' : 'inicio',
+  )
   // null = sigue a la sección activa; true/false = decisión explícita del usuario.
   const [showMore, setShowMore] = useState<boolean | null>(null)
   const showRest = showMore ?? MORE_SECTIONS.some(s => s.id === section)
@@ -134,6 +141,7 @@ export default function Crossfit() {
       >
         {section === 'inicio' && <CrossfitInicio onNavigate={setSection} />}
         {section === 'wod' && <CrossfitWod onNavigate={setSection} />}
+        {section === 'grupos' && <CrossfitGrupos />}
         {section === 'programacion' && <CrossfitProgramacion />}
         {section === 'constructor' && <CrossfitConstructor />}
         {section === 'biblioteca' && <CrossfitBiblioteca />}

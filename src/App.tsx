@@ -15,11 +15,13 @@ import { SplashScreen, isMobileSplashConsumedThisDocument, MOBILE_SPLASH_BREAKPO
 import { accentSectionForPath } from '@/components/navigation/sections'
 import { applyUpdate } from '@/services/pwa/manualUpdate'
 import UpdateConfirmDialog from '@/components/pwa/UpdateConfirmDialog'
+import { clearInviteReturn, consumeInviteReturn, isInvitePath, rememberInviteReturn } from '@/services/crossfit/groups/inviteReturn'
 
 // Lazy load all pages to reduce initial bundle size
 const Inicio = lazy(() => import('@/pages/Inicio'))
 const Entrenar = lazy(() => import('@/pages/Entrenar'))
 const Crossfit = lazy(() => import('@/pages/Crossfit'))
+const CrossfitInvitacion = lazy(() => import('@/pages/crossfit/CrossfitInvitacion'))
 const Progresos = lazy(() => import('@/pages/Progreso'))
 const Coach = lazy(() => import('@/pages/Coach'))
 const Mas = lazy(() => import('@/pages/Mas'))
@@ -97,6 +99,14 @@ function Layout() {
   const loc = useLocation()
   const navigate = useNavigate()
   const hideNav = loc.pathname === '/onboarding' || loc.pathname === '/login'
+
+  // La invitación se recuerda mientras se resuelven sesión y onboarding.
+  // Solo se guarda una ruta válida; cualquier otra pantalla la descarta.
+  useEffect(() => {
+    if (isInvitePath(loc.pathname)) { rememberInviteReturn(loc.pathname) }
+    else if (loc.pathname !== '/onboarding' && loc.pathname !== '/login') { clearInviteReturn() }
+  }, [loc.pathname])
+
   const [updateReady, setUpdateReady] = useState(false)
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
@@ -271,7 +281,10 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
     if (authChecked) {
       import('@/services/firebase/auth').then(({ currentUser }) => {
         resolveOnboardingGate(currentUser()?.email).then(needsOnboarding => {
+          // El onboarding ya no se salta en la invitación: se recuerda el
+          // destino y Onboarding vuelve a él al guardar el perfil.
           if (needsOnboarding && loc.pathname !== '/onboarding') {
+            rememberInviteReturn(loc.pathname)
             navigate('/onboarding', { replace: true })
           } else if (!needsOnboarding && loc.pathname === '/onboarding') {
             // Perfil completo (local o restaurado desde la nube): el onboarding
@@ -285,7 +298,8 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
 
   if (!authChecked) {return <div className="p-8 text-center">Cargando…</div>}
   if (needsLogin && loc.pathname !== '/login') {
-    return <Login onDone={() => { setNeedsLogin(false); navigate('/', { replace: true }) }} />
+    // Conserva la ruta actual (por ejemplo una invitación) después de entrar.
+    return <Login onDone={() => setNeedsLogin(false)} />
   }
   return (
     <div className="shell-safe-top">
@@ -295,12 +309,13 @@ const [isOfflineMode, setIsOfflineMode] = useState(false)
       {!hideNav && <MeanderFrieze height={3} color="rgb(var(--c-gold-rgb) / 0.4)" className="shell-content-nudge" />}
       <div data-section={accentSectionForPath(loc.pathname)} className="shell-content relative z-10 mx-auto px-3 sm:px-5 lg:px-6 xl:px-8 2xl:px-10 pt-4 pb-24 md:pb-10 transition-[margin-left] duration-200">
       <Routes>
-        <Route path="/login" element={<LazyPage><Login onDone={() => navigate('/', { replace: true })} /></LazyPage>} />
+        <Route path="/login" element={<LazyPage><Login onDone={() => navigate(consumeInviteReturn() ?? '/', { replace: true })} /></LazyPage>} />
         <Route path="/feedback" element={<LazyPage><FeedbackEntry /></LazyPage>} />
         <Route path="/admin/feedback" element={<LazyPage><FeedbackEntry adminOnly /></LazyPage>} />
         <Route path="/feedback/thread/:id" element={<LazyPage><FeedbackThreadPage /></LazyPage>} />
         <Route path="/" element={<LazyPage><Inicio /></LazyPage>} />
         <Route path="/entrenar" element={<LazyPage><EntrenarErrorBoundary componentName="Entrenar"><Entrenar /></EntrenarErrorBoundary></LazyPage>} />
+        <Route path="/crossfit/invitacion/:token" element={<LazyPage><ErrorBoundary componentName="Invitacion"><CrossfitInvitacion /></ErrorBoundary></LazyPage>} />
         <Route path="/crossfit" element={<LazyPage><ErrorBoundary componentName="Crossfit"><Crossfit /></ErrorBoundary></LazyPage>} />
         <Route path="/progresos" element={<LazyPage><ProgresoErrorBoundary componentName="Progreso"><Progresos /></ProgresoErrorBoundary></LazyPage>} />
         <Route path="/progreso" element={<LazyPage><ProgresoErrorBoundary componentName="Progreso"><Progresos /></ProgresoErrorBoundary></LazyPage>} />

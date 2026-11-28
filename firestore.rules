@@ -138,6 +138,230 @@ service cloud.firestore {
       }
     }
 
+    // ── Grupos privados de CrossFit (Etapa 1) ────────────────────────────
+    // Datos compartidos, separados de users/{uid}. La pertenencia es la única
+    // autorización: no hay directorio público de grupos ni lectura abierta.
+    function groupPath(groupId) {
+      return /databases/$(database)/documents/cfGroups/$(groupId);
+    }
+
+    function groupExists(groupId) {
+      return exists(groupPath(groupId));
+    }
+
+    function groupData(groupId) {
+      return get(groupPath(groupId)).data;
+    }
+
+    function isGroupOwner(groupId) {
+      return signedIn()
+        && groupExists(groupId)
+        && groupData(groupId).ownerId == request.auth.uid;
+    }
+
+    function isGroupMember(groupId) {
+      return signedIn()
+        && groupExists(groupId)
+        && request.auth.uid in groupData(groupId).memberIds;
+    }
+
+    function invitePath(token) {
+      return /databases/$(database)/documents/cfInvites/$(token);
+    }
+
+    // El token ES la capacidad: 64 hexadecimales en minúsculas (256 bits).
+    function validToken(token) {
+      return token is string && token.matches('^[0-9a-f]{64}$');
+    }
+
+    // Una invitación solo autoriza a SOLICITAR ingreso: debe existir, ser del
+    // grupo, no estar revocada y no haber expirado. Aprobar sigue siendo del
+    // propietario.
+    function validInvite(token, groupId) {
+      return validToken(token)
+        && exists(invitePath(token))
+        && get(invitePath(token)).data.groupId == groupId
+        && get(invitePath(token)).data.revoked == false
+        && request.time < get(invitePath(token)).data.expiresAt;
+    }
+
+    function groupRequestPath(groupId, uid) {
+      return /databases/$(database)/documents/cfGroups/$(groupId)/requests/$(uid);
+    }
+
+    // Toda incorporación debe ocurrir en la MISMA transacción que aprueba la
+    // solicitud: antes debe estar 'pending' y después 'approved'. get() lee el
+    // estado previo y getAfter() el estado al final de la transacción.
+    // Las bajas (memberIds que se quitan) no requieren ninguna solicitud.
+    function addedUid(groupId) {
+      return request.resource.data.memberIds.removeAll(resource.data.memberIds)[0];
+    }
+
+    function memberAdditionsApproved(groupId) {
+      return request.resource.data.memberIds.removeAll(resource.data.memberIds).size() == 0
+        || (
+          request.resource.data.memberIds.removeAll(resource.data.memberIds).size() == 1
+          && exists(groupRequestPath(groupId, addedUid(groupId)))
+          && get(groupRequestPath(groupId, addedUid(groupId))).data.status == 'pending'
+          && existsAfter(groupRequestPath(groupId, addedUid(groupId)))
+          && getAfter(groupRequestPath(groupId, addedUid(groupId))).data.status == 'approved'
+          && getAfter(groupRequestPath(groupId, addedUid(groupId))).data.groupId == groupId
+          && getAfter(groupRequestPath(groupId, addedUid(groupId))).data.reviewedBy == request.auth.uid
+        );
+    }
+
+    match /cfGroups/{groupId} {
+      // Solo integrantes (el propietario siempre está en memberIds).
+      allow get: if isGroupMember(groupId);
+      // La consulta del cliente filtra por array-contains del propio uid.
+      allow list: if signedIn() && request.auth.uid in resource.data.memberIds;
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'id', 'name', 'description', 'schedule', 'ownerId', 'ownerName',
+          'memberIds', 'memberNames', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.id == groupId
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberIds == [request.auth.uid]
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 300
+        && request.resource.data.schedule is string
+        && request.resource.data.schedule.size() <= 80
+        && request.resource.data.ownerName is string
+        && request.resource.data.ownerName.size() > 0
+        && request.resource.data.ownerName.size() <= 80
+        && request.resource.data.memberNames is map
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string;
+
+      allow update: if isGroupOwner(groupId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt
+        // El propietario no puede eliminarse a sí mismo ni dejar el grupo sin
+        // administración. Tampoco puede haber uids duplicados.
+        && request.resource.data.ownerId in request.resource.data.memberIds
+        && request.resource.data.memberIds.size() == request.resource.data.memberIds.toSet().size()
+        && memberAdditionsApproved(groupId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'description', 'schedule', 'memberIds', 'memberNames', 'updatedAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 300
+        && request.resource.data.schedule is string
+        && request.resource.data.schedule.size() <= 80
+        && request.resource.data.memberNames is map;
+
+      // El grupo conserva sus datos: no hay borrado desde clientes.
+      allow delete: if false;
+
+      // ── Solicitudes de ingreso ─────────────────────────────────────────
+      match /requests/{requestUid} {
+        // El solicitante ve su propia solicitud; el propietario ve todas.
+        allow get: if signedIn()
+          && (request.auth.uid == requestUid || isGroupOwner(groupId));
+        allow list: if isGroupOwner(groupId);
+
+        allow create: if signedIn()
+          && request.resource.data.keys().hasOnly([
+            'uid', 'groupId', 'displayName', 'email', 'message', 'status',
+            'inviteToken', 'createdAt', 'updatedAt'
+          ])
+          && requestUid == request.auth.uid
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.groupId == groupId
+          && request.resource.data.status == 'pending'
+          && request.resource.data.inviteToken is string
+          && validInvite(request.resource.data.inviteToken, groupId)
+          && groupExists(groupId)
+          && !(request.auth.uid in groupData(groupId).memberIds)
+          && request.resource.data.displayName is string
+          && request.resource.data.displayName.size() > 0
+          && request.resource.data.displayName.size() <= 80
+          && request.resource.data.email is string
+          && request.resource.data.email.size() <= 160
+          && request.resource.data.message is string
+          && request.resource.data.message.size() <= 300
+          && request.resource.data.createdAt is string
+          && request.resource.data.updatedAt is string;
+
+        // Solo el propietario revisa. Aprobar y dar de alta son la MISMA
+        // transacción: la regla del grupo exige pending → approved, y aquí se
+        // exige que el solicitante ya esté en memberIds al finalizar. Rechazar
+        // y reincorporar por baja siguen siendo operaciones independientes.
+        allow update: if (isGroupOwner(groupId)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.groupId == resource.data.groupId
+          && request.resource.data.reviewedBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'reviewedBy', 'reviewedAt', 'updatedAt'
+          ])
+          && (
+            (request.resource.data.status == 'rejected'
+              && resource.data.status in ['pending', 'approved'])
+            || (request.resource.data.status == 'approved'
+              && resource.data.status == 'pending'
+              && !(requestUid in get(groupPath(groupId)).data.memberIds)
+              && requestUid in getAfter(groupPath(groupId)).data.memberIds)
+          ))
+          || (signedIn()
+            && request.auth.uid == requestUid
+            && resource.data.status == 'rejected'
+            && request.resource.data.status == 'pending'
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.groupId == resource.data.groupId
+            && request.resource.data.inviteToken is string
+            && validInvite(request.resource.data.inviteToken, groupId)
+            && !(request.auth.uid in groupData(groupId).memberIds)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'inviteToken', 'message', 'displayName', 'createdAt', 'updatedAt'
+            ]));
+
+        allow delete: if false;
+      }
+    }
+
+    // ── Invitaciones ─────────────────────────────────────────────────────
+    // El id del documento ES el token aleatorio de 256 bits. No se puede
+    // listar la colección: solo se lee un token exacto que ya se conoce.
+    match /cfInvites/{token} {
+      allow get: if signedIn() && validToken(token);
+      allow list: if signedIn() && resource.data.createdBy == request.auth.uid;
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'groupId', 'groupName', 'createdBy', 'createdAt', 'expiresAt', 'revoked'
+        ])
+        && validToken(token)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.groupId is string
+        && isGroupOwner(request.resource.data.groupId)
+        && request.resource.data.groupName is string
+        && request.resource.data.groupName.size() > 0
+        && request.resource.data.groupName.size() <= 60
+        && request.resource.data.revoked == false
+        && request.resource.data.expiresAt is timestamp
+        // El vencimiento lo impone el servidor: ni vencido ni más allá de 30 días.
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(30, 'd')
+        && request.resource.data.createdAt is string;
+
+      // Revocar es la única modificación permitida, y solo por su creador.
+      allow update: if signedIn()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revoked', 'revokedAt'])
+        && request.resource.data.revoked == true;
+
+      allow delete: if false;
+    }
+
     // Biblioteca compartida: solo el autor puede crear y actualizar su ficha.
     // Un usuario autenticado no puede sobrescribir ejercicios publicados por otro.
     // Los documentos previos sin createdBy quedan legibles pero inmutables.
