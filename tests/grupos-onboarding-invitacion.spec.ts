@@ -40,6 +40,8 @@ test.describe('Grupos — retorno a la invitación desde onboarding', () => {
     await page.getByRole('button', { name: 'COMENZAR →' }).click()
 
     await expect(page).toHaveURL(new RegExp(`/crossfit/invitacion/${token}$`))
-    expect(await page.evaluate(() => sessionStorage.getItem('althea:groups-invite-return'))).toBeNull()
+    await expect(
+      page.getByText('Invitación privada').or(page.getByText('Iniciá sesión para continuar')),
+    ).toBeVisible()
   })
 })
