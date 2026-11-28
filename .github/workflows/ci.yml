@@ -5,6 +5,17 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Despliegue de producción: SOLO manual, desde main y con confirmación.
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: 'Escribí DEPLOY-PRODUCTION para autorizar el despliegue'
+        required: true
+        type: choice
+        options:
+          - NO
+          - DEPLOY-PRODUCTION
+        default: 'NO'
 
 concurrency:
   group: althea-ci-${{ github.event.pull_request.number || github.ref }}
@@ -61,7 +72,14 @@ jobs:
   deploy-production:
     name: Deploy production (Cloudflare Pages + Worker)
     needs: build-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build-and-test.result == 'success'
+    # Los push/merge a main NUNCA despliegan. Solo workflow_dispatch desde main
+    # con la confirmación explícita. Las reglas de Firestore no se publican
+    # aquí: su aplicación queda como operación independiente autorizada aparte.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      && github.ref == 'refs/heads/main'
+      && inputs.confirm_production == 'DEPLOY-PRODUCTION'
+      && needs.build-and-test.result == 'success'
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_ACCOUNT_ID: 170d478ee67d5da8036859410f64be3a
@@ -74,6 +92,12 @@ jobs:
       VITE_FIREBASE_APP_ID: 1:756631647991:web:919921eaee888115cbc5f2
       VITE_GROQ_PROXY_URL: https://althea-proxy-production.manuelchalupa.workers.dev
     steps:
+      - name: Verify explicit production authorization on main
+        env:
+          CONFIRM: ${{ inputs.confirm_production }}
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main" || { echo "::error::Solo se puede desplegar desde main."; exit 1; }
+          test "$CONFIRM" = "DEPLOY-PRODUCTION" || { echo "::error::Falta confirmación explícita de producción."; exit 1; }
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
