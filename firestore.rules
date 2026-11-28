@@ -189,9 +189,9 @@ service cloud.firestore {
       return /databases/$(database)/documents/cfGroups/$(groupId)/requests/$(uid);
     }
 
-    // Toda incorporación debe estar respaldada por una solicitud aprobada por
-    // el propio entrenador. getAfter permite comprobar el estado de la
-    // solicitud dentro de la misma transacción que agrega el integrante.
+    // Toda incorporación debe ocurrir en la MISMA transacción que aprueba la
+    // solicitud: antes debe estar 'pending' y después 'approved'. get() lee el
+    // estado previo y getAfter() el estado al final de la transacción.
     // Las bajas (memberIds que se quitan) no requieren ninguna solicitud.
     function addedUid(groupId) {
       return request.resource.data.memberIds.removeAll(resource.data.memberIds)[0];
@@ -201,6 +201,8 @@ service cloud.firestore {
       return request.resource.data.memberIds.removeAll(resource.data.memberIds).size() == 0
         || (
           request.resource.data.memberIds.removeAll(resource.data.memberIds).size() == 1
+          && exists(groupRequestPath(groupId, addedUid(groupId)))
+          && get(groupRequestPath(groupId, addedUid(groupId))).data.status == 'pending'
           && existsAfter(groupRequestPath(groupId, addedUid(groupId)))
           && getAfter(groupRequestPath(groupId, addedUid(groupId))).data.status == 'approved'
           && getAfter(groupRequestPath(groupId, addedUid(groupId))).data.groupId == groupId
@@ -290,16 +292,25 @@ service cloud.firestore {
           && request.resource.data.createdAt is string
           && request.resource.data.updatedAt is string;
 
-        // Solo el propietario revisa. El solicitante únicamente puede volver a
-        // 'pending' una solicitud rechazada, con una invitación válida.
+        // Solo el propietario revisa. Aprobar y dar de alta son la MISMA
+        // transacción: la regla del grupo exige pending → approved, y aquí se
+        // exige que el solicitante ya esté en memberIds al finalizar. Rechazar
+        // y reincorporar por baja siguen siendo operaciones independientes.
         allow update: if (isGroupOwner(groupId)
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.groupId == resource.data.groupId
-          && request.resource.data.status in ['approved', 'rejected']
           && request.resource.data.reviewedBy == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'status', 'reviewedBy', 'reviewedAt', 'updatedAt'
-          ]))
+          ])
+          && (
+            (request.resource.data.status == 'rejected'
+              && resource.data.status in ['pending', 'approved'])
+            || (request.resource.data.status == 'approved'
+              && resource.data.status == 'pending'
+              && !(requestUid in get(groupPath(groupId)).data.memberIds)
+              && requestUid in getAfter(groupPath(groupId)).data.memberIds)
+          ))
           || (signedIn()
             && request.auth.uid == requestUid
             && resource.data.status == 'rejected'

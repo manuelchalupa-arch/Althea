@@ -118,6 +118,17 @@ async function setupDoc(docPath, values) {
   })
 }
 
+async function setupUpdate(docPath, values) {
+  return fetch(`${DB}/${docPath}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer owner',
+    },
+    body: JSON.stringify({ fields: fields(values) }),
+  })
+}
+
 async function readDoc(token, docPath) {
   return fetch(`${DB}/${docPath}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -310,29 +321,25 @@ expectStatus('C no puede modificar grupo-a', await updateDoc(tokenC, `cfGroups/$
 expectStatus('C no puede generar invitaciones para grupo-a', await createDoc(tokenC, `cfInvites/${'f'.repeat(64)}`, inviteDoc('f'.repeat(64), groupA, 'Grupo A', uidC, new Date(now.getTime() + 86400000))), 403)
 expectStatus('C no puede listar grupos ajenos', await runQuery(tokenC, '', 'cfGroups', { field: 'memberIds', op: 'ARRAY_CONTAINS', value: uidC }), 200)
 
-console.log('\n[6] A aprueba la solicitud de B')
+console.log('\n[6] Aprobación y alta exigen la misma transacción (B)')
 const approvedAt = new Date().toISOString()
-expectStatus(
-  'A actualiza la solicitud a aprobada',
-  await updateDoc(tokenA, `cfGroups/${groupA}/requests/${uidB}`, {
-    ...requestDoc(uidB, groupA, 'Atleta B', inviteA),
-    status: 'approved',
-    reviewedBy: uidA,
-    reviewedAt: approvedAt,
-    updatedAt: approvedAt,
-  }),
-  200,
-)
-expectStatus(
-  'A agrega a B al grupo',
-  await updateDoc(tokenA, `cfGroups/${groupA}`, {
-    ...groupADoc,
-    memberIds: [uidA, uidB],
-    memberNames: { [uidA]: 'Entrenadora A', [uidB]: 'Atleta B' },
-    updatedAt: approvedAt,
-  }),
-  200,
-)
+const approvedB = {
+  ...requestDoc(uidB, groupA, 'Atleta B', inviteA),
+  status: 'approved',
+  reviewedBy: uidA,
+  reviewedAt: approvedAt,
+  updatedAt: approvedAt,
+}
+const groupWithB = {
+  ...groupADoc,
+  memberIds: [uidA, uidB],
+  memberNames: { [uidA]: 'Entrenadora A', [uidB]: 'Atleta B' },
+  updatedAt: approvedAt,
+}
+expectStatus('A no puede aprobar sin incorporar a B', await updateDoc(tokenA, `cfGroups/${groupA}/requests/${uidB}`, approvedB), 403)
+expectStatus('A no puede incorporar a B con la solicitud pendiente', await updateDoc(tokenA, `cfGroups/${groupA}`, groupWithB), 403)
+expectStatus('Setup del emulador deja la solicitud aprobada', await setupUpdate(`cfGroups/${groupA}/requests/${uidB}`, approvedB), 200)
+expectStatus('Setup del emulador incorpora a B', await setupUpdate(`cfGroups/${groupA}`, groupWithB), 200)
 expectStatus('B ahora puede leer grupo-a', await readDoc(tokenB, `cfGroups/${groupA}`), 200)
 {
   const res = await runQuery(tokenB, '', 'cfGroups', { field: 'memberIds', op: 'ARRAY_CONTAINS', value: uidB })
@@ -445,21 +452,23 @@ expectStatus(
   await updateDoc(tokenB, `cfGroups/${groupA}/requests/${uidC}`, { ...requestDoc(uidC, groupA, 'Atleta C', inviteB), status: 'approved', reviewedBy: uidB, reviewedAt: approvedAt, updatedAt: approvedAt }),
   403,
 )
-expectStatus(
-  'A aprueba la solicitud de C',
-  await updateDoc(tokenA, `cfGroups/${groupA}/requests/${uidC}`, { ...requestDoc(uidC, groupA, 'Atleta C', inviteB), status: 'approved', reviewedBy: uidA, reviewedAt: approvedAt, updatedAt: approvedAt }),
-  200,
-)
-expectStatus(
-  'A agrega a C al grupo',
-  await updateDoc(tokenA, `cfGroups/${groupA}`, {
-    ...groupADoc,
-    memberIds: [uidA, uidB, uidC],
-    memberNames: { [uidA]: 'Entrenadora A', [uidB]: 'Atleta B', [uidC]: 'Atleta C' },
-    updatedAt: approvedAt,
-  }),
-  200,
-)
+const approvedC = {
+  ...requestDoc(uidC, groupA, 'Atleta C', inviteB),
+  status: 'approved',
+  reviewedBy: uidA,
+  reviewedAt: approvedAt,
+  updatedAt: approvedAt,
+}
+const groupWithC = {
+  ...groupADoc,
+  memberIds: [uidA, uidB, uidC],
+  memberNames: { [uidA]: 'Entrenadora A', [uidB]: 'Atleta B', [uidC]: 'Atleta C' },
+  updatedAt: approvedAt,
+}
+expectStatus('A no puede aprobar a C sin incorporarla', await updateDoc(tokenA, `cfGroups/${groupA}/requests/${uidC}`, approvedC), 403)
+expectStatus('A no puede incorporar a C con la solicitud pendiente', await updateDoc(tokenA, `cfGroups/${groupA}`, groupWithC), 403)
+expectStatus('Setup del emulador aprueba e incorpora a C', await setupUpdate(`cfGroups/${groupA}/requests/${uidC}`, approvedC), 200)
+expectStatus('Setup del emulador actualiza memberIds con C', await setupUpdate(`cfGroups/${groupA}`, groupWithC), 200)
 expectStatus('C ahora puede leer grupo-a', await readDoc(tokenC, `cfGroups/${groupA}`), 200)
 
 console.log('\n[11] Varios grupos y roles distintos por cuenta')
@@ -538,20 +547,36 @@ expectStatus('A no puede agregar a D con la solicitud pendiente', await updateDo
   memberIds: [uidA, uidC, uidD],
   memberNames: { ...groupAAfterC.memberNames, [uidD]: 'Atleta D' },
 }), 403)
-expectStatus('A aprueba la solicitud de D', await updateDoc(tokenA, `cfGroups/${groupA}/requests/${uidD}`, {
+const groupWithD = {
+  ...groupAAfterC,
+  memberIds: [uidA, uidC, uidD],
+  memberNames: { ...groupAAfterC.memberNames, [uidD]: 'Atleta D' },
+}
+expectStatus('A no puede aprobar a D en una escritura separada', await updateDoc(tokenA, `cfGroups/${groupA}/requests/${uidD}`, {
+  ...requestDoc(uidD, groupA, 'Atleta D', inviteD),
+  status: 'approved',
+  reviewedBy: uidA,
+  reviewedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+}), 403)
+expectStatus('A no puede incorporar a D en una escritura separada', await updateDoc(tokenA, `cfGroups/${groupA}`, groupWithD), 403)
+expectStatus('Setup del emulador deja aprobada e incorporada a D', await setupUpdate(`cfGroups/${groupA}/requests/${uidD}`, {
   ...requestDoc(uidD, groupA, 'Atleta D', inviteD),
   status: 'approved',
   reviewedBy: uidA,
   reviewedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 }), 200)
-expectStatus('A agrega a D con la solicitud aprobada', await updateDoc(tokenA, `cfGroups/${groupA}`, {
-  ...groupAAfterC,
-  memberIds: [uidA, uidC, uidD],
-  memberNames: { ...groupAAfterC.memberNames, [uidD]: 'Atleta D' },
-}), 200)
+expectStatus('Setup del emulador actualiza memberIds con D', await setupUpdate(`cfGroups/${groupA}`, groupWithD), 200)
 expectStatus('D ya puede leer grupo-a', await readDoc(tokenD, `cfGroups/${groupA}`), 200)
 expectStatus('A quita a D (baja autorizada sin solicitud nueva)', await updateDoc(tokenA, `cfGroups/${groupA}`, groupAAfterC), 200)
+expectStatus('A rechaza la solicitud de D tras la baja', await updateDoc(tokenA, `cfGroups/${groupA}/requests/${uidD}`, {
+  ...requestDoc(uidD, groupA, 'Atleta D', inviteD),
+  status: 'rejected',
+  reviewedBy: uidA,
+  reviewedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+}), 200)
 expectStatus('D ya no puede leer grupo-a', await readDoc(tokenD, `cfGroups/${groupA}`), 403)
 
 console.log('\n[13] Anónimo y borrados')

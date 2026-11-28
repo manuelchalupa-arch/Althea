@@ -43,7 +43,7 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Responsive browser tests
-        run: npm run playwright -- tests/fase2-qa.spec.ts --project=chromium
+        run: npm run playwright -- tests/fase2-qa.spec.ts tests/grupos-onboarding-invitacion.spec.ts --project=chromium
       - name: Set up Java for Firebase emulators
         uses: actions/setup-java@v5
         with:
@@ -56,7 +56,7 @@ jobs:
           VITE_FIREBASE_API_KEY: demo-api-key
           FIREBASE_STAGING_PROJECT_ID: demo-althea
           FIREBASE_PRODUCTION_PROJECT_ID: demo-althea-production
-        run: npx --yes firebase-tools emulators:exec --project demo-althea --only auth,firestore "node scripts/firestore-isolation-e2e.mjs && node scripts/firestore-groups-e2e.mjs"
+        run: npx --yes firebase-tools emulators:exec --project demo-althea --only auth,firestore "node scripts/firestore-isolation-e2e.mjs && node scripts/firestore-groups-e2e.mjs && node scripts/firestore-groups-transaction-e2e.mjs"
 
   deploy-production:
     name: Deploy production (Cloudflare Pages + Worker)
