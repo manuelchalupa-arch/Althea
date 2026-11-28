@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AltheaBadge } from '@/components/althea/AltheaBadge'
 import { AltheaButton } from '@/components/althea/AltheaButton'
 import { AltheaCard } from '@/components/althea/AltheaCard'
+import { AltheaInput, AltheaTextarea } from '@/components/althea/AltheaInput'
 import { currentUser } from '@/services/firebase/auth'
 import {
   approveRequest,
@@ -12,6 +13,7 @@ import {
   rejectRequest,
   removeMember,
   revokeInvite,
+  updateGroupDetails,
 } from '@/services/crossfit/groups/groupsService'
 import { canRemoveMember, groupRoleFor, memberLabel } from '@/services/crossfit/groups/groupAccess'
 import { inviteIsUsable, inviteLink } from '@/services/crossfit/groups/invite'
@@ -43,6 +45,10 @@ export default function CrossfitGrupoDetalle({ groupId, onBack }: { groupId: str
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editSchedule, setEditSchedule] = useState('')
 
   const load = useCallback(async () => {
     if (!user) { setLoading(false); setError('Iniciá sesión para ver el grupo.'); return }
@@ -170,6 +176,37 @@ export default function CrossfitGrupoDetalle({ groupId, onBack }: { groupId: str
     }
   }
 
+  const startEdit = () => {
+    if (!group) { return }
+    setEditName(group.name)
+    setEditDescription(group.description)
+    setEditSchedule(group.schedule)
+    setError('')
+    setNotice('')
+    setEditing(true)
+  }
+
+  const saveEdit = async () => {
+    if (!group) { return }
+    setBusy('edit')
+    setError('')
+    setNotice('')
+    try {
+      await updateGroupDetails(group.id, {
+        name: editName,
+        description: editDescription,
+        schedule: editSchedule,
+      })
+      await load()
+      setEditing(false)
+      setNotice('Datos del grupo actualizados.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo guardar el grupo.')
+    } finally {
+      setBusy('')
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-on-surface-variant py-8 text-center">Cargando grupo…</p>
   }
@@ -213,6 +250,63 @@ export default function CrossfitGrupoDetalle({ groupId, onBack }: { groupId: str
 
       {error && <p role="alert" className="text-sm text-error">{error}</p>}
       {notice && <p role="status" className="text-sm text-secondary">{notice}</p>}
+
+      {role === 'owner' && (
+        <AltheaCard>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-headline text-lg font-semibold text-on-surface">Datos del grupo</h3>
+              {!editing && (
+                <AltheaButton variant="secondary" className="min-h-[44px]" onClick={startEdit}>Editar</AltheaButton>
+              )}
+            </div>
+            {editing ? (
+              <div className="space-y-3">
+                <AltheaInput
+                  label="Nombre"
+                  value={editName}
+                  maxLength={60}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+                <AltheaTextarea
+                  label="Descripción (opcional)"
+                  value={editDescription}
+                  maxLength={300}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                />
+                <AltheaInput
+                  label="Horario (opcional)"
+                  value={editSchedule}
+                  maxLength={80}
+                  onChange={(e) => setEditSchedule(e.target.value)}
+                  placeholder="Ej.: lunes y miércoles 19:00"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <AltheaButton
+                    className="min-h-[44px]"
+                    loading={busy === 'edit'}
+                    onClick={() => void saveEdit()}
+                  >
+                    Guardar
+                  </AltheaButton>
+                  <AltheaButton
+                    variant="secondary"
+                    className="min-h-[44px]"
+                    disabled={busy === 'edit'}
+                    onClick={() => setEditing(false)}
+                  >
+                    Cancelar
+                  </AltheaButton>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-on-surface-variant">
+                Solo el entrenador puede cambiar el nombre, la descripción y el horario.
+              </p>
+            )}
+          </div>
+        </AltheaCard>
+      )}
 
       {role === 'owner' && (
         <AltheaCard>
@@ -292,7 +386,9 @@ export default function CrossfitGrupoDetalle({ groupId, onBack }: { groupId: str
                         <p className="font-semibold text-sm text-on-surface truncate">{request.displayName || 'Sin nombre'}</p>
                         {request.email && <p className="text-xs text-on-surface-variant truncate">{request.email}</p>}
                       </div>
-                      <AltheaBadge variant={STATUS_VARIANT[request.status]}>{STATUS_LABEL[request.status]}</AltheaBadge>
+                      <AltheaBadge variant={STATUS_VARIANT[request.status]} className="shrink-0 whitespace-nowrap">
+                        {STATUS_LABEL[request.status]}
+                      </AltheaBadge>
                     </div>
                     {request.message && <p className="text-xs text-on-surface-variant">{request.message}</p>}
                     <p className="text-[11px] text-on-surface-variant">Solicitud del {fmtDate(request.createdAt)}</p>

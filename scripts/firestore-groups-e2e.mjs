@@ -104,6 +104,20 @@ async function updateDoc(token, docPath, values) {
   })
 }
 
+// Preparación de datos: el emulador acepta `Bearer owner` como administrador
+// y omite las reglas SOLO aquí. Nunca se usa en las verificaciones: sirve para
+// inyectar estados que un cliente no puede crear (p. ej. invitación vencida).
+async function setupDoc(docPath, values) {
+  return fetch(`${DB}/${docPath}?currentDocument.exists=false`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer owner',
+    },
+    body: JSON.stringify({ fields: fields(values) }),
+  })
+}
+
 async function readDoc(token, docPath) {
   return fetch(`${DB}/${docPath}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -160,23 +174,27 @@ const password = `Alth3a-${stamp}-g`
 const emailA = `althea-groups-a-${stamp}@example.com`
 const emailB = `althea-groups-b-${stamp}@example.com`
 const emailC = `althea-groups-c-${stamp}@example.com`
+const emailD = `althea-groups-d-${stamp}@example.com`
 
-console.log('\n[1] Crear tres cuentas de prueba')
+console.log('\n[1] Crear cuatro cuentas de prueba')
 const a = await signup(emailA, password)
 const b = await signup(emailB, password)
 const c = await signup(emailC, password)
-if (!a.data.idToken || !b.data.idToken || !c.data.idToken) {
+const d = await signup(emailD, password)
+if (!a.data.idToken || !b.data.idToken || !c.data.idToken || !d.data.idToken) {
   console.error('No se pudieron crear las cuentas del emulador.')
-  console.error(JSON.stringify(a.data?.error || b.data?.error || c.data?.error || {}, null, 2))
+  console.error(JSON.stringify(a.data?.error || b.data?.error || c.data?.error || d.data?.error || {}, null, 2))
   process.exit(1)
 }
 const uidA = a.data.localId
 const uidB = b.data.localId
 const uidC = c.data.localId
+const uidD = d.data.localId
 const tokenA = a.data.idToken
 const tokenB = b.data.idToken
 const tokenC = c.data.idToken
-console.log(`  A=${uidA.slice(0, 8)}… B=${uidB.slice(0, 8)}… C=${uidC.slice(0, 8)}…`)
+const tokenD = d.data.idToken
+console.log(`  A=${uidA.slice(0, 8)}… B=${uidB.slice(0, 8)}… C=${uidC.slice(0, 8)}… D=${uidD.slice(0, 8)}…`)
 
 const now = new Date()
 const iso = now.toISOString()
@@ -252,6 +270,21 @@ expectStatus(
 )
 expectStatus('B no puede listar invitaciones ajenas', await runQuery(tokenB, '', 'cfInvites', { field: 'createdBy', op: 'EQUAL', value: uidA }), 403)
 expectStatus('A puede listar sus invitaciones', await runQuery(tokenA, '', 'cfInvites', { field: 'createdBy', op: 'EQUAL', value: uidA }), 200)
+expectStatus(
+  'El token debe tener 64 hexadecimales en minúsculas',
+  await createDoc(tokenA, `cfInvites/${'A'.repeat(64)}`, inviteDoc('A'.repeat(64), groupA, 'Grupo A', uidA, new Date(now.getTime() + 7 * 86400000))),
+  403,
+)
+expectStatus(
+  'El vencimiento no puede superar los 30 días',
+  await createDoc(tokenA, `cfInvites/${'9'.repeat(64)}`, inviteDoc('9'.repeat(64), groupA, 'Grupo A', uidA, new Date(now.getTime() + 31 * 86400000))),
+  403,
+)
+expectStatus(
+  'El vencimiento no puede estar en el pasado',
+  await createDoc(tokenA, `cfInvites/${inviteExpired}`, inviteDoc(inviteExpired, groupA, 'Grupo A', uidA, new Date(now.getTime() - 86400000))),
+  403,
+)
 
 console.log('\n[4] Solicitud de ingreso de B')
 expectStatus('B no puede leer grupo-a antes de ser miembro', await readDoc(tokenB, `cfGroups/${groupA}`), 403)
@@ -320,6 +353,48 @@ expectStatus('B no puede aprobar solicitudes', await updateDoc(tokenB, `cfGroups
 expectStatus('B no puede crear invitaciones', await createDoc(tokenB, `cfInvites/${'1'.repeat(64)}`, inviteDoc('1'.repeat(64), groupA, 'Grupo A', uidB, new Date(now.getTime() + 86400000))), 403)
 expectStatus('B no puede quitar integrantes', await updateDoc(tokenB, `cfGroups/${groupA}`, { ...groupADoc, memberIds: [uidA], memberNames: { [uidA]: 'Entrenadora A' } }), 403)
 
+console.log('\n[7b] Edición del grupo: solo el propietario y con validación')
+const groupAAfterB = {
+  ...groupADoc,
+  memberIds: [uidA, uidB],
+  memberNames: { [uidA]: 'Entrenadora A', [uidB]: 'Atleta B' },
+  updatedAt: approvedAt,
+}
+expectStatus(
+  'A edita nombre, descripción y horario',
+  await updateDoc(tokenA, `cfGroups/${groupA}`, {
+    ...groupAAfterB,
+    name: 'Grupo A editado',
+    description: 'Descripción nueva',
+    schedule: 'Martes 20:00',
+  }),
+  200,
+)
+{
+  const res = await readDoc(tokenA, `cfGroups/${groupA}`)
+  if (res.status === 200) {
+    const data = (await res.json()).fields
+    if (data.name?.stringValue === 'Grupo A editado' && data.schedule?.stringValue === 'Martes 20:00') {
+      ok('La edición se refleja al leer el grupo')
+    } else { bad('La edición no se refleja al leer el grupo') }
+  } else { bad(`No se pudo verificar la edición: ${res.status}`) }
+}
+expectStatus(
+  'B (atleta) no puede editar el grupo',
+  await updateDoc(tokenB, `cfGroups/${groupA}`, { ...groupAAfterB, name: 'Nombre de B' }),
+  403,
+)
+expectStatus(
+  'El nombre no puede quedar vacío',
+  await updateDoc(tokenA, `cfGroups/${groupA}`, { ...groupAAfterB, name: '' }),
+  403,
+)
+expectStatus(
+  'El nombre no puede superar 60 caracteres',
+  await updateDoc(tokenA, `cfGroups/${groupA}`, { ...groupAAfterB, name: 'x'.repeat(61) }),
+  403,
+)
+
 console.log('\n[8] Invitaciones revocadas e inválidas')
 expectStatus('A revoca la invitación', await updateDoc(tokenA, `cfInvites/${inviteA}`, { ...inviteDoc(inviteA, groupA, 'Grupo A', uidA, new Date(now.getTime() + 7 * 86400000)), revoked: true, revokedAt: iso }), 200)
 expectStatus('B no puede revocar una invitación ajena', await updateDoc(tokenB, `cfInvites/${inviteA}`, { ...inviteDoc(inviteA, groupA, 'Grupo A', uidA, new Date(now.getTime() + 7 * 86400000)), revoked: false }), 403)
@@ -334,8 +409,8 @@ expectStatus(
   403,
 )
 expectStatus(
-  'A crea una invitación ya vencida (para probar la regla)',
-  await createDoc(tokenA, `cfInvites/${inviteExpired}`, inviteDoc(inviteExpired, groupA, 'Grupo A', uidA, new Date(now.getTime() - 86400000))),
+  'Setup del emulador inyecta una invitación vencida (sin relajar reglas)',
+  await setupDoc(`cfInvites/${inviteExpired}`, inviteDoc(inviteExpired, groupA, 'Grupo A', uidA, new Date(now.getTime() - 86400000))),
   200,
 )
 expectStatus(
@@ -441,6 +516,43 @@ expectStatus(
   }),
   200,
 )
+
+console.log('\n[12b] Toda incorporación necesita una solicitud aprobada')
+const inviteD = '7'.repeat(64)
+const groupAAfterC = {
+  ...groupADoc,
+  memberIds: [uidA, uidC],
+  memberNames: { [uidA]: 'Entrenadora A', [uidC]: 'Atleta C' },
+  updatedAt: approvedAt,
+}
+expectStatus('A no puede agregar a D sin solicitud', await updateDoc(tokenA, `cfGroups/${groupA}`, {
+  ...groupAAfterC,
+  memberIds: [uidA, uidC, uidD],
+  memberNames: { ...groupAAfterC.memberNames, [uidD]: 'Atleta D' },
+}), 403)
+expectStatus('D no puede leer grupo-a antes de la aprobación', await readDoc(tokenD, `cfGroups/${groupA}`), 403)
+expectStatus('A genera una invitación para D', await createDoc(tokenA, `cfInvites/${inviteD}`, inviteDoc(inviteD, groupA, 'Grupo A', uidA, new Date(now.getTime() + 7 * 86400000))), 200)
+expectStatus('D solicita ingreso', await createDoc(tokenD, `cfGroups/${groupA}/requests/${uidD}`, requestDoc(uidD, groupA, 'Atleta D', inviteD)), 200)
+expectStatus('A no puede agregar a D con la solicitud pendiente', await updateDoc(tokenA, `cfGroups/${groupA}`, {
+  ...groupAAfterC,
+  memberIds: [uidA, uidC, uidD],
+  memberNames: { ...groupAAfterC.memberNames, [uidD]: 'Atleta D' },
+}), 403)
+expectStatus('A aprueba la solicitud de D', await updateDoc(tokenA, `cfGroups/${groupA}/requests/${uidD}`, {
+  ...requestDoc(uidD, groupA, 'Atleta D', inviteD),
+  status: 'approved',
+  reviewedBy: uidA,
+  reviewedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+}), 200)
+expectStatus('A agrega a D con la solicitud aprobada', await updateDoc(tokenA, `cfGroups/${groupA}`, {
+  ...groupAAfterC,
+  memberIds: [uidA, uidC, uidD],
+  memberNames: { ...groupAAfterC.memberNames, [uidD]: 'Atleta D' },
+}), 200)
+expectStatus('D ya puede leer grupo-a', await readDoc(tokenD, `cfGroups/${groupA}`), 200)
+expectStatus('A quita a D (baja autorizada sin solicitud nueva)', await updateDoc(tokenA, `cfGroups/${groupA}`, groupAAfterC), 200)
+expectStatus('D ya no puede leer grupo-a', await readDoc(tokenD, `cfGroups/${groupA}`), 403)
 
 console.log('\n[13] Anónimo y borrados')
 expectOneOf('Anónimo no lee grupo-a', await readDoc(null, `cfGroups/${groupA}`), [401, 403])

@@ -14,6 +14,7 @@ import type { User } from 'firebase/auth'
 import { currentUser } from '@/services/firebase/auth'
 import { firebaseDb, isFirebaseConfigured } from '@/services/firebase/config'
 import { generateInviteToken, inviteExpiry, isValidInviteToken } from './invite'
+import { validateGroupEdit } from './groupAccess'
 import type { CfGroup, CfGroupInvite, CfJoinRequest } from './types'
 
 /**
@@ -133,13 +134,14 @@ export async function getGroup(groupId: string): Promise<CfGroup | null> {
 
 export async function createGroup(input: { name: string; description?: string; schedule?: string }): Promise<CfGroup> {
   const user = requireUser()
+  const invalid = validateGroupEdit(input)
+  if (invalid) { throw new Error(invalid) }
   const name = input.name.trim()
-  if (!name) { throw new Error('El nombre del grupo es obligatorio.') }
   const ref = doc(collection(firestore(), GROUPS))
   const now = new Date().toISOString()
   const group: CfGroup = {
     id: ref.id,
-    name: name.slice(0, 60),
+    name,
     description: (input.description ?? '').trim().slice(0, 300),
     schedule: (input.schedule ?? '').trim().slice(0, 80),
     ownerId: user.uid,
@@ -151,6 +153,25 @@ export async function createGroup(input: { name: string; description?: string; s
   }
   await setDoc(ref, group)
   return group
+}
+
+/** Solo cambia los campos editables; propiedad y pertenencia quedan intactas. */
+export async function updateGroupDetails(
+  groupId: string,
+  input: { name: string; description?: string; schedule?: string },
+): Promise<void> {
+  const user = requireUser()
+  const invalid = validateGroupEdit(input)
+  if (invalid) { throw new Error(invalid) }
+  const group = await getGroup(groupId)
+  if (!group) { throw new Error('No tenés acceso a este grupo.') }
+  if (group.ownerId !== user.uid) { throw new Error('Solo el entrenador puede editar el grupo.') }
+  await updateDoc(doc(firestore(), GROUPS, groupId), {
+    name: input.name.trim(),
+    description: (input.description ?? '').trim(),
+    schedule: (input.schedule ?? '').trim(),
+    updatedAt: new Date().toISOString(),
+  })
 }
 
 // ---------- Invitaciones ----------

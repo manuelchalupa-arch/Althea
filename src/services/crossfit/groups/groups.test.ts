@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import { canRemoveMember, groupRoleFor, memberLabel } from './groupAccess'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { canRemoveMember, groupRoleFor, memberLabel, validateGroupEdit } from './groupAccess'
 import { generateInviteToken, inviteExpiry, inviteIsUsable, inviteLink, isValidInviteToken } from './invite'
+import { clearInviteReturn, consumeInviteReturn, isInvitePath, rememberInviteReturn } from './inviteReturn'
 import type { CfGroup } from './types'
 
 const group: CfGroup = {
@@ -70,5 +71,42 @@ describe('grupos CrossFit — roles y administración', () => {
   it('usa el nombre visible o un uid corto como respaldo', () => {
     expect(memberLabel(group, 'atleta')).toBe('Ana')
     expect(memberLabel(group, 'desconocido')).toBe('descon…')
+  })
+})
+
+describe('grupos CrossFit — edición del grupo', () => {
+  it('acepta nombre y campos opcionales dentro de los límites', () => {
+    expect(validateGroupEdit({ name: '  Turno mañana  ', description: 'x'.repeat(300), schedule: 'x'.repeat(80) })).toBeNull()
+  })
+
+  it('rechaza nombre vacío y campos demasiado largos', () => {
+    expect(validateGroupEdit({ name: '   ' })).toBe('El nombre del grupo es obligatorio.')
+    expect(validateGroupEdit({ name: 'x'.repeat(61) })).toContain('60 caracteres')
+    expect(validateGroupEdit({ name: 'ok', description: 'x'.repeat(301) })).toContain('300 caracteres')
+    expect(validateGroupEdit({ name: 'ok', schedule: 'x'.repeat(81) })).toContain('80 caracteres')
+  })
+})
+
+describe('grupos CrossFit — retorno desde onboarding', () => {
+  const token = 'a'.repeat(64)
+  const path = `/crossfit/invitacion/${token}`
+
+  beforeEach(() => { clearInviteReturn() })
+
+  it('solo recuerda rutas de invitación con token válido', () => {
+    expect(isInvitePath(path)).toBe(true)
+    expect(isInvitePath('/crossfit/invitacion/corto')).toBe(false)
+    expect(isInvitePath('https://otro.dominio/crossfit/invitacion/' + token)).toBe(false)
+    expect(isInvitePath(null)).toBe(false)
+    rememberInviteReturn('/crossfit/invitacion/corto')
+    expect(consumeInviteReturn()).toBeNull()
+  })
+
+  it('conserva la invitación durante login/registro y la devuelve una sola vez', () => {
+    rememberInviteReturn(path)
+    // El mismo token se recuerda otra vez al cambiar de ruta a /login.
+    rememberInviteReturn(path)
+    expect(consumeInviteReturn()).toBe(path)
+    expect(consumeInviteReturn()).toBeNull()
   })
 })

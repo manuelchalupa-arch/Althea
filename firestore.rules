@@ -169,16 +169,43 @@ service cloud.firestore {
       return /databases/$(database)/documents/cfInvites/$(token);
     }
 
+    // El token ES la capacidad: 64 hexadecimales en minúsculas (256 bits).
+    function validToken(token) {
+      return token is string && token.matches('^[0-9a-f]{64}$');
+    }
+
     // Una invitación solo autoriza a SOLICITAR ingreso: debe existir, ser del
     // grupo, no estar revocada y no haber expirado. Aprobar sigue siendo del
     // propietario.
     function validInvite(token, groupId) {
-      return token is string
-        && token.size() >= 32
+      return validToken(token)
         && exists(invitePath(token))
         && get(invitePath(token)).data.groupId == groupId
         && get(invitePath(token)).data.revoked == false
         && request.time < get(invitePath(token)).data.expiresAt;
+    }
+
+    function groupRequestPath(groupId, uid) {
+      return /databases/$(database)/documents/cfGroups/$(groupId)/requests/$(uid);
+    }
+
+    // Toda incorporación debe estar respaldada por una solicitud aprobada por
+    // el propio entrenador. getAfter permite comprobar el estado de la
+    // solicitud dentro de la misma transacción que agrega el integrante.
+    // Las bajas (memberIds que se quitan) no requieren ninguna solicitud.
+    function addedUid(groupId) {
+      return request.resource.data.memberIds.removeAll(resource.data.memberIds)[0];
+    }
+
+    function memberAdditionsApproved(groupId) {
+      return request.resource.data.memberIds.removeAll(resource.data.memberIds).size() == 0
+        || (
+          request.resource.data.memberIds.removeAll(resource.data.memberIds).size() == 1
+          && existsAfter(groupRequestPath(groupId, addedUid(groupId)))
+          && getAfter(groupRequestPath(groupId, addedUid(groupId))).data.status == 'approved'
+          && getAfter(groupRequestPath(groupId, addedUid(groupId))).data.groupId == groupId
+          && getAfter(groupRequestPath(groupId, addedUid(groupId))).data.reviewedBy == request.auth.uid
+        );
     }
 
     match /cfGroups/{groupId} {
@@ -217,6 +244,7 @@ service cloud.firestore {
         // administración. Tampoco puede haber uids duplicados.
         && request.resource.data.ownerId in request.resource.data.memberIds
         && request.resource.data.memberIds.size() == request.resource.data.memberIds.toSet().size()
+        && memberAdditionsApproved(groupId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name', 'description', 'schedule', 'memberIds', 'memberNames', 'updatedAt'
         ])
@@ -293,14 +321,14 @@ service cloud.firestore {
     // El id del documento ES el token aleatorio de 256 bits. No se puede
     // listar la colección: solo se lee un token exacto que ya se conoce.
     match /cfInvites/{token} {
-      allow get: if signedIn() && token.size() >= 32;
+      allow get: if signedIn() && validToken(token);
       allow list: if signedIn() && resource.data.createdBy == request.auth.uid;
 
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly([
           'groupId', 'groupName', 'createdBy', 'createdAt', 'expiresAt', 'revoked'
         ])
-        && token.size() >= 32
+        && validToken(token)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.groupId is string
         && isGroupOwner(request.resource.data.groupId)
@@ -309,6 +337,9 @@ service cloud.firestore {
         && request.resource.data.groupName.size() <= 60
         && request.resource.data.revoked == false
         && request.resource.data.expiresAt is timestamp
+        // El vencimiento lo impone el servidor: ni vencido ni más allá de 30 días.
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(30, 'd')
         && request.resource.data.createdAt is string;
 
       // Revocar es la única modificación permitida, y solo por su creador.

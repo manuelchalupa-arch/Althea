@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import Onboarding from '@/pages/Onboarding'
 import { db } from '@/services/storage/db'
@@ -216,4 +216,30 @@ describe('Onboarding — alta mínima de entrenamiento', () => {
     await finish(user)
     await waitFor(async () => expect(await getOnboardingDraft()).toBeNull())
   })
+
+  it('9. una cuenta nueva vuelve a la invitación tras completar el perfil', async () => {
+    const invitePath = `/crossfit/invitacion/${'a'.repeat(64)}`
+    sessionStorage.setItem('althea:groups-invite-return', invitePath)
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/onboarding']}>
+        <Onboarding />
+        <Routes>
+          <Route path="*" element={<RouteProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await ready()
+    await reachPreferences(user)
+    await finish(user)
+
+    await waitFor(() => expect(screen.getByTestId('ruta-actual').textContent).toBe(invitePath))
+    expect(sessionStorage.getItem('althea:groups-invite-return')).toBeNull()
+    sessionStorage.removeItem('althea:groups-invite-return')
+  })
 })
+
+function RouteProbe() {
+  const loc = useLocation()
+  return <div data-testid="ruta-actual">{loc.pathname}</div>
+}

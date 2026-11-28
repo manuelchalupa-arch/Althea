@@ -8,6 +8,7 @@ import { resolveTrainingGoal } from '@/utils/trainingGoal'
 import { prettyExId } from '@/utils/format'
 import { AltheaAvatar } from '@/components/brand/AltheaAvatar'
 import { AltheaTimePicker } from '@/components/althea/AltheaTimePicker'
+import { consumeInviteReturn } from '@/services/crossfit/groups/inviteReturn'
 
 const OBJETIVOS = ['Perder grasa / bajar de peso','Ganar masa muscular','Aumentar fuerza','Mejorar resistencia','Mejorar condición física','Mejorar movilidad','Mantenerme','Recomposición corporal','Otro']
 const NIVELES: { label: string; value: ExperienceLevel; detail: string }[] = [
@@ -214,8 +215,8 @@ export default function Onboarding(){
       updatedAt: new Date().toISOString(),
     } as any)
     await clearOnboardingDraft()
-    // Alta terminada: ahora la persona elige o crea su primera rutina.
-    nav('/rutina?first=1')
+    // Si llegó desde una invitación, volver a ella; si no, seguir al alta de rutina.
+    nav(consumeInviteReturn() ?? '/rutina?first=1')
   }
 
   if (!draftLoaded) {
