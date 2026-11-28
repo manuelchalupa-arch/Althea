@@ -362,6 +362,103 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Programación semanal compartida (Etapa 2) ──────────────────────────
+    // Datos compartidos bajo cada grupo, independientes de users/{uid}.
+    // Borradores: privados del dueño. Publicaciones: legibles por miembros.
+    // Versiones: inmutables; creación atómica con el puntero (servicio) y
+    // referencias válidas (reglas).
+
+    function weekDraftPath(groupId, weekStart) {
+      return /databases/$(database)/documents/cfGroups/$(groupId)/weekDrafts/$(weekStart);
+    }
+
+    function weekPath(groupId, weekStart) {
+      return /databases/$(database)/documents/cfGroups/$(groupId)/programWeeks/$(weekStart);
+    }
+
+    function versionPath(groupId, weekStart, versionId) {
+      return /databases/$(database)/documents/cfGroups/$(groupId)/programWeeks/$(weekStart)/versions/$(versionId);
+    }
+
+    match /cfGroups/{groupId}/weekDrafts/{weekStart} {
+      // Borrador privado: solo el dueño del grupo lo lee/escribe.
+      allow get, list: if isGroupOwner(groupId);
+      allow create: if isGroupOwner(groupId)
+        && request.resource.data.keys().hasOnly([
+          'groupId', 'ownerId', 'weekStart', 'days', 'updatedAt', 'updatedBy'
+        ])
+        && request.resource.data.groupId == groupId
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.weekStart == weekStart
+        && request.resource.data.days is list
+        && request.resource.data.days.size() == 7;
+      allow update: if isGroupOwner(groupId)
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.weekStart == weekStart
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'days', 'updatedAt', 'updatedBy'
+        ]);
+      allow delete: if false;
+    }
+
+    match /cfGroups/{groupId}/programWeeks/{weekStart} {
+      // Puntero a la versión vigente: miembros leen, dueño escribe.
+      allow get, list: if isGroupMember(groupId);
+      allow create: if isGroupOwner(groupId)
+        && request.resource.data.keys().hasOnly([
+          'weekStart', 'currentVersionId', 'currentVersionNumber', 'publishedAt', 'publishedBy'
+        ])
+        && request.resource.data.weekStart == weekStart
+        && request.resource.data.currentVersionId is string
+        && request.resource.data.currentVersionNumber is number
+        && request.resource.data.currentVersionNumber > 0
+        && request.resource.data.publishedBy == request.auth.uid
+        && request.resource.data.publishedAt is string
+        // La versión correspondiente debe crearse en la MISMA transacción.
+        && existsAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId))
+        && getAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId)).data.versionNumber == request.resource.data.currentVersionNumber
+        && getAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId)).data.publishedBy == request.auth.uid;
+      allow update: if isGroupOwner(groupId)
+        && request.resource.data.weekStart == weekStart
+        && request.resource.data.currentVersionId is string
+        && request.resource.data.currentVersionNumber is number
+        && request.resource.data.currentVersionNumber == resource.data.currentVersionNumber + 1
+        && request.resource.data.publishedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'currentVersionId', 'currentVersionNumber', 'publishedAt', 'publishedBy'
+        ])
+        // La nueva versión referenciada debe crearse en la MISMA transacción,
+        // ser del propietario y su versionNumber coincidir con el puntero.
+        && existsAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId))
+        && getAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId)).data.publishedBy == request.auth.uid
+        && getAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId)).data.versionNumber == request.resource.data.currentVersionNumber;
+      allow delete: if false;
+    }
+
+    match /cfGroups/{groupId}/programWeeks/{weekStart}/versions/{versionId} {
+      // Versiones inmutables: miembros leen solo la versión vigente; dueño crea.
+      allow get: if isGroupOwner(groupId)
+        || (isGroupMember(groupId)
+          && exists(weekPath(groupId, weekStart))
+          && get(weekPath(groupId, weekStart)).data.currentVersionId == versionId);
+      allow list: if isGroupOwner(groupId);
+      allow create: if isGroupOwner(groupId)
+        && request.resource.data.keys().hasOnly([
+          'groupId', 'weekStart', 'versionId', 'versionNumber', 'publishedAt', 'publishedBy', 'days'
+        ])
+        && request.resource.data.groupId == groupId
+        && request.resource.data.weekStart == weekStart
+        && request.resource.data.versionId == versionId
+        && request.resource.data.versionNumber is number
+        && request.resource.data.versionNumber > 0
+        && request.resource.data.publishedBy == request.auth.uid
+        && request.resource.data.publishedAt is string
+        && request.resource.data.days is list
+        && request.resource.data.days.size() == 7;
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // Biblioteca compartida: solo el autor puede crear y actualizar su ficha.
     // Un usuario autenticado no puede sobrescribir ejercicios publicados por otro.
     // Los documentos previos sin createdBy quedan legibles pero inmutables.

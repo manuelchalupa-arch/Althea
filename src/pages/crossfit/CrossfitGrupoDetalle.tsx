@@ -18,6 +18,7 @@ import {
 import { canRemoveMember, groupRoleFor, memberLabel } from '@/services/crossfit/groups/groupAccess'
 import { inviteIsUsable, inviteLink } from '@/services/crossfit/groups/invite'
 import type { CfGroup, CfGroupInvite, CfJoinRequest, CfJoinRequestStatus } from '@/services/crossfit/groups/types'
+import CrossfitGrupoProgramacion from './CrossfitGrupoProgramacion'
 
 function fmtDate(iso: string): string {
   const date = new Date(iso)
@@ -424,6 +425,8 @@ export default function CrossfitGrupoDetalle({ groupId, onBack }: { groupId: str
           </p>
         </AltheaCard>
       )}
+
+      <CrossfitGrupoProgramacion groupId={groupId} isOwner={role === 'owner'} />
 
       <AltheaCard>
         <div className="space-y-3">
