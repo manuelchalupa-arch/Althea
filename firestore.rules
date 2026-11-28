@@ -413,19 +413,25 @@ service cloud.firestore {
         && request.resource.data.currentVersionNumber is number
         && request.resource.data.currentVersionNumber > 0
         && request.resource.data.publishedBy == request.auth.uid
-        && request.resource.data.publishedAt is string;
+        && request.resource.data.publishedAt is string
+        // La versión correspondiente debe crearse en la MISMA transacción.
+        && existsAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId))
+        && getAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId)).data.versionNumber == request.resource.data.currentVersionNumber
+        && getAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId)).data.publishedBy == request.auth.uid;
       allow update: if isGroupOwner(groupId)
         && request.resource.data.weekStart == weekStart
         && request.resource.data.currentVersionId is string
         && request.resource.data.currentVersionNumber is number
-        && request.resource.data.currentVersionNumber > resource.data.currentVersionNumber
+        && request.resource.data.currentVersionNumber == resource.data.currentVersionNumber + 1
         && request.resource.data.publishedBy == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'currentVersionId', 'currentVersionNumber', 'publishedAt', 'publishedBy'
         ])
-        // La nueva versión referenciada debe existir y ser del propietario.
-        && exists(versionPath(groupId, weekStart, request.resource.data.currentVersionId))
-        && get(versionPath(groupId, weekStart, request.resource.data.currentVersionId)).data.publishedBy == request.auth.uid;
+        // La nueva versión referenciada debe crearse en la MISMA transacción,
+        // ser del propietario y su versionNumber coincidir con el puntero.
+        && existsAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId))
+        && getAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId)).data.publishedBy == request.auth.uid
+        && getAfter(versionPath(groupId, weekStart, request.resource.data.currentVersionId)).data.versionNumber == request.resource.data.currentVersionNumber;
       allow delete: if false;
     }
 
